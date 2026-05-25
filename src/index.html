@@ -145,20 +145,130 @@
             display: flex;
             gap: 6px;
             margin-bottom: 12px;
+            align-items: center;
         }
 
-        .playlist-dropdown {
+        /* Custom playlist dropdown */
+        .playlist-dropdown-wrapper {
             flex: 1;
+            position: relative;
+            min-width: 0;
+        }
+
+        .playlist-dropdown-btn {
+            width: 100%;
             height: 36px;
             padding: 0 10px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
             background: var(--container-bg);
             color: var(--text-color);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             outline: none;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            user-select: none;
+            transition: border-color 0.2s, background 0.2s;
+            overflow: hidden;
+        }
+        .playlist-dropdown-btn:hover {
+            border-color: var(--accent-color);
+        }
+        .playlist-dropdown-btn.open {
+            border-color: var(--accent-color);
+        }
+        .playlist-dropdown-btn .pd-icon {
+            flex-shrink: 0;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+        }
+        .playlist-dropdown-btn .pd-label {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .playlist-dropdown-btn .pd-chevron {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .playlist-dropdown-btn.open .pd-chevron {
+            transform: rotate(180deg);
+        }
+
+        .playlist-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            min-width: 100%;
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 8px 24px var(--shadow);
+            z-index: 500;
+            backdrop-filter: blur(12px);
+            overflow: hidden;
+            max-height: 260px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        .playlist-dropdown-menu.open {
+            display: block;
+        }
+        .playlist-dropdown-menu::-webkit-scrollbar { width: 4px; }
+        .playlist-dropdown-menu::-webkit-scrollbar-track { background: transparent; }
+        .playlist-dropdown-menu::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 2px; }
+
+        .pd-menu-empty {
+            padding: 10px 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-style: italic;
+            pointer-events: none;
+        }
+
+        .pd-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-color);
+            transition: background 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .pd-menu-item:hover {
+            background: var(--track-hover);
+        }
+        .pd-menu-item.active {
+            background: var(--accent-color);
+            color: #fff;
+        }
+        .pd-menu-item.active .pd-item-icon {
+            color: #fff;
+        }
+        .pd-menu-item .pd-item-icon {
+            flex-shrink: 0;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+        }
+        .pd-menu-item .pd-item-label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .btn {
@@ -678,10 +788,66 @@
             border-radius: 8px;
         }
 
+        .eq-presets-carousel {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .eq-presets-nav {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            border: 1px solid var(--border-color);
+            background: var(--container-bg);
+            color: var(--text-muted);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s, border-color 0.15s;
+            padding: 0;
+        }
+        .eq-presets-nav:hover:not(:disabled) {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+        .eq-presets-nav:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+
+        .eq-presets-viewport {
+            flex: 1;
+            overflow: hidden;
+            min-width: 0;
+        }
+
         .eq-presets {
             display: flex;
             gap: 6px;
-            flex-wrap: wrap;
+            transition: transform 0.25s ease;
+            will-change: transform;
+        }
+
+        .eq-presets-page-dots {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 6px;
+        }
+        .eq-presets-page-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--border-color);
+            transition: background 0.2s, transform 0.2s;
+            cursor: pointer;
+        }
+        .eq-presets-page-dot.active {
+            background: var(--accent-color);
+            transform: scale(1.3);
         }
 
         .preset-btn {
@@ -1416,8 +1582,16 @@
             <div class="pane-title">Плейлист</div>
             
             <div class="playlist-select-wrapper">
-                <select class="playlist-dropdown" id="playlists-dropdown">
-                    </select>
+                <div class="playlist-dropdown-wrapper" id="playlist-dropdown-wrapper">
+                    <button class="playlist-dropdown-btn" id="playlists-dropdown" aria-haspopup="listbox">
+                        <span class="pd-icon" id="pd-selected-icon"><i data-lucide="list-music" style="width:15px;height:15px;"></i></span>
+                        <span class="pd-label" id="pd-selected-label">Нет плейлистов</span>
+                        <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                    </button>
+                    <div class="playlist-dropdown-menu custom-scroll" id="playlists-dropdown-menu" role="listbox">
+                        <div class="pd-menu-empty">Нет плейлистов</div>
+                    </div>
+                </div>
                 <button class="btn-icon-only" id="btn-create-playlist" title="Создать плейлист">
                     <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
                 </button>
@@ -1635,9 +1809,20 @@
             </div>
 
             <div class="eq-presets-section">
-                <div class="eq-presets" id="presets-container"></div>
+                <div class="eq-presets-carousel">
+                    <button class="eq-presets-nav" id="presets-nav-prev" disabled title="Назад">
+                        <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
+                    </button>
+                    <div class="eq-presets-viewport" id="presets-viewport">
+                        <div class="eq-presets" id="presets-container"></div>
+                    </div>
+                    <button class="eq-presets-nav" id="presets-nav-next" disabled title="Вперёд">
+                        <i data-lucide="chevron-right" style="width:14px;height:14px;"></i>
+                    </button>
+                </div>
+                <div class="eq-presets-page-dots" id="presets-page-dots"></div>
                 <div class="custom-preset-builder">
-                    <input type="text" id="custom-preset-name" placeholder="Название вашего пресета">
+                    <input type="text" id="custom-preset-name" placeholder="Название (макс. 16 симв.)" maxlength="16">
                     <button class="btn" id="btn-save-preset" style="margin:0; padding:6px 12px; font-size:12px;">Сохранить пресет</button>
                 </div>
             </div>
@@ -2027,6 +2212,28 @@
         
         const playlistElem = document.getElementById('playlist');
         const playlistsDropdown = document.getElementById('playlists-dropdown');
+        const playlistsDropdownMenu = document.getElementById('playlists-dropdown-menu');
+        const pdSelectedIcon = document.getElementById('pd-selected-icon');
+        const pdSelectedLabel = document.getElementById('pd-selected-label');
+
+        // Custom dropdown open/close
+        playlistsDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = playlistsDropdownMenu.classList.toggle('open');
+            playlistsDropdown.classList.toggle('open', isOpen);
+        });
+        document.addEventListener('click', () => {
+            playlistsDropdownMenu.classList.remove('open');
+            playlistsDropdown.classList.remove('open');
+        });
+        playlistsDropdownMenu.addEventListener('click', (e) => e.stopPropagation());
+
+        function getPlaylistIcon(pl) {
+            if (!pl) return 'list-music';
+            if (pl.type === 'radio') return 'radio';
+            return 'folder-open';
+        }
+
         const btnCreatePlaylist = document.getElementById('btn-create-playlist');
         const btnEditPlaylist = document.getElementById('btn-edit-playlist');
         const btnDeletePlaylist = document.getElementById('btn-delete-playlist');
@@ -2462,20 +2669,40 @@
         }
         generateSliders();
 
+        const SYSTEM_PRESETS = ['Обычный', 'Супер Бас', 'Поп', 'Рок', 'Акустика'];
+        let _presetsPage = 0;
+
+        function _getPresetsPerPage() {
+            const viewport = document.getElementById('presets-viewport');
+            if (!viewport) return 99;
+            // measure one btn width: ~70px avg + 6px gap; fit as many as possible
+            const vw = viewport.offsetWidth || 260;
+            const btnW = 78; // approx pill width
+            const perRow = Math.max(1, Math.floor(vw / btnW));
+            return perRow * 2; // 2 rows max visible
+        }
+
         function renderPresetButtons() {
             presetsContainer.innerHTML = '';
-            Object.keys(presets).forEach(name => {
+
+            // Sort: system presets first (in defined order), then user presets alphabetically
+            const systemNames = SYSTEM_PRESETS.filter(n => presets[n] !== undefined);
+            const userNames = Object.keys(presets)
+                .filter(n => !SYSTEM_PRESETS.includes(n))
+                .sort((a, b) => a.localeCompare(b));
+            const allNames = [...systemNames, ...userNames];
+
+            const savedState = JSON.parse(localStorage.getItem('player_eq_state'));
+            allNames.forEach(name => {
                 const btn = document.createElement('button');
                 btn.className = 'preset-btn';
-                const saved = JSON.parse(localStorage.getItem('player_eq_state'));
-                if (saved && saved.selectedPreset === name) btn.classList.add('active');
+                if (savedState && savedState.selectedPreset === name) btn.classList.add('active');
 
-                const isSystem = ['Обычный', 'Супер Бас', 'Поп', 'Рок', 'Акустика'].includes(name);
+                const isSystem = SYSTEM_PRESETS.includes(name);
                 btn.innerHTML = `<span>${name}</span>${!isSystem ? '<i data-lucide="x"></i>' : ''}`;
-                
+
                 btn.addEventListener('click', (e) => {
-                    const deleteIcon = e.target.closest('[data-lucide="x"]');
-                    if (deleteIcon) {
+                    if (e.target.closest('[data-lucide="x"]')) {
                         deletePreset(name);
                     } else {
                         applyPreset(name);
@@ -2487,9 +2714,65 @@
                 });
                 presetsContainer.appendChild(btn);
             });
+
             lucide.createIcons();
+            _presetsPage = 0;
+            _updatePresetsCarousel();
         }
         renderPresetButtons();
+
+        function _updatePresetsCarousel() {
+            const viewport = document.getElementById('presets-viewport');
+            const navPrev = document.getElementById('presets-nav-prev');
+            const navNext = document.getElementById('presets-nav-next');
+            const dotsEl  = document.getElementById('presets-page-dots');
+            if (!viewport || !navPrev || !navNext) return;
+
+            const vw = viewport.offsetWidth;
+            const perPage = _getPresetsPerPage();
+            const btns = presetsContainer.querySelectorAll('.preset-btn');
+            const total = btns.length;
+            const totalPages = Math.max(1, Math.ceil(total / perPage));
+
+            // Clamp current page
+            _presetsPage = Math.min(_presetsPage, totalPages - 1);
+
+            // Compute pixel offset: sum widths of all buttons on previous pages
+            let offset = 0;
+            btns.forEach((btn, i) => {
+                if (i < _presetsPage * perPage) {
+                    offset += btn.offsetWidth + 6; // +gap
+                }
+            });
+            presetsContainer.style.transform = `translateX(-${offset}px)`;
+
+            // Nav buttons
+            navPrev.disabled = _presetsPage === 0;
+            navNext.disabled = _presetsPage >= totalPages - 1;
+
+            // Show nav only if more than 1 page
+            const showNav = totalPages > 1;
+            navPrev.style.display = showNav ? '' : 'none';
+            navNext.style.display = showNav ? '' : 'none';
+
+            // Page dots
+            dotsEl.innerHTML = '';
+            if (totalPages > 1) {
+                for (let i = 0; i < totalPages; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'eq-presets-page-dot' + (i === _presetsPage ? ' active' : '');
+                    dot.addEventListener('click', () => { _presetsPage = i; _updatePresetsCarousel(); });
+                    dotsEl.appendChild(dot);
+                }
+            }
+        }
+
+        document.getElementById('presets-nav-prev').addEventListener('click', () => {
+            if (_presetsPage > 0) { _presetsPage--; _updatePresetsCarousel(); }
+        });
+        document.getElementById('presets-nav-next').addEventListener('click', () => {
+            _presetsPage++; _updatePresetsCarousel();
+        });
 
         function deletePreset(name) {
             delete presets[name];
@@ -2659,12 +2942,13 @@
                 name: name,
                 type: 'folder',
                 path: null,
+                files: [],
                 stations: []
             };
             userPlaylists.push(newPl);
             savePlaylistsToStorage();
             renderPlaylistsDropdown();
-            playlistsDropdown.value = newPl.id;
+            _updateDropdownSelected(newPl.id);
             selectPlaylist(newPl.id);
         });
 
@@ -2682,43 +2966,61 @@
             userPlaylists.push(newPl);
             savePlaylistsToStorage();
             renderPlaylistsDropdown();
-            playlistsDropdown.value = newPl.id;
+            _updateDropdownSelected(newPl.id);
             selectPlaylist(newPl.id);
         });
 
         function renderPlaylistsDropdown() {
-            playlistsDropdown.innerHTML = '';
+            playlistsDropdownMenu.innerHTML = '';
             if (userPlaylists.length === 0) {
-                const opt = document.createElement('option');
-                opt.textContent = "Нет плейлистов";
-                opt.value = "";
-                playlistsDropdown.appendChild(opt);
-                btnEditPlaylist.style.disabled = true;
-                btnDeletePlaylist.style.disabled = true;
+                playlistsDropdownMenu.innerHTML = '<div class="pd-menu-empty">Нет плейлистов</div>';
+                pdSelectedLabel.textContent = 'Нет плейлистов';
+                pdSelectedIcon.innerHTML = '<i data-lucide="list-music" style="width:15px;height:15px;"></i>';
+                btnEditPlaylist.disabled = true;
+                btnDeletePlaylist.disabled = true;
+                lucide.createIcons();
                 return;
             }
 
-            btnEditPlaylist.style.disabled = false;
-            btnDeletePlaylist.style.disabled = false;
+            btnEditPlaylist.disabled = false;
+            btnDeletePlaylist.disabled = false;
 
             userPlaylists.forEach(pl => {
-                const opt = document.createElement('option');
-                opt.value = pl.id;
-                const prefix = pl.type === 'folder' ? '📁 ' : '📻 ';
-                opt.textContent = prefix + pl.name;
-                playlistsDropdown.appendChild(opt);
+                const iconName = getPlaylistIcon(pl);
+                const item = document.createElement('div');
+                item.className = 'pd-menu-item' + (pl.id === currentPlaylistId ? ' active' : '');
+                item.setAttribute('data-value', pl.id);
+                item.setAttribute('role', 'option');
+                item.innerHTML = `
+                    <span class="pd-item-icon"><i data-lucide="${iconName}" style="width:15px;height:15px;"></i></span>
+                    <span class="pd-item-label">${pl.name}</span>
+                `;
+                item.addEventListener('click', () => {
+                    selectPlaylist(pl.id);
+                    playlistsDropdownMenu.classList.remove('open');
+                    playlistsDropdown.classList.remove('open');
+                });
+                playlistsDropdownMenu.appendChild(item);
             });
 
             if (currentPlaylistId) {
-                playlistsDropdown.value = currentPlaylistId;
+                _updateDropdownSelected(currentPlaylistId);
             }
+            lucide.createIcons();
         }
 
-        playlistsDropdown.addEventListener('change', (e) => {
-            if (e.target.value) {
-                selectPlaylist(e.target.value);
-            }
-        });
+        function _updateDropdownSelected(id) {
+            const pl = userPlaylists.find(p => p.id === id);
+            if (!pl) return;
+            const iconName = getPlaylistIcon(pl);
+            pdSelectedLabel.textContent = pl.name;
+            pdSelectedIcon.innerHTML = `<i data-lucide="${iconName}" style="width:15px;height:15px;"></i>`;
+            // Update active state in menu
+            playlistsDropdownMenu.querySelectorAll('.pd-menu-item').forEach(item => {
+                item.classList.toggle('active', item.getAttribute('data-value') === id);
+            });
+            lucide.createIcons();
+        }
 
         btnEditPlaylist.addEventListener('click', () => {
             if (!currentPlaylistId) return;
@@ -2792,17 +3094,20 @@
             const pl = userPlaylists.find(p => p.id === id);
             if (!pl) return;
 
-            playlistsDropdown.value = id;
+            _updateDropdownSelected(id);
             updatePlaylistActionsBar();
             
             if (pl.type === 'folder') {
-                if (!pl.path) {
+                if (!pl.path && (!pl.files || pl.files.length === 0)) {
                     // Empty playlist — show placeholder
                     fileEntries = [];
                     playlistOrder = [];
                     parsedMetadataCache = {};
                     playlistElem.innerHTML = '<li style="color:var(--text-muted);font-style:italic;pointer-events:none;">Добавьте файлы или папку через кнопки выше</li>';
                     statusText.textContent = 'Плейлист пуст';
+                } else if (!pl.path && pl.files && pl.files.length > 0) {
+                    // Playlist has individually added files — restore them
+                    await loadMusicFromFiles(pl.files);
                 } else {
                     await loadMusicFromDirectory(pl.path);
                 }
@@ -3079,16 +3384,13 @@
             try {
                 let filePaths;
                 try {
-                    const result = await ipcRenderer.invoke('dialog:openFiles', {
-                        properties: ['openFile', 'multiSelections'],
-                        filters: [{ name: 'Аудио', extensions: ['mp3','flac','ogg','wav','m4a','aac','opus','wv','ape','wma'] }]
-                    });
-                    if (!result || result.canceled || !result.filePaths || result.filePaths.length === 0) return;
-                    filePaths = result.filePaths;
+                    // main.js returns filePaths array directly (or null if canceled)
+                    const result = await ipcRenderer.invoke('dialog:openFiles');
+                    if (!result || result.length === 0) return;
+                    filePaths = result;
                 } catch(ipcErr) {
-                    // Fallback: channel not registered in main process yet
-                    statusText.textContent = 'Требуется обновление main.js (dialog:openFiles)';
-                    console.warn('dialog:openFiles IPC channel not found:', ipcErr);
+                    statusText.textContent = 'Ошибка открытия диалога файлов';
+                    console.warn('dialog:openFiles IPC error:', ipcErr);
                     return;
                 }
 
@@ -3098,6 +3400,17 @@
                     statusText.textContent = 'Файлы уже в плейлисте';
                     return;
                 }
+
+                // Remove placeholder if present
+                const placeholder = playlistElem.querySelector('li[style*="italic"]');
+                if (placeholder) placeholder.remove();
+
+                // Save new paths to the playlist object
+                if (!pl.files) pl.files = [];
+                for (const p of newPaths) {
+                    if (!pl.files.includes(p)) pl.files.push(p);
+                }
+                savePlaylistsToStorage();
 
                 for (const fullPath of newPaths) {
                     const fileName = fullPath.split(/[/\\]/).pop();
@@ -3203,6 +3516,14 @@
             try {
                 const dirPath = await ipcRenderer.invoke('dialog:openDirectory');
                 if (!dirPath) return;
+                // Save folder path to playlist so it survives playlist switching
+                if (!pl.path) {
+                    pl.path = dirPath;
+                    savePlaylistsToStorage();
+                }
+                // Remove placeholder if present
+                const placeholder = playlistElem.querySelector('li[style*="italic"]');
+                if (placeholder) placeholder.remove();
                 await appendNewTracksFromDirectory(dirPath, true);
             } catch(e) {
                 console.error('Add folder error:', e);
@@ -3295,6 +3616,67 @@
             } catch (err) {
                 statusText.textContent = 'Ошибка импорта';
             }
+        }
+
+        async function loadMusicFromFiles(filePaths) {
+            fileEntries = [];
+            playlistOrder = [];
+            parsedMetadataCache = {};
+            playlistElem.innerHTML = '';
+            statusText.textContent = 'Загрузка треков...';
+
+            let count = 0;
+            for (const fullPath of filePaths) {
+                const fileName = fullPath.split(/[/\\]/).pop();
+                fileEntries.push({ name: fileName, path: fullPath, kind: 'file' });
+                playlistOrder.push(count);
+
+                const fallbackName = fileName.replace(/\.[^/.]+$/, '');
+                const li = document.createElement('li');
+                li.setAttribute('data-id', count);
+                li.innerHTML = `
+                    <img class="track-cover-thumb" id="cover-${count}" alt="">
+                    <div class="track-cover-placeholder" id="cover-ph-${count}">
+                        <i data-lucide="music" style="width:16px;height:16px;"></i>
+                    </div>
+                    <div class="track-name-block">
+                        <div class="track-title-item" id="title-${count}">${fallbackName}</div>
+                        <div class="track-artist-item" id="artist-${count}">Загрузка...</div>
+                    </div>
+                    <div class="track-meta" id="meta-${count}">--:--</div>
+                    <button class="actions-btn track-item-action" data-id="${count}"><i data-lucide="more-vertical"></i></button>
+                `;
+                const idx = count;
+                li.addEventListener('click', (e) => {
+                    if (e.target.closest('.actions-btn')) return;
+                    playTrack(playlistOrder.indexOf(idx));
+                });
+                playlistElem.appendChild(li);
+                count++;
+            }
+
+            lucide.createIcons();
+
+            document.querySelectorAll('.track-item-action').forEach(b => {
+                b.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
+                    document.getElementById('menu-edit-radio').style.display = 'none';
+                    document.getElementById('menu-play-next').style.display = 'flex';
+                    contextMenu.style.top = `${e.clientY}px`;
+                    contextMenu.style.left = `${e.clientX - 140}px`;
+                    contextMenu.style.display = 'block';
+                });
+            });
+
+            if (fileEntries.length === 0) {
+                playlistElem.innerHTML = '<li style="color:var(--text-muted);font-style:italic;pointer-events:none;">Добавьте файлы или папку через кнопки выше</li>';
+                statusText.textContent = 'Плейлист пуст';
+                return;
+            }
+
+            statusText.textContent = `Загружено треков: ${fileEntries.length}`;
+            processMetadataSequentially();
         }
 
         async function processMetadataSequentially() {
@@ -3514,8 +3896,9 @@
         }
 
         btnSavePreset.addEventListener('click', () => {
-            const name = customPresetName.value.trim();
+            let name = customPresetName.value.trim();
             if(!name) return;
+            if (name.length > 16) name = name.slice(0, 16);
             
             const currentValues = [];
             
@@ -3802,7 +4185,7 @@
             }, 50);
         }
 
-        async function playTrack(orderIndex) {
+        async function playTrack(orderIndex, startPosition = 0) {
             if (orderIndex < 0 || orderIndex >= playlistOrder.length) return;
             
             initAudioEngine();
@@ -3990,7 +4373,7 @@
                     currentTrackDuration = 0;
                     currentDecodedBuffer = null; // сброс старого буфера
                     timeTotal.textContent = "0:00";
-                    pausedAt = 0;
+                    pausedAt = startPosition;
 
                     // Обновляем длительность и метаданные как только они станут известны
                     const onMeta = () => {
@@ -4018,7 +4401,7 @@
                     if (myToken !== _loadToken) return;
 
                     // Запускаем воспроизведение немедленно (не ждём полной загрузки)
-                    startSourceAt(0);
+                    startSourceAt(startPosition);
 
                     // Если размер файла не закэширован — подгружаем в фоне
                     if (!entry._fileSize) {
@@ -4205,6 +4588,13 @@
             const autoNext = !settingAutoNext || settingAutoNext.checked;
             if (autoNext && currentIndex + 1 < playlistOrder.length) { playTrack(currentIndex + 1); } 
             else {
+                // Playlist ended — clear element so next Play starts from beginning
+                if (localAudioElement) {
+                    localAudioElement.pause();
+                    localAudioElement.src = '';
+                    localAudioElement = null;
+                }
+                currentIndex = -1;
                 updatePlayIcons(false);
                 statusText.textContent = 'Окончено';
             }
@@ -4226,11 +4616,17 @@
                 return;
             }
 
-            if (!localAudioElement || !localAudioElement.src) {
+            if (!localAudioElement) {
                 if (playlistOrder.length > 0) {
-                    const lastOrder = parseInt(localStorage.getItem('player_last_track_order'));
-                    const startIdx = (!isNaN(lastOrder) && lastOrder >= 0 && lastOrder < playlistOrder.length) ? lastOrder : 0;
-                    playTrack(startIdx);
+                    if (currentIndex === -1) {
+                        // Playlist ended — restart from beginning
+                        playTrack(0);
+                    } else {
+                        const lastOrder = parseInt(localStorage.getItem('player_last_track_order'));
+                        const startIdx = (!isNaN(lastOrder) && lastOrder >= 0 && lastOrder < playlistOrder.length) ? lastOrder : 0;
+                        const savedPos = parseFloat(localStorage.getItem('player_last_track_position') || '0');
+                        playTrack(startIdx, savedPos > 0 ? savedPos : 0);
+                    }
                 }
                 return;
             }

@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, net } = require('electron');
 const path = require('path');
 
+const iconPath = path.join(__dirname, '..', 'resources', 'app.ico');
+
 app.commandLine.appendSwitch('hardware-media-key-handling');
 app.commandLine.appendSwitch('enable-features', 'MediaSessionService');
 
@@ -26,7 +28,7 @@ function createWindow() {
     backgroundColor: '#121212',
     alwaysOnTop: false,
     center: true,
-    icon: path.join(__dirname, 'resources/app.ico')
+    icon: iconPath
   });
 
 
@@ -245,7 +247,7 @@ function createWindow() {
     minHeight: 800,
     show: false,                // прячем до полной загрузки
     backgroundColor: '#121212', // Заменяем белый экран на темно-серый/черный
-    icon: path.join(__dirname, 'resources/app.ico'),
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -256,19 +258,6 @@ function createWindow() {
   win.loadFile('src/index.html');
 
   
-
-  // Когда HTML полностью готов к отображению
-  /*
-  win.once('ready-to-show', () => {
-    // Добавляем задержку в 5000 миллисекунд (5 секунд)
-    setTimeout(() => {
-      if (splash && !splash.isDestroyed()) {
-        splash.close(); // Закрываем лоадер через 5 секунд
-      }
-      win.show(); // Показываем основное окно
-    }, 5000);
-  });
-  */
   win.once('ready-to-show', () => {
     if (splash && !splash.isDestroyed()) {
       splash.close(); // Закрываем лоадер
@@ -292,7 +281,7 @@ function createWindow() {
         new Notification({
           title: 'Noctune Player',
           body: 'Приложение свернуто в трей и продолжает работу.',
-          icon: path.join(__dirname, 'resources/app.ico')
+          icon: iconPath
         }).show();
       }
     }
@@ -422,7 +411,6 @@ if (!gotTheLock) {
     });
     createWindow();
 
-    const iconPath = path.join(__dirname, 'resources/app.ico');
     tray = new Tray(iconPath);
     
     const contextMenu = Menu.buildFromTemplate([
