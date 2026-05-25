@@ -1,0 +1,40 @@
+{
+  "name": "Noctune",
+  "version": "1.1.1",
+  "main": "src/main.js",
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^26.8.1"
+  },
+  "author": "Telegram: @borisik_denis",
+  "description": "Noctune: Lightweight music player",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.noctune.player",
+    "win": {
+      "target": "nsis",
+      "icon": "resources/app.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "perMachine": false,
+      "shortcutName": "Noctune",
+      "installerSidebar": "src/logo.bmp",
+      "uninstallerSidebar": "src/logo.bmp",
+      "unicode": true,
+      "license": "license.md"
+    }
+  },
+  "dependencies": {
+    "electron-store": "^11.0.2"
+  }
+}
