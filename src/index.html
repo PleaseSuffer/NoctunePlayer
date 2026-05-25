@@ -1994,7 +1994,7 @@
                                     <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Проверить
                                 </button>
                             </div>
-                            <div class="update-status" id="update-status-msg">Функция временно недоступна</div> <!-- Нажмите «Проверить» для поиска новых версий на GitHub -->
+                            <div class="update-status" id="update-status-msg">Нажмите «Проверить» для поиска новых версий на GitHub</div>
                         </div>
 
                         <div class="settings-section-title">Технические детали</div>
@@ -2005,7 +2005,7 @@
                             </div>
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
                                 <span style="color:var(--text-muted);">Репозиторий</span>
-                                <a href="https://github.com" target="_blank" style="font-weight:600;color:var(--accent-color);text-decoration:none;">GitHub</a>
+                                <a href="https://github.com/PleaseSuffer/NoctunePlayer" target="_blank" style="font-weight:600;color:var(--accent-color);text-decoration:none;">GitHub</a>
                             </div>
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
                                 <span style="color:var(--text-muted);">Лицензия</span>
@@ -2149,6 +2149,100 @@
             const timer = setTimeout(() => dismissToast(toast), 6000);
             toast._dismissTimer = timer;
         }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const currentVersionEl = document.getElementById('update-current-version');
+            const updateStatusMsg = document.getElementById('update-status-msg');
+            const btnCheckUpdates = document.getElementById('btn-check-updates');
+            
+            let downloadUrl = 'https://github.com/PleaseSuffer/NoctunePlayer/releases';
+            let localVersion = '0.0.0'; // Будем хранить чистую локальную версию для сравнения
+
+            let ipc = null;
+            if (typeof require !== 'undefined') {
+                try {
+                    ipc = require('electron').ipcRenderer;
+                } catch (e) {
+                    console.error("Не удалось импортировать electron через require:", e);
+                }
+            }
+
+            // Функция для корректного сравнения SemVer (1.1.2 > 1.1.1)
+            function isNewerVersion(local, remote) {
+                const clean = (v) => v.replace(/^v/, '').split('.').map(Number);
+                const [lMajor, lMinor, lPatch] = clean(local);
+                const [rMajor, rMinor, rPatch] = clean(remote);
+
+                if (rMajor !== lMajor) return rMajor > lMajor;
+                if (rMinor !== lMinor) return rMinor > lMinor;
+                return rPatch > lPatch;
+            }
+
+            // 1. Отображаем реальную версию приложения при запуске
+            try {
+                if (ipc) {
+                    const actualVersion = await ipc.invoke('get-app-version');
+                    localVersion = actualVersion.replace(/^v/, ''); // Сохраняем чистую версию
+                    if (currentVersionEl) currentVersionEl.textContent = `v${localVersion}`;
+                }
+                if (updateStatusMsg) {
+                    updateStatusMsg.textContent = 'Нажмите «Проверить» для поиска новых версий на GitHub';
+                }
+            } catch (e) {
+                console.error('Не удалось получить версию приложения:', e);
+            }
+
+            // 2. Логика проверки при нажатии на кнопку
+            if (btnCheckUpdates) {
+                btnCheckUpdates.addEventListener('click', async () => {
+                    if (!ipc) {
+                        updateStatusMsg.textContent = 'Ошибка: среда Electron недоступна';
+                        return;
+                    }
+
+                    const icon = btnCheckUpdates.querySelector('i[data-lucide="refresh-cw"]');
+                    if (icon) icon.classList.add('lucide-spin');
+                    btnCheckUpdates.disabled = true;
+                    updateStatusMsg.textContent = 'Проверка наличия обновлений...';
+
+                    try {
+                        const result = await ipc.invoke('check-for-updates');
+
+                        if (!result.success) {
+                            updateStatusMsg.textContent = `Ошибка: ${result.error}`;
+                            updateStatusMsg.style.color = '#ff6b6b';
+                            return;
+                        }
+
+                        const hasRealUpdate = result.hasUpdate && isNewerVersion(localVersion, result.latestVersion);
+
+                        if (hasRealUpdate) {
+                            const cleanLatest = result.latestVersion.replace(/^v/, '');
+                            updateStatusMsg.innerHTML = `Доступна новая версия <span style="color:var(--accent-color); font-weight:bold;">v${cleanLatest}</span>. <span id="link-download" style="color:var(--accent-color); cursor:pointer; text-decoration:underline; margin-left:5px;">Скачать</span>`;
+                            updateStatusMsg.style.color = '';
+                            downloadUrl = result.updateUrl;
+
+                            const linkDownload = document.getElementById('link-download');
+                            if (linkDownload) {
+                                linkDownload.addEventListener('click', () => {
+                                    ipc.send('open-external-url', downloadUrl);
+                                });
+                            }
+                        } else {
+                            updateStatusMsg.textContent = 'У вас установлена самая свежая версия.';
+                            updateStatusMsg.style.color = '#2ecc71';
+                        }
+
+                    } catch (err) {
+                        updateStatusMsg.textContent = 'Произошла ошибка при проверке.';
+                        updateStatusMsg.style.color = '#ff6b6b';
+                    } finally {
+                        if (icon) icon.classList.remove('lucide-spin');
+                        btnCheckUpdates.disabled = false;
+                    }
+                });
+            }
+        });
 
         function dismissToast(toast) {
             if (!toast.isConnected) return;
@@ -5012,7 +5106,7 @@
                 updateStatus.textContent = 'Проверяем...';
                 btnCheckUpdates.disabled = true;
                 try {
-                    const resp = await fetch('https://api.github.com/repos/borisik_denis/noctune-player/releases/latest');
+                    const resp = await fetch('https://api.github.com/repos/PleaseSuffer/NoctunePlayer/releases/latest');
                     if (resp.ok) {
                         const data = await resp.json();
                         updateStatus.textContent = `Последняя версия на GitHub: ${data.tag_name || 'неизвестно'}`;
