@@ -91,7 +91,7 @@ Noctune поддерживает полноценную работу с инте
 
 ```bash
 git clone https://github.com/PleaseSuffer/NoctunePlayer.git
-cd noctune-player
+cd NoctunePlayer
 ```
 
 ## Установка зависимостей
