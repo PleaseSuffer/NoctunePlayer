@@ -28,8 +28,8 @@
       "createStartMenuShortcut": true,
       "perMachine": false,
       "shortcutName": "Noctune",
-      "installerSidebar": "src/logo.bmp",
-      "uninstallerSidebar": "src/logo.bmp",
+      "installerSidebar": "resources/logo.bmp",
+      "uninstallerSidebar": "resources/logo.bmp",
       "unicode": true,
       "license": "license.md"
     }
