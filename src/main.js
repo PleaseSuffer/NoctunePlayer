@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, net } = require('electron');
 const path = require('path');
 
 app.commandLine.appendSwitch('hardware-media-key-handling');
@@ -26,7 +26,7 @@ function createWindow() {
     backgroundColor: '#121212',
     alwaysOnTop: false,
     center: true,
-    icon: path.join(__dirname, 'app.ico')
+    icon: path.join(__dirname, 'resources/app.ico')
   });
 
 
@@ -245,7 +245,7 @@ function createWindow() {
     minHeight: 800,
     show: false,                // прячем до полной загрузки
     backgroundColor: '#121212', // Заменяем белый экран на темно-серый/черный
-    icon: path.join(__dirname, 'app.ico'),
+    icon: path.join(__dirname, 'resources/app.ico'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
@@ -253,12 +253,12 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
-  win.loadFile('index.html');
+  win.loadFile('src/index.html');
 
   
 
   // Когда HTML полностью готов к отображению
-  // Когда HTML полностью готов к отображению
+  /*
   win.once('ready-to-show', () => {
     // Добавляем задержку в 5000 миллисекунд (5 секунд)
     setTimeout(() => {
@@ -268,14 +268,13 @@ function createWindow() {
       win.show(); // Показываем основное окно
     }, 5000);
   });
-  /*
+  */
   win.once('ready-to-show', () => {
     if (splash && !splash.isDestroyed()) {
       splash.close(); // Закрываем лоадер
     }
     win.show(); // Показываем основное окно без белых вспышек
   });
-  */
 
   win.webContents.on('did-finish-load', () => {
     const savedPath = store.get('music-directory');
@@ -293,13 +292,81 @@ function createWindow() {
         new Notification({
           title: 'Noctune Player',
           body: 'Приложение свернуто в трей и продолжает работу.',
-          icon: path.join(__dirname, 'app.ico')
+          icon: path.join(__dirname, 'resources/app.ico')
         }).show();
       }
     }
     return false;
   });
 }
+
+// Обработчик проверки обновлений
+ipcMain.handle('check-for-updates', async () => {
+    return new Promise((resolve) => {
+        const currentVersion = app.getVersion(); // Получает версию из package.json
+
+        // Делаем запрос к публичному GitHub API для получения последнего релиза
+        const request = net.request({
+            method: 'GET',
+            protocol: 'https:',
+            hostname: 'api.github.com',
+            port: 443,
+            path: '/repos/PleaseSuffer/NoctunePlayer/releases/latest',
+        });
+
+        // GitHub API требует обязательного указания User-Agent
+        request.setHeader('User-Agent', 'NoctunePlayer');
+
+        request.on('response', (response) => {
+            let body = '';
+            
+            response.on('data', (chunk) => {
+                body += chunk.toString();
+            });
+
+            response.on('end', () => {
+                if (response.statusCode !== 200) {
+                    resolve({ success: false, error: `Сервер ответил кодом ${response.statusCode}` });
+                    return;
+                }
+
+                try {
+                    const data = JSON.parse(body);
+                    // Очищаем тег от префикса 'v', если он есть (например, v1.0.1 -> 1.0.1)
+                    const latestVersion = data.tag_name.replace(/^v/, '');
+                    const cleanCurrentVersion = currentVersion.replace(/^v/, '');
+
+                    // Сравниваем версии напрямую
+                    const hasUpdate = latestVersion !== cleanCurrentVersion;
+
+                    resolve({
+                        success: true,
+                        currentVersion,
+                        latestVersion: data.tag_name,
+                        hasUpdate,
+                        updateUrl: data.html_url // Ссылка на страницу релиза на GitHub
+                    });
+                } catch (e) {
+                    resolve({ success: false, error: 'Ошибка обработки данных от сервера' });
+                }
+            });
+        });
+
+        request.on('error', (err) => {
+            resolve({ success: false, error: 'Нет подключения к сети или сервер недоступен' });
+        });
+
+        request.end();
+    });
+});
+
+// Обработчик для открытия ссылки в браузере по умолчанию
+/*
+ipcMain.on('open-external-url', (event, url) => {
+    const { shell } = require('electron');
+    shell.openExternal(url);
+});
+*/
 
 // Обработчик для получения сохраненного пути
 ipcMain.handle('get-saved-directory', () => {
@@ -355,7 +422,7 @@ if (!gotTheLock) {
     });
     createWindow();
 
-    const iconPath = path.join(__dirname, 'app.ico');
+    const iconPath = path.join(__dirname, 'resources/app.ico');
     tray = new Tray(iconPath);
     
     const contextMenu = Menu.buildFromTemplate([
