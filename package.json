@@ -31,7 +31,7 @@
       "installerSidebar": "resources/logo.bmp",
       "uninstallerSidebar": "resources/logo.bmp",
       "unicode": true,
-      "license": "license.md"
+      "license": "LICENSE"
     }
   },
   "dependencies": {
