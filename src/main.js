@@ -10,6 +10,7 @@ let win = null;
 let splash = null; // Окно загрузки
 let tray = null;
 let isQuiting = false;
+let minimizeToTray = true; // Управляется из настроек рендерера
 
 let store;
 
@@ -290,12 +291,15 @@ function createWindow() {
 
     event.preventDefault();
 
-    // Спрашиваем рендерер: играет ли сейчас музыка
+    // Спрашиваем рендерер: играет ли музыка и включено ли сворачивание в трей
     win.webContents.send('query-playing-state');
 
-    ipcMain.once('playing-state-response', (_e, isPlaying) => {
-      if (isPlaying) {
-        // Музыка играет — сворачиваем в трей
+    ipcMain.once('playing-state-response', (_e, isPlaying, minimizeToTraySetting) => {
+      // Настройка из рендерера имеет приоритет (синхронизируем флаг)
+      if (typeof minimizeToTraySetting === 'boolean') minimizeToTray = minimizeToTraySetting;
+
+      if (minimizeToTray && isPlaying) {
+        // Сворачивание включено и музыка играет — скрываем в трей
         win.hide();
         if (Notification.isSupported()) {
           new Notification({
@@ -305,13 +309,18 @@ function createWindow() {
           }).show();
         }
       } else {
-        // На паузе — просто закрываем
+        // Сворачивание выключено, или музыка на паузе — закрываем
         isQuiting = true;
         app.quit();
       }
     });
   });
 }
+
+// Получаем изменение настройки "сворачивать в трей" из рендерера
+ipcMain.on('setting-minimize-to-tray-changed', (_e, value) => {
+    minimizeToTray = value;
+});
 
 // Обработчик проверки обновлений
 ipcMain.handle('check-for-updates', async () => {
