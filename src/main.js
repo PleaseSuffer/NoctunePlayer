@@ -244,8 +244,8 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1050,
     height: 800,
-    minWidth: 1050,
-    minHeight: 800,
+    minWidth: 900,
+    minHeight: 640,
     show: false,                // прячем до полной загрузки
     backgroundColor: '#121212', // Заменяем белый экран на темно-серый/черный
     icon: iconPath,

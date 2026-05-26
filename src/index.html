@@ -555,6 +555,57 @@
             cursor: pointer;
         }
 
+        .volume-speed-divider {
+            width: 1px;
+            height: 16px;
+            background: var(--border-color);
+            flex-shrink: 0;
+            margin: 0 2px;
+            opacity: 0.6;
+        }
+
+        /* Hover-раскрывающиеся ползунки в основном плеере */
+        .main-slider-zone {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 0 2px;
+            border-radius: 20px;
+            position: relative;
+        }
+
+        .main-slider-wrapper {
+            width: 0;
+            overflow: hidden;
+            opacity: 0;
+            display: flex;
+            align-items: center;
+            transition: width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+        }
+
+        .main-slider-zone:hover .main-slider-wrapper {
+            width: 70px;
+            opacity: 1;
+            margin-left: 5px;
+        }
+
+        .main-slider-zone:hover .main-slider-label {
+            width: auto;
+            opacity: 1;
+            margin-left: 4px;
+        }
+
+        .main-slider-label {
+            width: 0;
+            overflow: hidden;
+            opacity: 0;
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            transition: width 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+            min-width: 0;
+        }
+
         .mini-player-bar {
             position: fixed;
             bottom: 25px;
@@ -727,8 +778,9 @@
             background: rgba(0,0,0,0.5);
             z-index: 999999 !important;
             justify-content: center;
-            align-items: flex-start;
-            padding-top: 50px;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
             backdrop-filter: blur(4px);
             overflow-y: auto;
         }
@@ -740,10 +792,13 @@
             border-radius: 16px;
             width: 95%;
             max-width: 500px;
+            max-height: 90vh;
+            box-sizing: border-box;
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             display: flex;
             flex-direction: column;
             gap: 15px;
+            overflow-y: auto;
         }
 
         .modal-header {
@@ -1029,6 +1084,8 @@
         }
 
         .radio-results {
+            flex: 1 1 auto;
+            min-height: 80px;
             max-height: 280px;
             overflow-y: auto;
             border: 1px solid var(--border-color);
@@ -1510,9 +1567,12 @@
         }
 
         /* Disable speed control in radio mode */
+        .speed-control-disabled .main-slider-wrapper,
+        .speed-control-disabled .main-slider-label {
+            pointer-events: none;
+        }
         .speed-control-disabled {
             opacity: 0.35;
-            pointer-events: none;
         }
 
         /* Radio search: added station button */
@@ -1580,6 +1640,92 @@
             font-size: 12px;
             color: var(--text-muted);
             font-style: italic;
+        }
+
+        /* ══════════════════════════════════════════════════════
+           Компактный режим: экраны с высотой 701–768px
+           ══════════════════════════════════════════════════════ */
+        @media (max-height: 768px) {
+            .modal-content {
+                max-height: 85vh;
+                padding: 18px;
+                gap: 12px;
+            }
+            .radio-results {
+                max-height: 180px;
+            }
+
+            .player-container {
+                padding: 14px 18px;
+                gap: 16px;
+                height: 92vh;
+                border-radius: 12px;
+            }
+            .header { margin-bottom: 10px; }
+            .sidebar { padding-right: 14px; }
+            .pane-title { margin-bottom: 4px; }
+            .playlist-select-wrapper { margin-bottom: 8px; }
+
+            .player-cover-img,
+            .player-cover-placeholder {
+                width: 180px;
+                height: 180px;
+            }
+            .player-cover-wrap { margin-bottom: 8px; }
+
+            .track-title { font-size: 18px; }
+            .track-artist { font-size: 13px; margin-bottom: 4px; }
+            .status-text { font-size: 12px; }
+
+            .custom-controls { padding: 12px 16px; gap: 10px; }
+
+            .control-btn { width: 34px; height: 34px; }
+            .control-btn.play-pause { width: 42px; height: 42px; }
+
+            .sliders-container { height: 140px; }
+            .slider-box input[type="range"] { height: 85px; }
+
+            .settings-modal { height: 560px; max-height: 88vh; }
+        }
+
+        /* ══════════════════════════════════════════════════════
+           Очень компактный режим: экраны ≤ 700px высотой
+           ══════════════════════════════════════════════════════ */
+        @media (max-height: 700px) {
+            .modal-content {
+                max-height: 88vh;
+                padding: 14px;
+                gap: 10px;
+            }
+            .radio-results {
+                max-height: 130px;
+            }
+
+            .player-container {
+                padding: 10px 14px;
+                gap: 12px;
+                height: 96vh;
+            }
+            .header { margin-bottom: 6px; }
+
+            .player-cover-img,
+            .player-cover-placeholder {
+                width: 130px;
+                height: 130px;
+            }
+
+            .track-title { font-size: 15px; }
+            .track-artist { font-size: 12px; }
+
+            .custom-controls { padding: 10px 12px; gap: 8px; }
+
+            .control-btn { width: 30px; height: 30px; }
+            .control-btn.play-pause { width: 38px; height: 38px; }
+
+            .sliders-container { height: 120px; }
+            .slider-box input[type="range"] { height: 70px; }
+
+            .settings-modal { height: 500px; max-height: 92vh; }
         }
     </style>
 </head>
@@ -1677,16 +1823,27 @@
                         <button class="control-btn active" id="open-eq-btn" title="Настройка эквалайзера"><i data-lucide="sliders"></i></button>
                     </div>
 
-                    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-                        <i data-lucide="gauge" style="width:14px;height:14px;flex-shrink:0;"></i>
-                        <input type="range" id="main-speed-slider" min="0.5" max="2" step="0.05" value="1"
-                            style="width:70px;accent-color:var(--accent-color);cursor:pointer;" title="Скорость воспроизведения">
-                        <span id="main-speed-label" style="min-width:28px;">1×</span>
-                    </div>
-
                     <div class="volume-container">
-                        <i data-lucide="volume-2" style="cursor: pointer;" id="main-volume-icon"></i>
-                        <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.001" value="0.7">
+                        <div class="main-slider-zone" id="speed-zone">
+                            <button class="control-btn" style="pointer-events:none;">
+                                <i data-lucide="circle-gauge" style="width:18px;height:18px;"></i>
+                            </button>
+                            <div class="main-slider-wrapper">
+                                <input type="range" id="main-speed-slider" min="0.5" max="2" step="0.1" value="1"
+                                    style="width:70px;accent-color:var(--accent-color);cursor:pointer;" title="Скорость воспроизведения">
+                            </div>
+                            <span class="main-slider-label" id="main-speed-label">1×</span>
+                        </div>
+                        <div class="volume-speed-divider"></div>
+                        <div class="main-slider-zone" id="volume-zone">
+                            <button class="control-btn" id="main-volume-icon" onclick="toggleMute()">
+                                <i data-lucide="volume-2" style="width:18px;height:18px;"></i>
+                            </button>
+                            <div class="main-slider-wrapper">
+                                <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.001" value="0.7"
+                                    style="width:70px;">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1990,7 +2147,7 @@
                         <div class="settings-section-title">Скорость воспроизведения</div>
                         <div class="settings-card">
                             <div style="display:flex;align-items:center;gap:12px;">
-                                <input type="range" id="setting-playback-speed" min="0.5" max="2" step="0.05" value="1"
+                                <input type="range" id="setting-playback-speed" min="0.5" max="2" step="0.1" value="1"
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-playback-speed-label" style="font-size:13px;font-weight:700;min-width:38px;text-align:right;">1.0×</span>
                             </div>
@@ -2916,9 +3073,7 @@
         openEqBtn.addEventListener('click', () => eqModal.style.display = 'flex');
         closeEqBtn.addEventListener('click', () => eqModal.style.display = 'none');
 
-        document.querySelector('.volume-container').addEventListener('click', (e) => {
-            if (e.target.closest('#main-volume-icon')) toggleMute();
-        });
+
         document.querySelector('.mini-volume-zone button').addEventListener('click', toggleMute);
 
         async function parseAudioTags(file, fileName = "") {
@@ -4380,10 +4535,7 @@
                     miniBtnShuffle.classList.add('btn-disabled');
                     miniBtnRepeat.classList.add('btn-disabled');
                     // Disable speed control for radio
-                    const speedCtrl = document.getElementById('main-speed-slider');
-                    const speedLabel = document.getElementById('main-speed-label');
-                    const speedIcon = speedCtrl ? speedCtrl.closest('div') : null;
-                    if (speedIcon) speedIcon.classList.add('speed-control-disabled');
+                    document.getElementById('speed-zone').classList.add('speed-control-disabled');
                 } catch(err) {
                     statusText.textContent = 'Ошибка потока';
                 }
@@ -4529,10 +4681,8 @@
                     miniBtnShuffle.classList.remove('btn-disabled');
                     miniBtnRepeat.classList.remove('btn-disabled');
                     // Re-enable speed control
-                    const speedCtrlLocal = document.getElementById('main-speed-slider');
-                    if (speedCtrlLocal) {
-                        const speedIconLocal = speedCtrlLocal.closest('div');
-                        if (speedIconLocal) speedIconLocal.classList.remove('speed-control-disabled');
+                    {
+                        document.getElementById('speed-zone').classList.remove('speed-control-disabled');
                     }
                 } catch (e) {
                     if (myToken === _loadToken) statusText.textContent = 'Ошибка загрузки';
@@ -4662,10 +4812,13 @@
         }
 
         function updateVolumeIcons(val) {
-            const mainVolIcon = document.getElementById('main-volume-icon');
+            const mainVolBtn = document.getElementById('main-volume-icon');
             const miniVolIcon = document.getElementById('mini-volume-icon');
             let iconName = (val <= 0 || isMuted) ? 'volume-x' : (val < 0.4) ? 'volume' : (val < 0.7) ? 'volume-1' : 'volume-2';
-            if (mainVolIcon) mainVolIcon.setAttribute('data-lucide', iconName);
+            if (mainVolBtn) {
+                const i = mainVolBtn.querySelector('i[data-lucide]');
+                if (i) i.setAttribute('data-lucide', iconName);
+            }
             if (miniVolIcon) miniVolIcon.setAttribute('data-lucide', iconName);
             lucide.createIcons();
         }
@@ -5521,7 +5674,7 @@
             const speedSlider = document.getElementById('setting-playback-speed');
             const speedLabel = document.getElementById('setting-playback-speed-label');
             function applyPlaybackSpeed(v) {
-                const label = v.toFixed(2).replace(/\.?0+$/, '') + '×';
+                const label = v.toFixed(1) + '×';
                 speedSlider.value = v;
                 speedLabel.textContent = label;
                 const mainSlider = document.getElementById('main-speed-slider');
