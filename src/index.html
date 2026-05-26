@@ -1914,6 +1914,16 @@
                             </div>
                             <div class="settings-row">
                                 <div>
+                                    <div class="settings-row-label">Автопереход к следующему плейлисту</div>
+                                    <div class="settings-row-desc">По завершению переходить к следующему плейлисту</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-autonext-playlist">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="settings-row">
+                                <div>
                                     <div class="settings-row-label">Уведомления об ошибках</div>
                                     <div class="settings-row-desc">Показывать системные уведомления</div>
                                 </div>
@@ -2308,7 +2318,7 @@
         let playNextIndex = -1;
 
         let isShuffle = false;
-        let isRepeat = false;
+        let repeatMode = 0; // 0=выкл, 1=повтор трека, 2=повтор плейлиста
 
         let audioCtx, analyzer, sourceNode, mediaElementSourceNode = null, eqFilters = [];
         let audioBufferSource = null; 
@@ -2614,11 +2624,24 @@
             localStorage.setItem('player_shuffle', isShuffle ? '1' : '0');
         }
 
+        function updateRepeatUI() {
+            const icons   = [null, 'repeat-1', 'repeat'];
+            const titles  = ['Повтор выключен', 'Повторять этот трек', 'Повторять плейлист'];
+            const active  = repeatMode > 0;
+            const iconName = repeatMode > 0 ? icons[repeatMode] : 'repeat-1';
+
+            [btnRepeat, miniBtnRepeat].forEach(btn => {
+                btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
+                btn.classList.toggle('active', active);
+                btn.title = titles[repeatMode];
+            });
+            lucide.createIcons();
+        }
+
         function toggleRepeat() {
-            isRepeat = !isRepeat;
-            btnRepeat.classList.toggle('active', isRepeat);
-            miniBtnRepeat.classList.toggle('active', isRepeat);
-            localStorage.setItem('player_repeat', isRepeat ? '1' : '0');
+            repeatMode = (repeatMode + 1) % 3;
+            updateRepeatUI();
+            localStorage.setItem('player_repeat', String(repeatMode));
         }
 
         function toggleMute() {
@@ -4156,7 +4179,7 @@
                     document.getElementById('mini-progress-fill').style.width = `${Math.min(pct, 100)}%`;
                     
                     // Crossfade: start fade-out when nearing end
-                    if (crossfadeEnabled && !isRepeat && window.volumeNode && audioCtx) {
+                    if (crossfadeEnabled && repeatMode !== 1 && window.volumeNode && audioCtx) {
                         const timeLeft = duration - current;
                         if (timeLeft <= crossfadeDuration && timeLeft > 0) {
                             const fadeVol = (timeLeft / crossfadeDuration) * (isMuted ? 0 : parseFloat(volumeSlider.value));
@@ -4634,7 +4657,13 @@
             if (activePlaylistId && activePlaylistId !== currentPlaylistId) {
                 await selectPlaylist(activePlaylistId);
             }
-            if (isRepeat) { playTrack(currentIndex); return; }
+            if (repeatMode === 1) { playTrack(currentIndex); return; }
+            if (repeatMode === 2) {
+                // Повтор плейлиста — после последнего трека начинаем сначала
+                const nextIdx = currentIndex + 1 < playlistOrder.length ? currentIndex + 1 : 0;
+                playTrack(nextIdx);
+                return;
+            }
             if (playNextIndex !== -1) {
                 const nextOrder = playlistOrder.indexOf(playNextIndex);
                 playNextIndex = -1; 
@@ -4648,7 +4677,22 @@
             const autoNext = !settingAutoNext || settingAutoNext.checked;
             if (autoNext && currentIndex + 1 < playlistOrder.length) { playTrack(currentIndex + 1); } 
             else {
-                // Playlist ended — clear element so next Play starts from beginning
+                // Playlist ended
+                const settingAutoNextPl = document.getElementById('setting-autonext-playlist');
+                const autoNextPlaylist = settingAutoNextPl && settingAutoNextPl.checked;
+                const folderPlaylists = userPlaylists.filter(p => p.type === 'folder');
+                const curPlIdx = folderPlaylists.findIndex(p => p.id === currentPlaylistId);
+
+                if (autoNextPlaylist && folderPlaylists.length > 1 && curPlIdx !== -1) {
+                    const nextPl = folderPlaylists[(curPlIdx + 1) % folderPlaylists.length];
+                    await selectPlaylist(nextPl.id);
+                    if (playlistOrder.length > 0) {
+                        playTrack(0);
+                        return;
+                    }
+                }
+
+                // No next playlist or setting off — stop
                 if (localAudioElement) {
                     localAudioElement.pause();
                     localAudioElement.src = '';
@@ -5235,11 +5279,9 @@
             btnShuffle.classList.add('active');
             miniBtnShuffle.classList.add('active');
         }
-        if (localStorage.getItem('player_repeat') === '1') {
-            isRepeat = true;
-            btnRepeat.classList.add('active');
-            miniBtnRepeat.classList.add('active');
-        }
+        const savedRepeat = parseInt(localStorage.getItem('player_repeat') || '0');
+        if (savedRepeat >= 0 && savedRepeat <= 2) repeatMode = savedRepeat;
+        updateRepeatUI();
 
         restoreEqState();
         lucide.createIcons();
@@ -5360,6 +5402,12 @@
             const settingAutoNext = document.getElementById('setting-autonext');
             settingAutoNext.addEventListener('change', () => {
                 localStorage.setItem('setting_autonext', settingAutoNext.checked ? '1' : '0');
+            });
+
+            // ---- GENERAL: Autonext playlist ----
+            const settingAutoNextPlaylist = document.getElementById('setting-autonext-playlist');
+            settingAutoNextPlaylist.addEventListener('change', () => {
+                localStorage.setItem('setting_autonext_playlist', settingAutoNextPlaylist.checked ? '1' : '0');
             });
 
             // ---- GENERAL: Notifications ----
@@ -5744,6 +5792,8 @@
                 if (notif === null) { const n = document.getElementById('setting-notifications'); if(n) n.checked = true; }
                 const an = localStorage.getItem('setting_autonext');
                 if (an !== null) { const el = document.getElementById('setting-autonext'); if(el) el.checked = an === '1'; }
+                const anpl = localStorage.getItem('setting_autonext_playlist');
+                if (anpl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = anpl === '1'; }
                 const rt = localStorage.getItem('setting_remember_track');
                 if (rt !== null) { const el = document.getElementById('setting-remember-track'); if(el) el.checked = rt === '1'; }
             })();
