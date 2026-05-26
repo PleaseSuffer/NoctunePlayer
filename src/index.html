@@ -1951,11 +1951,19 @@
                             </div>
                             <div class="crossfade-duration-row" id="crossfade-duration-row">
                                 <div style="flex:1;">
-                                    <div class="settings-row-label" style="font-size:12px;">Время затухания</div>
+                                    <div class="settings-row-label" style="font-size:12px;">Затухание в конце</div>
                                 </div>
-                                <input type="range" id="setting-crossfade-duration" min="0.5" max="8" step="0.5" value="3"
+                                <input type="range" id="setting-crossfade-out" min="0" max="8" step="0.5" value="3"
                                     style="flex:1;accent-color:var(--accent-color);">
-                                <span id="setting-crossfade-duration-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">3.0с</span>
+                                <span id="setting-crossfade-out-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">3.0с</span>
+                            </div>
+                            <div class="crossfade-duration-row" id="crossfade-fadein-row">
+                                <div style="flex:1;">
+                                    <div class="settings-row-label" style="font-size:12px;">Нарастание в начале</div>
+                                </div>
+                                <input type="range" id="setting-crossfade-in" min="0" max="8" step="0.5" value="0"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-crossfade-in-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">0.0с</span>
                             </div>
                             <div class="settings-row">
                                 <div>
@@ -2523,7 +2531,8 @@
         // CROSSFADE STATE
         // ========================
         let crossfadeEnabled = false;
-        let crossfadeDuration = 3; // seconds
+        let crossfadeOutDuration = 3;
+        let crossfadeInDuration = 0;
         let _crossfadeTimeout = null;
         let currentDecodedBuffer = null;   // остаётся для совместимости seek/tooltip (хранит длительность)
         let currentTrackDuration = 0;      // длительность текущего трека (секунды)
@@ -4195,10 +4204,10 @@
                     document.getElementById('mini-progress-fill').style.width = `${Math.min(pct, 100)}%`;
                     
                     // Crossfade: start fade-out when nearing end
-                    if (crossfadeEnabled && repeatMode !== 1 && window.volumeNode && audioCtx) {
+                    if (crossfadeEnabled && repeatMode !== 1 && crossfadeOutDuration > 0 && window.volumeNode && audioCtx) {
                         const timeLeft = duration - current;
-                        if (timeLeft <= crossfadeDuration && timeLeft > 0) {
-                            const fadeVol = (timeLeft / crossfadeDuration) * (isMuted ? 0 : parseFloat(volumeSlider.value));
+                        if (timeLeft <= crossfadeOutDuration && timeLeft > 0) {
+                            const fadeVol = (timeLeft / crossfadeOutDuration) * (isMuted ? 0 : parseFloat(volumeSlider.value));
                             window.volumeNode.gain.setValueAtTime(fadeVol, audioCtx.currentTime);
                         }
                     }
@@ -4284,7 +4293,7 @@
             }, 50);
         }
 
-        async function playTrack(orderIndex, startPosition = 0) {
+        async function playTrack(orderIndex, startPosition = 0, doFadeIn = false) {
             if (orderIndex < 0 || orderIndex >= playlistOrder.length) return;
             
             initAudioEngine();
@@ -4500,7 +4509,7 @@
                     if (myToken !== _loadToken) return;
 
                     // Запускаем воспроизведение немедленно (не ждём полной загрузки)
-                    startSourceAt(startPosition);
+                    startSourceAt(startPosition, doFadeIn);
 
                     // Если размер файла не закэширован — подгружаем в фоне
                     if (!entry._fileSize) {
@@ -4600,7 +4609,7 @@
             }
         });
 
-        function startSourceAt(position) {
+        function startSourceAt(position, fadeIn = false) {
             if (isRadioMode) return;
             if (!localAudioElement || !localAudioElement.src) return;
 
@@ -4610,9 +4619,18 @@
                 analyzer.connect(window.volumeNode);
                 window.volumeNode.connect(audioCtx.destination);
             }
-            
-            const currentVol = isMuted ? 0 : parseFloat(volumeSlider.value);
-            window.volumeNode.gain.setValueAtTime(currentVol, audioCtx.currentTime);
+
+            const targetVol = isMuted ? 0 : parseFloat(volumeSlider.value);
+
+            if (fadeIn && crossfadeEnabled && crossfadeInDuration > 0) {
+                // Fade-in: стартуем с нулевой громкостью, плавно поднимаем
+                window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                window.volumeNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                window.volumeNode.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime + crossfadeInDuration);
+            } else {
+                window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                window.volumeNode.gain.setValueAtTime(targetVol, audioCtx.currentTime);
+            }
 
             localAudioElement.currentTime = position;
             localAudioElement.play().catch(err => {
@@ -4673,25 +4691,25 @@
             if (activePlaylistId && activePlaylistId !== currentPlaylistId) {
                 await selectPlaylist(activePlaylistId);
             }
-            if (repeatMode === 1) { playTrack(currentIndex); return; }
+            if (repeatMode === 1) { playTrack(currentIndex, 0, false); return; }
             if (repeatMode === 2) {
                 // Повтор плейлиста — после последнего трека начинаем сначала
                 const nextIdx = currentIndex + 1 < playlistOrder.length ? currentIndex + 1 : 0;
-                playTrack(nextIdx);
+                playTrack(nextIdx, 0, true);
                 return;
             }
             if (playNextIndex !== -1) {
                 const nextOrder = playlistOrder.indexOf(playNextIndex);
                 playNextIndex = -1; 
-                if (nextOrder !== -1) { playTrack(nextOrder); return; }
+                if (nextOrder !== -1) { playTrack(nextOrder, 0, true); return; }
             }
             if (isShuffle) {
-                playTrack(Math.floor(Math.random() * playlistOrder.length));
+                playTrack(Math.floor(Math.random() * playlistOrder.length), 0, true);
                 return;
             }
             const settingAutoNext = document.getElementById('setting-autonext');
             const autoNext = !settingAutoNext || settingAutoNext.checked;
-            if (autoNext && currentIndex + 1 < playlistOrder.length) { playTrack(currentIndex + 1); } 
+            if (autoNext && currentIndex + 1 < playlistOrder.length) { playTrack(currentIndex + 1, 0, true); } 
             else {
                 // Playlist ended
                 const settingAutoNextPl = document.getElementById('setting-autonext-playlist');
@@ -4703,7 +4721,7 @@
                     const nextPl = folderPlaylists[(curPlIdx + 1) % folderPlaylists.length];
                     await selectPlaylist(nextPl.id);
                     if (playlistOrder.length > 0) {
-                        playTrack(0);
+                        playTrack(0, 0, true);
                         return;
                     }
                 }
@@ -5392,20 +5410,32 @@
             }
 
             // ---- PLAYER: Crossfade ----
-            const settingCrossfade = document.getElementById('setting-crossfade');
+            const settingCrossfade    = document.getElementById('setting-crossfade');
             const crossfadeDurationRow = document.getElementById('crossfade-duration-row');
-            const crossfadeDurationSlider = document.getElementById('setting-crossfade-duration');
-            const crossfadeDurationLabel = document.getElementById('setting-crossfade-duration-label');
+
+            const crossfadeOutSlider  = document.getElementById('setting-crossfade-out');
+            const crossfadeOutLabel   = document.getElementById('setting-crossfade-out-label');
+            const crossfadeInSlider   = document.getElementById('setting-crossfade-in');
+            const crossfadeInLabel    = document.getElementById('setting-crossfade-in-label');
+            const crossfadeFadeinRow  = document.getElementById('crossfade-fadein-row');
 
             settingCrossfade.addEventListener('change', () => {
                 crossfadeEnabled = settingCrossfade.checked;
                 crossfadeDurationRow.classList.toggle('visible', crossfadeEnabled);
+                crossfadeFadeinRow.classList.toggle('visible', crossfadeEnabled);
                 localStorage.setItem('setting_crossfade', crossfadeEnabled ? '1' : '0');
             });
-            crossfadeDurationSlider.addEventListener('input', () => {
-                crossfadeDuration = parseFloat(crossfadeDurationSlider.value);
-                crossfadeDurationLabel.textContent = crossfadeDuration.toFixed(1) + 'с';
-                localStorage.setItem('setting_crossfade_duration', crossfadeDuration);
+
+            crossfadeOutSlider.addEventListener('input', () => {
+                crossfadeOutDuration = parseFloat(crossfadeOutSlider.value);
+                crossfadeOutLabel.textContent = crossfadeOutDuration.toFixed(1) + 'с';
+                localStorage.setItem('setting_crossfade_out', crossfadeOutDuration);
+            });
+
+            crossfadeInSlider.addEventListener('input', () => {
+                crossfadeInDuration = parseFloat(crossfadeInSlider.value);
+                crossfadeInLabel.textContent = crossfadeInDuration.toFixed(1) + 'с';
+                localStorage.setItem('setting_crossfade_in', crossfadeInDuration);
             });
 
             // ---- GENERAL: Remember last track ----
@@ -5722,12 +5752,23 @@
                     crossfadeEnabled = savedCrossfade === '1';
                     settingCrossfade.checked = crossfadeEnabled;
                     crossfadeDurationRow.classList.toggle('visible', crossfadeEnabled);
+                    document.getElementById('crossfade-fadein-row').classList.toggle('visible', crossfadeEnabled);
                 }
-                const savedCFDur = localStorage.getItem('setting_crossfade_duration');
-                if (savedCFDur !== null) {
-                    crossfadeDuration = parseFloat(savedCFDur);
-                    crossfadeDurationSlider.value = crossfadeDuration;
-                    crossfadeDurationLabel.textContent = crossfadeDuration.toFixed(1) + 'с';
+                const savedCFOut = localStorage.getItem('setting_crossfade_out');
+                if (savedCFOut !== null) {
+                    crossfadeOutDuration = parseFloat(savedCFOut);
+                    const el = document.getElementById('setting-crossfade-out');
+                    const lb = document.getElementById('setting-crossfade-out-label');
+                    if (el) el.value = crossfadeOutDuration;
+                    if (lb) lb.textContent = crossfadeOutDuration.toFixed(1) + 'с';
+                }
+                const savedCFIn = localStorage.getItem('setting_crossfade_in');
+                if (savedCFIn !== null) {
+                    crossfadeInDuration = parseFloat(savedCFIn);
+                    const el = document.getElementById('setting-crossfade-in');
+                    const lb = document.getElementById('setting-crossfade-in-label');
+                    if (el) el.value = crossfadeInDuration;
+                    if (lb) lb.textContent = crossfadeInDuration.toFixed(1) + 'с';
                 }
 
                 // Remember track
@@ -5808,8 +5849,10 @@
             (function() {
                 const cf = localStorage.getItem('setting_crossfade');
                 if (cf !== null) crossfadeEnabled = cf === '1';
-                const cfd = localStorage.getItem('setting_crossfade_duration');
-                if (cfd !== null) crossfadeDuration = parseFloat(cfd);
+                const cfo = localStorage.getItem('setting_crossfade_out');
+                if (cfo !== null) crossfadeOutDuration = parseFloat(cfo);
+                const cfi = localStorage.getItem('setting_crossfade_in');
+                if (cfi !== null) crossfadeInDuration = parseFloat(cfi);
                 const savedGrad = localStorage.getItem('setting_viz_grad');
                 if (savedGrad) { try { const [c1,c2,c3] = JSON.parse(savedGrad); window.vizGradColor1=c1; window.vizGradColor2=c2; window.vizGradColor3=c3; } catch(e){} }
                 else { window.vizGradColor1='#bb86fc'; window.vizGradColor2='#4a90e2'; window.vizGradColor3='#03dac6'; }
