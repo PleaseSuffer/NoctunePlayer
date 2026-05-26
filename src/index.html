@@ -1904,21 +1904,11 @@
                             </div>
                             <div class="settings-row">
                                 <div>
-                                    <div class="settings-row-label">Автопереход к следующему треку</div>
-                                    <div class="settings-row-desc">Включать следующий трек по окончании</div>
+                                    <div class="settings-row-label">Сворачивать в трей</div>
+                                    <div class="settings-row-desc">При закрытии сворачивать окно в трей</div>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-autonext" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
-                            <div class="settings-row">
-                                <div>
-                                    <div class="settings-row-label">Автопереход к следующему плейлисту</div>
-                                    <div class="settings-row-desc">По завершению переходить к следующему плейлисту</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-autonext-playlist">
+                                    <input type="checkbox" id="setting-minimize-to-tray" checked>
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
@@ -2037,6 +2027,30 @@
                                 <input type="range" id="setting-auto-refresh-interval" min="5" max="120" step="5" value="30"
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-auto-refresh-label" style="font-size:12px;font-weight:700;min-width:40px;text-align:right;">30с</span>
+                            </div>
+                        </div>
+
+                        <div class="settings-section-title">Поведение</div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Автопереход к следующему треку</div>
+                                    <div class="settings-row-desc">Включать следующий трек по окончании</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-autonext" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Автопереход к следующему плейлисту</div>
+                                    <div class="settings-row-desc">По завершению переходить к следующему плейлисту</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-autonext-playlist">
+                                    <span class="slider-round"></span>
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -2298,9 +2312,11 @@
 
         const { ipcRenderer } = require('electron');
 
-        // Отвечаем main.js на запрос о состоянии воспроизведения
+        // Отвечаем main.js на запрос о состоянии воспроизведения + настройке трея
         ipcRenderer.on('query-playing-state', () => {
-            ipcRenderer.send('playing-state-response', isPlaying === true);
+            const trayEl = document.getElementById('setting-minimize-to-tray');
+            const minimizeToTray = !trayEl || trayEl.checked;
+            ipcRenderer.send('playing-state-response', isPlaying === true, minimizeToTray);
         });
         const fs = require('fs').promises;
         const path = require('path');
@@ -5404,7 +5420,14 @@
                 localStorage.setItem('setting_autonext', settingAutoNext.checked ? '1' : '0');
             });
 
-            // ---- GENERAL: Autonext playlist ----
+            // ---- GENERAL: Minimize to tray ----
+            const settingMinimizeToTray = document.getElementById('setting-minimize-to-tray');
+            settingMinimizeToTray.addEventListener('change', () => {
+                localStorage.setItem('setting_minimize_to_tray', settingMinimizeToTray.checked ? '1' : '0');
+                ipcRenderer.send('setting-minimize-to-tray-changed', settingMinimizeToTray.checked);
+            });
+
+            // ---- PLAYER: Autonext playlist ----
             const settingAutoNextPlaylist = document.getElementById('setting-autonext-playlist');
             settingAutoNextPlaylist.addEventListener('change', () => {
                 localStorage.setItem('setting_autonext_playlist', settingAutoNextPlaylist.checked ? '1' : '0');
@@ -5714,6 +5737,10 @@
                 // Autonext
                 const savedAutoNext = localStorage.getItem('setting_autonext');
                 if (savedAutoNext !== null) settingAutoNext.checked = savedAutoNext === '1';
+                const savedAutoNextPl = localStorage.getItem('setting_autonext_playlist');
+                if (savedAutoNextPl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = savedAutoNextPl === '1'; }
+                const savedMTT = localStorage.getItem('setting_minimize_to_tray');
+                if (savedMTT !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = savedMTT === '1'; }
 
                 // Notifications
                 const savedNotif = localStorage.getItem('setting_notifications');
@@ -5794,6 +5821,8 @@
                 if (an !== null) { const el = document.getElementById('setting-autonext'); if(el) el.checked = an === '1'; }
                 const anpl = localStorage.getItem('setting_autonext_playlist');
                 if (anpl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = anpl === '1'; }
+                const mtt = localStorage.getItem('setting_minimize_to_tray');
+                if (mtt !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = mtt === '1'; }
                 const rt = localStorage.getItem('setting_remember_track');
                 if (rt !== null) { const el = document.getElementById('setting-remember-track'); if(el) el.checked = rt === '1'; }
             })();
