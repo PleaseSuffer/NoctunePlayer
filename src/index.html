@@ -808,6 +808,7 @@
             justify-content: center;
             transition: color 0.15s, border-color 0.15s;
             padding: 0;
+            align-self: center;
         }
         .eq-presets-nav:hover:not(:disabled) {
             color: var(--accent-color);
@@ -824,10 +825,13 @@
             min-width: 0;
         }
 
+        /* Горизонтальная лента всех кнопок — прокручивается через translateX */
         .eq-presets {
             display: flex;
+            flex-wrap: wrap;
             gap: 6px;
-            transition: transform 0.25s ease;
+            align-content: flex-start;
+            transition: transform 0.28s cubic-bezier(.4,0,.2,1);
             will-change: transform;
         }
 
@@ -835,7 +839,8 @@
             display: flex;
             justify-content: center;
             gap: 5px;
-            margin-top: 6px;
+            min-height: 9px;
+            margin-top: 2px;
         }
         .eq-presets-page-dot {
             width: 5px;
@@ -844,6 +849,7 @@
             background: var(--border-color);
             transition: background 0.2s, transform 0.2s;
             cursor: pointer;
+            flex-shrink: 0;
         }
         .eq-presets-page-dot.active {
             background: var(--accent-color);
@@ -853,6 +859,8 @@
         .preset-btn {
             display: flex;
             align-items: center;
+            flex-shrink: 0;
+            white-space: nowrap;
             background: none;
             border: 1px solid var(--border-color);
             color: var(--text-color);
@@ -860,6 +868,9 @@
             border-radius: 15px;
             cursor: pointer;
             font-size: 12px;
+            line-height: 1;
+            height: 28px;
+            box-sizing: border-box;
             transition: all 0.2s ease;
         }
 
@@ -2672,16 +2683,6 @@
         const SYSTEM_PRESETS = ['Обычный', 'Супер Бас', 'Поп', 'Рок', 'Акустика'];
         let _presetsPage = 0;
 
-        function _getPresetsPerPage() {
-            const viewport = document.getElementById('presets-viewport');
-            if (!viewport) return 99;
-            // measure one btn width: ~70px avg + 6px gap; fit as many as possible
-            const vw = viewport.offsetWidth || 260;
-            const btnW = 78; // approx pill width
-            const perRow = Math.max(1, Math.floor(vw / btnW));
-            return perRow * 2; // 2 rows max visible
-        }
-
         function renderPresetButtons() {
             presetsContainer.innerHTML = '';
 
@@ -2717,46 +2718,98 @@
 
             lucide.createIcons();
             _presetsPage = 0;
-            _updatePresetsCarousel();
+            // Даём браузеру отрисовать кнопки перед замером offsetWidth
+            requestAnimationFrame(() => _updatePresetsCarousel());
         }
         renderPresetButtons();
 
         function _updatePresetsCarousel() {
             const viewport = document.getElementById('presets-viewport');
-            const navPrev = document.getElementById('presets-nav-prev');
-            const navNext = document.getElementById('presets-nav-next');
-            const dotsEl  = document.getElementById('presets-page-dots');
-            if (!viewport || !navPrev || !navNext) return;
+            const navPrev  = document.getElementById('presets-nav-prev');
+            const navNext  = document.getElementById('presets-nav-next');
+            const dotsEl   = document.getElementById('presets-page-dots');
+            if (!viewport || !navPrev || !navNext || !dotsEl) return;
 
             const vw = viewport.offsetWidth;
-            const perPage = _getPresetsPerPage();
-            const btns = presetsContainer.querySelectorAll('.preset-btn');
-            const total = btns.length;
-            const totalPages = Math.max(1, Math.ceil(total / perPage));
+            if (!vw) { requestAnimationFrame(() => _updatePresetsCarousel()); return; }
 
-            // Clamp current page
+            const btns = Array.from(presetsContainer.querySelectorAll('.preset-btn'));
+            dotsEl.innerHTML = '';
+
+            if (btns.length === 0) {
+                navPrev.style.display = 'none';
+                navNext.style.display = 'none';
+                presetsContainer.style.cssText = '';
+                return;
+            }
+
+            // ── Раскладываем кнопки по страницам (макс 2 строки на страницу) ──
+            // Каждая страница — отдельный div.eq-preset-page с flex-wrap и
+            // фиксированной шириной = vw. Viewport показывает один такой блок.
+            // Убираем старые страницы, возвращаем кнопки в контейнер
+            const oldPages = presetsContainer.querySelectorAll('.eq-preset-page');
+            oldPages.forEach(pg => {
+                Array.from(pg.children).forEach(c => presetsContainer.appendChild(c));
+                pg.remove();
+            });
+
+            // Снова собираем страницы
+            const allBtns = Array.from(presetsContainer.querySelectorAll('.preset-btn'));
+            const ROW_H = 28, GAP = 6, ROWS = 2;
+            const pageH = ROW_H * ROWS + GAP * (ROWS - 1); // 62px
+
+            const pageGroups = [[]]; // массив массивов кнопок
+            let rowIdx = 0, rowW = 0;
+
+            allBtns.forEach(btn => {
+                const bw = btn.offsetWidth || 80;
+                const needed = rowW === 0 ? bw : rowW + GAP + bw;
+                if (needed > vw + 1 && rowW > 0) {
+                    rowIdx++;
+                    rowW = bw;
+                    if (rowIdx >= ROWS) {
+                        // Новая страница
+                        pageGroups.push([]);
+                        rowIdx = 0;
+                        rowW = bw;
+                    }
+                } else {
+                    rowW = needed;
+                }
+                pageGroups[pageGroups.length - 1].push(btn);
+            });
+
+            const totalPages = pageGroups.length;
             _presetsPage = Math.min(_presetsPage, totalPages - 1);
 
-            // Compute pixel offset: sum widths of all buttons on previous pages
-            let offset = 0;
-            btns.forEach((btn, i) => {
-                if (i < _presetsPage * perPage) {
-                    offset += btn.offsetWidth + 6; // +gap
-                }
+            // Оборачиваем каждую группу в .eq-preset-page
+            presetsContainer.innerHTML = '';
+            presetsContainer.style.cssText =
+                `display:flex; flex-direction:row; gap:0; width:${totalPages * vw}px;` +
+                `transition:transform 0.28s cubic-bezier(.4,0,.2,1); will-change:transform;`;
+
+            pageGroups.forEach(group => {
+                const pg = document.createElement('div');
+                pg.className = 'eq-preset-page';
+                pg.style.cssText =
+                    `display:flex; flex-wrap:wrap; align-content:flex-start;` +
+                    `gap:${GAP}px; width:${vw}px; height:${pageH}px;` +
+                    `flex-shrink:0; overflow:hidden; box-sizing:border-box;`;
+                group.forEach(btn => pg.appendChild(btn));
+                presetsContainer.appendChild(pg);
             });
-            presetsContainer.style.transform = `translateX(-${offset}px)`;
 
-            // Nav buttons
-            navPrev.disabled = _presetsPage === 0;
-            navNext.disabled = _presetsPage >= totalPages - 1;
+            // Сдвигаем на текущую страницу
+            presetsContainer.style.transform = `translateX(-${_presetsPage * vw}px)`;
 
-            // Show nav only if more than 1 page
+            // Nav
             const showNav = totalPages > 1;
             navPrev.style.display = showNav ? '' : 'none';
             navNext.style.display = showNav ? '' : 'none';
+            navPrev.disabled = _presetsPage === 0;
+            navNext.disabled = _presetsPage >= totalPages - 1;
 
-            // Page dots
-            dotsEl.innerHTML = '';
+            // Dots
             if (totalPages > 1) {
                 for (let i = 0; i < totalPages; i++) {
                     const dot = document.createElement('div');
