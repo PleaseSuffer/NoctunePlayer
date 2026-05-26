@@ -2287,6 +2287,11 @@
         const contextMenu = document.getElementById('context-menu');
 
         const { ipcRenderer } = require('electron');
+
+        // Отвечаем main.js на запрос о состоянии воспроизведения
+        ipcRenderer.on('query-playing-state', () => {
+            ipcRenderer.send('playing-state-response', isPlaying === true);
+        });
         const fs = require('fs').promises;
         const path = require('path');
 
@@ -2606,12 +2611,14 @@
             isShuffle = !isShuffle;
             btnShuffle.classList.toggle('active', isShuffle);
             miniBtnShuffle.classList.toggle('active', isShuffle);
+            localStorage.setItem('player_shuffle', isShuffle ? '1' : '0');
         }
 
         function toggleRepeat() {
             isRepeat = !isRepeat;
             btnRepeat.classList.toggle('active', isRepeat);
             miniBtnRepeat.classList.toggle('active', isRepeat);
+            localStorage.setItem('player_repeat', isRepeat ? '1' : '0');
         }
 
         function toggleMute() {
@@ -5222,6 +5229,17 @@
 
         const savedVolume = localStorage.getItem('player_volume');
         if (savedVolume !== null) { updateVolume(parseFloat(savedVolume), false); }
+
+        if (localStorage.getItem('player_shuffle') === '1') {
+            isShuffle = true;
+            btnShuffle.classList.add('active');
+            miniBtnShuffle.classList.add('active');
+        }
+        if (localStorage.getItem('player_repeat') === '1') {
+            isRepeat = true;
+            btnRepeat.classList.add('active');
+            miniBtnRepeat.classList.add('active');
+        }
 
         restoreEqState();
         lucide.createIcons();

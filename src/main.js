@@ -258,6 +258,19 @@ function createWindow() {
   win.loadFile('src/index.html');
 
   
+
+  // Когда HTML полностью готов к отображению
+  /*
+  win.once('ready-to-show', () => {
+    // Добавляем задержку в 5000 миллисекунд (5 секунд)
+    setTimeout(() => {
+      if (splash && !splash.isDestroyed()) {
+        splash.close(); // Закрываем лоадер через 5 секунд
+      }
+      win.show(); // Показываем основное окно
+    }, 5000);
+  });
+  */
   win.once('ready-to-show', () => {
     if (splash && !splash.isDestroyed()) {
       splash.close(); // Закрываем лоадер
@@ -273,19 +286,30 @@ function createWindow() {
   });
 
   win.on('close', function (event) {
-    if (!isQuiting) {
-      event.preventDefault();
-      win.hide();
+    if (isQuiting) return; // Выход из трея — закрываем без вопросов
 
-      if (Notification.isSupported()) {
-        new Notification({
-          title: 'Noctune Player',
-          body: 'Приложение свернуто в трей и продолжает работу.',
-          icon: iconPath
-        }).show();
+    event.preventDefault();
+
+    // Спрашиваем рендерер: играет ли сейчас музыка
+    win.webContents.send('query-playing-state');
+
+    ipcMain.once('playing-state-response', (_e, isPlaying) => {
+      if (isPlaying) {
+        // Музыка играет — сворачиваем в трей
+        win.hide();
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'Noctune Player',
+            body: 'Приложение свёрнуто в трей и продолжает воспроизведение.',
+            icon: iconPath
+          }).show();
+        }
+      } else {
+        // На паузе — просто закрываем
+        isQuiting = true;
+        app.quit();
       }
-    }
-    return false;
+    });
   });
 }
 
