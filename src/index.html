@@ -2360,7 +2360,11 @@
                         <div style="display:flex;flex-direction:column;gap:8px;">
                             <a class="about-link" href="https://t.me/borisik_denis" target="_blank">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-                                @borisik_denis
+                                Автор в Telegram
+                            </a>
+                            <a class="about-link" href="https://github.com/PleaseSuffer" target="_blank">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.2c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+                                Автор на GitHub
                             </a>
                             <a class="about-link" href="https://t.me/noctuneplayer" target="_blank">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
@@ -2382,11 +2386,19 @@
                             <div class="update-status" id="update-status-msg">Нажмите «Проверить» для поиска новых версий на GitHub</div>
                         </div>
 
-                        <div class="settings-section-title">Технические детали</div>
+                        <div class="settings-section-title">Сборка</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:6px;">
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
-                                <span style="color:var(--text-muted);">Сборка</span>
-                                <span style="font-weight:600;">Electron v30.5.1 + Web Audio API</span>
+                                <span style="color:var(--text-muted);">Electron</span>
+                                <span style="font-weight:600;" id="about-electron-version">—</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                                <span style="color:var(--text-muted);">electron-store</span>
+                                <span style="font-weight:600;" id="about-store-version">—</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                                <span style="color:var(--text-muted);">Node.js</span>
+                                <span style="font-weight:600;" id="about-node-version">—</span>
                             </div>
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
                                 <span style="color:var(--text-muted);">Репозиторий</span>
@@ -2476,6 +2488,24 @@
         const contextMenu = document.getElementById('context-menu');
 
         const { ipcRenderer } = require('electron');
+
+        // Команды из трея
+        ipcRenderer.on('tray-cmd', (_e, cmd) => {
+            if (cmd === 'toggle') togglePlayback();
+            else if (cmd === 'prev') playPrev();
+            else if (cmd === 'next') playNext();
+            else if (cmd === 'check-updates') {
+                // Открываем вкладку "О программе" — проверка уже идёт в main процессе
+                const settingsModal = document.getElementById('settings-modal');
+                if (settingsModal) {
+                    settingsModal.style.display = 'flex';
+                    document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+                    document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+                    const aboutNav = document.querySelector('[data-tab="about"]');
+                    if (aboutNav) { aboutNav.classList.add('active'); document.getElementById('panel-about')?.classList.add('active'); }
+                }
+            }
+        });
 
         // Отвечаем main.js на запрос о состоянии воспроизведения + настройке трея
         ipcRenderer.on('query-playing-state', () => {
@@ -4794,6 +4824,20 @@
             updatePlayIcons(true);
             statusText.textContent = 'Воспроизведение';
             startProgressUpdater();
+            sendTrayState();
+        }
+
+        function sendTrayState() {
+            try {
+                const title = document.getElementById('track-title')?.textContent || 'Ничего не играет';
+                const hasPlaylist = playlistOrder.length > 0;
+                ipcRenderer.send('tray-state-update', {
+                    isPlaying,
+                    trackTitle: title.length > 40 ? title.slice(0, 38) + '…' : title,
+                    prevEnabled: hasPlaylist && currentIndex > 0,
+                    nextEnabled: hasPlaylist && currentIndex < playlistOrder.length - 1,
+                });
+            } catch(e) {}
         }
 
         function updatePlayIcons(playing) {
@@ -4809,6 +4853,7 @@
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
             }
             lucide.createIcons();
+            sendTrayState();
         }
 
         function updateVolumeIcons(val) {
@@ -5380,6 +5425,15 @@
 
             try {
                 const version = await ipcRenderer.invoke('get-app-version');
+                try {
+                    const tech = await ipcRenderer.invoke('get-tech-versions');
+                    const ev = document.getElementById('about-electron-version');
+                    const sv = document.getElementById('about-store-version');
+                    const nv = document.getElementById('about-node-version');
+                    if (ev) ev.textContent = 'v' + tech.electron;
+                    if (sv) sv.textContent = 'v' + tech.electronStore;
+                    if (nv) nv.textContent = 'v' + tech.node;
+                } catch(e) {}
                 document.getElementById('app-version').textContent = `v${version}`;
             } catch (e) {
                 document.getElementById('app-version').textContent = 'v1.0.0 (dev)';

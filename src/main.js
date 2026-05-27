@@ -424,6 +424,101 @@ ipcMain.handle('get-app-version', () => {
     return app.getVersion();
 });
 
+ipcMain.handle('get-tech-versions', async () => {
+    let storeVersion = '—';
+    try {
+        const pkg = require(require('path').join(__dirname, '..', 'node_modules', 'electron-store', 'package.json'));
+        storeVersion = pkg.version;
+    } catch(e) {}
+    return {
+        electron: process.versions.electron,
+        node: process.versions.node,
+        chrome: process.versions.chrome,
+        electronStore: storeVersion,
+    };
+});
+
+// Проверка обновлений из трея — с уведомлением о результате
+ipcMain.on('tray-check-updates', async () => {
+    if (Notification.isSupported()) {
+        new Notification({
+            title: 'Noctune Player',
+            body: 'Проверяем наличие обновлений...',
+            icon: iconPath
+        }).show();
+    }
+
+    try {
+        // Переиспользуем ту же логику что и в рендерере
+        const result = await new Promise((resolve) => {
+            const currentVersion = app.getVersion();
+            const request = net.request({
+                method: 'GET', protocol: 'https:',
+                hostname: 'api.github.com', port: 443,
+                path: '/repos/PleaseSuffer/NoctunePlayer/releases/latest',
+            });
+            request.setHeader('User-Agent', 'NoctunePlayer');
+            request.on('response', (response) => {
+                let body = '';
+                response.on('data', (chunk) => { body += chunk.toString(); });
+                response.on('end', () => {
+                    if (response.statusCode !== 200) {
+                        resolve({ success: false }); return;
+                    }
+                    try {
+                        const data = JSON.parse(body);
+                        const latestVersion = data.tag_name.replace(/^v/, '');
+                        const cleanCurrent = currentVersion.replace(/^v/, '');
+                        resolve({
+                            success: true,
+                            hasUpdate: latestVersion !== cleanCurrent,
+                            latestVersion: data.tag_name,
+                            currentVersion,
+                            updateUrl: data.html_url
+                        });
+                    } catch(e) { resolve({ success: false }); }
+                });
+            });
+            request.on('error', () => resolve({ success: false }));
+            request.end();
+        });
+
+        if (!Notification.isSupported()) return;
+
+        if (!result.success) {
+            new Notification({
+                title: 'Noctune Player',
+                body: 'Не удалось проверить обновления. Проверьте подключение к сети.',
+                icon: iconPath
+            }).show();
+        } else if (result.hasUpdate) {
+            const notif = new Notification({
+                title: 'Доступно обновление!',
+                body: `Версия ${result.latestVersion} доступна (у вас v${result.currentVersion}). Нажмите чтобы открыть страницу загрузки.`,
+                icon: iconPath
+            });
+            notif.on('click', () => {
+                require('electron').shell.openExternal(result.updateUrl);
+            });
+            notif.show();
+        } else {
+            new Notification({
+                title: 'Noctune Player',
+                body: `У вас установлена актуальная версия (v${result.currentVersion}).`,
+                icon: iconPath
+            }).show();
+        }
+    } catch(e) {
+        if (Notification.isSupported()) {
+            new Notification({
+                title: 'Noctune Player',
+                body: 'Ошибка при проверке обновлений.',
+                icon: iconPath
+            }).show();
+        }
+    }
+});
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -445,23 +540,82 @@ if (!gotTheLock) {
     createWindow();
 
     tray = new Tray(iconPath);
-    
-    const contextMenu = Menu.buildFromTemplate([
-      { label: 'Развернуть', click: () => win.show() },
-      { 
-        label: 'Выход', 
-        click: () => {
-          isQuiting = true;
-          app.quit();
-        } 
-      }
-    ]);
+
+    // Состояние воспроизведения для отображения в трее
+    let trayIsPlaying = false;
+    let trayTrackTitle = 'Ничего не играет';
+    let trayPrevEnabled = false;
+    let trayNextEnabled = false;
+
+    function buildTrayMenu() {
+      const visible = win.isVisible();
+      return Menu.buildFromTemplate([
+        {
+          label: visible ? 'Свернуть' : 'Развернуть',
+          click: () => { if (visible) { win.hide(); } else { win.show(); win.focus(); } }
+        },
+        { type: 'separator' },
+        { type: 'separator' },
+        {
+          label: 'Воспроизведение',
+          sublabel: trayTrackTitle,
+          submenu: [
+            {
+              label: trayIsPlaying ? 'Пауза' : 'Воспроизвести',
+              click: () => win.webContents.send('tray-cmd', 'toggle')
+            },
+            { type: 'separator' },
+            {
+              label: 'Предыдущая песня',
+              enabled: trayPrevEnabled,
+              click: () => win.webContents.send('tray-cmd', 'prev')
+            },
+            {
+              label: 'Следующая песня',
+              enabled: trayNextEnabled,
+              click: () => win.webContents.send('tray-cmd', 'next')
+            },
+          ]
+        },
+        { type: 'separator' },
+        {
+          label: 'О приложении',
+          submenu: [
+            { label: 'Noctune Player v' + app.getVersion(), enabled: false },
+            { label: 'GitHub', click: () => require('electron').shell.openExternal('https://github.com/PleaseSuffer/NoctunePlayer') },
+          ]
+        },
+        { type: 'separator' },
+        {
+          label: 'Закрыть приложение',
+          click: () => { isQuiting = true; app.quit(); }
+        }
+      ]);
+    }
+
+    function refreshTrayMenu() {
+      tray.setContextMenu(buildTrayMenu());
+    }
+
+    // Обновление состояния трея из рендерера
+    ipcMain.on('tray-state-update', (_e, state) => {
+      if (typeof state.isPlaying === 'boolean') trayIsPlaying = state.isPlaying;
+      if (state.trackTitle) trayTrackTitle = state.trackTitle;
+      if (typeof state.prevEnabled === 'boolean') trayPrevEnabled = state.prevEnabled;
+      if (typeof state.nextEnabled === 'boolean') trayNextEnabled = state.nextEnabled;
+      refreshTrayMenu();
+    });
 
     tray.setToolTip('Noctune Player');
-    tray.setContextMenu(contextMenu);
+    refreshTrayMenu();
+
+    // Обновляем метку при смене видимости окна
+    win.on('show', refreshTrayMenu);
+    win.on('hide', refreshTrayMenu);
 
     tray.on('click', () => {
-      win.show();
+      if (win.isVisible()) { win.focus(); } else { win.show(); win.focus(); }
+      refreshTrayMenu();
     });
   });
 }
