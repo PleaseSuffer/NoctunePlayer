@@ -1348,25 +1348,41 @@
         .pl-editor-item .pl-type-badge.radio { background: #2ecc71; }
 
         /* Visualizer style buttons */
-        .viz-style-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
+        /* Dropdown для типа визуализатора */
+        .viz-type-dropdown-wrapper { position: relative; width: 100%; }
+        .viz-type-dropdown-btn {
+            width: 100%; height: 34px; padding: 0 10px;
+            border-radius: 8px; border: 1px solid var(--border-color);
+            background: var(--container-bg); color: var(--text-color);
+            font-size: 13px; font-weight: 600; outline: none; cursor: pointer;
+            display: flex; align-items: center; gap: 7px; user-select: none;
+            transition: border-color 0.2s; box-sizing: border-box;
         }
-        .viz-style-btn {
-            padding: 10px 12px;
-            border-radius: 8px;
-            border: 2px solid var(--border-color);
-            background: transparent;
-            color: var(--text-color);
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            text-align: center;
-            transition: all 0.15s;
+        .viz-type-dropdown-btn:hover,
+        .viz-type-dropdown-btn.open { border-color: var(--accent-color); }
+        .viz-type-dropdown-btn .pd-icon { flex-shrink:0; color:var(--accent-color); display:flex; align-items:center; }
+        .viz-type-dropdown-btn .pd-label { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .viz-type-dropdown-btn .pd-chevron { flex-shrink:0; color:var(--text-muted); transition:transform 0.2s; display:flex; align-items:center; }
+        .viz-type-dropdown-btn.open .pd-chevron { transform: rotate(180deg); }
+        .viz-type-dropdown-menu {
+            display: none; position: absolute; top: calc(100% + 4px); left: 0; width: 100%;
+            background: var(--container-bg); border: 1px solid var(--border-color);
+            border-radius: 10px; box-shadow: 0 8px 24px var(--shadow); z-index: 600;
+            padding: 4px; box-sizing: border-box;
         }
-        .viz-style-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
-        .viz-style-btn.active { border-color: var(--accent-color); background: var(--accent-color); color: #fff; }
+        .viz-type-dropdown-menu.open { display: block; }
+        .viz-type-menu-item {
+            display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+            border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500;
+            color: var(--text-color); transition: background 0.15s;
+        }
+        .viz-type-menu-item:hover { background: var(--track-hover); }
+        .viz-type-menu-item.active { background: var(--accent-color); color: #fff; }
+        .viz-type-menu-item.active i { color: #fff !important; }
+
+        /* Блоки настроек под конкретный тип */
+        .viz-settings-block { display: none; flex-direction: column; gap: 12px; }
+        .viz-settings-block.visible { display: flex; }
 
         /* Accent color picker */
         .accent-swatches {
@@ -2256,16 +2272,9 @@
                         </div>
 
                         <div class="settings-section-title">Визуализатор</div>
-                        <div class="settings-card" style="display:flex;flex-direction:column;gap:12px;">
-                            <div>
-                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Форма визуализатора</div>
-                                <div class="viz-style-grid" id="viz-style-grid">
-                                    <button class="viz-style-btn active" data-viz="circle-smooth">Круг сглаженный</button>
-                                    <button class="viz-style-btn" data-viz="circle-lines">Круг с линиями</button>
-                                    <button class="viz-style-btn" data-viz="bars-bottom">Полосы снизу</button>
-                                    <button class="viz-style-btn" data-viz="bars-center">Полосы по центру</button>
-                                </div>
-                            </div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
+
+                            <!-- Включение -->
                             <div class="settings-row" style="padding:0;">
                                 <div>
                                     <div class="settings-row-label">Показывать визуализатор</div>
@@ -2275,26 +2284,108 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" style="padding:0;">
-                                <div>
-                                    <div class="settings-row-label">Частицы (звёзды)</div>
-                                    <div class="settings-row-desc">Анимированный фон</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-show-stars" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
+
+                            <!-- Настройки визуализатора (скрываются когда выключен) -->
+                            <div id="viz-advanced-settings" style="display:flex;flex-direction:column;gap:14px;margin-top:14px;">
+
+                            <!-- Тип через dropdown -->
                             <div>
-                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность визуализатора</div>
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Тип визуализатора</div>
+                                <div class="viz-type-dropdown-wrapper" id="viz-type-dropdown-wrapper">
+                                    <button class="viz-type-dropdown-btn" id="viz-type-dropdown-btn">
+                                        <span class="pd-icon"><i data-lucide="circle" style="width:14px;height:14px;"></i></span>
+                                        <span class="pd-label" id="viz-type-label">Круг сглаженный</span>
+                                        <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                    </button>
+                                    <div class="viz-type-dropdown-menu" id="viz-type-dropdown-menu">
+                                        <div class="viz-type-menu-item active" data-viz="circle-smooth" data-icon="circle">
+                                            <i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Круг сглаженный
+                                        </div>
+                                        <div class="viz-type-menu-item" data-viz="circle-lines" data-icon="circle-dashed">
+                                            <i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Круг с линиями
+                                        </div>
+                                        <div class="viz-type-menu-item" data-viz="bars-bottom" data-icon="bar-chart-2">
+                                            <i data-lucide="bar-chart-2" style="width:14px;height:14px;color:var(--accent-color);"></i> Полосы снизу
+                                        </div>
+                                        <div class="viz-type-menu-item" data-viz="bars-center" data-icon="align-center">
+                                            <i data-lucide="align-center" style="width:14px;height:14px;color:var(--accent-color);"></i> Полосы по центру
+                                        </div>
+                                        <div class="viz-type-menu-item" data-viz="waveform" data-icon="radio">
+                                            <i data-lucide="radio" style="width:14px;height:14px;color:var(--accent-color);"></i> Осциллограф
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Общие настройки (для всех типов) -->
+                            <div>
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность</div>
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <input type="range" id="setting-viz-intensity" min="0.2" max="2" step="0.1" value="1"
                                         style="flex:1;accent-color:var(--accent-color);">
                                     <span id="setting-viz-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
                                 </div>
                             </div>
-                            <div>
-                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Цвета градиента визуализатора</div>
+
+                            <!-- Настройки для кругов -->
+                            <div class="viz-settings-block" id="viz-settings-circles">
+                                <div class="settings-row" style="padding:0;">
+                                    <div>
+                                        <div class="settings-row-label">Внутренний визуализатор</div>
+                                        <div class="settings-row-desc">Размытое свечение внутри круга</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-inner" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Настройки для полос (bars) -->
+                            <div class="viz-settings-block" id="viz-settings-bars">
+                                <div class="settings-row" style="padding:0;">
+                                    <div>
+                                        <div class="settings-row-label">Линии пиков</div>
+                                        <div class="settings-row-desc">Показывать линию максимума над полосой</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-peaks" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row" style="padding:0;">
+                                    <div>
+                                        <div class="settings-row-label">Прокрутка градиента</div>
+                                        <div class="settings-row-desc">Вертикальное переливание цветов</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-scroll-grad">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Настройки для осциллографа -->
+                            <div class="viz-settings-block" id="viz-settings-waveform">
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Количество линий</div>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <input type="range" id="setting-viz-wave-lines" min="1" max="8" step="1" value="1"
+                                        style="flex:1;accent-color:var(--accent-color);">
+                                    <span id="setting-viz-wave-lines-label" style="font-size:12px;font-weight:700;min-width:20px;">1</span>
+                                </div>
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;margin-top:10px;">Чувствительность</div>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <input type="range" id="setting-viz-wave-sens" min="0.5" max="5" step="0.1" value="1.5"
+                                        style="flex:1;accent-color:var(--accent-color);">
+                                    <span id="setting-viz-wave-sens-label" style="font-size:12px;font-weight:700;min-width:32px;">1.5</span>
+                                </div>
+                            </div>
+
+
+
+                            <!-- Цвета градиента (для всех полосных + спектрограмма) -->
+                            <div class="viz-settings-block" id="viz-settings-gradient">
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Цвета градиента</div>
                                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                                     <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
                                         <input type="color" id="viz-grad-color1" value="#bb86fc" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
@@ -2311,26 +2402,34 @@
                                     <button id="viz-grad-reset" class="btn" style="padding:5px 10px;font-size:11px;margin-left:4px;">↺ Сброс</button>
                                 </div>
                             </div>
+
+                            <!-- Вращение цветов (для кругов) -->
+                            <div class="viz-settings-block" id="viz-settings-rotate">
+                                <div class="settings-row" style="padding:0;">
+                                    <div>
+                                        <div class="settings-row-label">Вращение цветов градиента</div>
+                                        <div class="settings-row-desc">Анимировать смену цветов</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-rotate-colors" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Частицы -->
                             <div class="settings-row" style="padding:0;">
                                 <div>
-                                    <div class="settings-row-label">Вращение цветов градиента</div>
-                                    <div class="settings-row-desc">Анимировать смену цветов</div>
+                                    <div class="settings-row-label">Частицы (звёзды)</div>
+                                    <div class="settings-row-desc">Анимированный фон</div>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-viz-rotate-colors" checked>
+                                    <input type="checkbox" id="setting-show-stars" checked>
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" style="padding:0;" id="viz-inner-row">
-                                <div>
-                                    <div class="settings-row-label">Внутренний визуализатор (круг)</div>
-                                    <div class="settings-row-desc">Размытое свечение внутри круга</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-viz-inner" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
+
+                            </div><!-- /viz-advanced-settings -->
                         </div>
 
                         <div class="settings-section-title">Интерфейс</div>
@@ -4893,6 +4992,10 @@
             if (repeatMode === 2) {
                 // Повтор плейлиста — после последнего трека начинаем сначала
                 const nextIdx = currentIndex + 1 < playlistOrder.length ? currentIndex + 1 : 0;
+                if (isShuffle) {
+                    playTrack(Math.floor(Math.random() * playlistOrder.length), 0, true);
+                    return;
+                }
                 playTrack(nextIdx, 0, true);
                 return;
             }
@@ -5320,13 +5423,31 @@
                 const barWidth = (canvas.clientWidth / barCount) * 0.8;
                 const gap = (canvas.clientWidth / barCount) * 0.2;
                 const maxBarH = canvas.clientHeight * 0.7;
-                const grad = ctx.createLinearGradient(0, canvas.clientHeight, 0, 0);
-                grad.addColorStop(0, gc1 + 'cc');
-                grad.addColorStop(0.5, gc2 + 'cc');
-                grad.addColorStop(1, gc3 + 'cc');
-
+                const W = canvas.clientWidth, H = canvas.clientHeight;
                 if (window.barFall === undefined || window.barFall.length !== barCount) window.barFall = new Array(barCount).fill(0);
                 if (window.barPeaks === undefined || window.barPeaks.length !== barCount) window.barPeaks = new Array(barCount).fill(0);
+
+                const scrollGradBB = window.vizScrollGrad;
+                // Плавное переливание: hue сдвигается во времени
+                const hueOff = scrollGradBB ? (Date.now() * 0.05) % 360 : 0;
+
+                // Вертикальный градиент (используется для рендера полосы)
+                // При scroll=off — цвета из пикера, при scroll=on — HSL-переливание
+                function makeBarGradBB(h_bar) {
+                    const g = ctx.createLinearGradient(0, H, 0, H - maxBarH);
+                    if (scrollGradBB) {
+                        g.addColorStop(0,   `hsla(${(hueOff)|0},75%,45%,0.9)`);
+                        g.addColorStop(0.5, `hsla(${(hueOff+120)%360|0},80%,55%,0.9)`);
+                        g.addColorStop(1,   `hsla(${(hueOff+240)%360|0},85%,65%,0.9)`);
+                    } else {
+                        g.addColorStop(0,   gc1 + 'dd');
+                        g.addColorStop(0.5, gc2 + 'dd');
+                        g.addColorStop(1,   gc3 + 'dd');
+                    }
+                    return g;
+                }
+                // Один градиент на весь кадр — полосы едят один fillStyle
+                const bbGrad = makeBarGradBB();
 
                 for (let i = 0; i < barCount; i++) {
                     const skipBins = 3;
@@ -5339,15 +5460,16 @@
 
                     const x = i * (barWidth + gap);
                     const h = window.barFall[i];
-                    ctx.fillStyle = grad;
+                    ctx.fillStyle = bbGrad;
                     ctx.globalAlpha = 0.85;
                     ctx.beginPath();
-                    ctx.roundRect(x, canvas.clientHeight - h, barWidth, h, [3, 3, 0, 0]);
+                    ctx.roundRect(x, H - h, barWidth, h, [3, 3, 0, 0]);
                     ctx.fill();
-                    // Peak line
-                    ctx.globalAlpha = 0.9;
-                    ctx.fillStyle = gc3;
-                    ctx.fillRect(x, canvas.clientHeight - window.barPeaks[i] - 2, barWidth, 2);
+                    if (window.vizShowPeaks !== false) {
+                        ctx.globalAlpha = 0.9;
+                        ctx.fillStyle = scrollGradBB ? `hsla(${(hueOff+240)%360|0},85%,65%,1)` : gc3;
+                        ctx.fillRect(x, H - window.barPeaks[i] - 2, barWidth, 2);
+                    }
                 }
                 ctx.globalAlpha = 1;
 
@@ -5357,12 +5479,20 @@
                 const gap = (canvas.clientWidth / barCount) * 0.2;
                 const maxBarH = canvas.clientHeight * 0.35;
                 const midY = canvas.clientHeight / 2;
-                const grad = ctx.createLinearGradient(0, midY - maxBarH, 0, midY + maxBarH);
-                grad.addColorStop(0, gc1 + 'cc');
-                grad.addColorStop(0.5, gc2 + 'cc');
-                grad.addColorStop(1, gc3 + 'cc');
-
+                const scrollGrad = window.vizScrollGrad;
                 if (window.barFall2 === undefined || window.barFall2.length !== barCount) window.barFall2 = new Array(barCount).fill(0);
+                if (window.barPeaks2 === undefined || window.barPeaks2.length !== barCount) window.barPeaks2 = new Array(barCount).fill(0);
+                const hueOffBC = scrollGrad ? (Date.now() * 0.05) % 360 : 0;
+                const gradCenter = ctx.createLinearGradient(0, midY - maxBarH, 0, midY + maxBarH);
+                if (scrollGrad) {
+                    gradCenter.addColorStop(0,   `hsla(${(hueOffBC+240)%360|0},85%,65%,0.9)`);
+                    gradCenter.addColorStop(0.5, `hsla(${(hueOffBC+120)%360|0},80%,55%,0.9)`);
+                    gradCenter.addColorStop(1,   `hsla(${hueOffBC|0},75%,45%,0.9)`);
+                } else {
+                    gradCenter.addColorStop(0,   gc3 + 'dd');
+                    gradCenter.addColorStop(0.5, gc2 + 'dd');
+                    gradCenter.addColorStop(1,   gc1 + 'dd');
+                }
 
                 for (let i = 0; i < barCount; i++) {
                     const skipBins = 3;
@@ -5370,13 +5500,70 @@
                     const targetH = val * maxBarH * intensity;
                     if (targetH > window.barFall2[i]) window.barFall2[i] = targetH;
                     else { window.barFall2[i] *= 0.92; if (window.barFall2[i] < 0.5) window.barFall2[i] = 0; }
+                    if (targetH > window.barPeaks2[i]) window.barPeaks2[i] = targetH;
+                    else { window.barPeaks2[i] -= 1.2; if (window.barPeaks2[i] < 0) window.barPeaks2[i] = 0; }
                     const x = i * (barWidth + gap);
                     const h = window.barFall2[i];
-                    ctx.fillStyle = grad;
+                    ctx.fillStyle = gradCenter;
                     ctx.globalAlpha = 0.85;
                     ctx.beginPath();
                     ctx.roundRect(x, midY - h, barWidth, h * 2, 2);
                     ctx.fill();
+                    if (window.vizShowPeaks !== false) {
+                        ctx.globalAlpha = 0.9;
+                        ctx.fillStyle = gc3;
+                        ctx.fillRect(x, midY - window.barPeaks2[i] - 2, barWidth, 2);
+                        ctx.fillRect(x, midY + window.barPeaks2[i],     barWidth, 2);
+                    }
+                }
+                ctx.globalAlpha = 1;
+
+            } else if (style === 'waveform') {
+                // ── Осциллограф с историей кадров ────────────────────────────
+                if (!analyzer) return;
+                if (!window._waveBuf || window._waveBuf.length !== analyzer.fftSize) {
+                    window._waveBuf = new Uint8Array(analyzer.fftSize);
+                }
+                analyzer.getByteTimeDomainData(window._waveBuf);
+
+                const W = canvas.clientWidth, H = canvas.clientHeight;
+                const midY = H / 2;
+                const lineCount = Math.max(1, window.vizWaveLines || 1);
+                const sens = window.vizWaveSens || 1.5;
+
+                // Хранилище истории: кольцевой буфер из lineCount снимков
+                if (!window._waveHistory || window._waveHistory.length !== lineCount ||
+                    window._waveHistory[0].length !== window._waveBuf.length) {
+                    window._waveHistory = Array.from({length: lineCount},
+                        () => new Uint8Array(window._waveBuf.length).fill(128));
+                }
+                // Сдвигаем историю: старые кадры назад, новый — в начало
+                for (let k = lineCount - 1; k > 0; k--) {
+                    window._waveHistory[k].set(window._waveHistory[k - 1]);
+                }
+                window._waveHistory[0].set(window._waveBuf);
+
+                const wGrad = ctx.createLinearGradient(0, 0, W, 0);
+                wGrad.addColorStop(0,   gc1 + 'ff');
+                wGrad.addColorStop(0.5, gc2 + 'ff');
+                wGrad.addColorStop(1,   gc3 + 'ff');
+
+                // Рисуем от самого старого к самому новому (старые позади)
+                for (let k = lineCount - 1; k >= 0; k--) {
+                    const frame = window._waveHistory[k];
+                    // Самый новый (k=0) — непрозрачный, старые — прозрачнее
+                    const alpha = k === 0 ? 0.95 : 0.95 * Math.pow(0.9, k);
+                    ctx.globalAlpha = alpha;
+                    ctx.strokeStyle = wGrad;
+                    ctx.lineWidth = k === 0 ? 2 : Math.max(0.5, 2 - k * 0.15);
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    const step = W / frame.length;
+                    for (let i = 0; i < frame.length; i++) {
+                        const y = ((frame[i] / 128) - 1) * (H * 0.42) * sens * intensity + midY;
+                        i === 0 ? ctx.moveTo(0, y) : ctx.lineTo(i * step, y);
+                    }
+                    ctx.stroke();
                 }
                 ctx.globalAlpha = 1;
             }
@@ -5676,6 +5863,60 @@
                 localStorage.setItem('setting_notifications', settingNotifications.checked ? '1' : '0');
             });
 
+            // ---- APPEARANCE: Visualizer type dropdown ----
+            const vizTypeBtn  = document.getElementById('viz-type-dropdown-btn');
+            const vizTypeMenu = document.getElementById('viz-type-dropdown-menu');
+            const vizTypeLabel = document.getElementById('viz-type-label');
+            const VIZ_GROUPS = {
+                'circle-smooth': ['circles', 'rotate', 'gradient'],
+                'circle-lines':  ['circles', 'rotate', 'gradient'],
+                'bars-bottom':   ['bars', 'gradient'],
+                'bars-center':   ['bars', 'gradient'],
+                'waveform':      ['waveform', 'gradient'],
+            };
+
+            function updateVizSettingsBlocks(style) {
+                const groups = VIZ_GROUPS[style] || [];
+                document.getElementById('viz-settings-circles').classList.toggle('visible', groups.includes('circles'));
+                document.getElementById('viz-settings-bars').classList.toggle('visible', groups.includes('bars'));
+                document.getElementById('viz-settings-waveform').classList.toggle('visible', groups.includes('waveform'));
+                document.getElementById('viz-settings-gradient').classList.toggle('visible', groups.includes('gradient'));
+                document.getElementById('viz-settings-rotate').classList.toggle('visible', groups.includes('rotate'));
+            }
+
+            function selectVizType(style) {
+                window.vizStyle = style;
+                localStorage.setItem('setting_viz_style', style);
+                const item = vizTypeMenu.querySelector(`[data-viz="${style}"]`);
+                if (item) {
+                    vizTypeLabel.textContent = item.textContent.trim();
+                    const iconName = item.dataset.icon;
+                    vizTypeBtn.querySelector('.pd-icon').innerHTML = `<i data-lucide="${iconName}" style="width:14px;height:14px;"></i>`;
+                }
+                vizTypeMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
+                    el.classList.toggle('active', el.dataset.viz === style));
+                updateVizSettingsBlocks(style);
+                lucide.createIcons();
+            }
+
+            vizTypeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = vizTypeMenu.classList.toggle('open');
+                vizTypeBtn.classList.toggle('open', open);
+            });
+            document.addEventListener('click', () => {
+                vizTypeMenu.classList.remove('open');
+                vizTypeBtn.classList.remove('open');
+            });
+            vizTypeMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('.viz-type-menu-item');
+                if (!item) return;
+                e.stopPropagation();
+                selectVizType(item.dataset.viz);
+                vizTypeMenu.classList.remove('open');
+                vizTypeBtn.classList.remove('open');
+            });
+
             // ---- APPEARANCE: Visualizer gradient colors ----
             const vizColor1 = document.getElementById('viz-grad-color1');
             const vizColor2 = document.getElementById('viz-grad-color2');
@@ -5691,10 +5932,7 @@
             vizColor2.addEventListener('input', applyVizColors);
             vizColor3.addEventListener('input', applyVizColors);
             vizGradReset.addEventListener('click', () => {
-                const isDark = document.body.getAttribute('data-theme') === 'dark';
-                vizColor1.value = '#bb86fc';
-                vizColor2.value = '#4a90e2';
-                vizColor3.value = '#03dac6';
+                vizColor1.value = '#bb86fc'; vizColor2.value = '#4a90e2'; vizColor3.value = '#03dac6';
                 applyVizColors();
             });
 
@@ -5712,12 +5950,39 @@
                 localStorage.setItem('setting_viz_inner', settingVizInner.checked ? '1' : '0');
             });
 
-            // Show/hide inner viz row based on style
-            function updateInnerVizRowVisibility() {
-                const row = document.getElementById('viz-inner-row');
-                if (row) row.style.display = (window.vizStyle === 'circle-smooth' || window.vizStyle === 'circle-lines') ? 'flex' : 'none';
-            }
-            updateInnerVizRowVisibility();
+            // ---- APPEARANCE: Bars peaks ----
+            const settingVizPeaks = document.getElementById('setting-viz-peaks');
+            if (settingVizPeaks) settingVizPeaks.addEventListener('change', () => {
+                window.vizShowPeaks = settingVizPeaks.checked;
+                localStorage.setItem('setting_viz_peaks', settingVizPeaks.checked ? '1' : '0');
+            });
+
+            // ---- APPEARANCE: Bars scroll gradient ----
+            const settingScrollGrad = document.getElementById('setting-viz-scroll-grad');
+            if (settingScrollGrad) settingScrollGrad.addEventListener('change', () => {
+                window.vizScrollGrad = settingScrollGrad.checked;
+                localStorage.setItem('setting_viz_scroll_grad', settingScrollGrad.checked ? '1' : '0');
+            });
+
+            // ---- APPEARANCE: Waveform lines count ----
+            const waveLineSlider = document.getElementById('setting-viz-wave-lines');
+            const waveLineLabel  = document.getElementById('setting-viz-wave-lines-label');
+            if (waveLineSlider) waveLineSlider.addEventListener('input', () => {
+                window.vizWaveLines = parseInt(waveLineSlider.value);
+                waveLineLabel.textContent = waveLineSlider.value;
+                localStorage.setItem('setting_viz_wave_lines', waveLineSlider.value);
+                // Сбрасываем историю при смене кол-ва линий
+                window._waveHistory = null;
+            });
+            const waveSensSlider = document.getElementById('setting-viz-wave-sens');
+            const waveSensLabel  = document.getElementById('setting-viz-wave-sens-label');
+            if (waveSensSlider) waveSensSlider.addEventListener('input', () => {
+                window.vizWaveSens = parseFloat(waveSensSlider.value);
+                waveSensLabel.textContent = parseFloat(waveSensSlider.value).toFixed(1);
+                localStorage.setItem('setting_viz_wave_sens', waveSensSlider.value);
+            });
+
+            function updateInnerVizRowVisibility() { /* legacy compat */ }
             const settingShowEq = document.getElementById('setting-show-eq-btn');
             settingShowEq.addEventListener('change', () => {
                 openEqBtn.style.display = settingShowEq.checked ? '' : 'none';
@@ -5829,22 +6094,17 @@
             swatches.forEach(s => s.addEventListener('click', () => setAccentColor(s.dataset.color)));
             colorPicker.addEventListener('input', () => setAccentColor(colorPicker.value));
 
-            // ---- APPEARANCE: Visualizer style ----
-            const vizBtns = document.querySelectorAll('.viz-style-btn');
-            vizBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    vizBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    window.vizStyle = btn.dataset.viz;
-                    localStorage.setItem('setting_viz_style', window.vizStyle);
-                    updateInnerVizRowVisibility();
-                });
-            });
+            // Viz style buttons — теперь через dropdown (legacy removed)
 
             // ---- APPEARANCE: Show/hide visualizer ----
             const settingViz = document.getElementById('setting-show-visualizer');
+            function applyVizVisibility(show) {
+                canvas.style.opacity = show ? '1' : '0';
+                const adv = document.getElementById('viz-advanced-settings');
+                if (adv) adv.style.display = show ? 'flex' : 'none';
+            }
             settingViz.addEventListener('change', () => {
-                canvas.style.opacity = settingViz.checked ? '1' : '0';
+                applyVizVisibility(settingViz.checked);
                 localStorage.setItem('setting_show_viz', settingViz.checked ? '1' : '0');
             });
 
@@ -5928,14 +6188,27 @@
 
                 // Viz style
                 const savedVizStyle = localStorage.getItem('setting_viz_style') || 'circle-smooth';
-                window.vizStyle = savedVizStyle;
-                vizBtns.forEach(b => b.classList.toggle('active', b.dataset.viz === savedVizStyle));
+                selectVizType(savedVizStyle);
+
+                // Viz peaks
+                const savedPeaks = localStorage.getItem('setting_viz_peaks');
+                if (savedPeaks !== null) { window.vizShowPeaks = savedPeaks === '1'; const el = document.getElementById('setting-viz-peaks'); if(el) el.checked = window.vizShowPeaks; }
+                else { window.vizShowPeaks = true; }
+                const savedScrollGrad = localStorage.getItem('setting_viz_scroll_grad');
+                if (savedScrollGrad !== null) { window.vizScrollGrad = savedScrollGrad === '1'; const el = document.getElementById('setting-viz-scroll-grad'); if(el) el.checked = window.vizScrollGrad; }
+                else { window.vizScrollGrad = false; }
+                const savedWaveLines = localStorage.getItem('setting_viz_wave_lines');
+                if (savedWaveLines !== null) { window.vizWaveLines = parseInt(savedWaveLines); const el = document.getElementById('setting-viz-wave-lines'); const lb = document.getElementById('setting-viz-wave-lines-label'); if(el) el.value = savedWaveLines; if(lb) lb.textContent = savedWaveLines; }
+                else { window.vizWaveLines = 1; }
+                const savedWaveSens = localStorage.getItem('setting_viz_wave_sens');
+                if (savedWaveSens !== null) { window.vizWaveSens = parseFloat(savedWaveSens); const el = document.getElementById('setting-viz-wave-sens'); const lb = document.getElementById('setting-viz-wave-sens-label'); if(el) el.value = savedWaveSens; if(lb) lb.textContent = parseFloat(savedWaveSens).toFixed(1); }
+                else { window.vizWaveSens = 1.5; }
 
                 // Show viz
                 const savedShowViz = localStorage.getItem('setting_show_viz');
                 if (savedShowViz !== null) {
                     settingViz.checked = savedShowViz === '1';
-                    canvas.style.opacity = settingViz.checked ? '1' : '0';
+                    applyVizVisibility(settingViz.checked);
                 }
 
                 // Show stars
