@@ -2629,8 +2629,13 @@
 
         let isShuffle = false;
         let repeatMode = 0; // 0=выкл, 1=повтор трека, 2=повтор плейлиста
-        let shuffleQueue = [];   // массив индексов orderIndex для режима shuffle (алгоритм Фишера-Йейтса)
-        let historyStack = [];   // стек предыдущих orderIndex для кнопки «Назад»
+
+        // Виртуальный перемешанный плейлист.
+        // shuffleList[i] = orderIndex (позиция в playlistOrder).
+        // Создаётся один раз при включении shuffle или загрузке плейлиста.
+        // currentShufflePos — текущая позиция курсора в shuffleList.
+        let shuffleList = [];
+        let currentShufflePos = -1;
 
         let audioCtx, analyzer, sourceNode, mediaElementSourceNode = null, eqFilters = [];
         let audioBufferSource = null; 
@@ -2932,8 +2937,8 @@
 
         function toggleShuffle() {
             isShuffle = !isShuffle;
-            if (isShuffle) initShuffleQueue();
-            else shuffleQueue = [];
+            if (isShuffle) buildShuffleList();
+            else { shuffleList = []; currentShufflePos = -1; }
             btnShuffle.classList.toggle('active', isShuffle);
             miniBtnShuffle.classList.toggle('active', isShuffle);
             localStorage.setItem('player_shuffle', isShuffle ? '1' : '0');
@@ -2960,60 +2965,69 @@
         }
 
         // ========================
-        // SHUFFLE QUEUE
+        // VIRTUAL SHUFFLE PLAYLIST
         // ========================
 
-        /** Инициализирует shuffleQueue — перемешанный массив всех orderIndex-ов.
-         *  Текущий трек (currentIndex) всегда убирается из хвоста и ставится первым (уже сыгранным),
-         *  так что следующий вызов pop() вернёт случайный, но не повторяющий текущий. */
-        function initShuffleQueue() {
+        /** Создаёт виртуальный перемешанный плейлист (алгоритм Фишера-Йейтса).
+         *  Если currentIndex >= 0, текущий трек ставится на позицию 0 (уже «сыгран»),
+         *  остальные треки идут в случайном порядке — курсор встаёт на 0. */
+        function buildShuffleList() {
             const len = playlistOrder.length;
-            shuffleQueue = Array.from({ length: len }, (_, i) => i);
-            // Алгоритм Фишера-Йейтса
+            shuffleList = Array.from({ length: len }, (_, i) => i); // orderIndex-ы
+            // Фишер-Йейтс
             for (let i = len - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [shuffleQueue[i], shuffleQueue[j]] = [shuffleQueue[j], shuffleQueue[i]];
+                [shuffleList[i], shuffleList[j]] = [shuffleList[j], shuffleList[i]];
             }
-            // Убираем текущий трек из очереди (он уже играл / играет)
+            // Ставим текущий трек первым, чтобы курсор 0 = «мы здесь»
             if (currentIndex >= 0) {
-                const pos = shuffleQueue.indexOf(currentIndex);
-                if (pos !== -1) shuffleQueue.splice(pos, 1);
+                const pos = shuffleList.indexOf(currentIndex);
+                if (pos > 0) {
+                    shuffleList.splice(pos, 1);
+                    shuffleList.unshift(currentIndex);
+                }
+                currentShufflePos = 0;
+            } else {
+                currentShufflePos = -1;
+            }
+        }
+
+        /** Обновляет currentShufflePos при переходе к треку с orderIndex = orderIdx в shuffle-режиме.
+         *  Если трек не найден в shuffleList — перестраиваем список. */
+        function syncShufflePos(orderIdx) {
+            const pos = shuffleList.indexOf(orderIdx);
+            if (pos !== -1) {
+                currentShufflePos = pos;
+            } else {
+                buildShuffleList();
             }
         }
 
         /** Возвращает следующий orderIndex с учётом isShuffle и repeatMode.
-         *  @param {boolean} [forward=true] — true = «вперёд», false = «назад» (берём из historyStack)
+         *  @param {boolean} [forward=true]
          *  @returns {number} orderIndex или -1 если нет следующего трека */
         function getNextTrackIndex(forward = true) {
             if (playlistOrder.length === 0) return -1;
-
-            // Повтор одного трека — возвращаем тот же
             if (repeatMode === 1) return currentIndex;
 
-            if (!forward) {
-                // Кнопка «Назад»: берём из historyStack
-                if (historyStack.length > 0) return historyStack[historyStack.length - 1];
-                // Если история пуста — перейти к последнему треку
-                return playlistOrder.length - 1;
-            }
-
             if (isShuffle) {
-                if (shuffleQueue.length === 0) {
-                    if (repeatMode === 2) {
-                        // Перемешиваем заново при повторе плейлиста
-                        initShuffleQueue();
-                    } else {
-                        return -1; // shuffle-очередь закончилась, треков больше нет
-                    }
+                if (shuffleList.length === 0) buildShuffleList();
+                const pos = forward ? currentShufflePos + 1 : currentShufflePos - 1;
+                if (pos >= 0 && pos < shuffleList.length) return shuffleList[pos];
+                // Вышли за границы
+                if (repeatMode === 2) {
+                    // При повторе плейлиста оборачиваем
+                    const wrappedPos = ((pos % shuffleList.length) + shuffleList.length) % shuffleList.length;
+                    return shuffleList[wrappedPos];
                 }
-                return shuffleQueue[shuffleQueue.length - 1]; // peek, не pop — pop делаем при фактическом переходе
+                return -1;
             }
 
             // Линейный режим
-            const next = currentIndex + 1;
-            if (next < playlistOrder.length) return next;
-            if (repeatMode === 2) return 0; // повтор плейлиста — начинаем сначала
-            return -1; // плейлист закончился
+            const next = forward ? currentIndex + 1 : currentIndex - 1;
+            if (next >= 0 && next < playlistOrder.length) return next;
+            if (repeatMode === 2) return forward ? 0 : playlistOrder.length - 1;
+            return -1;
         }
 
         function toggleMute() {
@@ -3575,8 +3589,7 @@
             parsedMetadataCache = {};
             playlistElem.innerHTML = '';
             currentIndex = -1;
-            shuffleQueue = [];
-            historyStack = [];
+            shuffleList = []; currentShufflePos = -1;
 
             // Pin "Add station" button at TOP
             const addLi = document.createElement('li');
@@ -4001,8 +4014,7 @@
                 fileEntries = [];
                 playlistOrder = [];
                 parsedMetadataCache = {};
-                shuffleQueue = [];
-                historyStack = [];
+                shuffleList = []; currentShufflePos = -1;
                 playlistElem.innerHTML = '';
                 statusText.textContent = 'Импорт треков...';
 
@@ -4069,10 +4081,68 @@
                 }
 
                 statusText.textContent = `Загружено треков: ${fileEntries.length}`;
-                if (isShuffle) initShuffleQueue();
+                if (isShuffle) buildShuffleList();
                 processMetadataSequentially();
             } catch (err) {
                 statusText.textContent = 'Ошибка импорта';
+            }
+        }
+
+        async function processMetadataSequentially() {
+            const BATCH_SIZE = 5;
+            for (let i = 0; i < fileEntries.length; i += BATCH_SIZE) {
+                const batch = fileEntries.slice(i, i + BATCH_SIZE);
+                await Promise.all(batch.map(async (entry, batchIdx) => {
+                    const trackIndex = i + batchIdx;
+                    try {
+                        if (entry.kind === 'radio') return;
+                        const filePath = entry.path;
+                        const stats = await fs.stat(filePath);
+                        const fileSize = stats.size;
+
+                        const fileHandle = await fs.open(filePath, 'r');
+                        const startBuffer = Buffer.alloc(131072);
+                        await fileHandle.read(startBuffer, 0, 131072, 0);
+                        const endBuffer = Buffer.alloc(128);
+                        const endPosition = fileSize > 128 ? fileSize - 128 : 0;
+                        await fileHandle.read(endBuffer, 0, 128, endPosition);
+                        await fileHandle.close();
+
+                        const tagBlob = new Blob([startBuffer, endBuffer], { type: 'audio/mpeg' });
+                        const meta = await parseAudioTags(tagBlob, entry.name);
+
+                        const titleElem = document.getElementById(`title-${trackIndex}`);
+                        const artistElem = document.getElementById(`artist-${trackIndex}`);
+                        if (titleElem) titleElem.textContent = meta.title || entry.name.replace(/\.[^/.]+$/, "");
+                        if (artistElem) artistElem.textContent = meta.artist || "Неизвестный исполнитель";
+
+                        const coverImg = document.getElementById(`cover-${trackIndex}`);
+                        const coverPh = document.getElementById(`cover-ph-${trackIndex}`);
+                        if (meta.coverDataUrl) {
+                            if (coverImg) { coverImg.src = meta.coverDataUrl; coverImg.classList.add('loaded'); }
+                            if (coverPh) coverPh.style.display = 'none';
+                        } else {
+                            if (coverImg) coverImg.classList.remove('loaded');
+                        }
+                        if (parsedMetadataCache[trackIndex]) parsedMetadataCache[trackIndex].coverDataUrl = meta.coverDataUrl;
+
+                        const duration = await new Promise((resolve) => {
+                            const tempAudio = new Audio();
+                            tempAudio.preload = 'metadata';
+                            tempAudio.onloadedmetadata = () => resolve(tempAudio.duration);
+                            tempAudio.onerror = () => resolve(0);
+                            tempAudio.src = `file://${filePath.replace(/\\/g, '/')}`;
+                        });
+
+                        const kbps = duration > 0 ? Math.round((fileSize * 8) / duration / 1000) : 0;
+                        meta.duration = duration;
+                        meta.kbps = kbps;
+                        parsedMetadataCache[trackIndex] = meta;
+
+                        const metaElem = document.getElementById(`meta-${trackIndex}`);
+                        if (metaElem) metaElem.textContent = `${formatTime(duration)} | ${kbps}kbps`;
+                    } catch (e) {}
+                }));
             }
         }
 
@@ -4080,8 +4150,7 @@
             fileEntries = [];
             playlistOrder = [];
             parsedMetadataCache = {};
-            shuffleQueue = [];
-            historyStack = [];
+            shuffleList = []; currentShufflePos = -1;
             playlistElem.innerHTML = '';
             statusText.textContent = 'Загрузка треков...';
 
@@ -4136,69 +4205,8 @@
             }
 
             statusText.textContent = `Загружено треков: ${fileEntries.length}`;
-            if (isShuffle) initShuffleQueue();
+            if (isShuffle) buildShuffleList();
             processMetadataSequentially();
-        }
-            const BATCH_SIZE = 5; 
-            for (let i = 0; i < fileEntries.length; i += BATCH_SIZE) {
-                const batch = fileEntries.slice(i, i + BATCH_SIZE);
-                await Promise.all(batch.map(async (entry, batchIdx) => {
-                    const trackIndex = i + batchIdx;
-                    try {
-                        if (entry.kind === 'radio') return;
-                        const filePath = entry.path;
-                        const stats = await fs.stat(filePath);
-                        const fileSize = stats.size;
-                        
-                        const fileHandle = await fs.open(filePath, 'r');
-                        const startBuffer = Buffer.alloc(131072); // 128KB for cover art
-                        await fileHandle.read(startBuffer, 0, 131072, 0);
-                        const endBuffer = Buffer.alloc(128);
-                        const endPosition = fileSize > 128 ? fileSize - 128 : 0;
-                        await fileHandle.read(endBuffer, 0, 128, endPosition);
-                        await fileHandle.close();
-
-                        const tagBlob = new Blob([startBuffer, endBuffer], { type: 'audio/mpeg' });
-                        const meta = await parseAudioTags(tagBlob, entry.name);
-                        
-                        const titleElem = document.getElementById(`title-${trackIndex}`);
-                        const artistElem = document.getElementById(`artist-${trackIndex}`);
-                        if (titleElem) titleElem.textContent = meta.title || entry.name.replace(/\.[^/.]+$/, "");
-                        if (artistElem) artistElem.textContent = meta.artist || "Неизвестный исполнитель";
-
-                        // Update cover art
-                        const coverImg = document.getElementById(`cover-${trackIndex}`);
-                        const coverPh = document.getElementById(`cover-ph-${trackIndex}`);
-                        if (meta.coverDataUrl) {
-                            if (coverImg) {
-                                coverImg.src = meta.coverDataUrl;
-                                coverImg.classList.add('loaded');
-                            }
-                            if (coverPh) coverPh.style.display = 'none';
-                        } else {
-                            if (coverImg) coverImg.classList.remove('loaded');
-                        }
-                        // Cache cover for player display
-                        if (parsedMetadataCache[trackIndex]) parsedMetadataCache[trackIndex].coverDataUrl = meta.coverDataUrl;
-
-                        const duration = await new Promise((resolve) => {
-                            const tempAudio = new Audio();
-                            tempAudio.preload = 'metadata';
-                            tempAudio.onloadedmetadata = () => resolve(tempAudio.duration);
-                            tempAudio.onerror = () => resolve(0);
-                            tempAudio.src = `file://${filePath.replace(/\\/g, '/')}`;
-                        });
-
-                        const kbps = duration > 0 ? Math.round((fileSize * 8) / duration / 1000) : 0;
-                        meta.duration = duration;
-                        meta.kbps = kbps;
-                        parsedMetadataCache[trackIndex] = meta;
-
-                        const metaElem = document.getElementById(`meta-${trackIndex}`);
-                        if (metaElem) metaElem.textContent = `${formatTime(duration)} | ${kbps}kbps`;
-                    } catch (e) {}
-                }));
-            }
         }
 
         document.addEventListener('click', () => {
@@ -4644,30 +4652,12 @@
             }, 50);
         }
 
-        /** @param {number} orderIndex
-         *  @param {number} [startPosition=0]
-         *  @param {boolean} [isAutoSwitch=false] — true при автопереходе (handleTrackEnded / playNext / playPrev),
-         *                                          управляет fade-in внутри функции */
-        async function playTrack(orderIndex, startPosition = 0, isAutoSwitch = false) {
+        async function playTrack(orderIndex, startPosition = 0) {
             if (orderIndex < 0 || orderIndex >= playlistOrder.length) return;
 
-            // Обновляем historyStack: добавляем предыдущий трек
-            if (currentIndex >= 0 && currentIndex !== orderIndex) {
-                historyStack.push(currentIndex);
-                // Ограничиваем размер стека (не более 50 треков)
-                if (historyStack.length > 50) historyStack.shift();
-            }
+            // Синхронизируем позицию курсора в виртуальном плейлисте
+            if (isShuffle) syncShufflePos(orderIndex);
 
-            // Если shuffle включён — удаляем выбранный трек из очереди
-            if (isShuffle) {
-                const pos = shuffleQueue.indexOf(orderIndex);
-                if (pos !== -1) shuffleQueue.splice(pos, 1);
-            }
-
-            // Fade-in применяется только при автопереходе (не при ручном выборе)
-            const doFadeIn = isAutoSwitch;
-            if (orderIndex < 0 || orderIndex >= playlistOrder.length) return;
-            
             initAudioEngine();
             stopTrack();
 
@@ -4878,7 +4868,7 @@
                     if (myToken !== _loadToken) return;
 
                     // Запускаем воспроизведение немедленно (не ждём полной загрузки)
-                    startSourceAt(startPosition, doFadeIn);
+                    startSourceAt(startPosition);
 
                     // Если размер файла не закэширован — подгружаем в фоне
                     if (!entry._fileSize) {
@@ -4937,7 +4927,7 @@
             const targetTime = percentage * duration;
             
             if (isPlaying) { 
-                startSourceAt(targetTime); 
+                startSourceAt(targetTime, false); 
             } else {
                 pausedAt = targetTime;
                 if (localAudioElement) localAudioElement.currentTime = targetTime;
@@ -4976,7 +4966,7 @@
             }
         });
 
-        function startSourceAt(position, fadeIn = false) {
+        function startSourceAt(position, fadeIn = true) {
             if (isRadioMode) return;
             if (!localAudioElement || !localAudioElement.src) return;
 
@@ -5078,9 +5068,8 @@
             }
 
             // repeatMode === 1 (повтор трека): getNextTrackIndex вернёт currentIndex,
-            // но здесь обрабатываем явно, чтобы не добавлять трек в historyStack
             if (repeatMode === 1) {
-                playTrack(currentIndex, 0, true);
+                playTrack(currentIndex, 0);
                 return;
             }
 
@@ -5088,7 +5077,7 @@
             if (playNextIndex !== -1) {
                 const nextOrder = playlistOrder.indexOf(playNextIndex);
                 playNextIndex = -1;
-                if (nextOrder !== -1) { playTrack(nextOrder, 0, true); return; }
+                if (nextOrder !== -1) { playTrack(nextOrder, 0); return; }
             }
 
             // Проверяем настройку автоперехода к следующему треку
@@ -5104,7 +5093,7 @@
             const nextIdx = getNextTrackIndex(true);
 
             if (nextIdx >= 0) {
-                playTrack(nextIdx, 0, true);
+                playTrack(nextIdx, 0);
                 return;
             }
 
@@ -5118,7 +5107,7 @@
                 const nextPl = folderPlaylists[(curPlIdx + 1) % folderPlaylists.length];
                 await selectPlaylist(nextPl.id);
                 if (playlistOrder.length > 0) {
-                    playTrack(0, 0, true);
+                    playTrack(0, 0);
                     return;
                 }
             }
@@ -5180,7 +5169,7 @@
             } else {
                 const duration = currentTrackDuration || localAudioElement.duration || 0;
                 if (pausedAt >= duration && duration > 0) pausedAt = 0;
-                startSourceAt(pausedAt);
+                startSourceAt(pausedAt, false);
             }
         }
 
@@ -5193,8 +5182,6 @@
             }
             if (playlistOrder.length === 0) return;
             const prevIdx = getNextTrackIndex(false);
-            // При переходе назад убираем последний элемент из historyStack
-            if (historyStack.length > 0) historyStack.pop();
             playTrack(prevIdx >= 0 ? prevIdx : 0);
         }
 
@@ -5369,7 +5356,7 @@
             const percentage = clickX / rect.width;
             const targetTime = percentage * duration;
             
-            if (isPlaying) { startSourceAt(targetTime); } 
+            if (isPlaying) { startSourceAt(targetTime, false); } 
             else {
                 pausedAt = targetTime;
                 if (localAudioElement) localAudioElement.currentTime = targetTime;
@@ -5798,7 +5785,6 @@
             isShuffle = true;
             btnShuffle.classList.add('active');
             miniBtnShuffle.classList.add('active');
-            // shuffleQueue будет инициализирован после загрузки плейлиста
         }
         const savedRepeat = parseInt(localStorage.getItem('player_repeat') || '0');
         if (savedRepeat >= 0 && savedRepeat <= 2) repeatMode = savedRepeat;
