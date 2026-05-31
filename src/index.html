@@ -2268,6 +2268,16 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Восстанавливать воспроизведение</div>
+                                    <div class="settings-row-desc">Автоматически возобновлять трек при запуске</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-restore-playback">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -5271,6 +5281,7 @@
             startTime = audioCtx.currentTime;
             pausedAt = position;
             isPlaying = true;
+            localStorage.setItem('player_was_playing', '1');
             
             updatePlayIcons(true);
             statusText.textContent = 'Воспроизведение';
@@ -5440,6 +5451,7 @@
                 if (!remToggle || remToggle.checked) {
                     localStorage.setItem('player_last_track_position', pausedAt.toFixed(2));
                 }
+                localStorage.setItem('player_was_playing', '0');
             } else {
                 const duration = currentTrackDuration || localAudioElement.duration || 0;
                 if (pausedAt >= duration && duration > 0) pausedAt = 0;
@@ -6161,7 +6173,6 @@
                     if (lastTrackOrder !== null) {
                         const idx = parseInt(lastTrackOrder);
                         if (!isNaN(idx) && idx >= 0 && idx < playlistOrder.length) {
-                            // Don't auto-play, just highlight and seek
                             const absoluteTrackId = playlistOrder[idx];
                             const activeLi = playlistElem.querySelector(`li[data-id="${absoluteTrackId}"]`);
                             if (activeLi) {
@@ -6169,12 +6180,27 @@
                                 activeLi.scrollIntoView({ block: 'nearest' });
                                 currentIndex = idx;
                             }
-                            // Restore saved position without playing
+
+                            const entry = fileEntries[absoluteTrackId];
+
+                            // Восстанавливаем название и автора из fileEntries
+                            if (entry && entry.kind !== 'radio') {
+                                const displayName = entry.name.replace(/\.[^/.]+$/, '');
+                                const metaTitle   = entry.meta?.title  || displayName;
+                                const metaArtist  = entry.meta?.artist || '';
+                                trackTitle.textContent      = metaTitle;
+                                trackArtist.textContent     = metaArtist;
+                                miniTrackTitle.textContent  = metaArtist
+                                    ? `${metaArtist} — ${metaTitle}`
+                                    : metaTitle;
+                                triggerMiniMarquee?.();
+                                statusText.textContent = 'Пауза';
+                            }
+
+                            // Восстанавливаем позицию
                             const savedPos = parseFloat(localStorage.getItem('player_last_track_position') || '0');
                             if (savedPos > 0) {
                                 pausedAt = savedPos;
-                                // Show restored time in UI once metadata loads
-                                const entry = fileEntries[absoluteTrackId];
                                 if (entry && entry.kind !== 'radio') {
                                     const tmpAudio = new Audio();
                                     tmpAudio.preload = 'metadata';
@@ -6182,16 +6208,29 @@
                                         const dur = tmpAudio.duration;
                                         if (isFinite(dur) && savedPos < dur) {
                                             currentTrackDuration = dur;
-                                            timeTotal.textContent = formatTime(dur);
+                                            timeTotal.textContent  = formatTime(dur);
                                             timeCurrent.textContent = formatTime(savedPos);
                                             const pct = (savedPos / dur) * 100;
                                             progressFill.style.width = `${pct}%`;
                                             document.getElementById('mini-progress-fill').style.width = `${pct}%`;
+                                            // Если метаданные ещё не были загружены — обновим из тега
+                                            if (tmpAudio._meta) {
+                                                if (!entry.meta?.title) trackTitle.textContent = tmpAudio._meta.title || trackTitle.textContent;
+                                                if (!entry.meta?.artist) trackArtist.textContent = tmpAudio._meta.artist || trackArtist.textContent;
+                                            }
                                         }
                                         tmpAudio.src = '';
                                     }, { once: true });
                                     tmpAudio.src = `file://${entry.path.replace(/\\/g, '/')}`;
                                 }
+                            }
+
+                            // Авто-воспроизведение если было включено и настройка разрешает
+                            const restorePlayback = document.getElementById('setting-restore-playback');
+                            const wasPlaying = localStorage.getItem('player_was_playing') === '1';
+                            if (restorePlayback?.checked && wasPlaying && entry && entry.kind !== 'radio') {
+                                // Небольшая задержка чтобы AudioContext успел инициализироваться
+                                setTimeout(() => playTrack(idx, savedPos > 0 ? savedPos : 0), 300);
                             }
                         }
                     }
@@ -6365,6 +6404,12 @@
             const settingAutoNextPlaylist = document.getElementById('setting-autonext-playlist');
             settingAutoNextPlaylist.addEventListener('change', () => {
                 localStorage.setItem('setting_autonext_playlist', settingAutoNextPlaylist.checked ? '1' : '0');
+            });
+
+            // ---- PLAYER: Restore playback state ----
+            const settingRestorePlayback = document.getElementById('setting-restore-playback');
+            if (settingRestorePlayback) settingRestorePlayback.addEventListener('change', () => {
+                localStorage.setItem('setting_restore_playback', settingRestorePlayback.checked ? '1' : '0');
             });
 
             // ---- GENERAL: Notifications ----
@@ -7039,6 +7084,9 @@
                 if (an !== null) { const el = document.getElementById('setting-autonext'); if(el) el.checked = an === '1'; }
                 const anpl = localStorage.getItem('setting_autonext_playlist');
                 if (anpl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = anpl === '1'; }
+
+                const srp = localStorage.getItem('setting_restore_playback');
+                if (srp !== null) { const el = document.getElementById('setting-restore-playback'); if(el) el.checked = srp === '1'; }
                 const mtt = localStorage.getItem('setting_minimize_to_tray');
                 if (mtt !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = mtt === '1'; }
                 const rt = localStorage.getItem('setting_remember_track');
