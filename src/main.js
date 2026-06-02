@@ -566,14 +566,14 @@ if (!gotTheLock) {
             },
             { type: 'separator' },
             {
-              label: 'Предыдущая песня',
-              enabled: trayPrevEnabled,
-              click: () => win.webContents.send('tray-cmd', 'prev')
-            },
-            {
               label: 'Следующая песня',
               enabled: trayNextEnabled,
               click: () => win.webContents.send('tray-cmd', 'next')
+            },
+            {
+              label: 'Предыдущая песня',
+              enabled: trayPrevEnabled,
+              click: () => win.webContents.send('tray-cmd', 'prev')
             },
           ]
         },
