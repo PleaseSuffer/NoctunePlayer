@@ -1381,6 +1381,8 @@
         .viz-type-menu-item.active i { color: #fff !important; }
 
         /* Блоки настроек под конкретный тип */
+        .toggle-switch input:disabled + .slider-round { opacity: 0.4; cursor: not-allowed; }
+        .toggle-switch:has(input:disabled) { cursor: not-allowed; }
         .viz-settings-block { display: none; flex-direction: column; gap: 0; }
         .viz-settings-block.visible { display: flex; }
 
@@ -2102,16 +2104,6 @@
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
                             <div class="settings-row">
                                 <div>
-                                    <div class="settings-row-label">Запоминать последний трек</div>
-                                    <div class="settings-row-desc">При запуске восстанавливать позицию</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-remember-track" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
-                            <div class="settings-row">
-                                <div>
                                     <div class="settings-row-label">Сворачивать в трей</div>
                                     <div class="settings-row-desc">При закрытии сворачивать окно в трей</div>
                                 </div>
@@ -2268,15 +2260,28 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row">
+                            <div class="settings-row" style="border-bottom:none;">
                                 <div>
-                                    <div class="settings-row-label">Восстанавливать воспроизведение</div>
-                                    <div class="settings-row-desc">Автоматически возобновлять трек при запуске</div>
+                                    <div class="settings-row-label">Запоминать последний трек</div>
+                                    <div class="settings-row-desc">При запуске восстанавливать позицию</div>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-restore-playback">
+                                    <input type="checkbox" id="setting-remember-track" checked>
                                     <span class="slider-round"></span>
                                 </label>
+                            </div>
+                            <!-- Подменю "Запоминать последний трек" -->
+                            <div id="remember-track-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div>
+                                        <div class="settings-row-label">Восстанавливать воспроизведение</div>
+                                        <div class="settings-row-desc">Автоматически возобновлять трек при запуске</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-restore-playback">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4548,11 +4553,16 @@
 
                     if (currentIndex === orderIdx) {
                         stopTrack();
+                        currentIndex = -1;
+                        isRadioMode = false;
                         updatePlayIcons(false);
-                        trackTitle.textContent = "Удалено";
-                        trackArtist.textContent = "";
-                        miniTrackTitle.textContent = "Удалено";
+                        trackTitle.textContent = 'Удалено';
+                        trackArtist.textContent = '';
+                        miniTrackTitle.textContent = 'Удалено';
                         triggerMiniMarquee();
+                    } else if (currentIndex > orderIdx) {
+                        // Трек выше удалённого — сдвигаем индекс
+                        currentIndex--;
                     }
                 }
             }
@@ -4862,23 +4872,19 @@
         }
 
         function stopTrack() {
-            // Останавливаем AudioBufferSource (если вдруг остался)
             if (audioBufferSource) {
                 try { audioBufferSource.stop(); } catch(e){}
                 audioBufferSource.disconnect();
                 audioBufferSource = null;
             }
-            // Останавливаем локальный HTMLAudioElement
             if (localAudioElement) {
                 localAudioElement.pause();
-                localAudioElement.src = "";
-                try { localAudioElement.load(); } catch(e){}
+                localAudioElement.src = '';
+                // Не вызываем load() на пустом src — это даёт MEDIA_ERR_SRC_NOT_SUPPORTED
             }
-            // Останавливаем радио
             if (radioAudioElement) {
                 radioAudioElement.pause();
-                radioAudioElement.src = "";
-                try { radioAudioElement.load(); } catch(e){}
+                radioAudioElement.src = '';
             }
             if (radioMetadataAbort) {
                 radioMetadataAbort.abort();
@@ -5424,10 +5430,18 @@
                 return;
             }
 
+            // Трек был удалён во время воспроизведения — запускаем следующий доступный
+            if (localAudioElement && !localAudioElement.src && playlistOrder.length > 0) {
+                const nextIdx = currentIndex >= 0 && currentIndex < playlistOrder.length
+                    ? currentIndex
+                    : 0;
+                playTrack(nextIdx);
+                return;
+            }
+
             if (!localAudioElement) {
                 if (playlistOrder.length > 0) {
                     if (currentIndex === -1) {
-                        // Playlist ended — restart from beginning
                         playTrack(0);
                     } else {
                         const lastOrder = parseInt(localStorage.getItem('player_last_track_order'));
@@ -6288,6 +6302,7 @@
             overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettings(); });
 
             // Tab navigation
+            const settingsContent = document.querySelector('.settings-content');
             navItems.forEach(item => {
                 item.addEventListener('click', () => {
                     navItems.forEach(n => n.classList.remove('active'));
@@ -6295,6 +6310,7 @@
                     item.classList.add('active');
                     const target = item.dataset.panel;
                     document.getElementById(target).classList.add('active');
+                    if (settingsContent) settingsContent.scrollTop = 0;
                     if (target === 'panel-general') renderPlEditor();
                 });
             });
@@ -6381,10 +6397,20 @@
                 localStorage.setItem('setting_crossfade_in', crossfadeInDuration);
             });
 
-            // ---- GENERAL: Remember last track ----
+            // ---- PLAYER: Remember last track + submenu ----
             const settingRememberTrack = document.getElementById('setting-remember-track');
+            function applyRememberTrackSub(checked) {
+                const sub     = document.getElementById('remember-track-sub');
+                const restoreEl = document.getElementById('setting-restore-playback');
+                if (sub) sub.style.display = checked ? '' : 'none';
+                if (restoreEl) {
+                    restoreEl.disabled = !checked;
+                    if (!checked) { restoreEl.checked = false; localStorage.setItem('setting_restore_playback', '0'); }
+                }
+            }
             settingRememberTrack.addEventListener('change', () => {
                 localStorage.setItem('setting_remember_track', settingRememberTrack.checked ? '1' : '0');
+                applyRememberTrackSub(settingRememberTrack.checked);
             });
 
             // ---- GENERAL: Autonext ----
@@ -6978,6 +7004,7 @@
                 // Remember track
                 const savedRemember = localStorage.getItem('setting_remember_track');
                 if (savedRemember !== null) settingRememberTrack.checked = savedRemember === '1';
+                applyRememberTrackSub(settingRememberTrack.checked);
 
                 // Autonext
                 const savedAutoNext = localStorage.getItem('setting_autonext');
