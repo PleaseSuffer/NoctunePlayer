@@ -29,7 +29,9 @@ function createWindow() {
     backgroundColor: '#121212',
     alwaysOnTop: false,
     center: true,
-    icon: iconPath
+    icon: iconPath,
+    resizable: false,
+    maximizable: false
   });
 
 
@@ -260,18 +262,6 @@ function createWindow() {
 
   
 
-  // Когда HTML полностью готов к отображению
-  /*
-  win.once('ready-to-show', () => {
-    // Добавляем задержку в 5000 миллисекунд (5 секунд)
-    setTimeout(() => {
-      if (splash && !splash.isDestroyed()) {
-        splash.close(); // Закрываем лоадер через 5 секунд
-      }
-      win.show(); // Показываем основное окно
-    }, 5000);
-  });
-  */
   win.once('ready-to-show', () => {
     if (splash && !splash.isDestroyed()) {
       splash.close(); // Закрываем лоадер

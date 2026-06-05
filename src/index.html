@@ -1155,6 +1155,22 @@
             opacity: 1;
         }
 
+        .vol-tooltip {
+            position: fixed;
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 10000;
+            transform: translate(-50%, -100%);
+            white-space: nowrap;
+        }
+        .vol-tooltip.visible { opacity: 1; }
+
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .lucide-spin { animation: spin 1s linear infinite; }
 
@@ -1402,6 +1418,85 @@
         }
         .accent-swatch:hover { transform: scale(1.15); }
         .accent-swatch.active { border-color: var(--text-color); }
+
+        .grad-preset-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .grad-preset {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            flex-shrink: 0;
+        }
+        .grad-preset:hover { transform: scale(1.15); }
+        .grad-preset.active { box-shadow: 0 0 0 3px var(--text-color); }
+
+        /* Balance slider */
+        .balance-slider-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .balance-slider-wrap input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-color);
+        }
+        .balance-center-mark {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 10px;
+            background: var(--accent-color);
+            opacity: 0.45;
+            pointer-events: none;
+            border-radius: 1px;
+        }
+        .balance-edge-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            min-width: 12px;
+        }
+
+        /* Playback-mode dropdown (reuses viz-type-dropdown styles via shared class) */
+        .pb-mode-dropdown-wrapper { position: relative; width: 100%; }
+        .pb-mode-dropdown-btn {
+            width: 100%; height: 34px; padding: 0 10px;
+            border-radius: 8px; border: 1px solid var(--border-color);
+            background: var(--container-bg); color: var(--text-color);
+            font-size: 13px; font-weight: 600; outline: none; cursor: pointer;
+            display: flex; align-items: center; gap: 7px; user-select: none;
+            transition: border-color 0.2s; box-sizing: border-box;
+        }
+        .pb-mode-dropdown-btn:hover,
+        .pb-mode-dropdown-btn.open { border-color: var(--accent-color); }
+        .pb-mode-dropdown-btn .pd-icon { flex-shrink:0; color:var(--accent-color); display:flex; align-items:center; }
+        .pb-mode-dropdown-btn .pd-label { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .pb-mode-dropdown-btn .pd-chevron { flex-shrink:0; color:var(--text-muted); transition:transform 0.2s; display:flex; align-items:center; }
+        .pb-mode-dropdown-btn.open .pd-chevron { transform: rotate(180deg); }
+        .pb-mode-dropdown-menu {
+            display: none; position: absolute; top: calc(100% + 4px); left: auto; right: 0; min-width: 100%;
+            background: var(--container-bg); border: 1px solid var(--border-color);
+            border-radius: 10px; box-shadow: 0 8px 24px var(--shadow); z-index: 600;
+            padding: 4px; box-sizing: border-box; backdrop-filter: blur(12px);
+        }
+        .pb-mode-dropdown-menu.open { display: block; }
+        .pb-mode-menu-item {
+            display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+            border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500;
+            color: var(--text-color); transition: background 0.15s;
+        }
+        .pb-mode-menu-item:hover { background: var(--track-hover); }
+        .pb-mode-menu-item.active { background: var(--accent-color); color: #fff; }
+        .pb-mode-menu-item.active i { color: #fff !important; }
 
         /* Crossfade duration sub-row */
         .crossfade-duration-row {
@@ -2055,6 +2150,8 @@
     </div>
 
     <div class="mini-seek-tooltip" id="mini-seek-tooltip">0:00</div>
+    <div class="vol-tooltip" id="vol-tooltip">100%</div>
+    <div class="vol-tooltip" id="mini-vol-tooltip">100%</div>
 
     <!-- Settings FAB -->
     <button class="settings-fab" id="settings-fab" title="Настройки">
@@ -2122,6 +2219,16 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Открывать ссылки во внешнем браузере</div>
+                                    <div class="settings-row-desc">Ссылки открываются в браузере по умолчанию, а не в Electron</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-open-links-external" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -2184,6 +2291,51 @@
                                     <input type="checkbox" id="setting-replaygain" disabled>
                                     <span class="slider-round"></span>
                                 </label>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;padding:8px 0 10px 0;border-bottom:1px solid var(--border-color);">
+                                <div style="flex:1;">
+                                    <div class="settings-row-label" style="font-size:12px;">Баланс L/R</div>
+                                </div>
+                                <div style="flex:1;position:relative;display:flex;align-items:center;">
+                                    <span class="balance-edge-label" style="position:absolute;right:calc(100% + 4px);">L</span>
+                                    <input type="range" id="setting-balance" min="0" max="100" step="1" value="50"
+                                        style="flex:1;accent-color:var(--accent-color);">
+                                    <div class="balance-center-mark"></div>
+                                    <span class="balance-edge-label" style="position:absolute;left:calc(100% + 4px);">R</span>
+                                </div>
+                                <span id="setting-balance-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">0</span>
+                            </div>
+                            <div class="settings-row" style="border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Режим воспроизведения</div>
+                                    <div class="settings-row-desc">Моно, стерео или отдельный канал</div>
+                                </div>
+                                <div style="flex-shrink:0;width:190px;">
+                                    <div class="pb-mode-dropdown-wrapper" id="pb-mode-dropdown-wrapper">
+                                        <button class="pb-mode-dropdown-btn" id="pb-mode-dropdown-btn">
+                                            <span class="pd-icon"><i data-lucide="headphones" style="width:14px;height:14px;"></i></span>
+                                            <span class="pd-label" id="pb-mode-label">Стерео</span>
+                                            <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                        </button>
+                                        <div class="pb-mode-dropdown-menu" id="pb-mode-dropdown-menu">
+                                            <div class="pb-mode-menu-item active" data-mode="stereo" data-icon="headphones">
+                                                <i data-lucide="headphones" style="width:14px;height:14px;color:var(--accent-color);"></i> Стерео
+                                            </div>
+                                            <div class="pb-mode-menu-item" data-mode="mono" data-icon="minus-circle">
+                                                <i data-lucide="minus-circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Моно
+                                            </div>
+                                            <div class="pb-mode-menu-item" data-mode="left" data-icon="arrow-left-circle">
+                                                <i data-lucide="arrow-left-circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Только левый канал
+                                            </div>
+                                            <div class="pb-mode-menu-item" data-mode="right" data-icon="arrow-right-circle">
+                                                <i data-lucide="arrow-right-circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Только правый канал
+                                            </div>
+                                            <div class="pb-mode-menu-item" data-mode="swap" data-icon="repeat-2">
+                                                <i data-lucide="repeat-2" style="width:14px;height:14px;color:var(--accent-color);"></i> Инвертированное стерео
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -2288,7 +2440,7 @@
 
                     <!-- === ВНЕШНИЙ ВИД === -->
                     <div class="settings-panel" id="panel-appearance">
-                        <div class="settings-section-title">Тема</div>
+                        <div class="settings-section-title">Интерфейс</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
                             <div class="settings-row">
                                 <div>
@@ -2300,24 +2452,43 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                        </div>
-
-                        <div class="settings-section-title">Цвет акцента</div>
-                        <div class="settings-card">
-                            <div class="accent-swatches" id="accent-swatches">
-                                <div class="accent-swatch" data-color="#4a90e2" style="background:#4a90e2;" title="Синий"></div>
-                                <div class="accent-swatch" data-color="#bb86fc" style="background:#bb86fc;" title="Фиолетовый"></div>
-                                <div class="accent-swatch" data-color="#2ecc71" style="background:#2ecc71;" title="Зелёный"></div>
-                                <div class="accent-swatch" data-color="#e74c3c" style="background:#e74c3c;" title="Красный"></div>
-                                <div class="accent-swatch" data-color="#f39c12" style="background:#f39c12;" title="Оранжевый"></div>
-                                <div class="accent-swatch" data-color="#1abc9c" style="background:#1abc9c;" title="Бирюзовый"></div>
-                                <div class="accent-swatch" data-color="#e91e8c" style="background:#e91e8c;" title="Розовый"></div>
-                                <div class="accent-swatch" data-color="#ff6b35" style="background:#ff6b35;" title="Coral"></div>
+                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+                                <div class="settings-row-label">Цвет акцента</div>
+                                <div class="accent-swatches" id="accent-swatches">
+                                    <div class="accent-swatch" data-color="#4a90e2" style="background:#4a90e2;" title="Синий"></div>
+                                    <div class="accent-swatch" data-color="#bb86fc" style="background:#bb86fc;" title="Фиолетовый"></div>
+                                    <div class="accent-swatch" data-color="#2ecc71" style="background:#2ecc71;" title="Зелёный"></div>
+                                    <div class="accent-swatch" data-color="#e74c3c" style="background:#e74c3c;" title="Красный"></div>
+                                    <div class="accent-swatch" data-color="#f39c12" style="background:#f39c12;" title="Оранжевый"></div>
+                                    <div class="accent-swatch" data-color="#1abc9c" style="background:#1abc9c;" title="Бирюзовый"></div>
+                                    <div class="accent-swatch" data-color="#e91e8c" style="background:#e91e8c;" title="Розовый"></div>
+                                    <div class="accent-swatch" data-color="#ff6b35" style="background:#ff6b35;" title="Coral"></div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <label style="font-size:12px;color:var(--text-muted);">Свой цвет:</label>
+                                    <input type="color" id="accent-color-picker" value="#4a90e2"
+                                        style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+                                </div>
                             </div>
-                            <div style="display:flex;align-items:center;gap:10px;margin-top:12px;">
-                                <label style="font-size:12px;color:var(--text-muted);">Свой цвет:</label>
-                                <input type="color" id="accent-color-picker" value="#4a90e2"
-                                    style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Частицы (звёзды)</div>
+                                    <div class="settings-row-desc">Анимированный фон</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-show-stars" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Размытие фона (blur)</div>
+                                    <div class="settings-row-desc">Стеклянный эффект контейнера</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-glass-blur" checked>
+                                    <span class="slider-round"></span>
+                                </label>
                             </div>
                         </div>
 
@@ -2532,6 +2703,17 @@
                             <div class="viz-settings-block" id="viz-settings-gradient">
                                 <div class="settings-row" style="border-bottom:none;">
                                     <div style="width:100%;">
+                                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Пресеты градиента</div>
+                                        <div class="grad-preset-list" id="viz-grad-presets" style="margin-bottom:12px;">
+                                            <div class="grad-preset" data-preset="0" style="background:linear-gradient(135deg,#4a90e2,#7b2ff7,#00d4ff);" title="Синий"></div>
+                                            <div class="grad-preset" data-preset="1" style="background:linear-gradient(135deg,#bb86fc,#4a90e2,#03dac6);" title="Фиолетовый"></div>
+                                            <div class="grad-preset" data-preset="2" style="background:linear-gradient(135deg,#2ecc71,#1abc9c,#a8ff78);" title="Зелёный"></div>
+                                            <div class="grad-preset" data-preset="3" style="background:linear-gradient(135deg,#e74c3c,#ff6b35,#ffd700);" title="Красный"></div>
+                                            <div class="grad-preset" data-preset="4" style="background:linear-gradient(135deg,#f39c12,#e74c3c,#ffe57f);" title="Оранжевый"></div>
+                                            <div class="grad-preset" data-preset="5" style="background:linear-gradient(135deg,#1abc9c,#2980b9,#a8ff78);" title="Бирюзовый"></div>
+                                            <div class="grad-preset" data-preset="6" style="background:linear-gradient(135deg,#e91e8c,#bb86fc,#ff6b35);" title="Розовый"></div>
+                                            <div class="grad-preset" data-preset="7" style="background:linear-gradient(135deg,#ff6b35,#e91e8c,#ffd700);" title="Coral"></div>
+                                        </div>
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Цвета градиента</div>
                                         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                                             <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
@@ -2555,29 +2737,6 @@
                             </div><!-- /viz-advanced-settings -->
                         </div>
 
-                        <div class="settings-section-title">Интерфейс</div>
-                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
-                            <div class="settings-row">
-                                <div>
-                                    <div class="settings-row-label">Частицы (звёзды)</div>
-                                    <div class="settings-row-desc">Анимированный фон</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-show-stars" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
-                            <div class="settings-row">
-                                <div>
-                                    <div class="settings-row-label">Размытие фона (blur)</div>
-                                    <div class="settings-row-desc">Стеклянный эффект контейнера</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-glass-blur" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- === О ПРОГРАММЕ === -->
@@ -2723,7 +2882,9 @@
 
         // Команды из трея
         ipcRenderer.on('tray-cmd', (_e, cmd) => {
-            if (cmd === 'toggle') togglePlayback();
+            if (cmd === 'toggle' || cmd === 'playpause') togglePlayback();
+            else if (cmd === 'play')  { if (!isPlaying) togglePlayback(); }
+            else if (cmd === 'pause') { if (isPlaying)  togglePlayback(); }
             else if (cmd === 'prev') playPrev();
             else if (cmd === 'next') playNext();
             else if (cmd === 'check-updates') {
@@ -3570,6 +3731,7 @@
         async function parseAudioTags(file, fileName = "") {
             let title = "";
             let artist = "";
+            let album = "";
             let coverDataUrl = null;
             
             let targetName = fileName || (file ? (file.name || file.path || "") : "");
@@ -3630,6 +3792,7 @@
                             if (decodedText) {
                                 if (frameID === "TIT2") title = decodedText;
                                 if (frameID === "TPE1") artist = decodedText;
+                                if (frameID === "TALB") album = decodedText;
                             }
                         }
                         offset += 10 + frameSize;
@@ -3662,7 +3825,7 @@
             if (!title) title = "Без названия";
             if (!artist) artist = "Неизвестный исполнитель";
 
-            return { title, artist, coverDataUrl };
+            return { title, artist, album, coverDataUrl };
         }
 
         function isAudioFile(filename) {
@@ -4568,6 +4731,39 @@
             }
         });
 
+        function applyChannelMode(mode) {
+            if (!window.chSplitter || !window.chMerger) return;
+            // Disconnect all existing splitter→merger connections
+            try { window.chSplitter.disconnect(window.chMerger); } catch(e) {}
+            switch (mode) {
+                case 'stereo':
+                    window.chSplitter.connect(window.chMerger, 0, 0); // L→L
+                    window.chSplitter.connect(window.chMerger, 1, 1); // R→R
+                    break;
+                case 'mono':
+                    window.chSplitter.connect(window.chMerger, 0, 0); // L→L (sum)
+                    window.chSplitter.connect(window.chMerger, 1, 0); // R→L (sum)
+                    window.chSplitter.connect(window.chMerger, 0, 1); // L→R (sum)
+                    window.chSplitter.connect(window.chMerger, 1, 1); // R→R (sum)
+                    break;
+                case 'left':
+                    window.chSplitter.connect(window.chMerger, 0, 0); // L→L
+                    window.chSplitter.connect(window.chMerger, 0, 1); // L→R
+                    break;
+                case 'right':
+                    window.chSplitter.connect(window.chMerger, 1, 0); // R→L
+                    window.chSplitter.connect(window.chMerger, 1, 1); // R→R
+                    break;
+                case 'swap':
+                    window.chSplitter.connect(window.chMerger, 1, 0); // R→L
+                    window.chSplitter.connect(window.chMerger, 0, 1); // L→R
+                    break;
+                default:
+                    window.chSplitter.connect(window.chMerger, 0, 0);
+                    window.chSplitter.connect(window.chMerger, 1, 1);
+            }
+        }
+
         function initAudioEngine() {
             if (audioCtx) return;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -4597,7 +4793,26 @@
             analyzer.fftSize = 512; 
             
             lastNode.connect(analyzer);
-            analyzer.connect(audioCtx.destination);
+
+            // Balance (StereoPanner) + channel-mode (Splitter/Merger) nodes
+            window.pannerNode = audioCtx.createStereoPanner();
+            const savedBal = localStorage.getItem('setting_balance');
+            window.pannerNode.pan.value = savedBal !== null ? (parseFloat(savedBal) - 50) / 50 : 0;
+
+            window.chSplitter = audioCtx.createChannelSplitter(2);
+            window.chMerger   = audioCtx.createChannelMerger(2);
+            // Default: stereo routing L→L, R→R
+            window.chSplitter.connect(window.chMerger, 0, 0);
+            window.chSplitter.connect(window.chMerger, 1, 1);
+            window.chMerger.connect(window.pannerNode);
+            window.pannerNode.connect(audioCtx.destination);
+
+            // Apply saved channel mode
+            const savedPBMode = localStorage.getItem('setting_pb_mode');
+            if (savedPBMode && savedPBMode !== 'stereo') applyChannelMode(savedPBMode);
+
+            // Initial fallback connection (replaced when volumeNode is created)
+            analyzer.connect(window.chSplitter);
 
             document.querySelectorAll('.eq-slider').forEach(slider => {
                 slider.addEventListener('input', (e) => {
@@ -4830,6 +5045,7 @@
         }
 
         let progressInterval = null;
+        let _smtcSyncCounter = 0;
         function startProgressUpdater() {
             if(progressInterval) clearInterval(progressInterval);
             progressInterval = setInterval(() => {
@@ -4848,6 +5064,10 @@
 
                 timeCurrent.textContent = formatTime(current);
                 maybeSavePosition(current);
+
+                // Resync SMTC position every ~10 s to correct drift
+                _smtcSyncCounter++;
+                if (_smtcSyncCounter >= 40) { _smtcSyncCounter = 0; updateSMTCPosition(current); }
                 
                 if (duration && duration > 0 && isFinite(duration)) {
                     const pct = (current / duration) * 100;
@@ -4927,6 +5147,25 @@
         attachTooltip(progressWrapper, document.getElementById('seek-tooltip'));
         attachTooltip(document.getElementById('mini-progress-track'), document.getElementById('mini-seek-tooltip'));
 
+        function attachVolumeTooltip(slider, tooltip) {
+            function show(e) {
+                tooltip.textContent = Math.round(parseFloat(slider.value) * 100) + '%';
+                tooltip.style.left = e.clientX + 'px';
+                tooltip.style.top  = (e.clientY - 10) + 'px';
+                tooltip.classList.add('visible');
+            }
+            slider.addEventListener('mousemove',  show);
+            slider.addEventListener('mouseenter', show);
+            slider.addEventListener('input', (e) => {
+                if (tooltip.classList.contains('visible')) {
+                    tooltip.textContent = Math.round(parseFloat(slider.value) * 100) + '%';
+                }
+            });
+            slider.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
+        }
+        attachVolumeTooltip(volumeSlider,     document.getElementById('vol-tooltip'));
+        attachVolumeTooltip(miniVolumeSlider, document.getElementById('mini-vol-tooltip'));
+
         function triggerMiniMarquee() {
             miniTrackTitle.classList.remove('animate');
             setTimeout(() => {
@@ -4998,6 +5237,9 @@
                     if (!radioAudioElement) {
                         radioAudioElement = new Audio();
                         radioAudioElement.crossOrigin = "anonymous";
+                        // Keep in DOM so Chromium recognises this as an active media session
+                        radioAudioElement.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;opacity:0;';
+                        document.body.appendChild(radioAudioElement);
                         mediaElementSourceNode = audioCtx.createMediaElementSource(radioAudioElement);
                         mediaElementSourceNode.connect(window.preampNode);
                     }
@@ -5008,7 +5250,7 @@
                         window.volumeNode = audioCtx.createGain();
                         analyzer.disconnect();
                         analyzer.connect(window.volumeNode);
-                        window.volumeNode.connect(audioCtx.destination);
+                        window.volumeNode.connect(window.chSplitter);
                     }
 
                     const currentVol = isMuted ? 0 : parseFloat(volumeSlider.value);
@@ -5083,10 +5325,13 @@
                     }
                     
                     if ('mediaSession' in navigator) {
+                        const artwork = [];
+                        if (meta.coverDataUrl) artwork.push({ src: meta.coverDataUrl, sizes: '512x512', type: 'image/jpeg' });
                         navigator.mediaSession.metadata = new MediaMetadata({
                             title: meta.title,
                             artist: meta.artist,
-                            album: 'Noctune Player'
+                            album: meta.album || '',
+                            artwork
                         });
                     }
 
@@ -5101,11 +5346,17 @@
                         localAudioElement.pause();
                         localAudioElement.src = "";
                         try { localAudioElement.load(); } catch(e){}
+                        // Remove from DOM — each track gets a fresh element
+                        try { if (localAudioElement.parentNode) localAudioElement.parentNode.removeChild(localAudioElement); } catch(e){}
                     }
 
                     localAudioElement = new Audio();
                     localAudioElement.preload = 'auto';
                     localAudioElement.crossOrigin = "anonymous";
+                    // Must be in the DOM for Chromium to register an active media session
+                    // (required for navigator.mediaSession setActionHandler callbacks to fire)
+                    localAudioElement.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;opacity:0;';
+                    document.body.appendChild(localAudioElement);
 
                     // Подключаем в аудиограф сразу (до установки src)
                     localMediaSource = audioCtx.createMediaElementSource(localAudioElement);
@@ -5116,7 +5367,7 @@
                         window.volumeNode = audioCtx.createGain();
                         analyzer.disconnect();
                         analyzer.connect(window.volumeNode);
-                        window.volumeNode.connect(audioCtx.destination);
+                        window.volumeNode.connect(window.chSplitter);
                     }
 
                     // Устанавливаем источник — браузер начинает буферизацию немедленно
@@ -5138,6 +5389,8 @@
                         // Для совместимости с seek/tooltip — эмулируем объект с duration
                         currentDecodedBuffer = { duration: currentTrackDuration };
                         timeTotal.textContent = formatTime(currentTrackDuration);
+                        // Now that duration is known, sync SMTC position state
+                        updateSMTCPosition(localAudioElement.currentTime || startPosition);
 
                         const stats_size = entry._fileSize || 0;
                         if (stats_size > 0 && currentTrackDuration > 0) {
@@ -5262,7 +5515,7 @@
                 window.volumeNode = audioCtx.createGain();
                 analyzer.disconnect();
                 analyzer.connect(window.volumeNode);
-                window.volumeNode.connect(audioCtx.destination);
+                window.volumeNode.connect(window.chSplitter);
             }
 
             const targetVol = isMuted ? 0 : parseFloat(volumeSlider.value);
@@ -5278,6 +5531,10 @@
             }
 
             localAudioElement.currentTime = position;
+            // Resume AudioContext in case it was suspended (e.g. triggered by SMTC without a user gesture)
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume().catch(() => {});
+            }
             localAudioElement.play().catch(err => {
                 // AbortError — ожидаемо при быстром переключении треков (play прерван pause)
                 if (err.name === 'AbortError') return;
@@ -5288,7 +5545,8 @@
             pausedAt = position;
             isPlaying = true;
             localStorage.setItem('player_was_playing', '1');
-            
+
+            updateSMTCPosition(position);
             updatePlayIcons(true);
             statusText.textContent = 'Воспроизведение';
             startProgressUpdater();
@@ -5315,13 +5573,29 @@
                 mainIcon.setAttribute('data-lucide', 'pause');
                 miniIcon.setAttribute('data-lucide', 'pause');
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                // Keep the MediaSession alive so SMTC buttons keep firing
+                if (window._msKeepAlive) window._msKeepAlive.play().catch(() => {});
             } else {
                 mainIcon.setAttribute('data-lucide', 'play');
                 miniIcon.setAttribute('data-lucide', 'play');
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+                // Do NOT pause _msKeepAlive — session must stay active so SMTC 'play' can fire
             }
             lucide.createIcons();
             sendTrayState();
+        }
+
+        function updateSMTCPosition(position) {
+            if (!('mediaSession' in navigator)) return;
+            const duration = currentTrackDuration || (localAudioElement ? localAudioElement.duration : 0);
+            if (!duration || !isFinite(duration) || duration <= 0) return;
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: duration,
+                    playbackRate: (localAudioElement && localAudioElement.playbackRate) ? localAudioElement.playbackRate : 1,
+                    position: Math.max(0, Math.min(position, duration))
+                });
+            } catch(e) {}
         }
 
         function updateVolumeIcons(val) {
@@ -5410,6 +5684,11 @@
                 localAudioElement = null;
             }
             currentIndex = -1;
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'none';
+                try { navigator.mediaSession.setPositionState({}); } catch(e) {}
+            }
+            if (window._msKeepAlive) window._msKeepAlive.pause();
             updatePlayIcons(false);
             statusText.textContent = 'Окончено';
         }
@@ -5458,6 +5737,7 @@
                 pausedAt = localAudioElement.currentTime;
                 localAudioElement.pause();
                 isPlaying = false;
+                updateSMTCPosition(pausedAt);
                 updatePlayIcons(false);
                 statusText.textContent = 'Пауза';
                 // Save position on pause
@@ -6137,10 +6417,69 @@
         }
 
         if ('mediaSession' in navigator) {
-            navigator.mediaSession.setActionHandler('play', () => { if (!isPlaying) togglePlayback(); });
-            navigator.mediaSession.setActionHandler('pause', () => { if (isPlaying) togglePlayback(); });
+            // Generate a proper 2-second silent WAV so the keepalive loop is stable.
+            // A 0-duration WAV loops thousands of times/sec, causing the session to flicker
+            // between "playing" and "ended" — SMTC sees an unstable state and stops sending
+            // play/pause commands (next/prev are unaffected because they're stateless).
+            (function createKeepAlive() {
+                const SR = 22050, seconds = 2;
+                const n = SR * seconds;
+                const buf = new ArrayBuffer(44 + n * 2);
+                const d = new DataView(buf);
+                const w = (off, s) => [...s].forEach((c, i) => d.setUint8(off + i, c.charCodeAt(0)));
+                w(0, 'RIFF'); d.setUint32(4, 36 + n * 2, true);
+                w(8, 'WAVEfmt '); d.setUint32(16, 16, true);
+                d.setUint16(20, 1, true); d.setUint16(22, 1, true);
+                d.setUint32(24, SR, true); d.setUint32(28, SR * 2, true);
+                d.setUint16(32, 2, true); d.setUint16(34, 16, true);
+                w(36, 'data'); d.setUint32(40, n * 2, true);
+                // samples stay 0 — 16-bit signed PCM silence
+                const url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+                window._msKeepAlive = new Audio(url);
+                window._msKeepAlive.loop   = true;
+                window._msKeepAlive.volume = 0;
+                window._msKeepAlive.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;';
+                document.body.appendChild(window._msKeepAlive);
+            })();
+
+            // Remove isPlaying guard — togglePlayback() checks state internally.
+            // The guard was causing silent no-ops when isPlaying was stale.
+            navigator.mediaSession.setActionHandler('play',  () => {
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+                if (!isPlaying) togglePlayback();
+            });
+            navigator.mediaSession.setActionHandler('pause', () => {
+                if (isPlaying) togglePlayback();
+            });
+            navigator.mediaSession.setActionHandler('stop',          () => { stopTrack(); navigator.mediaSession.playbackState = 'none'; });
             navigator.mediaSession.setActionHandler('previoustrack', playPrev);
-            navigator.mediaSession.setActionHandler('nexttrack', playNext);
+            navigator.mediaSession.setActionHandler('nexttrack',     playNext);
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                if (isRadioMode || !localAudioElement) return;
+                const target = details.seekTime ?? 0;
+                if (isPlaying) {
+                    startSourceAt(target, false);
+                } else {
+                    pausedAt = target;
+                    localAudioElement.currentTime = target;
+                    updateSMTCPosition(target);
+                }
+            });
+            navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+                if (isRadioMode || !localAudioElement) return;
+                const skip = details.seekOffset ?? 10;
+                const target = Math.max(0, (localAudioElement.currentTime || pausedAt) - skip);
+                if (isPlaying) startSourceAt(target, false);
+                else { pausedAt = target; localAudioElement.currentTime = target; updateSMTCPosition(target); }
+            });
+            navigator.mediaSession.setActionHandler('seekforward', (details) => {
+                if (isRadioMode || !localAudioElement) return;
+                const skip = details.seekOffset ?? 10;
+                const dur = currentTrackDuration || localAudioElement.duration || 0;
+                const target = Math.min(dur, (localAudioElement.currentTime || pausedAt) + skip);
+                if (isPlaying) startSourceAt(target, false);
+                else { pausedAt = target; localAudioElement.currentTime = target; updateSMTCPosition(target); }
+            });
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -6444,6 +6783,12 @@
                 localStorage.setItem('setting_notifications', settingNotifications.checked ? '1' : '0');
             });
 
+            // ---- GENERAL: Open links in external browser ----
+            const settingOpenLinksExternal = document.getElementById('setting-open-links-external');
+            settingOpenLinksExternal.addEventListener('change', () => {
+                localStorage.setItem('setting_open_links_external', settingOpenLinksExternal.checked ? '1' : '0');
+            });
+
             // ---- APPEARANCE: Visualizer type dropdown ----
             const vizTypeBtn  = document.getElementById('viz-type-dropdown-btn');
             const vizTypeMenu = document.getElementById('viz-type-dropdown-menu');
@@ -6502,18 +6847,53 @@
             const vizColor2 = document.getElementById('viz-grad-color2');
             const vizColor3 = document.getElementById('viz-grad-color3');
             const vizGradReset = document.getElementById('viz-grad-reset');
+
+            // Gradient presets — order matches accent swatches (Синий, Фиолетовый, Зелёный, Красный, Оранжевый, Бирюзовый, Розовый, Coral)
+            const GRAD_PRESETS = [
+                ['#4a90e2', '#7b2ff7', '#00d4ff'],
+                ['#bb86fc', '#4a90e2', '#03dac6'],
+                ['#2ecc71', '#1abc9c', '#a8ff78'],
+                ['#e74c3c', '#ff6b35', '#ffd700'],
+                ['#f39c12', '#e74c3c', '#ffe57f'],
+                ['#1abc9c', '#2980b9', '#a8ff78'],
+                ['#e91e8c', '#bb86fc', '#ff6b35'],
+                ['#ff6b35', '#e91e8c', '#ffd700'],
+            ];
+
+            function highlightActiveGradPreset() {
+                const c1 = vizColor1.value.toLowerCase();
+                const c2 = vizColor2.value.toLowerCase();
+                const c3 = vizColor3.value.toLowerCase();
+                document.querySelectorAll('.grad-preset').forEach((p, i) => {
+                    const [pc1, pc2, pc3] = GRAD_PRESETS[i];
+                    p.classList.toggle('active', pc1 === c1 && pc2 === c2 && pc3 === c3);
+                });
+            }
+
+            document.querySelectorAll('.grad-preset').forEach((preset, i) => {
+                preset.addEventListener('click', () => {
+                    const [c1, c2, c3] = GRAD_PRESETS[i];
+                    vizColor1.value = c1;
+                    vizColor2.value = c2;
+                    vizColor3.value = c3;
+                    applyVizColors();
+                    highlightActiveGradPreset();
+                });
+            });
+
             function applyVizColors() {
                 window.vizGradColor1 = vizColor1.value;
                 window.vizGradColor2 = vizColor2.value;
                 window.vizGradColor3 = vizColor3.value;
                 localStorage.setItem('setting_viz_grad', JSON.stringify([vizColor1.value, vizColor2.value, vizColor3.value]));
             }
-            vizColor1.addEventListener('input', applyVizColors);
-            vizColor2.addEventListener('input', applyVizColors);
-            vizColor3.addEventListener('input', applyVizColors);
+            vizColor1.addEventListener('input', () => { applyVizColors(); highlightActiveGradPreset(); });
+            vizColor2.addEventListener('input', () => { applyVizColors(); highlightActiveGradPreset(); });
+            vizColor3.addEventListener('input', () => { applyVizColors(); highlightActiveGradPreset(); });
             vizGradReset.addEventListener('click', () => {
                 vizColor1.value = '#bb86fc'; vizColor2.value = '#4a90e2'; vizColor3.value = '#03dac6';
                 applyVizColors();
+                highlightActiveGradPreset();
             });
 
             // ---- APPEARANCE: Viz rotate colors (circles only) ----
@@ -6706,6 +7086,75 @@
                 applyPlaybackSpeed(parseFloat(this.value));
             });
 
+            // ---- PLAYER: Balance slider ----
+            const balanceSlider = document.getElementById('setting-balance');
+            const balanceLabel  = document.getElementById('setting-balance-label');
+            function applyBalance(sliderVal) {
+                const display = 50 - sliderVal; // +50 (L) … 0 … -50 (R)
+                balanceLabel.textContent = display > 0 ? '+' + display : String(display);
+                if (window.pannerNode) {
+                    window.pannerNode.pan.value = (sliderVal - 50) / 50; // -1…0…+1
+                }
+                localStorage.setItem('setting_balance', sliderVal);
+            }
+            balanceSlider.addEventListener('input', () => applyBalance(parseInt(balanceSlider.value)));
+
+            balanceSlider.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                balanceSlider.value = 50;
+                applyBalance(50);
+            });
+
+            // ---- PLAYER: Playback mode dropdown ----
+            const pbModeBtn   = document.getElementById('pb-mode-dropdown-btn');
+            const pbModeMenu  = document.getElementById('pb-mode-dropdown-menu');
+            const pbModeLabel = document.getElementById('pb-mode-label');
+
+            const PB_MODE_NAMES = {
+                'stereo': 'Стерео',
+                'mono':   'Моно',
+                'left':   'Только левый канал',
+                'right':  'Только правый канал',
+                'swap':   'Инвертированное стерео',
+            };
+            const PB_MODE_ICONS = {
+                'stereo': 'headphones',
+                'mono':   'minus-circle',
+                'left':   'arrow-left-circle',
+                'right':  'arrow-right-circle',
+                'swap':   'repeat-2',
+            };
+
+            function selectPbMode(mode) {
+                applyChannelMode(mode);
+                localStorage.setItem('setting_pb_mode', mode);
+                pbModeLabel.textContent = PB_MODE_NAMES[mode] || mode;
+                const icon = PB_MODE_ICONS[mode] || 'headphones';
+                pbModeBtn.querySelector('.pd-icon').innerHTML =
+                    `<i data-lucide="${icon}" style="width:14px;height:14px;"></i>`;
+                pbModeMenu.querySelectorAll('.pb-mode-menu-item').forEach(el =>
+                    el.classList.toggle('active', el.dataset.mode === mode));
+                lucide.createIcons();
+            }
+
+            pbModeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = pbModeMenu.classList.toggle('open');
+                pbModeBtn.classList.toggle('open', open);
+            });
+            document.addEventListener('click', () => {
+                pbModeMenu.classList.remove('open');
+                pbModeBtn.classList.remove('open');
+            });
+            pbModeMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('.pb-mode-menu-item');
+                if (!item) return;
+                e.stopPropagation();
+                selectPbMode(item.dataset.mode);
+                pbModeMenu.classList.remove('open');
+                pbModeBtn.classList.remove('open');
+            });
+
             // ---- PLAYER: Show cover art toggle ----
             const settingShowCover = document.getElementById('setting-show-cover');
             settingShowCover.addEventListener('change', () => {
@@ -6873,6 +7322,17 @@
                     if (mainLabel) mainLabel.textContent = v.toFixed(2).replace(/\.?0+$/, '') + '×';
                 }
 
+                // Balance
+                const savedBal = localStorage.getItem('setting_balance');
+                if (savedBal !== null) {
+                    balanceSlider.value = savedBal;
+                    applyBalance(parseInt(savedBal));
+                }
+
+                // Playback mode
+                const savedPBMode = localStorage.getItem('setting_pb_mode') || 'stereo';
+                selectPbMode(savedPBMode);
+
                 // Accent color
                 const savedAccent = localStorage.getItem('setting_accent_color');
                 if (savedAccent) {
@@ -7014,6 +7474,10 @@
                 const savedMTT = localStorage.getItem('setting_minimize_to_tray');
                 if (savedMTT !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = savedMTT === '1'; }
 
+                // Open links in external browser
+                const savedOLE = localStorage.getItem('setting_open_links_external');
+                { const el = document.getElementById('setting-open-links-external'); if(el) el.checked = savedOLE === null ? true : savedOLE === '1'; }
+
                 // Notifications
                 const savedNotif = localStorage.getItem('setting_notifications');
                 if (savedNotif !== null) settingNotifications.checked = savedNotif === '1';
@@ -7032,6 +7496,7 @@
                     window.vizGradColor2 = '#4a90e2';
                     window.vizGradColor3 = '#03dac6';
                 }
+                highlightActiveGradPreset();
 
                 // Viz rotate
                 const savedVizRotate = localStorage.getItem('setting_viz_rotate');
@@ -7118,7 +7583,25 @@
                 if (mtt !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = mtt === '1'; }
                 const rt = localStorage.getItem('setting_remember_track');
                 if (rt !== null) { const el = document.getElementById('setting-remember-track'); if(el) el.checked = rt === '1'; }
+                // Open links in external browser — default ON
+                const ole = localStorage.getItem('setting_open_links_external');
+                { const el = document.getElementById('setting-open-links-external'); if(el) el.checked = ole === null ? true : ole === '1'; }
+                // Balance & channel mode are applied when AudioContext is created (initAudioEngine reads localStorage directly)
             })();
+
+            // Intercept all http(s) link clicks — if the setting is enabled, open via shell instead of Electron window
+            document.addEventListener('click', (e) => {
+                const link = e.target.closest('a[href]');
+                if (!link) return;
+                const href = link.getAttribute('href');
+                if (!href || !/^https?:\/\//i.test(href)) return;
+                const settingEl = document.getElementById('setting-open-links-external');
+                const enabled = settingEl ? settingEl.checked : (localStorage.getItem('setting_open_links_external') !== '0');
+                if (enabled) {
+                    e.preventDefault();
+                    ipcRenderer.send('open-external-url', href);
+                }
+            });
         })();
     </script>
 </body>
