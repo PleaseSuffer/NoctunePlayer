@@ -1984,11 +1984,11 @@
                         </div>
                         <div class="volume-speed-divider"></div>
                         <div class="main-slider-zone" id="volume-zone">
-                            <button class="control-btn" id="main-volume-icon" onclick="toggleMute()">
-                                <i data-lucide="volume-2" style="width:18px;height:18px;"></i>
+                            <button class="control-btn" id="main-volume-btn" onclick="toggleMute()">
+                                <i data-lucide="volume-2" id="main-volume-icon" style="width:18px;height:18px;"></i>
                             </button>
                             <div class="main-slider-wrapper">
-                                <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.001" value="0.7"
+                                <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="0.7"
                                     style="width:70px;">
                             </div>
                         </div>
@@ -2017,7 +2017,7 @@
             <div class="mini-volume-zone">
                 <button class="mini-btn" style="cursor: pointer;"><i data-lucide="volume-2" id="mini-volume-icon"></i></button>
                 <div class="mini-volume-slider-wrapper">
-                    <input type="range" class="mini-volume-slider" id="mini-volume-slider" min="0" max="1" step="0.001" value="0.7">
+                    <input type="range" class="mini-volume-slider" id="mini-volume-slider" min="0" max="1" step="0.01" value="0.7">
                 </div>
             </div>
 
@@ -3482,7 +3482,10 @@
             isMuted = !isMuted;
             if (isMuted) {
                 savedVolumeMute = parseFloat(volumeSlider.value);
-                if (window.volumeNode) window.volumeNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                if (window.volumeNode) {
+                    window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                    window.volumeNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                }
                 if (radioAudioElement) radioAudioElement.volume = 0;
                 updateVolumeIcons(0);
                 volumeSlider.value = 0;
@@ -5079,6 +5082,7 @@
                         const timeLeft = duration - current;
                         if (timeLeft <= crossfadeOutDuration && timeLeft > 0) {
                             const fadeVol = (timeLeft / crossfadeOutDuration) * (isMuted ? 0 : parseFloat(volumeSlider.value));
+                            window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                             window.volumeNode.gain.setValueAtTime(fadeVol, audioCtx.currentTime);
                         }
                     }
@@ -5149,18 +5153,21 @@
 
         function attachVolumeTooltip(slider, tooltip) {
             function show(e) {
-                tooltip.textContent = Math.round(parseFloat(slider.value) * 100) + '%';
+                const rect = slider.getBoundingClientRect();
+                // Default Chromium range thumb is ~16 px wide; the track runs
+                // from thumbRadius to (rect.width − thumbRadius), so we subtract
+                // the radius from both the cursor offset and the divisor.
+                const thumbRadius = 8;
+                const usable = rect.width - thumbRadius * 2;
+                const x = e.clientX - rect.left - thumbRadius;
+                const pct = Math.round(Math.max(0, Math.min(1, x / usable)) * 100);
+                tooltip.textContent = pct + '%';
                 tooltip.style.left = e.clientX + 'px';
                 tooltip.style.top  = (e.clientY - 10) + 'px';
                 tooltip.classList.add('visible');
             }
             slider.addEventListener('mousemove',  show);
             slider.addEventListener('mouseenter', show);
-            slider.addEventListener('input', (e) => {
-                if (tooltip.classList.contains('visible')) {
-                    tooltip.textContent = Math.round(parseFloat(slider.value) * 100) + '%';
-                }
-            });
             slider.addEventListener('mouseleave', () => tooltip.classList.remove('visible'));
         }
         attachVolumeTooltip(volumeSlider,     document.getElementById('vol-tooltip'));
@@ -5599,13 +5606,10 @@
         }
 
         function updateVolumeIcons(val) {
-            const mainVolBtn = document.getElementById('main-volume-icon');
+            const mainVolIcon = document.getElementById('main-volume-icon');
             const miniVolIcon = document.getElementById('mini-volume-icon');
-            let iconName = (val <= 0 || isMuted) ? 'volume-x' : (val < 0.4) ? 'volume' : (val < 0.7) ? 'volume-1' : 'volume-2';
-            if (mainVolBtn) {
-                const i = mainVolBtn.querySelector('i[data-lucide]');
-                if (i) i.setAttribute('data-lucide', iconName);
-            }
+            const iconName = (val <= 0 || isMuted) ? 'volume-x' : (val < 0.4) ? 'volume' : (val < 0.7) ? 'volume-1' : 'volume-2';
+            if (mainVolIcon) mainVolIcon.setAttribute('data-lucide', iconName);
             if (miniVolIcon) miniVolIcon.setAttribute('data-lucide', iconName);
             lucide.createIcons();
         }
@@ -5618,7 +5622,10 @@
             miniVolumeSlider.value = volumeValue;
             
             if (saveToStorage) { localStorage.setItem('player_volume', volumeValue); }
-            if (window.volumeNode) { window.volumeNode.gain.setValueAtTime(isMuted ? 0 : volumeValue, audioCtx.currentTime); }
+            if (window.volumeNode) {
+                window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                window.volumeNode.gain.setValueAtTime(isMuted ? 0 : volumeValue, audioCtx.currentTime);
+            }
             if (radioAudioElement) {
                 radioAudioElement.volume = isMuted ? 0 : volumeValue;
             }
@@ -5913,6 +5920,7 @@
             miniVolumeSlider.value = volumeValue;
             localStorage.setItem('player_volume', volumeValue);
             if (window.volumeNode) {
+                window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                 window.volumeNode.gain.setValueAtTime(isMuted ? 0 : volumeValue, audioCtx.currentTime);
             }
             if (radioAudioElement) radioAudioElement.volume = isMuted ? 0 : volumeValue;
