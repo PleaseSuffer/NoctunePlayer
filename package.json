@@ -2,7 +2,7 @@
   "name": "noctune",
   "displayName": "Noctune",
   "productName": "Noctune",
-  "version": "1.1.4-beta",
+  "version": "1.1.4-release",
   "main": "src/main.js",
   "devDependencies": {
     "electron": "^42.2.0",
