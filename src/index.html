@@ -2222,7 +2222,7 @@
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Открывать ссылки во внешнем браузере</div>
-                                    <div class="settings-row-desc">Ссылки открываются в браузере по умолчанию, а не в Electron</div>
+                                    <div class="settings-row-desc">Ссылки открываются в браузере по умолчанию</div>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="setting-open-links-external" checked>
@@ -7597,19 +7597,30 @@
                 // Balance & channel mode are applied when AudioContext is created (initAudioEngine reads localStorage directly)
             })();
 
-            // Intercept all http(s) link clicks — if the setting is enabled, open via shell instead of Electron window
+            // Intercept all http(s) link clicks.
+            // • Capture phase (true) — fires before Electron processes target="_blank" navigation,
+            //   so preventDefault() reliably prevents the window from opening / navigating away.
+            // • Always call preventDefault to stop Electron from doing anything unexpected.
+            // • When setting ON  → open in external browser via IPC.
+            // • When setting OFF → click is suppressed (links do nothing); Electron's built-in
+            //   behaviour for target="_blank" is inconsistent across versions so we block it.
             document.addEventListener('click', (e) => {
                 const link = e.target.closest('a[href]');
                 if (!link) return;
                 const href = link.getAttribute('href');
                 if (!href || !/^https?:\/\//i.test(href)) return;
+
+                e.preventDefault();
+
                 const settingEl = document.getElementById('setting-open-links-external');
-                const enabled = settingEl ? settingEl.checked : (localStorage.getItem('setting_open_links_external') !== '0');
+                const enabled = settingEl ? settingEl.checked
+                                           : (localStorage.getItem('setting_open_links_external') !== '0');
                 if (enabled) {
-                    e.preventDefault();
                     ipcRenderer.send('open-external-url', href);
+                } else {
+                    ipcRenderer.send('open-internal-url', href);
                 }
-            });
+            }, true); // capture phase
         })();
     </script>
 </body>

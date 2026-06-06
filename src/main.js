@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, net } = require('electron');
+const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, net, shell } = require('electron');
 const path = require('path');
 
 const iconPath = path.join(__dirname, '..', 'resources', 'app.ico');
@@ -373,12 +373,29 @@ ipcMain.handle('check-for-updates', async () => {
 });
 
 // Обработчик для открытия ссылки в браузере по умолчанию
-/*
-ipcMain.on('open-external-url', (event, url) => {
-    const { shell } = require('electron');
+ipcMain.on('open-external-url', (_event, url) => {
     shell.openExternal(url);
 });
-*/
+
+// Обработчик для открытия ссылки во встроенном браузере
+ipcMain.on('open-internal-url', (_event, url) => {
+    const browserWin = new BrowserWindow({
+        width: 1024,
+        height: 768,
+        title: url,
+        icon: iconPath,
+        parent: win,
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+        }
+    });
+    browserWin.setMenu(null);
+    browserWin.loadURL(url);
+    browserWin.webContents.on('page-title-updated', (_e, title) => {
+        browserWin.setTitle(title);
+    });
+});
 
 // Обработчик для получения сохраненного пути
 ipcMain.handle('get-saved-directory', () => {
