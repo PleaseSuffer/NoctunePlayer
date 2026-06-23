@@ -427,6 +427,19 @@ ipcMain.handle('dialog:openDirectory', async () => {
     return dirPath;
 });
 
+ipcMain.handle('dialog:openImage', async () => {
+    const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile'],
+        filters: [
+            { name: 'Изображения и видео', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'] },
+            { name: 'Изображения', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] },
+            { name: 'Видео', extensions: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'] }
+        ]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+});
+
 ipcMain.handle('get-app-version', () => {
     return app.getVersion();
 });
@@ -537,6 +550,19 @@ if (!gotTheLock) {
       win.show();
       win.focus();
     }
+  });
+
+  // Chromium буферизует записи localStorage и не всегда успевает сбросить их
+  // на диск перед завершением процесса. Из-за этого настройка, изменённая
+  // непосредственно перед закрытием приложения (например, переключатель
+  // "Восстанавливать воспроизведение"), могла теряться. Принудительно
+  // дописываем localStorage на диск перед любым выходом из приложения.
+  app.on('before-quit', () => {
+    try {
+      if (win && !win.isDestroyed()) {
+        win.webContents.session.flushStorageData();
+      }
+    } catch (e) {}
   });
 
   app.whenReady().then(() => {
