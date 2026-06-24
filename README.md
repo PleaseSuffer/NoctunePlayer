@@ -200,5 +200,5 @@ MIT License — см. файл [LICENSE](LICENSE)
 
 # 📝 Документация
 
-Политика конфиденциальности (Privacy Policy) - см. файл [TERMS_OF_SERVICE](docs/TERMS_OF_SERVICE.md)
-Условия использования (Terms of Service) - см. файл [PRIVACY_POLICY](docs/PRIVACY_POLICY.md)
+- Политика конфиденциальности (Privacy Policy) - см. файл [TERMS_OF_SERVICE](docs/TERMS_OF_SERVICE.md)
+- Условия использования (Terms of Service) - см. файл [PRIVACY_POLICY](docs/PRIVACY_POLICY.md)
