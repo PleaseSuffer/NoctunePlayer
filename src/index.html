@@ -59,7 +59,7 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            transition: background-color 0.3s, color 0.3s, transform 0.3s, opacity 0.3s;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, transform 0.3s, opacity 0.3s;
         }
 
         body {
@@ -1035,6 +1035,34 @@
             will-change: transform, filter;
         }
 
+        /* Кроссфейд при смене обоев: «снимок» предыдущего фона лежит сверху
+           на полной непрозрачности и плавно гаснет, открывая новый фон,
+           который уже подставлен под него (см. playBgCrossfade в JS). */
+        #custom-bg-image-prev {
+            position: absolute;
+            inset: 0;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+            opacity: 0;
+            pointer-events: none;
+            will-change: opacity;
+            z-index: 2;
+        }
+
+        /* Свечение фона под звук — мягкое радиальное «зарево» поверх обоев,
+           яркость которого зависит от громкости (см. updateBgAudioReactiveFx). */
+        #custom-bg-glow {
+            position: absolute;
+            inset: -25%;
+            background: radial-gradient(circle at 50% 50%, var(--accent-color) 0%, transparent 68%);
+            opacity: 0;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            will-change: opacity;
+            z-index: 1;
+        }
+
         #star-canvas {
             position: fixed;
             top: 0;
@@ -1356,6 +1384,14 @@
             gap: 16px;
         }
         .settings-row:last-child { border-bottom: none; }
+        /* Плавное появление доп. настроек, которые открывает переключатель/тумблер */
+        @keyframes settingsRevealIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .settings-reveal-anim {
+            animation: settingsRevealIn 0.25s ease;
+        }
         .settings-row-label {
             font-size: 13px;
             font-weight: 600;
@@ -1922,7 +1958,7 @@
 </head>
 <body>
 
-    <div id="custom-bg-layer"><div id="custom-bg-image"></div><video id="custom-bg-video" muted loop autoplay playsinline></video></div>
+    <div id="custom-bg-layer"><div id="custom-bg-image"></div><video id="custom-bg-video" muted loop autoplay playsinline></video><div id="custom-bg-glow"></div><div id="custom-bg-image-prev"></div></div>
     <canvas id="star-canvas"></canvas> <canvas id="confetti-canvas"></canvas> <canvas id="visualizer"></canvas>
     <div id="notification-stack"></div>
 
@@ -2032,7 +2068,7 @@
                                 <i data-lucide="volume-2" id="main-volume-icon" style="width:18px;height:18px;"></i>
                             </button>
                             <div class="main-slider-wrapper">
-                                <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="0.7"
+                                <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.01" value="0.8"
                                     style="width:70px;">
                             </div>
                         </div>
@@ -2061,7 +2097,7 @@
             <div class="mini-volume-zone">
                 <button class="mini-btn" style="cursor: pointer;"><i data-lucide="volume-2" id="mini-volume-icon"></i></button>
                 <div class="mini-volume-slider-wrapper">
-                    <input type="range" class="mini-volume-slider" id="mini-volume-slider" min="0" max="1" step="0.01" value="0.7">
+                    <input type="range" class="mini-volume-slider" id="mini-volume-slider" min="0" max="1" step="0.01" value="0.8">
                 </div>
             </div>
 
@@ -2524,13 +2560,23 @@
                                         style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
                                 </div>
                             </div>
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Частицы (звёзды)</div>
                                     <div class="settings-row-desc">Анимированный фон</div>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="setting-show-stars" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="settings-row" id="stars-interactive-row" style="border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Интерактивное небо</div>
+                                    <div class="settings-row-desc">Звёзды уплывают от курсора, будто в вязкой жидкости</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-stars-interactive">
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
@@ -2543,32 +2589,6 @@
                                     <input type="checkbox" id="setting-glass-blur" checked>
                                     <span class="slider-round"></span>
                                 </label>
-                            </div>
-                        </div>
-
-                        <div class="settings-section-title">Тема</div>
-                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
-                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
-                                <div>
-                                    <div class="settings-row-label">Экспорт темы</div>
-                                    <div class="settings-row-desc">Сохраняет акцент, градиенты визуализатора и настройки фона в один короткий код</div>
-                                </div>
-                                <button class="btn" id="btn-export-theme" style="padding:7px 14px;font-size:12px;">
-                                    <i data-lucide="share-2" style="width:13px;height:13px;"></i> Экспортировать тему
-                                </button>
-                            </div>
-                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;border-bottom:none;">
-                                <div>
-                                    <div class="settings-row-label">Импорт темы</div>
-                                    <div class="settings-row-desc">Вставьте код вида <code>noctune:...</code> и нажмите «Импортировать»</div>
-                                </div>
-                                <div style="display:flex;gap:8px;width:100%;">
-                                    <input type="text" id="theme-import-input" placeholder="noctune:..."
-                                        style="flex:1;min-width:0;padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; color: var(--text-color);font-size:12px;">
-                                    <button class="btn" id="btn-import-theme" style="padding:7px 14px;font-size:12px;flex-shrink:0;">
-                                        <i data-lucide="check" style="width:13px;height:13px;"></i> Импортировать
-                                    </button>
-                                </div>
                             </div>
                         </div>
 
@@ -2649,10 +2669,17 @@
                                 </div>
                                 <div id="bg-pulse-intensity-row" style="padding:0 0 10px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность пульсации</div>
-                                    <div style="display:flex;align-items:center;gap:10px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                         <input type="range" id="setting-bg-pulse-intensity" min="0.2" max="2.5" step="0.1" value="1"
                                             style="flex:1;accent-color:var(--accent-color);">
                                         <span id="setting-bg-pulse-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог срабатывания</div>
+                                    <div class="settings-row-desc" style="margin-bottom:6px;">Игнорировать тихие моменты</div>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <input type="range" id="setting-bg-pulse-threshold" min="0" max="0.5" step="0.02" value="0"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-pulse-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
                                     </div>
                                 </div>
 
@@ -2669,10 +2696,130 @@
                                 </div>
                                 <div id="bg-blur-intensity-row" style="display:none;padding:0 0 4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность размытия</div>
-                                    <div style="display:flex;align-items:center;gap:10px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                         <input type="range" id="setting-bg-blur-intensity" min="0.2" max="2.5" step="0.1" value="1"
                                             style="flex:1;accent-color:var(--accent-color);">
                                         <span id="setting-bg-blur-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог срабатывания</div>
+                                    <div class="settings-row-desc" style="margin-bottom:6px;">Игнорировать тихие моменты</div>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <input type="range" id="setting-bg-blur-threshold" min="0" max="0.5" step="0.02" value="0"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-blur-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
+                                    </div>
+                                </div>
+
+                                <!-- Свечение под звук -->
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div>
+                                        <div class="settings-row-label">Свечение под звук</div>
+                                        <div class="settings-row-desc">Фон слегка светится в такт звуку</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-bg-glow-enabled">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div id="bg-glow-intensity-row" style="display:none;padding:0 0 10px;">
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность свечения</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                        <input type="range" id="setting-bg-glow-intensity" min="0.2" max="2.5" step="0.1" value="1"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-glow-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог срабатывания</div>
+                                    <div class="settings-row-desc" style="margin-bottom:6px;">Игнорировать тихие моменты</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                        <input type="range" id="setting-bg-glow-threshold" min="0" max="0.5" step="0.02" value="0"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-glow-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
+                                    </div>
+
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Стиль свечения</div>
+                                    <div class="viz-type-dropdown-wrapper" id="bg-glow-style-dropdown-wrapper" style="margin-bottom:12px;">
+                                        <button class="viz-type-dropdown-btn" id="bg-glow-style-dropdown-btn">
+                                            <span class="pd-icon"><i data-lucide="sun" style="width:14px;height:14px;"></i></span>
+                                            <span class="pd-label" id="bg-glow-style-label">Из центра</span>
+                                            <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                        </button>
+                                        <div class="viz-type-dropdown-menu" id="bg-glow-style-dropdown-menu">
+                                            <div class="viz-type-menu-item active" data-glow-style="center" data-icon="sun">
+                                                <i data-lucide="sun" style="width:14px;height:14px;color:var(--accent-color);"></i> Из центра
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="edges" data-icon="square">
+                                                <i data-lucide="square" style="width:14px;height:14px;color:var(--accent-color);"></i> По краям
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="top" data-icon="arrow-down">
+                                                <i data-lucide="arrow-down" style="width:14px;height:14px;color:var(--accent-color);"></i> Сверху
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="bottom" data-icon="arrow-up">
+                                                <i data-lucide="arrow-up" style="width:14px;height:14px;color:var(--accent-color);"></i> Снизу
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="ring" data-icon="circle-dashed">
+                                                <i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Кольцом
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                                        <span style="font-size:12px;color:var(--text-muted);">Свой цвет свечения</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="setting-bg-glow-custom-color">
+                                            <span class="slider-round"></span>
+                                        </label>
+                                    </div>
+                                    <div id="bg-glow-color-row" style="display:none;align-items:center;gap:10px;padding-top:10px;">
+                                        <label style="font-size:12px;color:var(--text-muted);">Цвет:</label>
+                                        <input type="color" id="bg-glow-color-picker" value="#bb86fc"
+                                            style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+                                    </div>
+                                </div>
+
+                                <!-- Тряска (наклон) под звук -->
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div>
+                                        <div class="settings-row-label">Тряска под звук</div>
+                                        <div class="settings-row-desc">Фон слегка трясёт и наклоняет в такт звуку</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-bg-tilt-enabled">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div id="bg-tilt-intensity-row" style="display:none;padding:0 0 4px;">
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность тряски</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                        <input type="range" id="setting-bg-tilt-intensity" min="0.2" max="2.5" step="0.1" value="1"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-tilt-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог срабатывания</div>
+                                    <div class="settings-row-desc" style="margin-bottom:6px;">Игнорировать тихие моменты</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                        <input type="range" id="setting-bg-tilt-threshold" min="0" max="0.5" step="0.02" value="0"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-tilt-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Скорость тряски</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                        <input type="range" id="setting-bg-tilt-speed" min="0.2" max="3" step="0.1" value="1"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-tilt-speed-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                    </div>
+                                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                                        <span style="font-size:12px;color:var(--text-muted);">Вращение</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="setting-bg-tilt-rotation" checked>
+                                            <span class="slider-round"></span>
+                                        </label>
+                                    </div>
+                                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                                        <span style="font-size:12px;color:var(--text-muted);">Смещение</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="setting-bg-tilt-shift" checked>
+                                            <span class="slider-round"></span>
+                                        </label>
                                     </div>
                                 </div>
 
@@ -3108,6 +3255,32 @@
 
                             </div><!-- /confetti-settings-block -->
                         </div><!-- /confetti card -->
+
+                        <div class="settings-section-title">Импорт/экспорт темы</div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
+                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+                                <div>
+                                    <div class="settings-row-label">Экспорт темы</div>
+                                    <div class="settings-row-desc">Сохраняет акцент, градиенты визуализатора и настройки фона (без самого изображения/видео) в один короткий код</div>
+                                </div>
+                                <button class="btn" id="btn-export-theme" style="padding:7px 14px;font-size:12px;">
+                                    <i data-lucide="share-2" style="width:13px;height:13px;"></i> Экспортировать тему
+                                </button>
+                            </div>
+                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Импорт темы</div>
+                                    <div class="settings-row-desc">Вставьте код вида <code>noctune:...</code> и нажмите «Импортировать»</div>
+                                </div>
+                                <div style="display:flex;gap:8px;width:100%;">
+                                    <input type="text" id="theme-import-input" placeholder="noctune:..."
+                                        style="flex:1;min-width:0;padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; color: var(--text-color);font-size:12px;">
+                                    <button class="btn" id="btn-import-theme" style="padding:7px 14px;font-size:12px;flex-shrink:0;">
+                                        <i data-lucide="check" style="width:13px;height:13px;"></i> Импортировать
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                     </div>
 
@@ -3651,7 +3824,7 @@
         let currentTrackDuration = 0;      // длительность текущего трека (секунды)
         let isEqBypassed = false;
         let isMuted = false;
-        let savedVolumeMute = 0.7;
+        let savedVolumeMute = 0.8;
         let currentSelectedPresetName = "Обычный";
         let _loadToken = 0;                // токен отмены: каждый новый вызов playTrack инкрементирует
         window.preampNode = null;
@@ -3660,8 +3833,20 @@
         const customBgLayer = document.getElementById('custom-bg-layer');
         const customBgImageEl = document.getElementById('custom-bg-image');
         const customBgVideoEl = document.getElementById('custom-bg-video');
+        const customBgGlowEl = document.getElementById('custom-bg-glow');
+        const customBgImagePrevEl = document.getElementById('custom-bg-image-prev');
         const starCanvas = document.getElementById('star-canvas');
         const starCtx = starCanvas.getContext('2d');
+
+        // Курсор для интерактивного звёздного неба (canvas сам не получает событий мыши,
+        // т.к. у него pointer-events:none, поэтому координаты следим на document)
+        let starMouseX = -9999, starMouseY = -9999;
+        document.addEventListener('mousemove', (e) => { starMouseX = e.clientX; starMouseY = e.clientY; });
+        document.addEventListener('mouseleave', () => { starMouseX = -9999; starMouseY = -9999; });
+        const STAR_INTERACT_RADIUS = 140;   // px — радиус реакции на курсор
+        const STAR_REPEL_STRENGTH = 1.1;    // сила «толчка» от курсора
+        const STAR_VISCOSITY = 0.90;        // затухание скорости смещения за кадр (без упругого отскока)
+        const STAR_RETURN = 0.95;           // плавный возврат смещения к естественной траектории
 
         const frequencies = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 12000, 16000, 20000];
         
@@ -3711,7 +3896,11 @@
         });
 
         class Star {
-            constructor() { this.reset(); }
+            constructor() {
+                this.reset();
+                this.ox = 0; this.oy = 0;   // смещение от «вязкой» реакции на курсор
+                this.ovx = 0; this.ovy = 0; // скорость этого смещения
+            }
             reset() {
                 this.x = Math.random() * starCanvas.clientWidth;
                 this.y = Math.random() * starCanvas.clientHeight;
@@ -3721,7 +3910,29 @@
             }
             update() {
                 this.x += this.vx; this.y += this.vy;
-                if (this.x < 0 || this.x > starCanvas.clientWidth || this.y < 0 || this.y > starCanvas.clientHeight) this.reset();
+                if (this.x < 0 || this.x > starCanvas.clientWidth || this.y < 0 || this.y > starCanvas.clientHeight) {
+                    this.reset();
+                    this.ox = 0; this.oy = 0; this.ovx = 0; this.ovy = 0;
+                    return;
+                }
+
+                if (window.starsInteractive) {
+                    const rx = this.x + this.ox, ry = this.y + this.oy;
+                    const dx = rx - starMouseX, dy = ry - starMouseY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < STAR_INTERACT_RADIUS && dist > 0.01) {
+                        const force = (1 - dist / STAR_INTERACT_RADIUS) * STAR_REPEL_STRENGTH;
+                        this.ovx += (dx / dist) * force;
+                        this.ovy += (dy / dist) * force;
+                    }
+                }
+                // Вязкое движение: высокое сопротивление гасит скорость смещения без
+                // упругого отскока, а само смещение медленно стягивается к нулю —
+                // звезда плавно «выплывает» обратно на свою естественную траекторию.
+                this.ovx *= STAR_VISCOSITY;
+                this.ovy *= STAR_VISCOSITY;
+                this.ox = (this.ox + this.ovx) * STAR_RETURN;
+                this.oy = (this.oy + this.ovy) * STAR_RETURN;
             }
         }
 
@@ -3734,20 +3945,22 @@
 
             stars.forEach((star, i) => {
                 star.update();
+                const sx = star.x + star.ox, sy = star.y + star.oy;
                 starCtx.fillStyle = `rgba(${color}, 0.8)`;
                 starCtx.beginPath();
-                starCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                starCtx.arc(sx, sy, star.size, 0, Math.PI * 2);
                 starCtx.fill();
 
                 for (let j = i + 1; j < stars.length; j++) {
-                    const dx = stars[j].x - star.x, dy = stars[j].y - star.y;
+                    const otherX = stars[j].x + stars[j].ox, otherY = stars[j].y + stars[j].oy;
+                    const dx = otherX - sx, dy = otherY - sy;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist < 150) {
                         starCtx.strokeStyle = `rgba(${color}, ${1 - dist / 150})`;
                         starCtx.lineWidth = 0.5;
                         starCtx.beginPath();
-                        starCtx.moveTo(star.x, star.y);
-                        starCtx.lineTo(stars[j].x, stars[j].y);
+                        starCtx.moveTo(sx, sy);
+                        starCtx.lineTo(otherX, otherY);
                         starCtx.stroke();
                     }
                 }
@@ -4190,12 +4403,14 @@
                     window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                     window.volumeNode.gain.setValueAtTime(0, audioCtx.currentTime);
                 }
-                if (radioAudioElement) radioAudioElement.volume = 0;
+                // radioAudioElement.volume НЕ трогаем — звук радио идёт через тот же
+                // window.volumeNode, что и локальные треки; элемент остаётся на 1 (unity),
+                // иначе громкость уйдёт в ноль вдвойне (см. updateVolume ниже).
                 updateVolumeIcons(0);
                 volumeSlider.value = 0;
                 miniVolumeSlider.value = 0;
             } else {
-                const volToRestore = savedVolumeMute > 0 ? savedVolumeMute : 0.7;
+                const volToRestore = savedVolumeMute > 0 ? savedVolumeMute : 0.8;
                 updateVolume(volToRestore);
             }
         }
@@ -5785,7 +6000,7 @@
                     if (crossfadeEnabled && repeatMode !== 1 && crossfadeOutDuration > 0 && window.volumeNode && audioCtx) {
                         const timeLeft = duration - current;
                         if (timeLeft <= crossfadeOutDuration && timeLeft > 0) {
-                            const fadeVol = (timeLeft / crossfadeOutDuration) * (isMuted ? 0 : parseFloat(volumeSlider.value));
+                            const fadeVol = (timeLeft / crossfadeOutDuration) * (isMuted ? 0 : volumeSliderToGain(parseFloat(volumeSlider.value)));
                             window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                             window.volumeNode.gain.setValueAtTime(fadeVol, audioCtx.currentTime);
                         }
@@ -5948,6 +6163,13 @@
                     if (!radioAudioElement) {
                         radioAudioElement = new Audio();
                         radioAudioElement.crossOrigin = "anonymous";
+                        // Громкость самого элемента всегда оставляем на 1 (unity) — поток
+                        // идёт через тот же Web Audio граф (window.volumeNode), что и
+                        // локальные треки, и громкостью управляет именно этот узел.
+                        // Если параллельно задавать ещё и radioAudioElement.volume, оба
+                        // множителя применятся последовательно и радио станет вдвойне
+                        // тише локальной музыки при одном и том же положении слайдера.
+                        radioAudioElement.volume = 1;
                         // Keep in DOM so Chromium recognises this as an active media session
                         radioAudioElement.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;opacity:0;';
                         document.body.appendChild(radioAudioElement);
@@ -5964,10 +6186,8 @@
                         window.volumeNode.connect(window.chSplitter);
                     }
 
-                    const currentVol = isMuted ? 0 : parseFloat(volumeSlider.value);
+                    const currentVol = isMuted ? 0 : volumeSliderToGain(parseFloat(volumeSlider.value));
                     window.volumeNode.gain.setValueAtTime(currentVol, audioCtx.currentTime);
-
-                    radioAudioElement.volume = currentVol;
 
                     radioAudioElement.play().then(() => {
                         startRadioMetadataReader(entry.path, entry.name);
@@ -6231,7 +6451,7 @@
                 window.volumeNode.connect(window.chSplitter);
             }
 
-            const targetVol = isMuted ? 0 : parseFloat(volumeSlider.value);
+            const targetVol = isMuted ? 0 : volumeSliderToGain(parseFloat(volumeSlider.value));
 
             if (fadeIn && crossfadeEnabled && crossfadeInDuration > 0) {
                 // Fade-in: стартуем с нулевой громкостью, плавно поднимаем
@@ -6311,6 +6531,21 @@
             } catch(e) {}
         }
 
+        // Позиция слайдера (0–1, то, что хранится и показывается в UI) — это
+        // не сам gain, а перцептивная позиция. Громкость на слух подчиняется
+        // примерно логарифмическому закону, поэтому простой линейный gain
+        // «сжимает» большую часть слышимого изменения в нижнюю четверть шкалы.
+        // Тейпер ниже — стандартный приём из аудиософта: линейное приращение
+        // в дБ на каждый шаг слайдера в диапазоне VOLUME_TAPER_DB, так что
+        // равные шаги слайдера ощущаются на слух примерно равными по громкости.
+        const VOLUME_TAPER_DB = 24; // во сколько дБ «укладывается» весь ход слайдера
+        function volumeSliderToGain(v) {
+            if (!(v > 0)) return 0;   // 0 или некорректное значение — честная тишина
+            if (v >= 1) return 1;     // верх шкалы — unity gain (0 дБ), без округления
+            const db = -VOLUME_TAPER_DB * (1 - v);
+            return Math.pow(10, db / 20);
+        }
+
         function updateVolumeIcons(val) {
             const mainVolIcon = document.getElementById('main-volume-icon');
             const miniVolIcon = document.getElementById('mini-volume-icon');
@@ -6328,13 +6563,14 @@
             miniVolumeSlider.value = volumeValue;
             
             if (saveToStorage) { localStorage.setItem('player_volume', volumeValue); }
+            const gainValue = isMuted ? 0 : volumeSliderToGain(volumeValue);
             if (window.volumeNode) {
                 window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
-                window.volumeNode.gain.setValueAtTime(isMuted ? 0 : volumeValue, audioCtx.currentTime);
+                window.volumeNode.gain.setValueAtTime(gainValue, audioCtx.currentTime);
             }
-            if (radioAudioElement) {
-                radioAudioElement.volume = isMuted ? 0 : volumeValue;
-            }
+            // radioAudioElement.volume не меняем — см. комментарий в playTrack:
+            // громкость радио целиком регулируется через window.volumeNode,
+            // как и у локальных треков, чтобы шкала слайдера ощущалась одинаково.
             updateVolumeIcons(isMuted ? 0 : volumeValue);
         }
 
@@ -6625,11 +6861,14 @@
             volumeSlider.value = volumeValue;
             miniVolumeSlider.value = volumeValue;
             localStorage.setItem('player_volume', volumeValue);
+            const gainValue = isMuted ? 0 : volumeSliderToGain(volumeValue);
             if (window.volumeNode) {
                 window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
-                window.volumeNode.gain.setValueAtTime(isMuted ? 0 : volumeValue, audioCtx.currentTime);
+                window.volumeNode.gain.setValueAtTime(gainValue, audioCtx.currentTime);
             }
-            if (radioAudioElement) radioAudioElement.volume = isMuted ? 0 : volumeValue;
+            // radioAudioElement.volume не трогаем (см. playTrack) — иначе громкость
+            // радио ослабляется дважды и на низких значениях слайдера звук
+            // получается заметно тише, чем у локальных треков.
             // Icon re-render throttled to 60ms
             if (_volThrottleTimer) return;
             _volThrottleTimer = setTimeout(() => {
@@ -6658,6 +6897,15 @@
                 timeCurrent.textContent = formatTime(targetTime);
             }
         });
+
+        // Мягкий «гейт» по громкости: ниже порога эффект полностью выключен (0),
+        // выше — линейно растягивается обратно до полного размаха в точке 1,
+        // без скачка в момент пересечения порога.
+        function applyBgThreshold(level, threshold) {
+            if (!threshold || threshold <= 0) return level;
+            if (level <= threshold) return 0;
+            return (level - threshold) / (1 - threshold);
+        }
 
         function visualize() {
             requestAnimationFrame(visualize);
@@ -6713,12 +6961,13 @@
                 window._beatCooldown = Math.max(0, window._beatCooldown - (1000 / 60));
             }
 
-            // ── Реакция фона на звук (пульсация / размытие под звук) ──────────
+            // ── Реакция фона на звук (пульсация / размытие / свечение / тряска) ──
             // Без самонормализации к недавнему пику трека: одинаковая громкость
             // всегда даёт одинаковый, предсказуемый отклик — фон остаётся
             // преимущественно статичным и не «подстраивается» адаптивно под
             // конкретный трек, как раньше.
-            if (window.bgImageEnabled && window.bgImagePath && (window.bgPulseEnabled || window.bgBlurEnabled)) {
+            if (window.bgImageEnabled && window.bgImagePath &&
+                (window.bgPulseEnabled || window.bgBlurEnabled || window.bgGlowEnabled || window.bgTiltEnabled)) {
                 // Общий уровень звука по всему спектру (0..1) — без выделения
                 // отдельных полос частот и без скользящей самонормализации.
                 let soundSum = 0;
@@ -6735,24 +6984,60 @@
 
                 // Нелинейный множитель интенсивности: возле значений слайдера ~1
                 // эффект остаётся сдержанным (как и раньше), но при значениях
-                // около 2 и выше пульсация становится заметно сильнее и активнее —
-                // рост идёт по квадрату, а не линейно.
+                // около 2 и выше отклик становится заметно сильнее и активнее —
+                // рост идёт по квадрату интенсивности, а не линейно. Та же
+                // квадратичная зависимость применена ниже к размытию, свечению
+                // и тряске — по аналогии с пульсацией. У каждого из четырёх
+                // эффектов также свой минимальный порог срабатывания: тихие
+                // моменты ниже порога не вызывают вообще никакой реакции.
                 const pulseAmt     = window.bgPulseIntensity || 1;
-                const bgPulseScale = window.bgPulseEnabled ? 1 + bgFx * 0.035 * pulseAmt * pulseAmt : 1;
-                const bgBlurPx     = window.bgBlurEnabled  ? (window.bgBlurIntensity || 1) * bgFx * 7 : 0;
+                const bgFxPulse    = applyBgThreshold(bgFx, window.bgPulseThreshold || 0);
+                const bgPulseScale = window.bgPulseEnabled ? 1 + bgFxPulse * 0.035 * pulseAmt * pulseAmt : 1;
 
-                const _bgScaleCss = `scale(${bgPulseScale.toFixed(4)})`;
+                const blurAmt  = window.bgBlurIntensity || 1;
+                const bgFxBlur = applyBgThreshold(bgFx, window.bgBlurThreshold || 0);
+                const bgBlurPx = window.bgBlurEnabled ? bgFxBlur * 7 * blurAmt * blurAmt : 0;
+
+                const glowAmt       = window.bgGlowIntensity || 1;
+                const bgFxGlow      = applyBgThreshold(bgFx, window.bgGlowThreshold || 0);
+                const bgGlowOpacity = window.bgGlowEnabled ? Math.min(1, bgFxGlow * 1.4 * glowAmt * glowAmt) : 0;
+
+                // Тряска/наклон (tilt): небольшое вращение + дрожание по X/Y,
+                // амплитуда которых нарастает по квадрату интенсивности и
+                // громкости. Фаза крутится непрерывно (со своей регулируемой
+                // скоростью), поэтому направление «шатания» естественно
+                // меняется, а не застывает в одном крене. Вращение и смещение
+                // можно включать/выключать по отдельности.
+                let tiltDeg = 0, tiltTx = 0, tiltTy = 0;
+                if (window.bgTiltEnabled) {
+                    const tiltAmt   = window.bgTiltIntensity || 1;
+                    const tiltSpeed = window.bgTiltSpeed || 1;
+                    const bgFxTilt  = applyBgThreshold(bgFx, window.bgTiltThreshold || 0);
+                    window._bgTiltPhase = (window._bgTiltPhase || 0) + 0.1 * tiltSpeed;
+                    const tiltMag = bgFxTilt * 3.2 * tiltAmt * tiltAmt;
+                    if (window.bgTiltRotation !== false) {
+                        tiltDeg = Math.sin(window._bgTiltPhase) * tiltMag;
+                    }
+                    if (window.bgTiltShift !== false) {
+                        tiltTx = Math.sin(window._bgTiltPhase * 1.3 + 1.1) * tiltMag * 1.8;
+                        tiltTy = Math.cos(window._bgTiltPhase * 1.7 + 0.4) * tiltMag * 1.3;
+                    }
+                }
+
+                const _bgScaleCss  = `translate(${tiltTx.toFixed(2)}px, ${tiltTy.toFixed(2)}px) rotate(${tiltDeg.toFixed(3)}deg) scale(${bgPulseScale.toFixed(4)})`;
                 const _bgFilterCss = bgBlurPx > 0.05 ? `blur(${bgBlurPx.toFixed(2)}px)` : 'none';
                 customBgImageEl.style.transform = _bgScaleCss;
                 customBgImageEl.style.filter = _bgFilterCss;
                 customBgVideoEl.style.transform = _bgScaleCss;
                 customBgVideoEl.style.filter = _bgFilterCss;
+                if (customBgGlowEl) customBgGlowEl.style.opacity = bgGlowOpacity.toFixed(3);
                 window._bgEffectActive = true;
             } else if (window._bgEffectActive) {
                 customBgImageEl.style.transform = 'scale(1)';
                 customBgImageEl.style.filter = 'none';
                 customBgVideoEl.style.transform = 'scale(1)';
                 customBgVideoEl.style.filter = 'none';
+                if (customBgGlowEl) customBgGlowEl.style.opacity = '0';
                 window._bgSoundLevel = 0;
                 window._bgEffectActive = false;
             }
@@ -7430,6 +7715,30 @@
             const navItems = document.querySelectorAll('.settings-nav-item');
             const panels = document.querySelectorAll('.settings-panel');
 
+            // ── Плавное появление блоков доп. настроек, открываемых переключателем ──
+            // Скрытие остаётся мгновенным (display:none), а вот появление проигрывает
+            // лёгкую анимацию — но только если элемент действительно был скрыт, чтобы
+            // повторные вызовы (например, при движении слайдера) не переигрывали её.
+            function showSettingsBlock(el, displayValue) {
+                if (!el) return;
+                const wasHidden = el.style.display === 'none';
+                el.style.display = displayValue;
+                if (wasHidden) {
+                    el.classList.remove('settings-reveal-anim');
+                    void el.offsetWidth; // форсируем reflow, чтобы анимация надёжно перезапустилась
+                    el.classList.add('settings-reveal-anim');
+                }
+            }
+            function hideSettingsBlock(el) {
+                if (!el) return;
+                el.classList.remove('settings-reveal-anim');
+                el.style.display = 'none';
+            }
+            function setSettingsBlockVisible(el, visible, displayValue) {
+                if (visible) showSettingsBlock(el, displayValue || 'flex');
+                else hideSettingsBlock(el);
+            }
+
             // Open / close
             fab.addEventListener('click', () => {
                 overlay.classList.add('open');
@@ -7545,7 +7854,7 @@
             function applyRememberTrackSub(checked) {
                 const sub     = document.getElementById('remember-track-sub');
                 const restoreEl = document.getElementById('setting-restore-playback');
-                if (sub) sub.style.display = checked ? '' : 'none';
+                setSettingsBlockVisible(sub, checked, '');
                 if (restoreEl) {
                     restoreEl.disabled = !checked;
                     if (!checked) { restoreEl.checked = false; localStorage.setItem('setting_restore_playback', '0'); }
@@ -7700,11 +8009,49 @@
                 highlightActiveGradPreset();
             });
 
+            // Плавная смена цветов градиента визуализатора (используется, когда
+            // цвета подставляются программно — адаптивная палитра под новые обои —
+            // а не вживую тянутся пальцем по color-picker'у, где нужна мгновенная
+            // реакция). window.vizGradColorN — то, что реально читает рисующий
+            // цикл каждый кадр, поэтому плавность достигается покадровой
+            // интерполяцией RGB, а не CSS-переходом (это обычный canvas).
+            let _vizGradAnimRAF = null;
+            function hexToRgbArr(hex) {
+                hex = (hex || '#000000').replace('#', '');
+                if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+                const num = parseInt(hex, 16) || 0;
+                return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+            }
+            function animateVizGradColorsTo(target1, target2, target3, duration = 700) {
+                if (_vizGradAnimRAF) cancelAnimationFrame(_vizGradAnimRAF);
+                const start1 = hexToRgbArr(window.vizGradColor1 || vizColor1.value);
+                const start2 = hexToRgbArr(window.vizGradColor2 || vizColor2.value);
+                const start3 = hexToRgbArr(window.vizGradColor3 || vizColor3.value);
+                const end1 = hexToRgbArr(target1), end2 = hexToRgbArr(target2), end3 = hexToRgbArr(target3);
+
+                // Поля выбора цвета и localStorage обновляем сразу на финальное
+                // значение — анимируем только то, что рисуется на канвасе.
+                vizColor1.value = target1; vizColor2.value = target2; vizColor3.value = target3;
+                localStorage.setItem('setting_viz_grad', JSON.stringify([target1, target2, target3]));
+
+                const t0 = performance.now();
+                function step(now) {
+                    const t = Math.min(1, (now - t0) / duration);
+                    const e = 1 - Math.pow(1 - t, 3); // easeOutCubic — быстрый старт, мягкое завершение
+                    window.vizGradColor1 = rgbToHex(start1[0] + (end1[0] - start1[0]) * e, start1[1] + (end1[1] - start1[1]) * e, start1[2] + (end1[2] - start1[2]) * e);
+                    window.vizGradColor2 = rgbToHex(start2[0] + (end2[0] - start2[0]) * e, start2[1] + (end2[1] - start2[1]) * e, start2[2] + (end2[2] - start2[2]) * e);
+                    window.vizGradColor3 = rgbToHex(start3[0] + (end3[0] - start3[0]) * e, start3[1] + (end3[1] - start3[1]) * e, start3[2] + (end3[2] - start3[2]) * e);
+                    if (t < 1) { _vizGradAnimRAF = requestAnimationFrame(step); }
+                    else { _vizGradAnimRAF = null; }
+                }
+                _vizGradAnimRAF = requestAnimationFrame(step);
+            }
+
             // ---- APPEARANCE: Viz rotate colors (circles only) ----
             const settingVizRotate = document.getElementById('setting-viz-rotate-colors');
             const vizRotateSpeedRow = document.getElementById('viz-rotate-speed-row');
             function applyRotateSpeedRowVisibility(checked) {
-                if (vizRotateSpeedRow) vizRotateSpeedRow.style.display = checked ? '' : 'none';
+                setSettingsBlockVisible(vizRotateSpeedRow, checked, '');
             }
             settingVizRotate.addEventListener('change', () => {
                 window.vizRotateColors = settingVizRotate.checked;
@@ -7739,7 +8086,7 @@
             const settingScrollGrad = document.getElementById('setting-viz-scroll-grad');
             const vizScrollSpeedRow = document.getElementById('viz-scroll-speed-row');
             function applyScrollGradRowVisibility(checked) {
-                if (vizScrollSpeedRow) vizScrollSpeedRow.style.display = checked ? '' : 'none';
+                setSettingsBlockVisible(vizScrollSpeedRow, checked, '');
             }
             if (settingScrollGrad) settingScrollGrad.addEventListener('change', () => {
                 window.vizScrollGrad = settingScrollGrad.checked;
@@ -7760,7 +8107,7 @@
             const settingScrollGradWave = document.getElementById('setting-viz-scroll-grad-wave');
             const vizScrollSpeedWaveRow = document.getElementById('viz-scroll-speed-wave-row');
             function applyScrollGradWaveRowVisibility(checked) {
-                if (vizScrollSpeedWaveRow) vizScrollSpeedWaveRow.style.display = checked ? '' : 'none';
+                setSettingsBlockVisible(vizScrollSpeedWaveRow, checked, '');
             }
             if (settingScrollGradWave) settingScrollGradWave.addEventListener('change', () => {
                 window.vizScrollGradWave = settingScrollGradWave.checked;
@@ -7800,7 +8147,7 @@
                 }
 
                 const show = msg.length > 0;
-                warn.style.display = show ? 'flex' : 'none';
+                setSettingsBlockVisible(warn, show, 'flex');
                 warnTxt.textContent = msg;
                 if (show) lucide.createIcons({ nodes: [warn] });
             }
@@ -7809,7 +8156,7 @@
             const settingWaveTrail = document.getElementById('setting-viz-wave-trail');
             const vizWaveTrailRow  = document.getElementById('viz-wave-trail-row');
             function applyWaveTrailRowVisibility(checked) {
-                if (vizWaveTrailRow) vizWaveTrailRow.style.display = checked ? '' : 'none';
+                setSettingsBlockVisible(vizWaveTrailRow, checked, '');
             }
             if (settingWaveTrail) settingWaveTrail.addEventListener('change', () => {
                 window.vizWaveTrail = settingWaveTrail.checked;
@@ -7986,7 +8333,7 @@
 
             settingAutoRefresh.addEventListener('change', () => {
                 const on = settingAutoRefresh.checked;
-                autoRefreshIntervalRow.style.display = on ? 'flex' : 'none';
+                setSettingsBlockVisible(autoRefreshIntervalRow, on, 'flex');
                 localStorage.setItem('setting_auto_refresh', on ? '1' : '0');
                 if (on) startAutoRefresh(parseInt(autoRefreshSlider.value));
                 else stopAutoRefresh();
@@ -8050,7 +8397,7 @@
             function applyVizVisibility(show) {
                 canvas.style.opacity = show ? '1' : '0';
                 const adv = document.getElementById('viz-advanced-settings');
-                if (adv) adv.style.display = show ? 'flex' : 'none';
+                setSettingsBlockVisible(adv, show, 'flex');
             }
             settingViz.addEventListener('change', () => {
                 applyVizVisibility(settingViz.checked);
@@ -8059,9 +8406,21 @@
 
             // ---- APPEARANCE: Show/hide stars ----
             const settingStars = document.getElementById('setting-show-stars');
+            const settingStarsInteractive = document.getElementById('setting-stars-interactive');
+            const starsInteractiveRow = document.getElementById('stars-interactive-row');
+
+            function applyStarsInteractiveRowVisibility(starsOn) {
+                setSettingsBlockVisible(starsInteractiveRow, starsOn, '');
+            }
             settingStars.addEventListener('change', () => {
                 starCanvas.style.opacity = settingStars.checked ? '1' : '0';
                 localStorage.setItem('setting_show_stars', settingStars.checked ? '1' : '0');
+                applyStarsInteractiveRowVisibility(settingStars.checked);
+            });
+
+            if (settingStarsInteractive) settingStarsInteractive.addEventListener('change', () => {
+                window.starsInteractive = settingStarsInteractive.checked;
+                localStorage.setItem('setting_stars_interactive', settingStarsInteractive.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Confetti ----
@@ -8069,7 +8428,7 @@
             const confettiBlock = document.getElementById('confetti-settings-block');
 
             function applyConfettiVisibility(enabled) {
-                confettiBlock.style.display = enabled ? 'flex' : 'none';
+                setSettingsBlockVisible(confettiBlock, enabled, 'flex');
                 confettiCanvas.style.opacity = enabled ? '1' : '0';
                 window.confettiEnabled = enabled;
             }
@@ -8105,7 +8464,7 @@
                 if (spawnDropMenu) spawnDropMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.mode === mode));
                 // Show/hide sprinkler rows (lines + sensitivity)
-                if (sprinklerRow) sprinklerRow.style.display = mode === 'sprinkler' ? 'block' : 'none';
+                setSettingsBlockVisible(sprinklerRow, mode === 'sprinkler', 'block');
                 // Reset sprinkler state on mode change
                 if (mode !== 'sprinkler') { window._sprinklerAngle = 0; window._sprinklerCooldown = 0; }
                 localStorage.setItem('setting_confetti_spawn', mode);
@@ -8228,7 +8587,7 @@
             const confettiSwirlStrLabel  = document.getElementById('setting-confetti-swirl-str-label');
 
             function applySwirlRowVisibility(enabled) {
-                confettiSwirlRow.style.display = enabled ? 'block' : 'none';
+                setSettingsBlockVisible(confettiSwirlRow, enabled, 'block');
             }
             settingConfettiSwirl.addEventListener('change', () => {
                 window.confettiSwirl = settingConfettiSwirl.checked;
@@ -8296,7 +8655,7 @@
             function applyBgImageEnabled(enabled) {
                 window.bgImageEnabled = enabled;
                 customBgLayer.style.opacity = enabled ? '1' : '0';
-                bgAdvancedSettings.style.display = enabled ? 'flex' : 'none';
+                setSettingsBlockVisible(bgAdvancedSettings, enabled, 'flex');
                 // Видео не крутим вхолостую, когда фон выключен
                 if (window.bgImageIsVideo && customBgVideoEl.getAttribute('src')) {
                     if (enabled) { const p = customBgVideoEl.play(); if (p && p.catch) p.catch(() => {}); }
@@ -8448,11 +8807,63 @@
                 lucide.createIcons();
             }
 
+            // ── Плавная смена обоев (кроссфейд) ───────────────────────────────
+            // Делаем «снимок» того, что видно прямо сейчас (картинка — просто
+            // её CSS background-image, видео — кадр, нарисованный на canvas),
+            // показываем этот снимок сверху на полной непрозрачности, подменяем
+            // реальный фон под ним, а затем плавно гасим снимок — снизу
+            // проступает новый фон. Снаружи выглядит как обычный кроссфейд.
+            function snapshotCurrentBgFrame() {
+                try {
+                    if (customBgVideoEl.style.display !== 'none' && customBgVideoEl.readyState >= 2 && customBgVideoEl.videoWidth) {
+                        const c = document.createElement('canvas');
+                        c.width = customBgVideoEl.videoWidth;
+                        c.height = customBgVideoEl.videoHeight;
+                        c.getContext('2d').drawImage(customBgVideoEl, 0, 0, c.width, c.height);
+                        return `url("${c.toDataURL('image/jpeg', 0.82)}")`;
+                    }
+                    if (customBgImageEl.style.display !== 'none' && customBgImageEl.style.backgroundImage) {
+                        return customBgImageEl.style.backgroundImage;
+                    }
+                } catch (e) {
+                    // Например, SecurityError на некоторых видео — тогда просто без кроссфейда
+                }
+                return null;
+            }
+
+            let _bgCrossfadeClearTimer = null;
+            function playBgCrossfade(prevSnapshotCss, prevFit) {
+                if (!customBgImagePrevEl || !prevSnapshotCss) return;
+                if (_bgCrossfadeClearTimer) { clearTimeout(_bgCrossfadeClearTimer); _bgCrossfadeClearTimer = null; }
+                customBgImagePrevEl.style.transition = 'none';
+                customBgImagePrevEl.style.backgroundSize = BG_FIT_CSS[prevFit] || 'cover';
+                customBgImagePrevEl.style.backgroundImage = prevSnapshotCss;
+                customBgImagePrevEl.style.opacity = '1';
+                // Форсируем применение стилей без анимации, прежде чем включить transition
+                void customBgImagePrevEl.offsetWidth;
+                requestAnimationFrame(() => {
+                    customBgImagePrevEl.style.transition = 'opacity 0.6s ease';
+                    customBgImagePrevEl.style.opacity = '0';
+                });
+                _bgCrossfadeClearTimer = setTimeout(() => {
+                    customBgImagePrevEl.style.backgroundImage = '';
+                }, 650);
+            }
+
             function applyBgImagePath(filePath, persist) {
                 if (!filePath) return;
                 try {
                     const fileUrl = require('url').pathToFileURL(filePath).href;
                     const isVideo = isVideoBgFile(filePath);
+
+                    // Снимаем «слепок» текущего фона ДО подмены — но только если
+                    // фон реально меняется на другой (а не повторно тот же самый),
+                    // и это не первая загрузка фона за сеанс (иначе кроссфейд не
+                    // от чего отталкивать, получится бесполезная вспышка).
+                    const isRealChange = window.bgImagePath && window.bgImagePath !== filePath;
+                    const prevSnapshot = isRealChange ? snapshotCurrentBgFrame() : null;
+                    const prevFit = window.bgImageFit || 'cover';
+
                     window.bgImageIsVideo = isVideo;
                     // Выставляем заранее, чтобы подсветка «активного» в списке
                     // недавних фонов сразу указывала на верный элемент.
@@ -8497,12 +8908,19 @@
                     bgImageFilename.textContent = require('path').basename(filePath);
                     btnRemoveBgImage.style.display = 'inline-flex';
                     if (persist) localStorage.setItem('setting_bg_image_path', filePath);
+
+                    // Новый фон уже подставлен «под капотом» — теперь плавно
+                    // убираем сверху снимок старого, открывая его.
+                    if (prevSnapshot) playBgCrossfade(prevSnapshot, prevFit);
                 } catch (e) {
                     console.error('Не удалось установить фон:', e);
                 }
             }
 
             function clearBgImage() {
+                const prevSnapshot = window.bgImagePath ? snapshotCurrentBgFrame() : null;
+                const prevFit = window.bgImageFit || 'cover';
+
                 customBgImageEl.style.backgroundImage = '';
                 customBgImageEl.style.display = 'block';
                 customBgVideoEl.pause();
@@ -8516,6 +8934,10 @@
                 window.bgImageIsVideo = false;
                 localStorage.removeItem('setting_bg_image_path');
                 renderRecentBackgrounds(); // снять подсветку «активного» с недавних
+
+                // Плавно гасим снимок старого фона, открывая пустоту под ним,
+                // вместо мгновенного исчезновения картинки.
+                if (prevSnapshot) playBgCrossfade(prevSnapshot, prevFit);
             }
 
             btnChooseBgImage.addEventListener('click', async () => {
@@ -8577,9 +8999,11 @@
             const bgPulseIntensityRow    = document.getElementById('bg-pulse-intensity-row');
             const bgPulseIntensitySlider = document.getElementById('setting-bg-pulse-intensity');
             const bgPulseIntensityLabel  = document.getElementById('setting-bg-pulse-intensity-label');
+            const bgPulseThresholdSlider = document.getElementById('setting-bg-pulse-threshold');
+            const bgPulseThresholdLabel  = document.getElementById('setting-bg-pulse-threshold-label');
 
             function applyBgPulseRowVisibility(enabled) {
-                bgPulseIntensityRow.style.display = enabled ? 'block' : 'none';
+                setSettingsBlockVisible(bgPulseIntensityRow, enabled, 'block');
             }
             settingBgPulse.addEventListener('change', () => {
                 window.bgPulseEnabled = settingBgPulse.checked;
@@ -8592,15 +9016,23 @@
                 window.bgPulseIntensity = v;
                 localStorage.setItem('setting_bg_pulse_intensity', v);
             });
+            bgPulseThresholdSlider.addEventListener('input', () => {
+                const v = parseFloat(bgPulseThresholdSlider.value);
+                bgPulseThresholdLabel.textContent = v.toFixed(2);
+                window.bgPulseThreshold = v;
+                localStorage.setItem('setting_bg_pulse_threshold', v);
+            });
 
             // ── Размытие под звук ──
             const settingBgBlur         = document.getElementById('setting-bg-blur-enabled');
             const bgBlurIntensityRow    = document.getElementById('bg-blur-intensity-row');
             const bgBlurIntensitySlider = document.getElementById('setting-bg-blur-intensity');
             const bgBlurIntensityLabel  = document.getElementById('setting-bg-blur-intensity-label');
+            const bgBlurThresholdSlider = document.getElementById('setting-bg-blur-threshold');
+            const bgBlurThresholdLabel  = document.getElementById('setting-bg-blur-threshold-label');
 
             function applyBgBlurRowVisibility(enabled) {
-                bgBlurIntensityRow.style.display = enabled ? 'block' : 'none';
+                setSettingsBlockVisible(bgBlurIntensityRow, enabled, 'block');
             }
             settingBgBlur.addEventListener('change', () => {
                 window.bgBlurEnabled = settingBgBlur.checked;
@@ -8613,6 +9045,152 @@
                 window.bgBlurIntensity = v;
                 localStorage.setItem('setting_bg_blur_intensity', v);
             });
+            bgBlurThresholdSlider.addEventListener('input', () => {
+                const v = parseFloat(bgBlurThresholdSlider.value);
+                bgBlurThresholdLabel.textContent = v.toFixed(2);
+                window.bgBlurThreshold = v;
+                localStorage.setItem('setting_bg_blur_threshold', v);
+            });
+
+            // ── Свечение под звук ──
+            const settingBgGlow         = document.getElementById('setting-bg-glow-enabled');
+            const bgGlowIntensityRow    = document.getElementById('bg-glow-intensity-row');
+            const bgGlowIntensitySlider = document.getElementById('setting-bg-glow-intensity');
+            const bgGlowIntensityLabel  = document.getElementById('setting-bg-glow-intensity-label');
+            const bgGlowThresholdSlider = document.getElementById('setting-bg-glow-threshold');
+            const bgGlowThresholdLabel  = document.getElementById('setting-bg-glow-threshold-label');
+            const bgGlowStyleBtn        = document.getElementById('bg-glow-style-dropdown-btn');
+            const bgGlowStyleMenu       = document.getElementById('bg-glow-style-dropdown-menu');
+            const bgGlowStyleLabel      = document.getElementById('bg-glow-style-label');
+            const settingBgGlowCustomColor = document.getElementById('setting-bg-glow-custom-color');
+            const bgGlowColorRow        = document.getElementById('bg-glow-color-row');
+            const bgGlowColorPicker     = document.getElementById('bg-glow-color-picker');
+
+            // Варианты «свечения»: разная форма градиента-сияния поверх обоев.
+            // Цвет всегда подставляется снаружи (акцент или свой) — стиль лишь
+            // задаёт форму/направление света.
+            const BG_GLOW_STYLES = {
+                center: { label: 'Из центра', icon: 'sun',           css: (c) => `radial-gradient(circle at 50% 50%, ${c} 0%, transparent 68%)` },
+                edges:  { label: 'По краям',   icon: 'square',        css: (c) => `radial-gradient(circle at 50% 50%, transparent 38%, ${c} 115%)` },
+                top:    { label: 'Сверху',     icon: 'arrow-down',    css: (c) => `linear-gradient(to bottom, ${c} 0%, transparent 65%)` },
+                bottom: { label: 'Снизу',      icon: 'arrow-up',      css: (c) => `linear-gradient(to top, ${c} 0%, transparent 65%)` },
+                ring:   { label: 'Кольцом',    icon: 'circle-dashed', css: (c) => `radial-gradient(circle at 50% 50%, transparent 30%, ${c} 55%, transparent 80%)` },
+            };
+
+            function applyBgGlowStyle() {
+                if (!customBgGlowEl) return;
+                const def = BG_GLOW_STYLES[window.bgGlowStyle] || BG_GLOW_STYLES.center;
+                const color = window.bgGlowCustomColorEnabled ? (window.bgGlowCustomColor || '#bb86fc') : 'var(--accent-color)';
+                customBgGlowEl.style.background = def.css(color);
+            }
+
+            function applyBgGlowRowVisibility(enabled) {
+                setSettingsBlockVisible(bgGlowIntensityRow, enabled, 'block');
+            }
+            settingBgGlow.addEventListener('change', () => {
+                window.bgGlowEnabled = settingBgGlow.checked;
+                applyBgGlowRowVisibility(settingBgGlow.checked);
+                localStorage.setItem('setting_bg_glow_enabled', settingBgGlow.checked ? '1' : '0');
+                if (!settingBgGlow.checked && customBgGlowEl) customBgGlowEl.style.opacity = '0';
+            });
+            bgGlowIntensitySlider.addEventListener('input', () => {
+                const v = parseFloat(bgGlowIntensitySlider.value);
+                bgGlowIntensityLabel.textContent = v.toFixed(1);
+                window.bgGlowIntensity = v;
+                localStorage.setItem('setting_bg_glow_intensity', v);
+            });
+            bgGlowThresholdSlider.addEventListener('input', () => {
+                const v = parseFloat(bgGlowThresholdSlider.value);
+                bgGlowThresholdLabel.textContent = v.toFixed(2);
+                window.bgGlowThreshold = v;
+                localStorage.setItem('setting_bg_glow_threshold', v);
+            });
+            function selectBgGlowStyle(style) {
+                window.bgGlowStyle = style;
+                const def = BG_GLOW_STYLES[style] || BG_GLOW_STYLES.center;
+                bgGlowStyleLabel.textContent = def.label;
+                bgGlowStyleBtn.querySelector('.pd-icon').innerHTML = `<i data-lucide="${def.icon}" style="width:14px;height:14px;"></i>`;
+                bgGlowStyleMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
+                    el.classList.toggle('active', el.dataset.glowStyle === style));
+                localStorage.setItem('setting_bg_glow_style', style);
+                applyBgGlowStyle();
+                lucide.createIcons();
+            }
+            bgGlowStyleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = bgGlowStyleMenu.classList.toggle('open');
+                bgGlowStyleBtn.classList.toggle('open', open);
+            });
+            document.addEventListener('click', () => {
+                bgGlowStyleMenu.classList.remove('open');
+                bgGlowStyleBtn.classList.remove('open');
+            });
+            bgGlowStyleMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('.viz-type-menu-item');
+                if (!item) return;
+                e.stopPropagation();
+                selectBgGlowStyle(item.dataset.glowStyle);
+                bgGlowStyleMenu.classList.remove('open');
+                bgGlowStyleBtn.classList.remove('open');
+            });
+            settingBgGlowCustomColor.addEventListener('change', () => {
+                window.bgGlowCustomColorEnabled = settingBgGlowCustomColor.checked;
+                setSettingsBlockVisible(bgGlowColorRow, settingBgGlowCustomColor.checked, 'flex');
+                localStorage.setItem('setting_bg_glow_custom_color_enabled', settingBgGlowCustomColor.checked ? '1' : '0');
+                applyBgGlowStyle();
+            });
+            bgGlowColorPicker.addEventListener('input', () => {
+                window.bgGlowCustomColor = bgGlowColorPicker.value;
+                localStorage.setItem('setting_bg_glow_custom_color', bgGlowColorPicker.value);
+                applyBgGlowStyle();
+            });
+
+            // ── Тряска (наклон) под звук ──
+            const settingBgTilt         = document.getElementById('setting-bg-tilt-enabled');
+            const bgTiltIntensityRow    = document.getElementById('bg-tilt-intensity-row');
+            const bgTiltIntensitySlider = document.getElementById('setting-bg-tilt-intensity');
+            const bgTiltIntensityLabel  = document.getElementById('setting-bg-tilt-intensity-label');
+            const bgTiltThresholdSlider = document.getElementById('setting-bg-tilt-threshold');
+            const bgTiltThresholdLabel  = document.getElementById('setting-bg-tilt-threshold-label');
+            const bgTiltSpeedSlider     = document.getElementById('setting-bg-tilt-speed');
+            const bgTiltSpeedLabel      = document.getElementById('setting-bg-tilt-speed-label');
+            const settingBgTiltRotation = document.getElementById('setting-bg-tilt-rotation');
+            const settingBgTiltShift    = document.getElementById('setting-bg-tilt-shift');
+
+            function applyBgTiltRowVisibility(enabled) {
+                setSettingsBlockVisible(bgTiltIntensityRow, enabled, 'block');
+            }
+            settingBgTilt.addEventListener('change', () => {
+                window.bgTiltEnabled = settingBgTilt.checked;
+                applyBgTiltRowVisibility(settingBgTilt.checked);
+                localStorage.setItem('setting_bg_tilt_enabled', settingBgTilt.checked ? '1' : '0');
+            });
+            bgTiltIntensitySlider.addEventListener('input', () => {
+                const v = parseFloat(bgTiltIntensitySlider.value);
+                bgTiltIntensityLabel.textContent = v.toFixed(1);
+                window.bgTiltIntensity = v;
+                localStorage.setItem('setting_bg_tilt_intensity', v);
+            });
+            bgTiltThresholdSlider.addEventListener('input', () => {
+                const v = parseFloat(bgTiltThresholdSlider.value);
+                bgTiltThresholdLabel.textContent = v.toFixed(2);
+                window.bgTiltThreshold = v;
+                localStorage.setItem('setting_bg_tilt_threshold', v);
+            });
+            bgTiltSpeedSlider.addEventListener('input', () => {
+                const v = parseFloat(bgTiltSpeedSlider.value);
+                bgTiltSpeedLabel.textContent = v.toFixed(1);
+                window.bgTiltSpeed = v;
+                localStorage.setItem('setting_bg_tilt_speed', v);
+            });
+            settingBgTiltRotation.addEventListener('change', () => {
+                window.bgTiltRotation = settingBgTiltRotation.checked;
+                localStorage.setItem('setting_bg_tilt_rotation', settingBgTiltRotation.checked ? '1' : '0');
+            });
+            settingBgTiltShift.addEventListener('change', () => {
+                window.bgTiltShift = settingBgTiltShift.checked;
+                localStorage.setItem('setting_bg_tilt_shift', settingBgTiltShift.checked ? '1' : '0');
+            });
 
             // ====================================================
             // APPEARANCE: Адаптивная палитра (цвета акцента/градиента из фона)
@@ -8622,10 +9200,10 @@
 
             function refreshAdaptiveControlsDisabledState() {
                 const accentManualRow = document.getElementById('accent-manual-row');
-                if (accentManualRow) accentManualRow.style.display = window.adaptiveAccentEnabled ? 'none' : '';
+                setSettingsBlockVisible(accentManualRow, !window.adaptiveAccentEnabled, '');
 
                 const gradManualRow = document.getElementById('grad-manual-row');
-                if (gradManualRow) gradManualRow.style.display = window.adaptiveGradientEnabled ? 'none' : '';
+                setSettingsBlockVisible(gradManualRow, !window.adaptiveGradientEnabled, '');
             }
 
             function rgbToHsl(r, g, b) {
@@ -8745,10 +9323,7 @@
                     setAccentColor(palette[0]);
                 }
                 if (window.adaptiveGradientEnabled) {
-                    vizColor1.value = palette[0];
-                    vizColor2.value = palette[1 % n];
-                    vizColor3.value = palette[2 % n];
-                    applyVizColors();
+                    animateVizGradColorsTo(palette[0], palette[1 % n], palette[2 % n]);
                     highlightActiveGradPreset();
                 }
             }
@@ -8820,8 +9395,22 @@
                         f: localStorage.getItem('setting_bg_image_fit') || 'cover',
                         pe: (localStorage.getItem('setting_bg_pulse_enabled') ?? '1') === '1',
                         pi: parseFloat(localStorage.getItem('setting_bg_pulse_intensity') || '1'),
+                        pt: parseFloat(localStorage.getItem('setting_bg_pulse_threshold') || '0'),
                         be: localStorage.getItem('setting_bg_blur_enabled') === '1',
                         bi: parseFloat(localStorage.getItem('setting_bg_blur_intensity') || '1'),
+                        bt: parseFloat(localStorage.getItem('setting_bg_blur_threshold') || '0'),
+                        ge: localStorage.getItem('setting_bg_glow_enabled') === '1',
+                        gi: parseFloat(localStorage.getItem('setting_bg_glow_intensity') || '1'),
+                        gt: parseFloat(localStorage.getItem('setting_bg_glow_threshold') || '0'),
+                        gs: localStorage.getItem('setting_bg_glow_style') || 'center',
+                        gce: localStorage.getItem('setting_bg_glow_custom_color_enabled') === '1',
+                        gc: localStorage.getItem('setting_bg_glow_custom_color') || '#bb86fc',
+                        te: localStorage.getItem('setting_bg_tilt_enabled') === '1',
+                        ti: parseFloat(localStorage.getItem('setting_bg_tilt_intensity') || '1'),
+                        tt: parseFloat(localStorage.getItem('setting_bg_tilt_threshold') || '0'),
+                        ts: parseFloat(localStorage.getItem('setting_bg_tilt_speed') || '1'),
+                        tr: (localStorage.getItem('setting_bg_tilt_rotation') ?? '1') === '1',
+                        tsh: (localStorage.getItem('setting_bg_tilt_shift') ?? '1') === '1',
                     };
                 }
 
@@ -8880,8 +9469,22 @@
                     if (payload.bg.f) selectBgFit(payload.bg.f);
                     if (typeof payload.bg.pe === 'boolean') setCheckedAndFire(settingBgPulse, payload.bg.pe);
                     setValueAndFire(bgPulseIntensitySlider, payload.bg.pi);
+                    setValueAndFire(bgPulseThresholdSlider, payload.bg.pt);
                     if (typeof payload.bg.be === 'boolean') setCheckedAndFire(settingBgBlur, payload.bg.be);
                     setValueAndFire(bgBlurIntensitySlider, payload.bg.bi);
+                    setValueAndFire(bgBlurThresholdSlider, payload.bg.bt);
+                    if (typeof payload.bg.ge === 'boolean') setCheckedAndFire(settingBgGlow, payload.bg.ge);
+                    setValueAndFire(bgGlowIntensitySlider, payload.bg.gi);
+                    setValueAndFire(bgGlowThresholdSlider, payload.bg.gt);
+                    if (payload.bg.gs) selectBgGlowStyle(payload.bg.gs);
+                    if (typeof payload.bg.gce === 'boolean') setCheckedAndFire(settingBgGlowCustomColor, payload.bg.gce);
+                    if (payload.bg.gc) { bgGlowColorPicker.value = payload.bg.gc; bgGlowColorPicker.dispatchEvent(new Event('input')); }
+                    if (typeof payload.bg.te === 'boolean') setCheckedAndFire(settingBgTilt, payload.bg.te);
+                    setValueAndFire(bgTiltIntensitySlider, payload.bg.ti);
+                    setValueAndFire(bgTiltThresholdSlider, payload.bg.tt);
+                    setValueAndFire(bgTiltSpeedSlider, payload.bg.ts);
+                    if (typeof payload.bg.tr === 'boolean') setCheckedAndFire(settingBgTiltRotation, payload.bg.tr);
+                    if (typeof payload.bg.tsh === 'boolean') setCheckedAndFire(settingBgTiltShift, payload.bg.tsh);
                     showNotification('Настройки фона применены — само изображение/видео тема не переносит, выберите его вручную', 'info');
                 }
 
@@ -9080,6 +9683,9 @@
                     settingStars.checked = savedShowStars === '1';
                     starCanvas.style.opacity = settingStars.checked ? '1' : '0';
                 }
+                window.starsInteractive = localStorage.getItem('setting_stars_interactive') === '1';
+                if (settingStarsInteractive) settingStarsInteractive.checked = window.starsInteractive;
+                applyStarsInteractiveRowVisibility(settingStars.checked);
 
                 // Confetti
                 const savedConfetti = localStorage.getItem('setting_confetti');
@@ -9285,6 +9891,13 @@
                     window.bgPulseIntensity = parseFloat(savedBgPulseIntensity);
                 } else { window.bgPulseIntensity = 1; }
 
+                const savedBgPulseThreshold = localStorage.getItem('setting_bg_pulse_threshold');
+                if (savedBgPulseThreshold !== null) {
+                    bgPulseThresholdSlider.value = savedBgPulseThreshold;
+                    bgPulseThresholdLabel.textContent = parseFloat(savedBgPulseThreshold).toFixed(2);
+                    window.bgPulseThreshold = parseFloat(savedBgPulseThreshold);
+                } else { window.bgPulseThreshold = 0; }
+
                 // Размытие под звук
                 const savedBgBlur = localStorage.getItem('setting_bg_blur_enabled');
                 if (savedBgBlur !== null) settingBgBlur.checked = savedBgBlur === '1';
@@ -9297,6 +9910,79 @@
                     bgBlurIntensityLabel.textContent = parseFloat(savedBgBlurIntensity).toFixed(1);
                     window.bgBlurIntensity = parseFloat(savedBgBlurIntensity);
                 } else { window.bgBlurIntensity = 1; }
+
+                const savedBgBlurThreshold = localStorage.getItem('setting_bg_blur_threshold');
+                if (savedBgBlurThreshold !== null) {
+                    bgBlurThresholdSlider.value = savedBgBlurThreshold;
+                    bgBlurThresholdLabel.textContent = parseFloat(savedBgBlurThreshold).toFixed(2);
+                    window.bgBlurThreshold = parseFloat(savedBgBlurThreshold);
+                } else { window.bgBlurThreshold = 0; }
+
+                // Свечение под звук
+                const savedBgGlow = localStorage.getItem('setting_bg_glow_enabled');
+                if (savedBgGlow !== null) settingBgGlow.checked = savedBgGlow === '1';
+                window.bgGlowEnabled = settingBgGlow.checked;
+                applyBgGlowRowVisibility(window.bgGlowEnabled);
+
+                const savedBgGlowIntensity = localStorage.getItem('setting_bg_glow_intensity');
+                if (savedBgGlowIntensity !== null) {
+                    bgGlowIntensitySlider.value = savedBgGlowIntensity;
+                    bgGlowIntensityLabel.textContent = parseFloat(savedBgGlowIntensity).toFixed(1);
+                    window.bgGlowIntensity = parseFloat(savedBgGlowIntensity);
+                } else { window.bgGlowIntensity = 1; }
+
+                const savedBgGlowThreshold = localStorage.getItem('setting_bg_glow_threshold');
+                if (savedBgGlowThreshold !== null) {
+                    bgGlowThresholdSlider.value = savedBgGlowThreshold;
+                    bgGlowThresholdLabel.textContent = parseFloat(savedBgGlowThreshold).toFixed(2);
+                    window.bgGlowThreshold = parseFloat(savedBgGlowThreshold);
+                } else { window.bgGlowThreshold = 0; }
+
+                const savedBgGlowCustomColorEnabled = localStorage.getItem('setting_bg_glow_custom_color_enabled');
+                settingBgGlowCustomColor.checked = savedBgGlowCustomColorEnabled === '1';
+                window.bgGlowCustomColorEnabled = settingBgGlowCustomColor.checked;
+                setSettingsBlockVisible(bgGlowColorRow, window.bgGlowCustomColorEnabled, 'flex');
+
+                const savedBgGlowCustomColor = localStorage.getItem('setting_bg_glow_custom_color');
+                window.bgGlowCustomColor = savedBgGlowCustomColor || '#bb86fc';
+                bgGlowColorPicker.value = window.bgGlowCustomColor;
+
+                selectBgGlowStyle(localStorage.getItem('setting_bg_glow_style') || 'center');
+
+                // Тряска (наклон) под звук
+                const savedBgTilt = localStorage.getItem('setting_bg_tilt_enabled');
+                if (savedBgTilt !== null) settingBgTilt.checked = savedBgTilt === '1';
+                window.bgTiltEnabled = settingBgTilt.checked;
+                applyBgTiltRowVisibility(window.bgTiltEnabled);
+
+                const savedBgTiltIntensity = localStorage.getItem('setting_bg_tilt_intensity');
+                if (savedBgTiltIntensity !== null) {
+                    bgTiltIntensitySlider.value = savedBgTiltIntensity;
+                    bgTiltIntensityLabel.textContent = parseFloat(savedBgTiltIntensity).toFixed(1);
+                    window.bgTiltIntensity = parseFloat(savedBgTiltIntensity);
+                } else { window.bgTiltIntensity = 1; }
+
+                const savedBgTiltThreshold = localStorage.getItem('setting_bg_tilt_threshold');
+                if (savedBgTiltThreshold !== null) {
+                    bgTiltThresholdSlider.value = savedBgTiltThreshold;
+                    bgTiltThresholdLabel.textContent = parseFloat(savedBgTiltThreshold).toFixed(2);
+                    window.bgTiltThreshold = parseFloat(savedBgTiltThreshold);
+                } else { window.bgTiltThreshold = 0; }
+
+                const savedBgTiltSpeed = localStorage.getItem('setting_bg_tilt_speed');
+                if (savedBgTiltSpeed !== null) {
+                    bgTiltSpeedSlider.value = savedBgTiltSpeed;
+                    bgTiltSpeedLabel.textContent = parseFloat(savedBgTiltSpeed).toFixed(1);
+                    window.bgTiltSpeed = parseFloat(savedBgTiltSpeed);
+                } else { window.bgTiltSpeed = 1; }
+
+                const savedBgTiltRotation = localStorage.getItem('setting_bg_tilt_rotation');
+                settingBgTiltRotation.checked = savedBgTiltRotation === null ? true : savedBgTiltRotation === '1';
+                window.bgTiltRotation = settingBgTiltRotation.checked;
+
+                const savedBgTiltShift = localStorage.getItem('setting_bg_tilt_shift');
+                settingBgTiltShift.checked = savedBgTiltShift === null ? true : savedBgTiltShift === '1';
+                window.bgTiltShift = settingBgTiltShift.checked;
 
                 // Адаптивная палитра (акцент/градиент из фона) — только синхронизация галочек;
                 // сам пересчёт палитры запускается лишь при смене фона или переключении тумблера,
