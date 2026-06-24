@@ -14,9 +14,128 @@ let minimizeToTray = true; // Управляется из настроек ре�
 
 let store;
 
+// ── Интеграция: Discord Rich Presence ──────────────────────────────────────
+// Подключение к локальному Discord-клиенту живёт в main-процессе (а не в
+// рендерере), чтобы переживать перезагрузку страницы и быть единой точкой
+// правды для статуса соединения. Рендерер только присылает, что показывать.
+let discordRPC = null;            // экземпляр Client из @xhayper/discord-rpc
+let discordRPCEnabled = false;    // включена ли интеграция в настройках
+let discordRPCClientId = null;    // Application ID текущего подключения
+let discordRPCConnected = false;  // подключены ли мы прямо сейчас
+let discordRPCReconnectTimer = null;
+let discordRPCLastActivity = null; // последняя активность — переотправляем после реконнекта
+
+// ── Deep-link для кнопки «Слушать» радиостанции в Discord Rich Presence ────
+// Ссылка вида noctune://radio?name=...&url=... открывает копию плеера у
+// друга и запускает у него то же радио (см. SKILL/инструкцию в чате).
+const DEEP_LINK_PROTOCOL = 'noctune';
+let pendingDeepLink = null;
+
+function parseDeepLinkUrl(rawUrl) {
+  try {
+    if (!rawUrl || !rawUrl.toLowerCase().startsWith(`${DEEP_LINK_PROTOCOL}://`)) return null;
+    const u = new URL(rawUrl);
+    if (u.hostname !== 'radio') return null;
+    const name = u.searchParams.get('name');
+    const url = u.searchParams.get('url');
+    if (!url) return null;
+    return { name: name ? decodeURIComponent(name) : 'Радиостанция', url };
+  } catch (e) {
+    return null;
+  }
+}
+
+function dispatchDeepLink(payload) {
+  if (!payload) return;
+  if (win && !win.isDestroyed() && win.webContents) {
+    win.webContents.send('deep-link-radio', payload);
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  } else {
+    // Окно ещё не создано/не загружено — отдадим ссылку сразу после старта
+    pendingDeepLink = payload;
+  }
+}
+
+function handleArgvForDeepLink(argv) {
+  for (const arg of argv) {
+    const parsed = parseDeepLinkUrl(arg);
+    if (parsed) { dispatchDeepLink(parsed); break; }
+  }
+}
+
 async function initStore() {
   const { default: Store } = await import('electron-store');
   store = new Store();
+}
+
+function scheduleDiscordReconnect() {
+  if (discordRPCReconnectTimer || !discordRPCEnabled || !discordRPCClientId) return;
+  discordRPCReconnectTimer = setTimeout(() => {
+    discordRPCReconnectTimer = null;
+    if (discordRPCEnabled && discordRPCClientId) connectDiscordRPC(discordRPCClientId);
+  }, 15000);
+}
+
+async function connectDiscordRPC(clientId) {
+  discordRPCEnabled = true;
+  discordRPCClientId = clientId;
+  if (discordRPCConnected && discordRPC && discordRPC.clientId === clientId) return { ok: true };
+
+  // Если уже было соединение с другим clientId — закрываем перед новым
+  if (discordRPC) {
+    try { await discordRPC.destroy(); } catch (e) {}
+    discordRPC = null;
+    discordRPCConnected = false;
+  }
+
+  let RPC;
+  try {
+    RPC = require('@xhayper/discord-rpc');
+  } catch (e) {
+    return { ok: false, error: 'not-installed' };
+  }
+
+  try {
+    discordRPC = new RPC.Client({ clientId });
+
+    discordRPC.on('ready', () => {
+      discordRPCConnected = true;
+      if (win && !win.isDestroyed()) win.webContents.send('discord-rpc-status', { connected: true });
+      // Если на момент подключения уже была активность — отправляем её сразу
+      if (discordRPCLastActivity) {
+        discordRPC.user?.setActivity(discordRPCLastActivity).catch(() => {});
+      }
+    });
+
+    discordRPC.on('disconnected', () => {
+      discordRPCConnected = false;
+      if (win && !win.isDestroyed()) win.webContents.send('discord-rpc-status', { connected: false });
+      scheduleDiscordReconnect();
+    });
+
+    await discordRPC.login();
+    return { ok: true };
+  } catch (e) {
+    discordRPCConnected = false;
+    discordRPC = null;
+    if (win && !win.isDestroyed()) win.webContents.send('discord-rpc-status', { connected: false, error: String(e && e.message || e) });
+    scheduleDiscordReconnect();
+    return { ok: false, error: String(e && e.message || e) };
+  }
+}
+
+async function disconnectDiscordRPC() {
+  discordRPCEnabled = false;
+  discordRPCClientId = null;
+  discordRPCLastActivity = null;
+  if (discordRPCReconnectTimer) { clearTimeout(discordRPCReconnectTimer); discordRPCReconnectTimer = null; }
+  if (discordRPC) {
+    try { await discordRPC.destroy(); } catch (e) {}
+  }
+  discordRPC = null;
+  discordRPCConnected = false;
 }
 
 function createWindow() {
@@ -273,6 +392,10 @@ function createWindow() {
     const savedPath = store.get('music-directory');
     if (savedPath) {
       win.webContents.send('load-saved-directory', savedPath);
+    }
+    if (pendingDeepLink) {
+      win.webContents.send('deep-link-radio', pendingDeepLink);
+      pendingDeepLink = null;
     }
   });
 
@@ -539,6 +662,33 @@ ipcMain.on('tray-check-updates', async () => {
     }
 });
 
+// ── Интеграция: Discord Rich Presence — IPC ──────────────────────────────
+ipcMain.handle('discord-rpc-connect', async (_e, clientId) => {
+    if (!clientId) return { ok: false, error: 'no-client-id' };
+    return connectDiscordRPC(clientId);
+});
+
+ipcMain.handle('discord-rpc-disconnect', async () => {
+    await disconnectDiscordRPC();
+    return { ok: true };
+});
+
+ipcMain.handle('discord-rpc-status', () => {
+    return { connected: discordRPCConnected, enabled: discordRPCEnabled };
+});
+
+ipcMain.on('discord-rpc-set-activity', (_e, activity) => {
+    discordRPCLastActivity = activity || null;
+    if (!discordRPC || !discordRPCConnected || !activity) return;
+    discordRPC.user?.setActivity(activity).catch(() => {});
+});
+
+ipcMain.on('discord-rpc-clear-activity', () => {
+    discordRPCLastActivity = null;
+    if (!discordRPC || !discordRPCConnected) return;
+    discordRPC.user?.clearActivity().catch(() => {});
+});
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -550,7 +700,26 @@ if (!gotTheLock) {
       win.show();
       win.focus();
     }
+    handleArgvForDeepLink(commandLine);
   });
+
+  // macOS отдаёт кастомные ссылки через отдельное событие, а не argv
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    const parsed = parseDeepLinkUrl(url);
+    if (parsed) dispatchDeepLink(parsed);
+  });
+
+  // Регистрируем noctune:// как протокол, обрабатываемый этим приложением —
+  // тогда кнопка «Слушать» в Discord Rich Presence (см. интеграцию выше)
+  // открывает именно копию плеера, а не браузер.
+  if (process.defaultApp) {
+    if (process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+    }
+  } else {
+    app.setAsDefaultProtocolClient(DEEP_LINK_PROTOCOL);
+  }
 
   // Chromium буферизует записи localStorage и не всегда успевает сбросить их
   // на диск перед завершением процесса. Из-за этого настройка, изменённая
@@ -571,6 +740,7 @@ if (!gotTheLock) {
       console.log('Store инициализирован');
     });
     createWindow();
+    handleArgvForDeepLink(process.argv);
 
     tray = new Tray(iconPath);
 

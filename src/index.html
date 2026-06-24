@@ -1408,6 +1408,97 @@
             padding: 14px 16px;
         }
 
+        /* Интеграции — общий шаблон карточки для любого внешнего сервиса */
+        .integration-card { margin-bottom: 14px; }
+        .integration-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .integration-card-icon {
+            width: 36px; height: 36px; flex-shrink: 0;
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(128,128,128,0.12);
+        }
+        .integration-card-icon svg { width: 20px; height: 20px; }
+        .integration-card-info { flex: 1; min-width: 0; }
+        .integration-card-name { font-size: 13px; font-weight: 700; }
+        .integration-card-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .integration-card-body {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+        .integration-soon-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            background: rgba(128,128,128,0.12);
+            padding: 4px 9px;
+            border-radius: 20px;
+            flex-shrink: 0;
+        }
+        .integration-card.integration-card-disabled { opacity: 0.55; }
+        .integration-status-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 11px; font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(128,128,128,0.12);
+            color: var(--text-muted);
+        }
+        .integration-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex-shrink: 0; }
+        .integration-status-pill.is-connected { background: rgba(46,204,113,0.15); color: #2ecc71; }
+        .integration-status-pill.is-connected .integration-status-dot { background: #2ecc71; }
+        .integration-status-pill.is-error { background: rgba(231,76,60,0.15); color: #e74c3c; }
+        .integration-status-pill.is-error .integration-status-dot { background: #e74c3c; }
+        .integration-field-label { font-size:12px; color:var(--text-muted); margin-bottom:6px; }
+        .integration-text-input {
+            width: 100%;
+            background: rgba(128,128,128,0.08);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            color: var(--text-color);
+        }
+        .integration-text-input:focus { outline: none; border-color: var(--accent-color); }
+
+        /* Горячие клавиши */
+        .hotkey-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .hotkey-row:last-child { border-bottom: none; }
+        .hotkey-label { font-size: 13px; font-weight: 600; }
+        .hotkey-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .hotkey-chip {
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 6px;
+            background: rgba(128,128,128,0.12);
+            border: 1px solid var(--border-color);
+            min-width: 64px;
+            text-align: center;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .hotkey-chip:hover { border-color: var(--accent-color); color: var(--accent-color); }
+        .hotkey-chip.listening {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            background: rgba(128,128,128,0.05);
+        }
+
         /* Playlist Editor */
         .pl-editor-list {
             list-style: none;
@@ -2256,6 +2347,12 @@
                     </div>
                     <div class="settings-nav-item" data-panel="panel-appearance">
                         <i data-lucide="palette" style="width:15px;height:15px;"></i> Внешний вид
+                    </div>
+                    <div class="settings-nav-item" data-panel="panel-integrations">
+                        <i data-lucide="puzzle" style="width:15px;height:15px;"></i> Интеграции
+                    </div>
+                    <div class="settings-nav-item" data-panel="panel-hotkeys">
+                        <i data-lucide="keyboard" style="width:15px;height:15px;"></i> Горячие клавиши
                     </div>
                     <div class="settings-nav-item" data-panel="panel-about">
                         <i data-lucide="info" style="width:15px;height:15px;"></i> О программе
@@ -3284,6 +3381,119 @@
 
                     </div>
 
+                    <!-- === ИНТЕГРАЦИИ === -->
+                    <div class="settings-panel" id="panel-integrations">
+                        <div class="settings-section-title">Интеграции</div>
+
+                        <!-- Карточка интеграции — общий шаблон. Чтобы добавить новый сервис,
+                             скопируйте .settings-card.integration-card целиком и замените
+                             иконку/название/тело настроек. -->
+                        <div class="settings-card integration-card" id="integration-card-discord">
+                            <div class="integration-card-header">
+                                <div class="integration-card-icon" style="background:rgba(88,101,242,0.15);">
+                                    <i data-lucide="message-circle" style="width:18px;height:18px;color:#5865F2;"></i>
+                                </div>
+                                <div class="integration-card-info">
+                                    <div class="integration-card-name">Discord Rich Presence</div>
+                                    <div class="integration-card-desc">Показывает трек, плейлист и радио в статусе Discord</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-discord-rpc-enabled">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="integration-card-body" id="discord-rpc-body" style="display:none;">
+
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                                    <span class="integration-field-label" style="margin-bottom:0;">Статус подключения</span>
+                                    <span class="integration-status-pill" id="discord-rpc-status-pill">
+                                        <span class="integration-status-dot"></span><span id="discord-rpc-status-text">Отключено</span>
+                                    </span>
+                                </div>
+
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">Полоска прогресса</div>
+                                        <div class="settings-row-desc">Время трека или время в эфире радио</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-discord-rpc-progress" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">Кнопка «Слушать» у радио</div>
+                                        <div class="settings-row-desc">Друг сможет запустить ту же радиостанцию у себя</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-discord-rpc-radio-button" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">Ручная настройка</div>
+                                        <div class="settings-row-desc">Свой Application ID и URL для кнопки «Слушать»</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-discord-rpc-manual">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+
+                                <div id="discord-rpc-manual-row" style="display:none;margin-top:8px;">
+                                    <div class="integration-field-label">Application ID (Client ID)</div>
+                                    <input type="text" id="discord-rpc-client-id" class="integration-text-input"
+                                        value="1519344685871792128" placeholder="например, 1519344685871792128" style="margin-bottom:4px;">
+                                    <div class="settings-row-desc" style="margin-bottom:14px;">
+                                        Своё приложение создаётся на discord.com/developers/applications — подробная инструкция в чате.
+                                    </div>
+
+                                    <div class="integration-field-label">Базовый URL для кнопки «Слушать» (необязательно)</div>
+                                    <input type="text" id="discord-rpc-redirect-base" class="integration-text-input"
+                                        value="https://noctune.lifeisafelony.ru/redirect" placeholder="https://username.github.io/noctune-redirect/">
+                                    <div class="settings-row-desc" style="margin-top:6px;">
+                                        Discord принимает в кнопках только http(s)-ссылки. Если оставить пустым — кнопка
+                                        откроет поток радиостанции прямо в браузере. Если указать ссылку на свою
+                                        страницу-редирект (как и зачем — см. инструкцию в чате) — кнопка откроет копию
+                                        плеера у друга и запустит ту же радиостанцию.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Заготовка под следующую интеграцию — наглядно показывает шаблон -->
+                        <div class="settings-card integration-card integration-card-disabled">
+                            <div class="integration-card-header">
+                                <div class="integration-card-icon">
+                                    <i data-lucide="radio-tower" style="width:18px;height:18px;"></i>
+                                </div>
+                                <div class="integration-card-info">
+                                    <div class="integration-card-name">Last.fm Scrobbling</div>
+                                    <div class="integration-card-desc">Отправка истории прослушиваний</div>
+                                </div>
+                                <span class="integration-soon-badge">Скоро</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- === ГОРЯЧИЕ КЛАВИШИ === -->
+                    <div class="settings-panel" id="panel-hotkeys">
+                        <div class="settings-section-title">Горячие клавиши</div>
+                        <div class="settings-card">
+                            <div class="settings-row-desc" style="margin-bottom:10px;">
+                                Нажмите «Изменить» и затем нужное сочетание клавиш. Esc — отмена. Работает, когда
+                                фокус не находится в текстовом поле или на слайдере.
+                            </div>
+                            <div id="hotkeys-list"></div>
+                        </div>
+                        <button class="btn" id="btn-reset-hotkeys" style="margin-top:14px;padding:8px 16px;font-size:12px;">
+                            <i data-lucide="rotate-ccw" style="width:13px;height:13px;"></i> Сбросить на стандартные
+                        </button>
+                    </div>
+
                     <!-- === О ПРОГРАММЕ === -->
                     <div class="settings-panel" id="panel-about">
                         <div class="about-card">
@@ -3451,6 +3661,39 @@
             const minimizeToTray = !trayEl || trayEl.checked;
             ipcRenderer.send('playing-state-response', isPlaying === true, minimizeToTray);
         });
+
+        // ── Discord Rich Presence: кнопка «Слушать» у друга ────────────────
+        // Друг кликнул кнопку на чьём-то статусе в Discord → main-процесс
+        // распарсил noctune://radio?... и прислал название+URL станции сюда.
+        // Создаём (или используем существующий) плейлист «Discord RPC» и
+        // сразу запускаем эту радиостанцию у себя.
+        ipcRenderer.on('deep-link-radio', async (_e, payload) => {
+            try {
+                const { name, url } = payload || {};
+                if (!url) return;
+                const PL_NAME = 'Discord RPC';
+                let pl = userPlaylists.find(p => p.type === 'radio' && p.name === PL_NAME);
+                if (!pl) {
+                    pl = { id: 'pl_' + Date.now(), name: PL_NAME, type: 'radio', path: null, stations: [] };
+                    userPlaylists.push(pl);
+                }
+                if (!pl.stations.some(s => s.url === url)) {
+                    pl.stations.push({ name: name || 'Радиостанция', url });
+                }
+                savePlaylistsToStorage();
+                renderPlaylistsDropdown();
+                _updateDropdownSelected(pl.id);
+                await selectPlaylist(pl.id);
+
+                const absId = fileEntries.findIndex(en => en && en.kind === 'radio' && en.path === url);
+                const orderIdx = absId !== -1 ? playlistOrder.indexOf(absId) : -1;
+                if (orderIdx !== -1) playTrack(orderIdx);
+                showNotification(`Друг поделился радиостанцией «${name || 'Радио'}» — запускаем`, 'success');
+            } catch (e) {
+                console.error('Не удалось обработать ссылку радиостанции:', e);
+            }
+        });
+
         const fs = require('fs').promises;
         const path = require('path');
 
@@ -5645,6 +5888,7 @@
                         trackArtist.textContent = '';
                         miniTrackTitle.textContent = 'Удалено';
                         triggerMiniMarquee();
+                        if (window.discordRPCEnabled) ipcRenderer.send('discord-rpc-clear-activity');
                     } else if (currentIndex > orderIdx) {
                         // Трек выше удалённого — сдвигаем индекс
                         currentIndex--;
@@ -5938,6 +6182,7 @@
                                             album: stationName || 'Noctune Radio'
                                         });
                                     }
+                                    pushDiscordActivity();
                                 }
                             }
                         }
@@ -6158,6 +6403,7 @@
                         album: 'Noctune Radio'
                     });
                 }
+                _discordRadioStartedAt = Date.now();
 
                 try {
                     if (!radioAudioElement) {
@@ -6497,7 +6743,89 @@
                     nextEnabled: hasPlaylist && currentIndex < playlistOrder.length - 1,
                 });
             } catch(e) {}
+            pushDiscordActivity();
         }
+
+        // ── Интеграция: Discord Rich Presence ──────────────────────────────
+        // Собирает текущее состояние воспроизведения (трек/автор/плейлист/
+        // позиция) в формат activity для Discord и отправляет в main-процесс,
+        // где живёт само соединение с локальным Discord-клиентом. Здесь же —
+        // конструирование кнопки «Слушать» для радиостанций.
+        let _discordRadioStartedAt = null;
+
+        function buildDiscordActivity() {
+            const title = (trackTitle?.textContent || '').trim() || 'Без названия';
+            const artist = (trackArtist?.textContent || '').trim();
+            const pl = userPlaylists.find(p => p.id === activePlaylistId);
+            const plName = pl ? pl.name : (isRadioMode ? 'Радио' : 'Без плейлиста');
+
+            const activity = {
+                type: 2, // Listening — «Слушает Noctune Player»
+                details: title.slice(0, 128),
+                largeImageKey: 'logo',
+                largeImageText: plName.slice(0, 128),
+                smallImageKey: isPlaying ? 'play' : 'pause',
+                smallImageText: isPlaying ? 'Воспроизведение' : 'Пауза',
+                instance: false,
+            };
+            if (artist) activity.state = artist.slice(0, 128);
+
+            if (window.discordRPCShowProgress !== false && isPlaying) {
+                const now = Date.now();
+                if (isRadioMode) {
+                    // У радио нет известной длительности — открытый счётчик
+                    // «сколько слушает», без конечной точки.
+                    if (!_discordRadioStartedAt) _discordRadioStartedAt = now;
+                    activity.startTimestamp = Math.floor(_discordRadioStartedAt / 1000);
+                } else {
+                    const duration = currentTrackDuration || (localAudioElement ? localAudioElement.duration : 0);
+                    const pos = localAudioElement ? localAudioElement.currentTime : 0;
+                    if (duration && isFinite(duration) && duration > 0) {
+                        const startMs = now - Math.floor(pos * 1000);
+                        activity.startTimestamp = Math.floor(startMs / 1000);
+                        activity.endTimestamp = Math.floor((startMs + duration * 1000) / 1000);
+                    }
+                }
+            } else if (!isRadioMode) {
+                _discordRadioStartedAt = null;
+            }
+
+            // Кнопка «Слушать» — только для радио, друг запускает ту же станцию у себя
+            if (isRadioMode && window.discordRPCShowRadioButton !== false && playlistOrder.length) {
+                const absId = playlistOrder[currentIndex];
+                const entry = fileEntries[absId];
+                if (entry && entry.path) {
+                    const base = (window.discordRPCRedirectBase || '').trim();
+                    let buttonUrl;
+                    if (base) {
+                        const sep = base.includes('?') ? '&' : '?';
+                        buttonUrl = `${base}${sep}name=${encodeURIComponent(entry.name || title)}&url=${encodeURIComponent(entry.path)}`;
+                    } else {
+                        buttonUrl = entry.path; // без редиректа — просто открыть поток в браузере
+                    }
+                    if (/^https?:\/\//i.test(buttonUrl)) {
+                        activity.buttons = [{ label: 'Слушать', url: buttonUrl }];
+                    }
+                }
+            }
+
+            return activity;
+        }
+
+        function pushDiscordActivity() {
+            if (!window.discordRPCEnabled) return;
+            try {
+                if (!isPlaying && !playlistOrder.length) {
+                    ipcRenderer.send('discord-rpc-clear-activity');
+                    return;
+                }
+                ipcRenderer.send('discord-rpc-set-activity', buildDiscordActivity());
+            } catch (e) {}
+        }
+        // Раз в 20с подстраховочно пересылаем активность — на случай дрейфа/сна
+        // компьютера; полоска прогресса в Discord и без этого тикает сама за счёт
+        // timestamp'ов, это просто страховка на случай пропущенного события.
+        setInterval(() => { if (isPlaying) pushDiscordActivity(); }, 20000);
 
         function updatePlayIcons(playing) {
             const mainIcon = document.getElementById('main-play-icon');
@@ -6727,6 +7055,122 @@
                 playTrack(0);
             }
         }
+
+        // ── Горячие клавиши плеера ──────────────────────────────────────────
+        // Биндинги хранятся как { actionId: "combo" }, где combo — нормализованная
+        // строка вида "k", "shift+j", "ArrowUp". Настраиваются на вкладке
+        // «Горячие клавиши» в настройках; см. соответствующий блок в settings IIFE.
+        const DEFAULT_HOTKEYS = {
+            togglePlay: 'KeyK',
+            seekBack10: 'KeyJ',
+            seekFwd10: 'KeyL',
+            mute: 'KeyM',
+            prevTrack: 'shift+KeyJ',
+            nextTrack: 'shift+KeyL',
+            volumeUp: 'ArrowUp',
+            volumeDown: 'ArrowDown',
+            seekBack5: 'ArrowLeft',
+            seekFwd5: 'ArrowRight',
+        };
+
+        // Старые версии хранили буквы как e.key ('k', 'shift+j') — это зависит
+        // от раскладки (на русской ЙЦУКЕН физическая клавиша «K» даёт «л», и
+        // бинд молча перестаёт срабатывать). Подменяем такие записи на код
+        // физической клавиши (KeyK и т.п.), который от раскладки не зависит.
+        function migrateLegacyCombo(combo) {
+            if (!combo) return combo;
+            const parts = combo.split('+');
+            const last = parts[parts.length - 1];
+            if (/^[a-z]$/i.test(last)) parts[parts.length - 1] = 'Key' + last.toUpperCase();
+            else if (/^[0-9]$/.test(last)) parts[parts.length - 1] = 'Digit' + last;
+            return parts.join('+');
+        }
+
+        function loadHotkeyBindings() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('setting_hotkeys') || 'null');
+                const merged = Object.assign({}, DEFAULT_HOTKEYS, saved || {});
+                Object.keys(merged).forEach(k => { merged[k] = migrateLegacyCombo(merged[k]); });
+                window.hotkeyBindings = merged;
+                localStorage.setItem('setting_hotkeys', JSON.stringify(merged));
+            } catch (e) {
+                window.hotkeyBindings = Object.assign({}, DEFAULT_HOTKEYS);
+            }
+        }
+        loadHotkeyBindings();
+
+        // e.code — это физическое положение клавиши на клавиатуре (KeyK, ArrowUp...),
+        // оно не меняется от текущей раскладки/языка ввода, в отличие от e.key,
+        // который отдаёт символ, который раскладка сопоставила этой клавише.
+        function normalizeKeyCombo(e) {
+            const parts = [];
+            if (e.ctrlKey) parts.push('ctrl');
+            if (e.altKey) parts.push('alt');
+            if (e.shiftKey) parts.push('shift');
+            if (e.metaKey) parts.push('meta');
+            parts.push(e.code);
+            return parts.join('+');
+        }
+
+        function isHotkeyBlockedTarget(el) {
+            if (!el) return false;
+            const tag = el.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+            if (el.isContentEditable) return true;
+            return false;
+        }
+
+        // Перемотка на delta секунд (отрицательное — назад). Полностью повторяет
+        // логику клика по полосе прогресса, чтобы поведение совпадало 1:1.
+        function seekRelative(delta) {
+            if (isRadioMode) return;
+            const duration = currentTrackDuration || (localAudioElement ? localAudioElement.duration : 0);
+            if (!duration || !isFinite(duration)) return;
+            const current = isPlaying && localAudioElement ? localAudioElement.currentTime : pausedAt;
+            const targetTime = Math.max(0, Math.min(duration, current + delta));
+            if (isPlaying) {
+                startSourceAt(targetTime, false);
+            } else {
+                pausedAt = targetTime;
+                if (localAudioElement) localAudioElement.currentTime = targetTime;
+                const percentage = duration > 0 ? (targetTime / duration) * 100 : 0;
+                progressFill.style.width = `${percentage}%`;
+                const miniProgressFill = document.getElementById('mini-progress-fill');
+                if (miniProgressFill) miniProgressFill.style.width = `${percentage}%`;
+                timeCurrent.textContent = formatTime(targetTime);
+            }
+        }
+
+        function adjustVolume(delta) {
+            const current = parseFloat(volumeSlider.value) || 0;
+            const next = Math.max(0, Math.min(1, Math.round((current + delta) * 100) / 100));
+            updateVolume(next);
+        }
+
+        const HOTKEY_ACTIONS = {
+            togglePlay:  () => togglePlayback(),
+            seekBack10:  () => seekRelative(-10),
+            seekFwd10:   () => seekRelative(10),
+            mute:        () => toggleMute(),
+            prevTrack:   () => playPrev(),
+            nextTrack:   () => playNext(),
+            volumeUp:    () => adjustVolume(0.05),
+            volumeDown:  () => adjustVolume(-0.05),
+            seekBack5:   () => seekRelative(-5),
+            seekFwd5:    () => seekRelative(5),
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (window._hotkeyCaptureActive) return; // идёт запись нового бинда в настройках
+            if (isHotkeyBlockedTarget(e.target)) return;
+            const combo = normalizeKeyCombo(e);
+            const actionId = Object.keys(window.hotkeyBindings).find(k => window.hotkeyBindings[k] === combo);
+            if (!actionId) return;
+            const handler = HOTKEY_ACTIONS[actionId];
+            if (!handler) return;
+            e.preventDefault();
+            handler();
+        });
 
         document.querySelectorAll('.radio-tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -9193,6 +9637,191 @@
             });
 
             // ====================================================
+            // ИНТЕГРАЦИИ: Discord Rich Presence
+            // ====================================================
+            const settingDiscordRpc        = document.getElementById('setting-discord-rpc-enabled');
+            const discordRpcBody           = document.getElementById('discord-rpc-body');
+            const discordRpcClientIdInput  = document.getElementById('discord-rpc-client-id');
+            const discordRpcStatusPill     = document.getElementById('discord-rpc-status-pill');
+            const discordRpcStatusText     = document.getElementById('discord-rpc-status-text');
+            const settingDiscordRpcProgress     = document.getElementById('setting-discord-rpc-progress');
+            const settingDiscordRpcRadioButton  = document.getElementById('setting-discord-rpc-radio-button');
+            const settingDiscordRpcManual       = document.getElementById('setting-discord-rpc-manual');
+            const discordRpcManualRow           = document.getElementById('discord-rpc-manual-row');
+            const discordRpcRedirectBaseInput   = document.getElementById('discord-rpc-redirect-base');
+
+            function setDiscordRpcStatusPill(state, text) {
+                discordRpcStatusPill.classList.remove('is-connected', 'is-error');
+                if (state === 'connected') discordRpcStatusPill.classList.add('is-connected');
+                else if (state === 'error') discordRpcStatusPill.classList.add('is-error');
+                discordRpcStatusText.textContent = text;
+            }
+
+            function applyDiscordRpcBodyVisibility(enabled) {
+                setSettingsBlockVisible(discordRpcBody, enabled, 'block');
+            }
+
+            settingDiscordRpc.addEventListener('change', async () => {
+                const enabled = settingDiscordRpc.checked;
+                window.discordRPCEnabled = enabled;
+                applyDiscordRpcBodyVisibility(enabled);
+                localStorage.setItem('setting_discord_rpc_enabled', enabled ? '1' : '0');
+
+                if (enabled) {
+                    const clientId = discordRpcClientIdInput.value.trim();
+                    if (!clientId) {
+                        setDiscordRpcStatusPill('error', 'Укажите Application ID');
+                        return;
+                    }
+                    setDiscordRpcStatusPill('idle', 'Подключение…');
+                    const res = await ipcRenderer.invoke('discord-rpc-connect', clientId);
+                    if (res && res.ok) {
+                        pushDiscordActivity();
+                    } else if (res && res.error === 'not-installed') {
+                        setDiscordRpcStatusPill('error', 'Не установлен @xhayper/discord-rpc');
+                    } else {
+                        setDiscordRpcStatusPill('error', 'Discord не найден');
+                    }
+                } else {
+                    await ipcRenderer.invoke('discord-rpc-disconnect');
+                    setDiscordRpcStatusPill('idle', 'Отключено');
+                }
+            });
+
+            discordRpcClientIdInput.addEventListener('change', async () => {
+                const clientId = discordRpcClientIdInput.value.trim();
+                localStorage.setItem('setting_discord_rpc_client_id', clientId);
+                if (window.discordRPCEnabled && clientId) {
+                    setDiscordRpcStatusPill('idle', 'Подключение…');
+                    const res = await ipcRenderer.invoke('discord-rpc-connect', clientId);
+                    if (res && res.ok) pushDiscordActivity();
+                }
+            });
+
+            settingDiscordRpcProgress.addEventListener('change', () => {
+                window.discordRPCShowProgress = settingDiscordRpcProgress.checked;
+                localStorage.setItem('setting_discord_rpc_progress', settingDiscordRpcProgress.checked ? '1' : '0');
+                pushDiscordActivity();
+            });
+            settingDiscordRpcRadioButton.addEventListener('change', () => {
+                window.discordRPCShowRadioButton = settingDiscordRpcRadioButton.checked;
+                localStorage.setItem('setting_discord_rpc_radio_button', settingDiscordRpcRadioButton.checked ? '1' : '0');
+                pushDiscordActivity();
+            });
+            settingDiscordRpcManual.addEventListener('change', () => {
+                setSettingsBlockVisible(discordRpcManualRow, settingDiscordRpcManual.checked, 'block');
+                localStorage.setItem('setting_discord_rpc_manual', settingDiscordRpcManual.checked ? '1' : '0');
+            });
+            discordRpcRedirectBaseInput.addEventListener('change', () => {
+                window.discordRPCRedirectBase = discordRpcRedirectBaseInput.value.trim();
+                localStorage.setItem('setting_discord_rpc_redirect_base', window.discordRPCRedirectBase);
+                pushDiscordActivity();
+            });
+
+            ipcRenderer.on('discord-rpc-status', (_e, status) => {
+                if (status.connected) setDiscordRpcStatusPill('connected', 'Подключено');
+                else if (status.error) setDiscordRpcStatusPill('error', 'Ошибка подключения');
+                else setDiscordRpcStatusPill('idle', 'Отключено');
+            });
+
+            // ====================================================
+            // ГОРЯЧИЕ КЛАВИШИ
+            // ====================================================
+            const HOTKEY_DEFS = [
+                { id: 'togglePlay', label: 'Пауза / Воспроизведение' },
+                { id: 'seekBack10', label: 'Перемотка назад на 10 сек' },
+                { id: 'seekFwd10',  label: 'Перемотка вперёд на 10 сек' },
+                { id: 'mute',       label: 'Выключить звук' },
+                { id: 'prevTrack',  label: 'Предыдущий трек' },
+                { id: 'nextTrack',  label: 'Следующий трек' },
+                { id: 'volumeUp',   label: 'Громче на 5%' },
+                { id: 'volumeDown', label: 'Тише на 5%' },
+                { id: 'seekBack5',  label: 'Перемотка назад на 5 сек' },
+                { id: 'seekFwd5',   label: 'Перемотка вперёд на 5 сек' },
+            ];
+            const HOTKEY_DISPLAY_MAP = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: 'Space' };
+            const HOTKEY_MODIFIER_NAMES = { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Win' };
+
+            function formatComboForDisplay(combo) {
+                if (!combo) return '—';
+                return combo.split('+').map(part => {
+                    if (HOTKEY_MODIFIER_NAMES[part]) return HOTKEY_MODIFIER_NAMES[part];
+                    if (HOTKEY_DISPLAY_MAP[part]) return HOTKEY_DISPLAY_MAP[part];
+                    if (part.startsWith('Key')) return part.slice(3);     // KeyK -> K
+                    if (part.startsWith('Digit')) return part.slice(5);  // Digit5 -> 5
+                    if (part.startsWith('Numpad')) return 'Num' + part.slice(6);
+                    return part;
+                }).join(' + ');
+            }
+
+            const hotkeysListEl = document.getElementById('hotkeys-list');
+
+            function renderHotkeysList() {
+                hotkeysListEl.innerHTML = '';
+                HOTKEY_DEFS.forEach(def => {
+                    const row = document.createElement('div');
+                    row.className = 'hotkey-row';
+                    row.innerHTML = `
+                        <span class="hotkey-label">${def.label}</span>
+                        <div class="hotkey-controls">
+                            <span class="hotkey-chip" data-action="${def.id}" title="Нажмите, чтобы изменить">${formatComboForDisplay(window.hotkeyBindings[def.id])}</span>
+                        </div>`;
+                    hotkeysListEl.appendChild(row);
+                });
+                hotkeysListEl.querySelectorAll('.hotkey-chip').forEach(chip => {
+                    chip.addEventListener('click', () => startListeningForHotkey(chip.dataset.action));
+                });
+            }
+
+            function saveHotkeyBindings() {
+                localStorage.setItem('setting_hotkeys', JSON.stringify(window.hotkeyBindings));
+            }
+
+            function startListeningForHotkey(actionId) {
+                const chip = hotkeysListEl.querySelector(`.hotkey-chip[data-action="${actionId}"]`);
+                if (!chip) return;
+                window._hotkeyCaptureActive = true;
+                chip.textContent = 'Нажмите клавишу…';
+                chip.classList.add('listening');
+
+                const captureHandler = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.key === 'Escape') { cleanup(); renderHotkeysList(); return; }
+                    // Чистый модификатор без основной клавиши — ждём дальше
+                    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+
+                    const combo = normalizeKeyCombo(e);
+                    const conflictId = Object.keys(window.hotkeyBindings).find(
+                        k => k !== actionId && window.hotkeyBindings[k] === combo
+                    );
+                    window.hotkeyBindings[actionId] = combo;
+                    if (conflictId) {
+                        delete window.hotkeyBindings[conflictId];
+                        const conflictLabel = HOTKEY_DEFS.find(d => d.id === conflictId)?.label || conflictId;
+                        showNotification(`«${formatComboForDisplay(combo)}» было снято с действия «${conflictLabel}»`, 'info');
+                    }
+                    saveHotkeyBindings();
+                    cleanup();
+                    renderHotkeysList();
+                };
+                function cleanup() {
+                    window._hotkeyCaptureActive = false;
+                    document.removeEventListener('keydown', captureHandler, true);
+                }
+                document.addEventListener('keydown', captureHandler, true);
+            }
+
+            document.getElementById('btn-reset-hotkeys').addEventListener('click', () => {
+                window.hotkeyBindings = Object.assign({}, DEFAULT_HOTKEYS);
+                saveHotkeyBindings();
+                renderHotkeysList();
+                showNotification('Горячие клавиши сброшены на стандартные', 'success');
+            });
+
+            renderHotkeysList();
+
+            // ====================================================
             // APPEARANCE: Адаптивная палитра (цвета акцента/градиента из фона)
             // ====================================================
             const settingAdaptiveAccent   = document.getElementById('setting-adaptive-accent');
@@ -9984,6 +10613,40 @@
                 settingBgTiltShift.checked = savedBgTiltShift === null ? true : savedBgTiltShift === '1';
                 window.bgTiltShift = settingBgTiltShift.checked;
 
+                // Discord Rich Presence — только синхронизация UI/переменных, без
+                // повторного подключения при каждом открытии настроек (само
+                // подключение при старте приложения делает initDiscordRpcOnStartup()).
+                const savedDiscordRpcEnabled = localStorage.getItem('setting_discord_rpc_enabled') === '1';
+                settingDiscordRpc.checked = savedDiscordRpcEnabled;
+                window.discordRPCEnabled = savedDiscordRpcEnabled;
+                applyDiscordRpcBodyVisibility(savedDiscordRpcEnabled);
+
+                const savedDiscordRpcManual = localStorage.getItem('setting_discord_rpc_manual') === '1';
+                settingDiscordRpcManual.checked = savedDiscordRpcManual;
+                setSettingsBlockVisible(discordRpcManualRow, savedDiscordRpcManual, 'block');
+
+                discordRpcClientIdInput.value = localStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
+
+                const savedDiscordRpcProgress = localStorage.getItem('setting_discord_rpc_progress');
+                settingDiscordRpcProgress.checked = savedDiscordRpcProgress === null ? true : savedDiscordRpcProgress === '1';
+                window.discordRPCShowProgress = settingDiscordRpcProgress.checked;
+
+                const savedDiscordRpcRadioButton = localStorage.getItem('setting_discord_rpc_radio_button');
+                settingDiscordRpcRadioButton.checked = savedDiscordRpcRadioButton === null ? true : savedDiscordRpcRadioButton === '1';
+                window.discordRPCShowRadioButton = settingDiscordRpcRadioButton.checked;
+
+                window.discordRPCRedirectBase = localStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.ru/redirect';
+                discordRpcRedirectBaseInput.value = window.discordRPCRedirectBase;
+
+                if (savedDiscordRpcEnabled) {
+                    ipcRenderer.invoke('discord-rpc-status').then((s) => {
+                        if (s && s.connected) setDiscordRpcStatusPill('connected', 'Подключено');
+                        else setDiscordRpcStatusPill('idle', 'Подключение…');
+                    });
+                } else {
+                    setDiscordRpcStatusPill('idle', 'Отключено');
+                }
+
                 // Адаптивная палитра (акцент/градиент из фона) — только синхронизация галочек;
                 // сам пересчёт палитры запускается лишь при смене фона или переключении тумблера,
                 // а не при каждом открытии настроек (см. restoreBackgroundFromStorage и обработчики change)
@@ -10028,6 +10691,18 @@
             window.adaptiveGradientEnabled = localStorage.getItem('setting_adaptive_gradient') === '1';
             restoreBackgroundFromStorage();
             refreshSettingsUI();
+            // Discord Rich Presence — если было включено в прошлый раз, подключаемся
+            // автоматически при старте приложения (без необходимости открывать настройки).
+            (function initDiscordRpcOnStartup() {
+                window.discordRPCEnabled = localStorage.getItem('setting_discord_rpc_enabled') === '1';
+                window.discordRPCShowProgress = (localStorage.getItem('setting_discord_rpc_progress') ?? '1') === '1';
+                window.discordRPCShowRadioButton = (localStorage.getItem('setting_discord_rpc_radio_button') ?? '1') === '1';
+                window.discordRPCRedirectBase = localStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.ru/redirect';
+                const clientId = localStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
+                if (window.discordRPCEnabled && clientId) {
+                    ipcRenderer.invoke('discord-rpc-connect', clientId);
+                }
+            })();
             window.vizIntensity = window.vizIntensity || 1;
             window.vizStyle = window.vizStyle || 'circle-smooth';
             window.vizRotateColors = window.vizRotateColors !== undefined ? window.vizRotateColors : true;

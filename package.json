@@ -38,6 +38,7 @@
     }
   },
   "dependencies": {
+    "@xhayper/discord-rpc": "^1.3.4",
     "electron-store": "^11.0.2",
     "lucide": "^1.17.0"
   }
