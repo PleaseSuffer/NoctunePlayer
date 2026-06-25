@@ -3448,17 +3448,16 @@
                                     <input type="text" id="discord-rpc-client-id" class="integration-text-input"
                                         value="1519344685871792128" placeholder="например, 1519344685871792128" style="margin-bottom:4px;">
                                     <div class="settings-row-desc" style="margin-bottom:14px;">
-                                        Своё приложение создаётся на discord.com/developers/applications.
+                                        discord.com/developers/applications → New Application → Application ID на странице General Information.
                                     </div>
 
                                     <div class="integration-field-label">Базовый URL для кнопки «Слушать» (необязательно)</div>
                                     <input type="text" id="discord-rpc-redirect-base" class="integration-text-input"
                                         value="https://noctune.lifeisafelony.ru/redirect" placeholder="https://username.github.io/noctune-redirect/">
                                     <div class="settings-row-desc" style="margin-top:6px;">
-                                        Discord принимает в кнопках только http(s)-ссылки. Если оставить пустым — кнопка
-                                        откроет поток радиостанции прямо в браузере. Если указать ссылку на свою
-                                        страницу-редирект — кнопка откроет копию
-                                        плеера у друга и запустит ту же радиостанцию.
+                                        Discord принимает в кнопках только http(s)-ссылки. Без этого URL кнопка просто
+                                        откроет поток радио в браузере; со страницей-редиректом — запустит ту же
+                                        станцию в копии плеера у друга.
                                     </div>
                                 </div>
                             </div>
@@ -3484,7 +3483,7 @@
                         <div class="settings-section-title">Горячие клавиши</div>
                         <div class="settings-card">
                             <div class="settings-row-desc" style="margin-bottom:10px;">
-                                Нажмите на бинд и затем нужное сочетание клавиш. Esc — отмена. Работает, когда
+                                Нажмите «Изменить» и затем нужное сочетание клавиш. Esc — отмена. Работает, когда
                                 фокус не находится в текстовом поле или на слайдере.
                             </div>
                             <div id="hotkeys-list"></div>
@@ -4553,10 +4552,10 @@
         }
 
         function updateRepeatUI() {
-            const icons   = [null, 'repeat-1', 'repeat'];
+            const icons   = ['repeat-off', 'repeat-1', 'repeat'];
             const titles  = ['Повтор выключен', 'Повторять этот трек', 'Повторять плейлист'];
             const active  = repeatMode > 0;
-            const iconName = repeatMode > 0 ? icons[repeatMode] : 'repeat-1';
+            const iconName = icons[repeatMode];
 
             [btnRepeat, miniBtnRepeat].forEach(btn => {
                 btn.innerHTML = `<i data-lucide="${iconName}"></i>`;
@@ -7323,6 +7322,14 @@
 
         volumeSlider.addEventListener('input', (e) => updateVolumeThrottled(e.target.value));
         miniVolumeSlider.addEventListener('input', (e) => updateVolumeThrottled(e.target.value));
+
+        // Колёсико мыши над слайдером громкости — шаг 1% за прокрут
+        function handleVolumeWheel(e) {
+            e.preventDefault();
+            adjustVolume(e.deltaY < 0 ? 0.01 : -0.01);
+        }
+        volumeSlider.addEventListener('wheel', handleVolumeWheel, { passive: false });
+        miniVolumeSlider.addEventListener('wheel', handleVolumeWheel, { passive: false });
 
         progressWrapper.addEventListener('click', (e) => {
             if (isRadioMode) return;
