@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noctune Player — открываем радиостанцию…</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #121212;
+        color: #eaeaea;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 24px;
+    }
+    .card {
+        max-width: 420px;
+        width: 100%;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 14px;
+        padding: 28px 26px;
+        text-align: center;
+    }
+    .spinner {
+        width: 34px; height: 34px;
+        margin: 0 auto 18px;
+        border-radius: 50%;
+        border: 3px solid rgba(255,255,255,0.15);
+        border-top-color: #bb86fc;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h1 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    p { font-size: 13px; color: #9a9a9a; line-height: 1.5; }
+    .station { color: #eaeaea; font-weight: 600; }
+    a.btn {
+        display: none;
+        margin-top: 18px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        background: #bb86fc;
+        color: #121212;
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+    }
+</style>
+</head>
+<body>
+    <div class="card">
+        <div class="spinner"></div>
+        <h1 id="title">Открываем Noctune Player…</h1>
+        <p id="status">Если установлен плеер — он сам откроется и запустит станцию <span class="station" id="station-name"></span>.</p>
+        <a class="btn" id="fallback-link" href="#">Скачать Noctune Player</a>
+    </div>
+
+<script>
+    // Эта страница — просто «мост» между требованием Discord (кнопки в Rich
+    // Presence обязаны вести на http/https) и кастомным протоколом noctune://,
+    // который ловит сам плеер. Сама страница ничего не хранит и не передаёт
+    // на сервер — все параметры читаются прямо из адресной строки браузера и
+    // тут же переписываются в noctune://, дальше работу делает ОС.
+    const params = new URLSearchParams(window.location.search);
+    const name = params.get('name') || 'радиостанцию';
+    const url = params.get('url') || '';
+
+    document.getElementById('station-name').textContent = name;
+
+    // Поменяйте на ссылку на свой релиз/репозиторий, если хотите показывать
+    // её тем, у кого плеер ещё не установлен.
+    const FALLBACK_URL = 'https://github.com/PleaseSuffer/NoctunePlayer/releases';
+
+    if (url) {
+        const deepLink = `noctune://radio?name=${encodeURIComponent(name)}&url=${encodeURIComponent(url)}`;
+        window.location.href = deepLink;
+
+        setTimeout(() => {
+            document.getElementById('title').textContent = 'Плеер не открылся?';
+            document.getElementById('status').textContent =
+                'Похоже, Noctune Player не установлен или браузер заблокировал переход. Скачайте плеер и попробуйте снова.';
+            const fb = document.getElementById('fallback-link');
+            fb.href = FALLBACK_URL;
+            fb.style.display = 'inline-block';
+        }, 2500);
+    } else {
+        document.getElementById('title').textContent = 'Не указана радиостанция';
+        document.getElementById('status').textContent = 'В ссылке отсутствуют параметры name/url.';
+    }
+</script>
+</body>
+</html>
