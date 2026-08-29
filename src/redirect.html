@@ -2,10 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<!-- Responsiveness: ensures correct layout on mobile devices and desktop -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Noctune Player — открываем радиостанцию…</title>
 <style>
+    /* Reset basic browser styles */
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Center the card on the screen and set dark mode styling */
     body {
         min-height: 100vh;
         display: flex;
@@ -16,6 +20,8 @@
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         padding: 24px;
     }
+
+    /* Glassmorphism translucent card styling */
     .card {
         max-width: 420px;
         width: 100%;
@@ -25,6 +31,8 @@
         padding: 28px 26px;
         text-align: center;
     }
+
+    /* Loading spinner CSS animation */
     .spinner {
         width: 34px; height: 34px;
         margin: 0 auto 18px;
@@ -34,9 +42,14 @@
         animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Typography styling */
     h1 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
     p { font-size: 13px; color: #9a9a9a; line-height: 1.5; }
     .station { color: #eaeaea; font-weight: 600; }
+
+    /* Download button: hidden by default (display: none),
+       displayed only if the app fails to launch after a timeout */
     a.btn {
         display: none;
         margin-top: 18px;
@@ -51,6 +64,7 @@
 </style>
 </head>
 <body>
+    <!-- Visual user interface displayed when a user clicks the button in Discord -->
     <div class="card">
         <div class="spinner"></div>
         <h1 id="title">Открываем Noctune Player…</h1>
@@ -59,34 +73,74 @@
     </div>
 
 <script>
-    // Эта страница — просто «мост» между требованием Discord (кнопки в Rich
-    // Presence обязаны вести на http/https) и кастомным протоколом noctune://,
-    // который ловит сам плеер. Сама страница ничего не хранит и не передаёт
-    // на сервер — все параметры читаются прямо из адресной строки браузера и
-    // тут же переписываются в noctune://, дальше работу делает ОС.
+    /* 
+      =======================================================================
+      ARCHITECTURE & WORKING PRINCIPLE (For creating custom redirects):
+      =======================================================================
+      1. Why is this page necessary?
+         Discord prohibits Rich Presence buttons from linking directly to custom 
+         URL schemes (e.g., `myapp://...`). Button links MUST begin with `http://` or `https://`.
+         This HTML page acts as a "bridge" hosted on your web server or GitHub Pages.
+
+      2. How to pass data from Discord to your desktop application?
+         Embed a web URL into the Discord button like this:
+         https://yoursite.com/redirect.html?name=Radio%20FM&url=http://stream-link.mp3
+         
+      3. How is it processed?
+         The page reads the GET parameters (`name` and `url`) from the URL query,
+         constructs a Deep Link (e.g., `noctune://radio?name=...&url=...`),
+         and automatically redirects the browser to trigger the OS protocol handler.
+      =======================================================================
+    */
+
+    // 1. Read query parameters from the browser's address bar (?name=...&url=...)[cite: 1]
     const params = new URLSearchParams(window.location.search);
+    
+    // Retrieve the 'name' parameter value (fallback to default string if absent)[cite: 1]
     const name = params.get('name') || 'радиостанцию';
+    
+    // Retrieve the 'url' parameter value (stream link or resource target)[cite: 1]
     const url = params.get('url') || '';
 
+    // Update the UI text with the station name for visual feedback[cite: 1]
     document.getElementById('station-name').textContent = name;
 
-    // Поменяйте на ссылку на свой релиз/репозиторий, если хотите показывать
-    // её тем, у кого плеер ещё не установлен.
+    // 2. Fallback URL for users who do NOT have the application installed.
+    // Replace this with your app's download or releases page.[cite: 1]
     const FALLBACK_URL = 'https://github.com/PleaseSuffer/NoctunePlayer/releases';
 
+    // 3. Initiate the redirect sequence if a target URL is provided[cite: 1]
     if (url) {
+        /* 
+           DEEP LINK FORMATION (Custom Protocol):
+           - `noctune://` is the custom URI scheme registered by the desktop app in the OS.
+           - `encodeURIComponent()` prevents special characters in queries from breaking the URI syntax.[cite: 1]
+        */
         const deepLink = `noctune://radio?name=${encodeURIComponent(name)}&url=${encodeURIComponent(url)}`;
+        
+        // Trigger browser navigation to the custom protocol.
+        // The operating system intercepts this call and launches the registered app.[cite: 1]
         window.location.href = deepLink;
 
+        /* 
+           FALLBACK / UNINSTALLED APP HANDLING:
+           Browsers cannot natively check if a custom URI scheme is installed.
+           A timeout is used: if the page remains focused after 2.5 seconds, 
+           we assume the application is not installed or the prompt was blocked.[cite: 1]
+        */
         setTimeout(() => {
+            // Update UI elements to prompt user to download the application[cite: 1]
             document.getElementById('title').textContent = 'Плеер не открылся?';
             document.getElementById('status').textContent =
                 'Похоже, Noctune Player не установлен или браузер заблокировал переход. Скачайте плеер и попробуйте снова.';
+            
             const fb = document.getElementById('fallback-link');
             fb.href = FALLBACK_URL;
-            fb.style.display = 'inline-block';
+            fb.style.display = 'inline-block'; // Show the download button[cite: 1]
         }, 2500);
+
     } else {
+        // Display an error state if required URL parameters are missing[cite: 1]
         document.getElementById('title').textContent = 'Не указана радиостанция';
         document.getElementById('status').textContent = 'В ссылке отсутствуют параметры name/url.';
     }
