@@ -93,54 +93,54 @@
       =======================================================================
     */
 
-    // 1. Read query parameters from the browser's address bar (?name=...&url=...)[cite: 1]
+    // 1. Read query parameters from the browser's address bar (?name=...&url=...)
     const params = new URLSearchParams(window.location.search);
     
-    // Retrieve the 'name' parameter value (fallback to default string if absent)[cite: 1]
+    // Retrieve the 'name' parameter value (fallback to default string if absent)
     const name = params.get('name') || 'радиостанцию';
     
-    // Retrieve the 'url' parameter value (stream link or resource target)[cite: 1]
+    // Retrieve the 'url' parameter value (stream link or resource target)
     const url = params.get('url') || '';
 
-    // Update the UI text with the station name for visual feedback[cite: 1]
+    // Update the UI text with the station name for visual feedback
     document.getElementById('station-name').textContent = name;
 
     // 2. Fallback URL for users who do NOT have the application installed.
-    // Replace this with your app's download or releases page.[cite: 1]
+    // Replace this with your app's download or releases page.
     const FALLBACK_URL = 'https://github.com/PleaseSuffer/NoctunePlayer/releases';
 
-    // 3. Initiate the redirect sequence if a target URL is provided[cite: 1]
+    // 3. Initiate the redirect sequence if a target URL is provided
     if (url) {
         /* 
            DEEP LINK FORMATION (Custom Protocol):
            - `noctune://` is the custom URI scheme registered by the desktop app in the OS.
-           - `encodeURIComponent()` prevents special characters in queries from breaking the URI syntax.[cite: 1]
+           - `encodeURIComponent()` prevents special characters in queries from breaking the URI syntax.
         */
         const deepLink = `noctune://radio?name=${encodeURIComponent(name)}&url=${encodeURIComponent(url)}`;
         
         // Trigger browser navigation to the custom protocol.
-        // The operating system intercepts this call and launches the registered app.[cite: 1]
+        // The operating system intercepts this call and launches the registered app.
         window.location.href = deepLink;
 
         /* 
            FALLBACK / UNINSTALLED APP HANDLING:
            Browsers cannot natively check if a custom URI scheme is installed.
            A timeout is used: if the page remains focused after 2.5 seconds, 
-           we assume the application is not installed or the prompt was blocked.[cite: 1]
+           we assume the application is not installed or the prompt was blocked.
         */
         setTimeout(() => {
-            // Update UI elements to prompt user to download the application[cite: 1]
+            // Update UI elements to prompt user to download the application
             document.getElementById('title').textContent = 'Плеер не открылся?';
             document.getElementById('status').textContent =
                 'Похоже, Noctune Player не установлен или браузер заблокировал переход. Скачайте плеер и попробуйте снова.';
             
             const fb = document.getElementById('fallback-link');
             fb.href = FALLBACK_URL;
-            fb.style.display = 'inline-block'; // Show the download button[cite: 1]
+            fb.style.display = 'inline-block'; // Show the download button
         }, 2500);
 
     } else {
-        // Display an error state if required URL parameters are missing[cite: 1]
+        // Display an error state if required URL parameters are missing
         document.getElementById('title').textContent = 'Не указана радиостанция';
         document.getElementById('status').textContent = 'В ссылке отсутствуют параметры name/url.';
     }
