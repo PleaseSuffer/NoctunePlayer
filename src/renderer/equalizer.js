@@ -1,5 +1,5 @@
         function loadUserPresets() {
-            const saved = localStorage.getItem('player_custom_presets');
+            const saved = appStorage.getItem('player_custom_presets');
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
@@ -57,7 +57,7 @@
                 .sort((a, b) => a.localeCompare(b));
             const allNames = [...systemNames, ...userNames];
 
-            const savedState = JSON.parse(localStorage.getItem('player_eq_state'));
+            const savedState = JSON.parse(appStorage.getItem('player_eq_state'));
             allNames.forEach(name => {
                 const btn = document.createElement('button');
                 btn.className = 'preset-btn';
@@ -72,7 +72,7 @@
                     } else {
                         applyPreset(name);
                         const state = { enabled: eqToggle.checked, selectedPreset: name };
-                        localStorage.setItem('player_eq_state', JSON.stringify(state));
+                        appStorage.setItem('player_eq_state', JSON.stringify(state));
                         document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
                         btn.classList.add('active');
                     }
@@ -193,12 +193,12 @@
 
         function deletePreset(name) {
             delete presets[name];
-            const saved = localStorage.getItem('player_custom_presets');
+            const saved = appStorage.getItem('player_custom_presets');
             if (saved) {
                 let toSave = JSON.parse(saved);
                 if (toSave[name]) {
                     delete toSave[name];
-                    localStorage.setItem('player_custom_presets', JSON.stringify(toSave));
+                    appStorage.setItem('player_custom_presets', JSON.stringify(toSave));
                 }
             }
             renderPresetButtons();
@@ -210,14 +210,14 @@
 
         function saveEqState() {
             const state = { enabled: eqToggle.checked, selectedPreset: currentSelectedPresetName };
-            localStorage.setItem('player_eq_state', JSON.stringify(state));
+            appStorage.setItem('player_eq_state', JSON.stringify(state));
         }
 
         themeToggle.addEventListener('click', () => {
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             const newTheme = isDark ? 'light' : 'dark';
             document.body.setAttribute('data-theme', newTheme);
-            localStorage.setItem('player_theme', newTheme);
+            appStorage.setItem('player_theme', newTheme);
             themeToggle.innerHTML = isDark ? '<i data-lucide="moon"></i>' : '<i data-lucide="sun"></i>';
             lucide.createIcons();
         });
@@ -228,105 +228,10 @@
 
         document.querySelector('.mini-volume-zone button').addEventListener('click', toggleMute);
 
-        async function parseAudioTags(file, fileName = "") {
-            let title = "";
-            let artist = "";
-            let album = "";
-            let coverDataUrl = null;
-            
-            let targetName = fileName || (file ? (file.name || file.path || "") : "");
-
-            if (targetName.includes('\\') || targetName.includes('/')) {
-                targetName = targetName.split(/[/\\]/).pop();
-            }
-
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const fullBuffer = new Uint8Array(arrayBuffer);
-                const startBuffer = fullBuffer.subarray(0, 4096);
-
-                if (startBuffer[0] === 0x49 && startBuffer[1] === 0x44 && startBuffer[2] === 0x33) {
-                    let offset = 10;
-                    const decoder = new TextDecoder("utf-8");
-                    const winDecoder = new TextDecoder("windows-1251");
-
-                    while (offset < startBuffer.length - 10) {
-                        let frameID = String.fromCharCode(startBuffer[offset], startBuffer[offset+1], startBuffer[offset+2], startBuffer[offset+3]);
-                        if (!/^[A-Z0-9]{4}$/.test(frameID)) break;
-                        
-                        let frameSize = (startBuffer[offset+4] << 24) | (startBuffer[offset+5] << 16) | (startBuffer[offset+6] << 8) | startBuffer[offset+7];
-                        if (frameSize <= 0 || offset + 10 + frameSize > startBuffer.length) break;
-                        
-                        let frameData = startBuffer.slice(offset + 10, offset + 10 + frameSize);
-                        if (frameID === "APIC" && !coverDataUrl) {
-                            // Picture frame: encoding(1) + mime(null-terminated) + pictureType(1) + description(null-terminated) + data
-                            try {
-                                let fi = 1; // skip encoding byte
-                                while (fi < frameData.length && frameData[fi] !== 0) fi++;
-                                const mimeType = decoder.decode(frameData.slice(1, fi)) || 'image/jpeg';
-                                fi++; // skip null
-                                fi++; // skip picture type byte
-                                while (fi < frameData.length && frameData[fi] !== 0) fi++;
-                                fi++; // skip null after description
-                                const imgBytes = frameData.slice(fi);
-                                if (imgBytes.length > 0) {
-                                    const blob = new Blob([imgBytes], { type: mimeType });
-                                    coverDataUrl = URL.createObjectURL(blob);
-                                }
-                            } catch(e) {}
-                        } else if (frameData.length > 1) {
-                            let encoding = frameData[0];
-                            let textBlob = frameData.slice(1);
-                            let decodedText = "";
-                            try {
-                                if (encoding === 1 || encoding === 2) {
-                                    decodedText = new TextDecoder("utf-16").decode(textBlob);
-                                } else if (encoding === 3) {
-                                    decodedText = decoder.decode(textBlob);
-                                } else {
-                                    decodedText = winDecoder.decode(textBlob);
-                                }
-                                decodedText = decodedText.replace(/\0/g, '').trim();
-                            } catch(e) {}
-
-                            if (decodedText) {
-                                if (frameID === "TIT2") title = decodedText;
-                                if (frameID === "TPE1") artist = decodedText;
-                                if (frameID === "TALB") album = decodedText;
-                            }
-                        }
-                        offset += 10 + frameSize;
-                    }
-                }
-            } catch (e) {
-                console.error("Ошибка при чтении ID3-тегов:", e);
-            }
-
-            if ((!title || !artist) && targetName) {
-                let cleanName = targetName.replace(/\.[^/.]+$/, "");
-                
-                let separator = null;
-                if (cleanName.includes(" - ")) separator = " - ";
-                else if (cleanName.includes(" — ")) separator = " — ";
-                else if (cleanName.includes(" – ")) separator = " – ";
-
-                if (separator) {
-                    let parts = cleanName.split(separator);
-                    let fallbackArtist = parts[0].trim();
-                    let fallbackTitle = parts.slice(1).join(separator).trim(); 
-
-                    if (!artist && fallbackArtist) artist = fallbackArtist;
-                    if (!title && fallbackTitle) title = fallbackTitle;
-                } else {
-                    if (!title) title = cleanName.trim();
-                }
-            }
-
-            if (!title) title = "Без названия";
-            if (!artist) artist = "Неизвестный исполнитель";
-
-            return { title, artist, album, coverDataUrl };
-        }
+        // Чтение тегов теперь полностью на стороне preload через
+        // music-metadata (см. src/preload.js → noctune.metadata.parseFile).
+        // Самописный ID3v2-парсер убран — он читал теги только у MP3, тогда
+        // как файловые фильтры приложения (WAV/OGG/M4A/FLAC) он не покрывал.
 
         function isAudioFile(filename) {
             const ext = filename.split('.').pop().toLowerCase();

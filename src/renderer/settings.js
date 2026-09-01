@@ -78,7 +78,14 @@
                         <span class="pl-drag-handle"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg></span>
                         <span class="pl-name">${pl.name || 'Без названия'}</span>
                         <span class="pl-type-badge ${isRadio ? 'radio' : ''}">${isRadio ? 'Радио' : 'Папка'}</span>
+                        <button type="button" class="actions-btn pl-export-btn" data-idx="${idx}" title="Экспортировать в .m3u" style="flex-shrink:0;">
+                            <i data-lucide="download" style="width:14px;height:14px;"></i>
+                        </button>
                     `;
+                    li.querySelector('.pl-export-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (window.exportPlaylistToM3U) window.exportPlaylistToM3U(userPlaylists[idx]);
+                    });
                     // Drag-and-drop reorder
                     li.addEventListener('dragstart', (e) => {
                         li.classList.add('dragging');
@@ -111,6 +118,7 @@
                     });
                     list.appendChild(li);
                 });
+                lucide.createIcons();
             }
 
             // ---- PLAYER: Crossfade ----
@@ -127,19 +135,19 @@
                 crossfadeEnabled = settingCrossfade.checked;
                 crossfadeDurationRow.classList.toggle('visible', crossfadeEnabled);
                 crossfadeFadeinRow.classList.toggle('visible', crossfadeEnabled);
-                localStorage.setItem('setting_crossfade', crossfadeEnabled ? '1' : '0');
+                appStorage.setItem('setting_crossfade', crossfadeEnabled ? '1' : '0');
             });
 
             crossfadeOutSlider.addEventListener('input', () => {
                 crossfadeOutDuration = parseFloat(crossfadeOutSlider.value);
                 crossfadeOutLabel.textContent = crossfadeOutDuration.toFixed(1) + 'с';
-                localStorage.setItem('setting_crossfade_out', crossfadeOutDuration);
+                appStorage.setItem('setting_crossfade_out', crossfadeOutDuration);
             });
 
             crossfadeInSlider.addEventListener('input', () => {
                 crossfadeInDuration = parseFloat(crossfadeInSlider.value);
                 crossfadeInLabel.textContent = crossfadeInDuration.toFixed(1) + 'с';
-                localStorage.setItem('setting_crossfade_in', crossfadeInDuration);
+                appStorage.setItem('setting_crossfade_in', crossfadeInDuration);
             });
 
             // ---- PLAYER: Remember last track + submenu ----
@@ -150,49 +158,49 @@
                 setSettingsBlockVisible(sub, checked, '');
                 if (restoreEl) {
                     restoreEl.disabled = !checked;
-                    if (!checked) { restoreEl.checked = false; localStorage.setItem('setting_restore_playback', '0'); }
+                    if (!checked) { restoreEl.checked = false; appStorage.setItem('setting_restore_playback', '0'); }
                 }
             }
             settingRememberTrack.addEventListener('change', () => {
-                localStorage.setItem('setting_remember_track', settingRememberTrack.checked ? '1' : '0');
+                appStorage.setItem('setting_remember_track', settingRememberTrack.checked ? '1' : '0');
                 applyRememberTrackSub(settingRememberTrack.checked);
             });
 
             // ---- GENERAL: Autonext ----
             const settingAutoNext = document.getElementById('setting-autonext');
             settingAutoNext.addEventListener('change', () => {
-                localStorage.setItem('setting_autonext', settingAutoNext.checked ? '1' : '0');
+                appStorage.setItem('setting_autonext', settingAutoNext.checked ? '1' : '0');
             });
 
             // ---- GENERAL: Minimize to tray ----
             const settingMinimizeToTray = document.getElementById('setting-minimize-to-tray');
             settingMinimizeToTray.addEventListener('change', () => {
-                localStorage.setItem('setting_minimize_to_tray', settingMinimizeToTray.checked ? '1' : '0');
-                ipcRenderer.send('setting-minimize-to-tray-changed', settingMinimizeToTray.checked);
+                appStorage.setItem('setting_minimize_to_tray', settingMinimizeToTray.checked ? '1' : '0');
+                noctune.setMinimizeToTray(settingMinimizeToTray.checked);
             });
 
             // ---- PLAYER: Autonext playlist ----
             const settingAutoNextPlaylist = document.getElementById('setting-autonext-playlist');
             settingAutoNextPlaylist.addEventListener('change', () => {
-                localStorage.setItem('setting_autonext_playlist', settingAutoNextPlaylist.checked ? '1' : '0');
+                appStorage.setItem('setting_autonext_playlist', settingAutoNextPlaylist.checked ? '1' : '0');
             });
 
             // ---- PLAYER: Restore playback state ----
             const settingRestorePlayback = document.getElementById('setting-restore-playback');
             if (settingRestorePlayback) settingRestorePlayback.addEventListener('change', () => {
-                localStorage.setItem('setting_restore_playback', settingRestorePlayback.checked ? '1' : '0');
+                appStorage.setItem('setting_restore_playback', settingRestorePlayback.checked ? '1' : '0');
             });
 
             // ---- GENERAL: Notifications ----
             const settingNotifications = document.getElementById('setting-notifications');
             settingNotifications.addEventListener('change', () => {
-                localStorage.setItem('setting_notifications', settingNotifications.checked ? '1' : '0');
+                appStorage.setItem('setting_notifications', settingNotifications.checked ? '1' : '0');
             });
 
             // ---- GENERAL: Open links in external browser ----
             const settingOpenLinksExternal = document.getElementById('setting-open-links-external');
             settingOpenLinksExternal.addEventListener('change', () => {
-                localStorage.setItem('setting_open_links_external', settingOpenLinksExternal.checked ? '1' : '0');
+                appStorage.setItem('setting_open_links_external', settingOpenLinksExternal.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Visualizer type dropdown ----
@@ -219,7 +227,7 @@
 
             function selectVizType(style) {
                 window.vizStyle = style;
-                localStorage.setItem('setting_viz_style', style);
+                appStorage.setItem('setting_viz_style', style);
                 const item = vizTypeMenu.querySelector(`[data-viz="${style}"]`);
                 if (item) {
                     vizTypeLabel.textContent = item.textContent.trim();
@@ -284,7 +292,7 @@
                 fwColorMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.fwcolor === mode));
                 setSettingsBlockVisible(fwCustomColorRow, mode === 'custom', 'flex');
-                localStorage.setItem('setting_fw_color_mode', mode);
+                appStorage.setItem('setting_fw_color_mode', mode);
                 lucide.createIcons();
             }
             fwColorBtn.addEventListener('click', (e) => {
@@ -309,7 +317,7 @@
             // на каждый залп случайно берётся один из указанных пользователем цветов.
             function applyFwCustomColors() {
                 window.fireworksCustomColors = [fwCustomColor1.value, fwCustomColor2.value, fwCustomColor3.value];
-                localStorage.setItem('setting_fw_custom_colors', JSON.stringify(window.fireworksCustomColors));
+                appStorage.setItem('setting_fw_custom_colors', JSON.stringify(window.fireworksCustomColors));
             }
             fwCustomColor1.addEventListener('input', applyFwCustomColors);
             fwCustomColor2.addEventListener('input', applyFwCustomColors);
@@ -319,19 +327,19 @@
                 const v = parseFloat(fwThresholdSlider.value);
                 fwThresholdLabel.textContent = v.toFixed(2);
                 window.fireworksThreshold = v;
-                localStorage.setItem('setting_fw_threshold', v);
+                appStorage.setItem('setting_fw_threshold', v);
             });
 
             fwFreqSlider.addEventListener('input', () => {
                 const v = parseFloat(fwFreqSlider.value);
                 fwFreqLabel.textContent = v.toFixed(1);
                 window.fireworksFrequency = v;
-                localStorage.setItem('setting_fw_frequency', v);
+                appStorage.setItem('setting_fw_frequency', v);
             });
 
             fwIdleSpawnToggle.addEventListener('change', () => {
                 window.fireworksIdleSpawn = fwIdleSpawnToggle.checked;
-                localStorage.setItem('setting_fw_idle_spawn', fwIdleSpawnToggle.checked ? '1' : '0');
+                appStorage.setItem('setting_fw_idle_spawn', fwIdleSpawnToggle.checked ? '1' : '0');
             });
 
             function applyFwBeatBurstRowVisibility(enabled) {
@@ -340,20 +348,20 @@
             fwBeatToggle.addEventListener('change', () => {
                 window.fireworksBeatReactive = fwBeatToggle.checked;
                 applyFwBeatBurstRowVisibility(fwBeatToggle.checked);
-                localStorage.setItem('setting_fw_beat_reactive', fwBeatToggle.checked ? '1' : '0');
+                appStorage.setItem('setting_fw_beat_reactive', fwBeatToggle.checked ? '1' : '0');
             });
             fwBeatBurstSlider.addEventListener('input', () => {
                 const v = parseInt(fwBeatBurstSlider.value);
                 fwBeatBurstLabel.textContent = v;
                 window.fireworksBeatBurstCount = v;
-                localStorage.setItem('setting_fw_beat_burst', v);
+                appStorage.setItem('setting_fw_beat_burst', v);
             });
 
             fwTrailSlider.addEventListener('input', () => {
                 const v = parseInt(fwTrailSlider.value);
                 fwTrailLabel.textContent = v;
                 window.fireworksTrail = v;
-                localStorage.setItem('setting_fw_trail', v);
+                appStorage.setItem('setting_fw_trail', v);
             });
 
             // ---- APPEARANCE: Visualizer gradient colors ----
@@ -399,7 +407,7 @@
                 window.vizGradColor1 = vizColor1.value;
                 window.vizGradColor2 = vizColor2.value;
                 window.vizGradColor3 = vizColor3.value;
-                localStorage.setItem('setting_viz_grad', JSON.stringify([vizColor1.value, vizColor2.value, vizColor3.value]));
+                appStorage.setItem('setting_viz_grad', JSON.stringify([vizColor1.value, vizColor2.value, vizColor3.value]));
             }
             vizColor1.addEventListener('input', () => { applyVizColors(); highlightActiveGradPreset(); });
             vizColor2.addEventListener('input', () => { applyVizColors(); highlightActiveGradPreset(); });
@@ -433,7 +441,7 @@
                 // Поля выбора цвета и localStorage обновляем сразу на финальное
                 // значение — анимируем только то, что рисуется на канвасе.
                 vizColor1.value = target1; vizColor2.value = target2; vizColor3.value = target3;
-                localStorage.setItem('setting_viz_grad', JSON.stringify([target1, target2, target3]));
+                appStorage.setItem('setting_viz_grad', JSON.stringify([target1, target2, target3]));
 
                 const t0 = performance.now();
                 function step(now) {
@@ -456,7 +464,7 @@
             }
             settingVizRotate.addEventListener('change', () => {
                 window.vizRotateColors = settingVizRotate.checked;
-                localStorage.setItem('setting_viz_rotate', settingVizRotate.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_rotate', settingVizRotate.checked ? '1' : '0');
                 applyRotateSpeedRowVisibility(settingVizRotate.checked);
             });
 
@@ -466,21 +474,21 @@
             if (rotateSpeedSlider) rotateSpeedSlider.addEventListener('input', () => {
                 window.vizRotateSpeed = parseFloat(rotateSpeedSlider.value);
                 rotateSpeedLabel.textContent = parseFloat(rotateSpeedSlider.value).toFixed(1);
-                localStorage.setItem('setting_viz_rotate_speed', rotateSpeedSlider.value);
+                appStorage.setItem('setting_viz_rotate_speed', rotateSpeedSlider.value);
             });
 
             // ---- APPEARANCE: Inner viz ----
             const settingVizInner = document.getElementById('setting-viz-inner');
             settingVizInner.addEventListener('change', () => {
                 window.vizShowInner = settingVizInner.checked;
-                localStorage.setItem('setting_viz_inner', settingVizInner.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_inner', settingVizInner.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Bars peaks ----
             const settingVizPeaks = document.getElementById('setting-viz-peaks');
             if (settingVizPeaks) settingVizPeaks.addEventListener('change', () => {
                 window.vizShowPeaks = settingVizPeaks.checked;
-                localStorage.setItem('setting_viz_peaks', settingVizPeaks.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_peaks', settingVizPeaks.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Bars scroll gradient ----
@@ -491,7 +499,7 @@
             }
             if (settingScrollGrad) settingScrollGrad.addEventListener('change', () => {
                 window.vizScrollGrad = settingScrollGrad.checked;
-                localStorage.setItem('setting_viz_scroll_grad', settingScrollGrad.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_scroll_grad', settingScrollGrad.checked ? '1' : '0');
                 applyScrollGradRowVisibility(settingScrollGrad.checked);
             });
 
@@ -501,7 +509,7 @@
             if (scrollSpeedSlider) scrollSpeedSlider.addEventListener('input', () => {
                 window.vizScrollSpeed = parseFloat(scrollSpeedSlider.value);
                 scrollSpeedLabel.textContent = parseFloat(scrollSpeedSlider.value).toFixed(1);
-                localStorage.setItem('setting_viz_scroll_speed', scrollSpeedSlider.value);
+                appStorage.setItem('setting_viz_scroll_speed', scrollSpeedSlider.value);
             });
 
             // ---- APPEARANCE: Waveform scroll gradient ----
@@ -512,7 +520,7 @@
             }
             if (settingScrollGradWave) settingScrollGradWave.addEventListener('change', () => {
                 window.vizScrollGradWave = settingScrollGradWave.checked;
-                localStorage.setItem('setting_viz_scroll_grad_wave', settingScrollGradWave.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_scroll_grad_wave', settingScrollGradWave.checked ? '1' : '0');
                 applyScrollGradWaveRowVisibility(settingScrollGradWave.checked);
             });
 
@@ -561,7 +569,7 @@
             }
             if (settingWaveTrail) settingWaveTrail.addEventListener('change', () => {
                 window.vizWaveTrail = settingWaveTrail.checked;
-                localStorage.setItem('setting_viz_wave_trail', settingWaveTrail.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_wave_trail', settingWaveTrail.checked ? '1' : '0');
                 applyWaveTrailRowVisibility(settingWaveTrail.checked);
                 checkWaveformPerfWarning();
             });
@@ -571,7 +579,7 @@
             if (waveTrailAmountSlider) waveTrailAmountSlider.addEventListener('input', () => {
                 window.vizWaveTrailAmount = parseFloat(waveTrailAmountSlider.value);
                 waveTrailAmountLabel.textContent = parseFloat(waveTrailAmountSlider.value).toFixed(2);
-                localStorage.setItem('setting_viz_wave_trail_amount', waveTrailAmountSlider.value);
+                appStorage.setItem('setting_viz_wave_trail_amount', waveTrailAmountSlider.value);
                 checkWaveformPerfWarning();
             });
 
@@ -579,7 +587,7 @@
             if (settingWaveHideSilence) settingWaveHideSilence.addEventListener('change', () => {
                 window.vizHideOnSilence = settingWaveHideSilence.checked;
                 if (!settingWaveHideSilence.checked) window._waveAlpha = 1;
-                localStorage.setItem('setting_viz_wave_hide_silence', settingWaveHideSilence.checked ? '1' : '0');
+                appStorage.setItem('setting_viz_wave_hide_silence', settingWaveHideSilence.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Waveform scroll speed ----
@@ -588,7 +596,7 @@
             if (scrollSpeedWaveSlider) scrollSpeedWaveSlider.addEventListener('input', () => {
                 window.vizScrollSpeedWave = parseFloat(scrollSpeedWaveSlider.value);
                 scrollSpeedWaveLabel.textContent = parseFloat(scrollSpeedWaveSlider.value).toFixed(1);
-                localStorage.setItem('setting_viz_scroll_speed_wave', scrollSpeedWaveSlider.value);
+                appStorage.setItem('setting_viz_scroll_speed_wave', scrollSpeedWaveSlider.value);
             });
 
             // ---- APPEARANCE: Waveform lines count ----
@@ -597,7 +605,7 @@
             if (waveLineSlider) waveLineSlider.addEventListener('input', () => {
                 window.vizWaveLines = parseInt(waveLineSlider.value);
                 waveLineLabel.textContent = waveLineSlider.value;
-                localStorage.setItem('setting_viz_wave_lines', waveLineSlider.value);
+                appStorage.setItem('setting_viz_wave_lines', waveLineSlider.value);
                 // Сбрасываем историю при смене кол-ва линий
                 window._waveHistory = null;
                 checkWaveformPerfWarning();
@@ -607,14 +615,14 @@
             if (waveSensSlider) waveSensSlider.addEventListener('input', () => {
                 window.vizWaveSens = parseFloat(waveSensSlider.value);
                 waveSensLabel.textContent = parseFloat(waveSensSlider.value).toFixed(1);
-                localStorage.setItem('setting_viz_wave_sens', waveSensSlider.value);
+                appStorage.setItem('setting_viz_wave_sens', waveSensSlider.value);
             });
 
             function updateInnerVizRowVisibility() { /* legacy compat */ }
             const settingShowEq = document.getElementById('setting-show-eq-btn');
             settingShowEq.addEventListener('change', () => {
                 openEqBtn.style.display = settingShowEq.checked ? '' : 'none';
-                localStorage.setItem('setting_show_eq_btn', settingShowEq.checked ? '1' : '0');
+                appStorage.setItem('setting_show_eq_btn', settingShowEq.checked ? '1' : '0');
             });
 
             // ---- PLAYER: Playback speed ----
@@ -629,7 +637,7 @@
                 if (mainSlider) mainSlider.value = v;
                 if (mainLabel) mainLabel.textContent = label;
                 if (localAudioElement) localAudioElement.playbackRate = v;
-                localStorage.setItem('setting_playback_speed', v);
+                appStorage.setItem('setting_playback_speed', v);
             }
 
             speedSlider.addEventListener('input', () => applyPlaybackSpeed(parseFloat(speedSlider.value)));
@@ -647,7 +655,7 @@
                 if (window.pannerNode) {
                     window.pannerNode.pan.value = (sliderVal - 50) / 50; // -1…0…+1
                 }
-                localStorage.setItem('setting_balance', sliderVal);
+                appStorage.setItem('setting_balance', sliderVal);
             }
             balanceSlider.addEventListener('input', () => applyBalance(parseInt(balanceSlider.value)));
 
@@ -679,7 +687,7 @@
 
             function selectPbMode(mode) {
                 applyChannelMode(mode);
-                localStorage.setItem('setting_pb_mode', mode);
+                appStorage.setItem('setting_pb_mode', mode);
                 pbModeLabel.textContent = PB_MODE_NAMES[mode] || mode;
                 const icon = PB_MODE_ICONS[mode] || 'headphones';
                 pbModeBtn.querySelector('.pd-icon').innerHTML =
@@ -711,7 +719,7 @@
             const settingShowCover = document.getElementById('setting-show-cover');
             settingShowCover.addEventListener('change', () => {
                 document.body.classList.toggle('show-covers', settingShowCover.checked);
-                localStorage.setItem('setting_show_cover', settingShowCover.checked ? '1' : '0');
+                appStorage.setItem('setting_show_cover', settingShowCover.checked ? '1' : '0');
             });
 
             // ---- PLAYER: Auto-refresh playlist ----
@@ -735,20 +743,20 @@
             settingAutoRefresh.addEventListener('change', () => {
                 const on = settingAutoRefresh.checked;
                 setSettingsBlockVisible(autoRefreshIntervalRow, on, 'flex');
-                localStorage.setItem('setting_auto_refresh', on ? '1' : '0');
+                appStorage.setItem('setting_auto_refresh', on ? '1' : '0');
                 if (on) startAutoRefresh(parseInt(autoRefreshSlider.value));
                 else stopAutoRefresh();
             });
             autoRefreshSlider.addEventListener('input', () => {
                 const v = parseInt(autoRefreshSlider.value);
                 autoRefreshLabel.textContent = v + 'с';
-                localStorage.setItem('setting_auto_refresh_interval', v);
+                appStorage.setItem('setting_auto_refresh_interval', v);
                 if (settingAutoRefresh.checked) startAutoRefresh(v);
             });
 
             // Restore auto-refresh settings
-            const savedAutoRefresh = localStorage.getItem('setting_auto_refresh');
-            const savedAutoRefreshInterval = parseInt(localStorage.getItem('setting_auto_refresh_interval') || '30');
+            const savedAutoRefresh = appStorage.getItem('setting_auto_refresh');
+            const savedAutoRefreshInterval = parseInt(appStorage.getItem('setting_auto_refresh_interval') || '30');
             if (!isNaN(savedAutoRefreshInterval)) {
                 autoRefreshSlider.value = savedAutoRefreshInterval;
                 autoRefreshLabel.textContent = savedAutoRefreshInterval + 'с';
@@ -764,11 +772,11 @@
             settingDark.addEventListener('change', () => {
                 if (settingDark.checked) {
                     document.body.setAttribute('data-theme', 'dark');
-                    localStorage.setItem('player_theme', 'dark');
+                    appStorage.setItem('player_theme', 'dark');
                     themeToggle.innerHTML = '<i data-lucide="sun"></i>';
                 } else {
                     document.body.removeAttribute('data-theme');
-                    localStorage.setItem('player_theme', 'light');
+                    appStorage.setItem('player_theme', 'light');
                     themeToggle.innerHTML = '<i data-lucide="moon"></i>';
                 }
                 lucide.createIcons();
@@ -784,7 +792,7 @@
             function setAccentColor(color) {
                 document.documentElement.style.setProperty('--accent-color', color);
                 document.body.style.setProperty('--accent-color', color);
-                localStorage.setItem('setting_accent_color', color);
+                appStorage.setItem('setting_accent_color', color);
                 colorPicker.value = color;
                 swatches.forEach(s => s.classList.toggle('active', s.dataset.color === color));
             }
@@ -802,7 +810,7 @@
             }
             settingViz.addEventListener('change', () => {
                 applyVizVisibility(settingViz.checked);
-                localStorage.setItem('setting_show_viz', settingViz.checked ? '1' : '0');
+                appStorage.setItem('setting_show_viz', settingViz.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Show/hide stars ----
@@ -815,13 +823,13 @@
             }
             settingStars.addEventListener('change', () => {
                 starCanvas.style.opacity = settingStars.checked ? '1' : '0';
-                localStorage.setItem('setting_show_stars', settingStars.checked ? '1' : '0');
+                appStorage.setItem('setting_show_stars', settingStars.checked ? '1' : '0');
                 applyStarsInteractiveRowVisibility(settingStars.checked);
             });
 
             if (settingStarsInteractive) settingStarsInteractive.addEventListener('change', () => {
                 window.starsInteractive = settingStarsInteractive.checked;
-                localStorage.setItem('setting_stars_interactive', settingStarsInteractive.checked ? '1' : '0');
+                appStorage.setItem('setting_stars_interactive', settingStarsInteractive.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Confetti ----
@@ -835,7 +843,7 @@
             }
             settingConfetti.addEventListener('change', () => {
                 applyConfettiVisibility(settingConfetti.checked);
-                localStorage.setItem('setting_confetti', settingConfetti.checked ? '1' : '0');
+                appStorage.setItem('setting_confetti', settingConfetti.checked ? '1' : '0');
             });
 
             // ── Spawn mode dropdown ────────────────────────────────────────
@@ -868,7 +876,7 @@
                 setSettingsBlockVisible(sprinklerRow, mode === 'sprinkler', 'block');
                 // Reset sprinkler state on mode change
                 if (mode !== 'sprinkler') { window._sprinklerAngle = 0; window._sprinklerCooldown = 0; }
-                localStorage.setItem('setting_confetti_spawn', mode);
+                appStorage.setItem('setting_confetti_spawn', mode);
                 lucide.createIcons();
             }
 
@@ -898,7 +906,7 @@
                 const v = parseInt(sprinklerLinesSlider.value);
                 sprinklerLinesLabel.textContent = v;
                 window.confettiSprinklerLines = v;
-                localStorage.setItem('setting_confetti_sprinkler_lines', v);
+                appStorage.setItem('setting_confetti_sprinkler_lines', v);
             });
 
             // ── Beat sensitivity slider ───────────────────────────────────
@@ -908,7 +916,7 @@
                 const v = parseFloat(sensitivitySlider.value);
                 if (sensitivityLabel) sensitivityLabel.textContent = v.toFixed(1);
                 window.confettiSensitivity = v;
-                localStorage.setItem('setting_confetti_sensitivity', v);
+                appStorage.setItem('setting_confetti_sensitivity', v);
             });
 
             // ── Gradient color pickers ────────────────────────────────
@@ -919,7 +927,7 @@
                 window.confettiColor1 = confettiC1.value;
                 window.confettiColor2 = confettiC2.value;
                 window.confettiColor3 = confettiC3.value;
-                localStorage.setItem('setting_confetti_grad', JSON.stringify([confettiC1.value, confettiC2.value, confettiC3.value]));
+                appStorage.setItem('setting_confetti_grad', JSON.stringify([confettiC1.value, confettiC2.value, confettiC3.value]));
                 highlightActiveConfettiPreset();
             }
             confettiC1.addEventListener('input', applyConfettiColors);
@@ -958,7 +966,7 @@
                 const v = parseFloat(confettiIntSlider.value);
                 confettiIntLabel.textContent = v.toFixed(1);
                 window.confettiIntensity = v;
-                localStorage.setItem('setting_confetti_intensity', v);
+                appStorage.setItem('setting_confetti_intensity', v);
             });
 
             // ── Gravity ───────────────────────────────────────────────
@@ -968,7 +976,7 @@
                 const v = parseFloat(confettiGravSlider.value);
                 confettiGravLabel.textContent = v.toFixed(1);
                 window.confettiGravity = v;
-                localStorage.setItem('setting_confetti_gravity', v);
+                appStorage.setItem('setting_confetti_gravity', v);
             });
 
             // ── Particle size ─────────────────────────────────────────
@@ -978,7 +986,7 @@
                 const v = parseFloat(confettiSizeSlider.value);
                 confettiSizeLabel.textContent = v.toFixed(1);
                 window.confettiSizeScale = v;
-                localStorage.setItem('setting_confetti_size', v);
+                appStorage.setItem('setting_confetti_size', v);
             });
 
             // ── Swirl toggle + strength ───────────────────────────────
@@ -993,13 +1001,13 @@
             settingConfettiSwirl.addEventListener('change', () => {
                 window.confettiSwirl = settingConfettiSwirl.checked;
                 applySwirlRowVisibility(settingConfettiSwirl.checked);
-                localStorage.setItem('setting_confetti_swirl', settingConfettiSwirl.checked ? '1' : '0');
+                appStorage.setItem('setting_confetti_swirl', settingConfettiSwirl.checked ? '1' : '0');
             });
             confettiSwirlStrSlider.addEventListener('input', () => {
                 const v = parseFloat(confettiSwirlStrSlider.value);
                 confettiSwirlStrLabel.textContent = v.toFixed(1);
                 window.confettiSwirlStr = v;
-                localStorage.setItem('setting_confetti_swirl_str', v);
+                appStorage.setItem('setting_confetti_swirl_str', v);
             });
 
             // ── Idle state buttons ────────────────────────────────────
@@ -1014,7 +1022,7 @@
                     btn.style.color       = active ? '#fff' : 'var(--text-color)';
                     btn.style.borderColor = active ? 'var(--accent-color)' : 'var(--border-color)';
                 });
-                localStorage.setItem('setting_confetti_idle', state);
+                appStorage.setItem('setting_confetti_idle', state);
             }
             CONFETTI_IDLE_IDS.forEach(id => {
                 const btn = document.getElementById('confetti-idle-' + id);
@@ -1029,7 +1037,7 @@
                 const v = parseFloat(vizIntSlider.value);
                 vizIntLabel.textContent = v.toFixed(1);
                 window.vizIntensity = v;
-                localStorage.setItem('setting_viz_intensity', v);
+                appStorage.setItem('setting_viz_intensity', v);
             });
 
             // ---- APPEARANCE: Glass blur ----
@@ -1040,7 +1048,7 @@
             }
             settingBlur.addEventListener('change', () => {
                 applyBlurSetting(settingBlur.checked);
-                localStorage.setItem('setting_glass_blur', settingBlur.checked ? '1' : '0');
+                appStorage.setItem('setting_glass_blur', settingBlur.checked ? '1' : '0');
             });
 
             // ---- APPEARANCE: Custom background image ----
@@ -1065,7 +1073,7 @@
             }
             settingBgEnabled.addEventListener('change', () => {
                 applyBgImageEnabled(settingBgEnabled.checked);
-                localStorage.setItem('setting_bg_image_enabled', settingBgEnabled.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_image_enabled', settingBgEnabled.checked ? '1' : '0');
             });
 
             const BG_VIDEO_EXTS = ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'];
@@ -1122,13 +1130,13 @@
 
             function getRecentBackgrounds() {
                 try {
-                    const list = JSON.parse(localStorage.getItem(BG_RECENT_KEY) || '[]');
+                    const list = JSON.parse(appStorage.getItem(BG_RECENT_KEY) || '[]');
                     return Array.isArray(list) ? list : [];
                 } catch (e) { return []; }
             }
 
             function saveRecentBackgrounds(list) {
-                try { localStorage.setItem(BG_RECENT_KEY, JSON.stringify(list)); } catch (e) {}
+                try { appStorage.setItem(BG_RECENT_KEY, JSON.stringify(list)); } catch (e) {}
             }
 
             // bumpToFront: true — поднять в начало списка (явный выбор пользователем);
@@ -1163,13 +1171,13 @@
                 list.forEach((item) => {
                     let thumbUrl = item.thumb;
                     if (!thumbUrl && !item.isVideo) {
-                        try { thumbUrl = require('url').pathToFileURL(item.path).href; } catch (e) { thumbUrl = null; }
+                        try { thumbUrl = noctune.fs.toFileUrl(item.path); } catch (e) { thumbUrl = null; }
                     }
                     const isActive = window.bgImagePath === item.path;
 
                     const cell = document.createElement('div');
                     cell.className = 'bg-recent-item';
-                    try { cell.title = require('path').basename(item.path); } catch (e) {}
+                    try { cell.title = noctune.fs.basename(item.path); } catch (e) {}
                     cell.style.cssText = `position:relative;width:52px;height:52px;border-radius:8px;overflow:hidden;cursor:pointer;flex-shrink:0;background-color:var(--track-hover);background-size:cover;background-position:center;background-repeat:no-repeat;border:2px solid ${isActive ? 'var(--accent-color)' : 'var(--border-color)'};`;
                     if (thumbUrl) cell.style.backgroundImage = `url("${thumbUrl}")`;
 
@@ -1191,9 +1199,9 @@
                     });
                     cell.appendChild(removeBtn);
 
-                    cell.addEventListener('click', () => {
+                    cell.addEventListener('click', async () => {
                         try {
-                            if (!require('fs').existsSync(item.path)) {
+                            if (!(await noctune.fs.exists(item.path))) {
                                 showNotification('Файл фона больше не найден на диске', 'error');
                                 removeRecentBackground(item.path);
                                 return;
@@ -1254,7 +1262,7 @@
             function applyBgImagePath(filePath, persist) {
                 if (!filePath) return;
                 try {
-                    const fileUrl = require('url').pathToFileURL(filePath).href;
+                    const fileUrl = noctune.fs.toFileUrl(filePath);
                     const isVideo = isVideoBgFile(filePath);
 
                     // Снимаем «слепок» текущего фона ДО подмены — но только если
@@ -1306,9 +1314,9 @@
                     // Применяем текущий режим подгона к активному элементу
                     applyBgFitToElements(window.bgImageFit || 'cover');
 
-                    bgImageFilename.textContent = require('path').basename(filePath);
+                    bgImageFilename.textContent = noctune.fs.basename(filePath);
                     btnRemoveBgImage.style.display = 'inline-flex';
-                    if (persist) localStorage.setItem('setting_bg_image_path', filePath);
+                    if (persist) appStorage.setItem('setting_bg_image_path', filePath);
 
                     // Новый фон уже подставлен «под капотом» — теперь плавно
                     // убираем сверху снимок старого, открывая его.
@@ -1333,7 +1341,7 @@
                 btnRemoveBgImage.style.display = 'none';
                 window.bgImagePath = null;
                 window.bgImageIsVideo = false;
-                localStorage.removeItem('setting_bg_image_path');
+                appStorage.removeItem('setting_bg_image_path');
                 renderRecentBackgrounds(); // снять подсветку «активного» с недавних
 
                 // Плавно гасим снимок старого фона, открывая пустоту под ним,
@@ -1343,7 +1351,7 @@
 
             btnChooseBgImage.addEventListener('click', async () => {
                 try {
-                    const filePath = await ipcRenderer.invoke('dialog:openImage');
+                    const filePath = await noctune.dialogOpenImage();
                     if (filePath) applyBgImagePath(filePath, true);
                 } catch (e) {
                     console.error('Ошибка выбора изображения:', e);
@@ -1374,7 +1382,7 @@
                 }
                 bgFitMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.fit === fit));
-                localStorage.setItem('setting_bg_image_fit', fit);
+                appStorage.setItem('setting_bg_image_fit', fit);
                 lucide.createIcons();
             }
             bgFitBtn.addEventListener('click', (e) => {
@@ -1409,19 +1417,19 @@
             settingBgPulse.addEventListener('change', () => {
                 window.bgPulseEnabled = settingBgPulse.checked;
                 applyBgPulseRowVisibility(settingBgPulse.checked);
-                localStorage.setItem('setting_bg_pulse_enabled', settingBgPulse.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_pulse_enabled', settingBgPulse.checked ? '1' : '0');
             });
             bgPulseIntensitySlider.addEventListener('input', () => {
                 const v = parseFloat(bgPulseIntensitySlider.value);
                 bgPulseIntensityLabel.textContent = v.toFixed(1);
                 window.bgPulseIntensity = v;
-                localStorage.setItem('setting_bg_pulse_intensity', v);
+                appStorage.setItem('setting_bg_pulse_intensity', v);
             });
             bgPulseThresholdSlider.addEventListener('input', () => {
                 const v = parseFloat(bgPulseThresholdSlider.value);
                 bgPulseThresholdLabel.textContent = v.toFixed(2);
                 window.bgPulseThreshold = v;
-                localStorage.setItem('setting_bg_pulse_threshold', v);
+                appStorage.setItem('setting_bg_pulse_threshold', v);
             });
 
             // ── Размытие под звук ──
@@ -1438,19 +1446,19 @@
             settingBgBlur.addEventListener('change', () => {
                 window.bgBlurEnabled = settingBgBlur.checked;
                 applyBgBlurRowVisibility(settingBgBlur.checked);
-                localStorage.setItem('setting_bg_blur_enabled', settingBgBlur.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_blur_enabled', settingBgBlur.checked ? '1' : '0');
             });
             bgBlurIntensitySlider.addEventListener('input', () => {
                 const v = parseFloat(bgBlurIntensitySlider.value);
                 bgBlurIntensityLabel.textContent = v.toFixed(1);
                 window.bgBlurIntensity = v;
-                localStorage.setItem('setting_bg_blur_intensity', v);
+                appStorage.setItem('setting_bg_blur_intensity', v);
             });
             bgBlurThresholdSlider.addEventListener('input', () => {
                 const v = parseFloat(bgBlurThresholdSlider.value);
                 bgBlurThresholdLabel.textContent = v.toFixed(2);
                 window.bgBlurThreshold = v;
-                localStorage.setItem('setting_bg_blur_threshold', v);
+                appStorage.setItem('setting_bg_blur_threshold', v);
             });
 
             // ── Свечение под звук ──
@@ -1491,20 +1499,20 @@
             settingBgGlow.addEventListener('change', () => {
                 window.bgGlowEnabled = settingBgGlow.checked;
                 applyBgGlowRowVisibility(settingBgGlow.checked);
-                localStorage.setItem('setting_bg_glow_enabled', settingBgGlow.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_glow_enabled', settingBgGlow.checked ? '1' : '0');
                 if (!settingBgGlow.checked && customBgGlowEl) customBgGlowEl.style.opacity = '0';
             });
             bgGlowIntensitySlider.addEventListener('input', () => {
                 const v = parseFloat(bgGlowIntensitySlider.value);
                 bgGlowIntensityLabel.textContent = v.toFixed(1);
                 window.bgGlowIntensity = v;
-                localStorage.setItem('setting_bg_glow_intensity', v);
+                appStorage.setItem('setting_bg_glow_intensity', v);
             });
             bgGlowThresholdSlider.addEventListener('input', () => {
                 const v = parseFloat(bgGlowThresholdSlider.value);
                 bgGlowThresholdLabel.textContent = v.toFixed(2);
                 window.bgGlowThreshold = v;
-                localStorage.setItem('setting_bg_glow_threshold', v);
+                appStorage.setItem('setting_bg_glow_threshold', v);
             });
             function selectBgGlowStyle(style) {
                 window.bgGlowStyle = style;
@@ -1513,7 +1521,7 @@
                 bgGlowStyleBtn.querySelector('.pd-icon').innerHTML = `<i data-lucide="${def.icon}" style="width:14px;height:14px;"></i>`;
                 bgGlowStyleMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.glowStyle === style));
-                localStorage.setItem('setting_bg_glow_style', style);
+                appStorage.setItem('setting_bg_glow_style', style);
                 applyBgGlowStyle();
                 lucide.createIcons();
             }
@@ -1537,12 +1545,12 @@
             settingBgGlowCustomColor.addEventListener('change', () => {
                 window.bgGlowCustomColorEnabled = settingBgGlowCustomColor.checked;
                 setSettingsBlockVisible(bgGlowColorRow, settingBgGlowCustomColor.checked, 'flex');
-                localStorage.setItem('setting_bg_glow_custom_color_enabled', settingBgGlowCustomColor.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_glow_custom_color_enabled', settingBgGlowCustomColor.checked ? '1' : '0');
                 applyBgGlowStyle();
             });
             bgGlowColorPicker.addEventListener('input', () => {
                 window.bgGlowCustomColor = bgGlowColorPicker.value;
-                localStorage.setItem('setting_bg_glow_custom_color', bgGlowColorPicker.value);
+                appStorage.setItem('setting_bg_glow_custom_color', bgGlowColorPicker.value);
                 applyBgGlowStyle();
             });
 
@@ -1564,33 +1572,33 @@
             settingBgTilt.addEventListener('change', () => {
                 window.bgTiltEnabled = settingBgTilt.checked;
                 applyBgTiltRowVisibility(settingBgTilt.checked);
-                localStorage.setItem('setting_bg_tilt_enabled', settingBgTilt.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_tilt_enabled', settingBgTilt.checked ? '1' : '0');
             });
             bgTiltIntensitySlider.addEventListener('input', () => {
                 const v = parseFloat(bgTiltIntensitySlider.value);
                 bgTiltIntensityLabel.textContent = v.toFixed(1);
                 window.bgTiltIntensity = v;
-                localStorage.setItem('setting_bg_tilt_intensity', v);
+                appStorage.setItem('setting_bg_tilt_intensity', v);
             });
             bgTiltThresholdSlider.addEventListener('input', () => {
                 const v = parseFloat(bgTiltThresholdSlider.value);
                 bgTiltThresholdLabel.textContent = v.toFixed(2);
                 window.bgTiltThreshold = v;
-                localStorage.setItem('setting_bg_tilt_threshold', v);
+                appStorage.setItem('setting_bg_tilt_threshold', v);
             });
             bgTiltSpeedSlider.addEventListener('input', () => {
                 const v = parseFloat(bgTiltSpeedSlider.value);
                 bgTiltSpeedLabel.textContent = v.toFixed(1);
                 window.bgTiltSpeed = v;
-                localStorage.setItem('setting_bg_tilt_speed', v);
+                appStorage.setItem('setting_bg_tilt_speed', v);
             });
             settingBgTiltRotation.addEventListener('change', () => {
                 window.bgTiltRotation = settingBgTiltRotation.checked;
-                localStorage.setItem('setting_bg_tilt_rotation', settingBgTiltRotation.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_tilt_rotation', settingBgTiltRotation.checked ? '1' : '0');
             });
             settingBgTiltShift.addEventListener('change', () => {
                 window.bgTiltShift = settingBgTiltShift.checked;
-                localStorage.setItem('setting_bg_tilt_shift', settingBgTiltShift.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_tilt_shift', settingBgTiltShift.checked ? '1' : '0');
             });
 
             // ── Следование за курсором (с подменю «Наклон за курсором») ──
@@ -1614,7 +1622,7 @@
                     if (!enabled) {
                         settingBgCursorTilt.checked = false;
                         window.bgCursorTiltEnabled = false;
-                        localStorage.setItem('setting_bg_cursor_tilt_enabled', '0');
+                        appStorage.setItem('setting_bg_cursor_tilt_enabled', '0');
                     }
                 }
             }
@@ -1626,7 +1634,7 @@
             settingBgCursor.addEventListener('change', () => {
                 window.bgCursorEnabled = settingBgCursor.checked;
                 applyBgCursorSub(settingBgCursor.checked);
-                localStorage.setItem('setting_bg_cursor_enabled', settingBgCursor.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_cursor_enabled', settingBgCursor.checked ? '1' : '0');
                 // При выключении возвращаем фон на место, чтобы он не «застыл»
                 // со смещением, накопленным во время слежения.
                 if (!settingBgCursor.checked) {
@@ -1638,32 +1646,32 @@
                 const v = parseFloat(bgCursorIntensityXSlider.value);
                 bgCursorIntensityXLabel.textContent = v.toFixed(1);
                 window.bgCursorIntensityX = v;
-                localStorage.setItem('setting_bg_cursor_intensity_x', v);
+                appStorage.setItem('setting_bg_cursor_intensity_x', v);
             });
             bgCursorIntensityYSlider.addEventListener('input', () => {
                 const v = parseFloat(bgCursorIntensityYSlider.value);
                 bgCursorIntensityYLabel.textContent = v.toFixed(1);
                 window.bgCursorIntensityY = v;
-                localStorage.setItem('setting_bg_cursor_intensity_y', v);
+                appStorage.setItem('setting_bg_cursor_intensity_y', v);
             });
             settingBgCursorInvert.addEventListener('change', () => {
                 window.bgCursorInvert = settingBgCursorInvert.checked;
-                localStorage.setItem('setting_bg_cursor_invert', settingBgCursorInvert.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_cursor_invert', settingBgCursorInvert.checked ? '1' : '0');
             });
             settingBgCursorTilt.addEventListener('change', () => {
                 window.bgCursorTiltEnabled = settingBgCursorTilt.checked;
                 applyBgCursorTiltSub(settingBgCursorTilt.checked);
-                localStorage.setItem('setting_bg_cursor_tilt_enabled', settingBgCursorTilt.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_cursor_tilt_enabled', settingBgCursorTilt.checked ? '1' : '0');
             });
             bgCursorTiltIntensitySlider.addEventListener('input', () => {
                 const v = parseFloat(bgCursorTiltIntensitySlider.value);
                 bgCursorTiltIntensityLabel.textContent = v.toFixed(1);
                 window.bgCursorTiltIntensity = v;
-                localStorage.setItem('setting_bg_cursor_tilt_intensity', v);
+                appStorage.setItem('setting_bg_cursor_tilt_intensity', v);
             });
             settingBgCursorTiltInvert.addEventListener('change', () => {
                 window.bgCursorTiltInvert = settingBgCursorTiltInvert.checked;
-                localStorage.setItem('setting_bg_cursor_tilt_invert', settingBgCursorTiltInvert.checked ? '1' : '0');
+                appStorage.setItem('setting_bg_cursor_tilt_invert', settingBgCursorTiltInvert.checked ? '1' : '0');
             });
 
             // ====================================================
@@ -1695,7 +1703,7 @@
                 const enabled = settingDiscordRpc.checked;
                 window.discordRPCEnabled = enabled;
                 applyDiscordRpcBodyVisibility(enabled);
-                localStorage.setItem('setting_discord_rpc_enabled', enabled ? '1' : '0');
+                appStorage.setItem('setting_discord_rpc_enabled', enabled ? '1' : '0');
 
                 if (enabled) {
                     const clientId = discordRpcClientIdInput.value.trim();
@@ -1704,7 +1712,7 @@
                         return;
                     }
                     setDiscordRpcStatusPill('idle', 'Подключение…');
-                    const res = await ipcRenderer.invoke('discord-rpc-connect', clientId);
+                    const res = await noctune.discordRpcConnect(clientId);
                     if (res && res.ok) {
                         pushDiscordActivity();
                     } else if (res && res.error === 'not-installed') {
@@ -1713,42 +1721,42 @@
                         setDiscordRpcStatusPill('error', 'Discord не найден');
                     }
                 } else {
-                    await ipcRenderer.invoke('discord-rpc-disconnect');
+                    await noctune.discordRpcDisconnect();
                     setDiscordRpcStatusPill('idle', 'Отключено');
                 }
             });
 
             discordRpcClientIdInput.addEventListener('change', async () => {
                 const clientId = discordRpcClientIdInput.value.trim();
-                localStorage.setItem('setting_discord_rpc_client_id', clientId);
+                appStorage.setItem('setting_discord_rpc_client_id', clientId);
                 if (window.discordRPCEnabled && clientId) {
                     setDiscordRpcStatusPill('idle', 'Подключение…');
-                    const res = await ipcRenderer.invoke('discord-rpc-connect', clientId);
+                    const res = await noctune.discordRpcConnect(clientId);
                     if (res && res.ok) pushDiscordActivity();
                 }
             });
 
             settingDiscordRpcProgress.addEventListener('change', () => {
                 window.discordRPCShowProgress = settingDiscordRpcProgress.checked;
-                localStorage.setItem('setting_discord_rpc_progress', settingDiscordRpcProgress.checked ? '1' : '0');
+                appStorage.setItem('setting_discord_rpc_progress', settingDiscordRpcProgress.checked ? '1' : '0');
                 pushDiscordActivity();
             });
             settingDiscordRpcRadioButton.addEventListener('change', () => {
                 window.discordRPCShowRadioButton = settingDiscordRpcRadioButton.checked;
-                localStorage.setItem('setting_discord_rpc_radio_button', settingDiscordRpcRadioButton.checked ? '1' : '0');
+                appStorage.setItem('setting_discord_rpc_radio_button', settingDiscordRpcRadioButton.checked ? '1' : '0');
                 pushDiscordActivity();
             });
             settingDiscordRpcManual.addEventListener('change', () => {
                 setSettingsBlockVisible(discordRpcManualRow, settingDiscordRpcManual.checked, 'block');
-                localStorage.setItem('setting_discord_rpc_manual', settingDiscordRpcManual.checked ? '1' : '0');
+                appStorage.setItem('setting_discord_rpc_manual', settingDiscordRpcManual.checked ? '1' : '0');
             });
             discordRpcRedirectBaseInput.addEventListener('change', () => {
                 window.discordRPCRedirectBase = discordRpcRedirectBaseInput.value.trim();
-                localStorage.setItem('setting_discord_rpc_redirect_base', window.discordRPCRedirectBase);
+                appStorage.setItem('setting_discord_rpc_redirect_base', window.discordRPCRedirectBase);
                 pushDiscordActivity();
             });
 
-            ipcRenderer.on('discord-rpc-status', (_e, status) => {
+            noctune.onDiscordRpcStatus((status) => {
                 if (status.connected) setDiscordRpcStatusPill('connected', 'Подключено');
                 else if (status.error) setDiscordRpcStatusPill('error', 'Ошибка подключения');
                 else setDiscordRpcStatusPill('idle', 'Отключено');
@@ -1804,7 +1812,7 @@
             }
 
             function saveHotkeyBindings() {
-                localStorage.setItem('setting_hotkeys', JSON.stringify(window.hotkeyBindings));
+                appStorage.setItem('setting_hotkeys', JSON.stringify(window.hotkeyBindings));
             }
 
             function startListeningForHotkey(actionId) {
@@ -1995,14 +2003,14 @@
 
             if (settingAdaptiveAccent) settingAdaptiveAccent.addEventListener('change', () => {
                 window.adaptiveAccentEnabled = settingAdaptiveAccent.checked;
-                localStorage.setItem('setting_adaptive_accent', settingAdaptiveAccent.checked ? '1' : '0');
+                appStorage.setItem('setting_adaptive_accent', settingAdaptiveAccent.checked ? '1' : '0');
                 refreshAdaptiveControlsDisabledState();
                 if (settingAdaptiveAccent.checked) applyAdaptivePalette();
             });
 
             if (settingAdaptiveGradient) settingAdaptiveGradient.addEventListener('change', () => {
                 window.adaptiveGradientEnabled = settingAdaptiveGradient.checked;
-                localStorage.setItem('setting_adaptive_gradient', settingAdaptiveGradient.checked ? '1' : '0');
+                appStorage.setItem('setting_adaptive_gradient', settingAdaptiveGradient.checked ? '1' : '0');
                 refreshAdaptiveControlsDisabledState();
                 if (settingAdaptiveGradient.checked) applyAdaptivePalette();
             });
@@ -2030,68 +2038,84 @@
                 const payload = {
                     v: 1,
                     d: document.body.getAttribute('data-theme') === 'dark',           // dark theme
-                    a: localStorage.getItem('setting_accent_color') || '#4a90e2',     // accent
-                    st: (localStorage.getItem('setting_show_stars') ?? '1') === '1',  // stars
-                    gb: (localStorage.getItem('setting_glass_blur') ?? '1') === '1',  // glass blur
+                    a: appStorage.getItem('setting_accent_color') || '#4a90e2',     // accent
+                    st: (appStorage.getItem('setting_show_stars') ?? '1') === '1',  // stars
+                    gb: (appStorage.getItem('setting_glass_blur') ?? '1') === '1',  // glass blur
                     g: {                                                              // gradient
-                        c: safeParseJSON(localStorage.getItem('setting_viz_grad'), ['#bb86fc', '#4a90e2', '#03dac6']),
-                        r: (localStorage.getItem('setting_viz_rotate') ?? '1') === '1',
-                        rs: parseFloat(localStorage.getItem('setting_viz_rotate_speed') || '1'),
-                        sg: localStorage.getItem('setting_viz_scroll_grad') === '1',
-                        ss: parseFloat(localStorage.getItem('setting_viz_scroll_speed') || '1'),
-                        sw: localStorage.getItem('setting_viz_scroll_grad_wave') === '1',
-                        sws: parseFloat(localStorage.getItem('setting_viz_scroll_speed_wave') || '1'),
+                        c: safeParseJSON(appStorage.getItem('setting_viz_grad'), ['#bb86fc', '#4a90e2', '#03dac6']),
+                        r: (appStorage.getItem('setting_viz_rotate') ?? '1') === '1',
+                        rs: parseFloat(appStorage.getItem('setting_viz_rotate_speed') || '1'),
+                        sg: appStorage.getItem('setting_viz_scroll_grad') === '1',
+                        ss: parseFloat(appStorage.getItem('setting_viz_scroll_speed') || '1'),
+                        sw: appStorage.getItem('setting_viz_scroll_grad_wave') === '1',
+                        sws: parseFloat(appStorage.getItem('setting_viz_scroll_speed_wave') || '1'),
                     },
                     ad: {                                                             // adaptive
-                        a: localStorage.getItem('setting_adaptive_accent') === '1',
-                        g: localStorage.getItem('setting_adaptive_gradient') === '1',
+                        a: appStorage.getItem('setting_adaptive_accent') === '1',
+                        g: appStorage.getItem('setting_adaptive_gradient') === '1',
                     },
                     bg: null,
                 };
 
-                if (localStorage.getItem('setting_bg_image_enabled') === '1') {
+                if (appStorage.getItem('setting_bg_image_enabled') === '1') {
                     payload.bg = {
-                        f: localStorage.getItem('setting_bg_image_fit') || 'cover',
-                        pe: (localStorage.getItem('setting_bg_pulse_enabled') ?? '1') === '1',
-                        pi: parseFloat(localStorage.getItem('setting_bg_pulse_intensity') || '1'),
-                        pt: parseFloat(localStorage.getItem('setting_bg_pulse_threshold') || '0'),
-                        be: localStorage.getItem('setting_bg_blur_enabled') === '1',
-                        bi: parseFloat(localStorage.getItem('setting_bg_blur_intensity') || '1'),
-                        bt: parseFloat(localStorage.getItem('setting_bg_blur_threshold') || '0'),
-                        ge: localStorage.getItem('setting_bg_glow_enabled') === '1',
-                        gi: parseFloat(localStorage.getItem('setting_bg_glow_intensity') || '1'),
-                        gt: parseFloat(localStorage.getItem('setting_bg_glow_threshold') || '0'),
-                        gs: localStorage.getItem('setting_bg_glow_style') || 'center',
-                        gce: localStorage.getItem('setting_bg_glow_custom_color_enabled') === '1',
-                        gc: localStorage.getItem('setting_bg_glow_custom_color') || '#bb86fc',
-                        te: localStorage.getItem('setting_bg_tilt_enabled') === '1',
-                        ti: parseFloat(localStorage.getItem('setting_bg_tilt_intensity') || '1'),
-                        tt: parseFloat(localStorage.getItem('setting_bg_tilt_threshold') || '0'),
-                        ts: parseFloat(localStorage.getItem('setting_bg_tilt_speed') || '1'),
-                        tr: (localStorage.getItem('setting_bg_tilt_rotation') ?? '1') === '1',
-                        tsh: (localStorage.getItem('setting_bg_tilt_shift') ?? '1') === '1',
-                        ce: localStorage.getItem('setting_bg_cursor_enabled') === '1',
-                        cx: parseFloat(localStorage.getItem('setting_bg_cursor_intensity_x') || '3'),
-                        cy: parseFloat(localStorage.getItem('setting_bg_cursor_intensity_y') || '3'),
-                        ci: localStorage.getItem('setting_bg_cursor_invert') === '1',
-                        cte: localStorage.getItem('setting_bg_cursor_tilt_enabled') === '1',
-                        cti: parseFloat(localStorage.getItem('setting_bg_cursor_tilt_intensity') || '2'),
-                        ctv: localStorage.getItem('setting_bg_cursor_tilt_invert') === '1',
+                        f: appStorage.getItem('setting_bg_image_fit') || 'cover',
+                        pe: (appStorage.getItem('setting_bg_pulse_enabled') ?? '1') === '1',
+                        pi: parseFloat(appStorage.getItem('setting_bg_pulse_intensity') || '1'),
+                        pt: parseFloat(appStorage.getItem('setting_bg_pulse_threshold') || '0'),
+                        be: appStorage.getItem('setting_bg_blur_enabled') === '1',
+                        bi: parseFloat(appStorage.getItem('setting_bg_blur_intensity') || '1'),
+                        bt: parseFloat(appStorage.getItem('setting_bg_blur_threshold') || '0'),
+                        ge: appStorage.getItem('setting_bg_glow_enabled') === '1',
+                        gi: parseFloat(appStorage.getItem('setting_bg_glow_intensity') || '1'),
+                        gt: parseFloat(appStorage.getItem('setting_bg_glow_threshold') || '0'),
+                        gs: appStorage.getItem('setting_bg_glow_style') || 'center',
+                        gce: appStorage.getItem('setting_bg_glow_custom_color_enabled') === '1',
+                        gc: appStorage.getItem('setting_bg_glow_custom_color') || '#bb86fc',
+                        te: appStorage.getItem('setting_bg_tilt_enabled') === '1',
+                        ti: parseFloat(appStorage.getItem('setting_bg_tilt_intensity') || '1'),
+                        tt: parseFloat(appStorage.getItem('setting_bg_tilt_threshold') || '0'),
+                        ts: parseFloat(appStorage.getItem('setting_bg_tilt_speed') || '1'),
+                        tr: (appStorage.getItem('setting_bg_tilt_rotation') ?? '1') === '1',
+                        tsh: (appStorage.getItem('setting_bg_tilt_shift') ?? '1') === '1',
+                        ce: appStorage.getItem('setting_bg_cursor_enabled') === '1',
+                        cx: parseFloat(appStorage.getItem('setting_bg_cursor_intensity_x') || '3'),
+                        cy: parseFloat(appStorage.getItem('setting_bg_cursor_intensity_y') || '3'),
+                        ci: appStorage.getItem('setting_bg_cursor_invert') === '1',
+                        cte: appStorage.getItem('setting_bg_cursor_tilt_enabled') === '1',
+                        cti: parseFloat(appStorage.getItem('setting_bg_cursor_tilt_intensity') || '2'),
+                        ctv: appStorage.getItem('setting_bg_cursor_tilt_invert') === '1',
                     };
                 }
 
                 return payload;
             }
 
+            // Unicode-safe base64 без Node Buffer (недоступен в рендерере
+            // после отключения nodeIntegration) — btoa/atob умеют только
+            // Latin1, поэтому строку сначала гоним через UTF-8 байты.
+            function utf8ToBase64(str) {
+                const bytes = new TextEncoder().encode(str);
+                let binary = '';
+                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                return btoa(binary);
+            }
+            function base64ToUtf8(b64) {
+                const binary = atob(b64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                return new TextDecoder().decode(bytes);
+            }
+
             function encodeTheme(payload) {
                 const json = JSON.stringify(payload);
-                return THEME_PREFIX + Buffer.from(json, 'utf8').toString('base64');
+                return THEME_PREFIX + utf8ToBase64(json);
             }
 
             function decodeTheme(code) {
                 const trimmed = String(code || '').trim();
                 if (!trimmed.startsWith(THEME_PREFIX)) throw new Error('bad-prefix');
-                const json = Buffer.from(trimmed.slice(THEME_PREFIX.length), 'base64').toString('utf8');
+                const json = base64ToUtf8(trimmed.slice(THEME_PREFIX.length));
                 return JSON.parse(json);
             }
 
@@ -2211,24 +2235,9 @@
             });
 
             // ---- ABOUT: Version & update check ----
-            const btnCheckUpdates = document.getElementById('btn-check-updates');
-            const updateStatus = document.getElementById('update-status-msg');
-            btnCheckUpdates.addEventListener('click', async () => {
-                updateStatus.textContent = 'Проверяем...';
-                btnCheckUpdates.disabled = true;
-                try {
-                    const resp = await fetch('https://api.github.com/repos/PleaseSuffer/NoctunePlayer/releases/latest');
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        updateStatus.textContent = `Последняя версия на GitHub: ${data.tag_name || 'неизвестно'}`;
-                    } else {
-                        updateStatus.textContent = 'Репозиторий недоступен. Проверьте вручную.';
-                    }
-                } catch {
-                    updateStatus.textContent = 'Не удалось подключиться к GitHub.';
-                }
-                btnCheckUpdates.disabled = false;
-            });
+            // Кнопка "Проверить" и вся логика electron-updater теперь в
+            // renderer/updater.js (единая точка правды, без дублирования
+            // обработчиков на одной и той же кнопке).
 
             // ---- Restore saved settings on load ----
             function refreshSettingsUI() {
@@ -2236,11 +2245,11 @@
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
 
                 // EQ button
-                const savedEqBtn = localStorage.getItem('setting_show_eq_btn');
+                const savedEqBtn = appStorage.getItem('setting_show_eq_btn');
                 if (savedEqBtn !== null) settingShowEq.checked = savedEqBtn === '1';
 
                 // Playback speed
-                const savedSpeed = localStorage.getItem('setting_playback_speed');
+                const savedSpeed = appStorage.getItem('setting_playback_speed');
                 if (savedSpeed !== null) {
                     speedSlider.value = savedSpeed;
                     const v = parseFloat(savedSpeed);
@@ -2252,18 +2261,18 @@
                 }
 
                 // Balance
-                const savedBal = localStorage.getItem('setting_balance');
+                const savedBal = appStorage.getItem('setting_balance');
                 if (savedBal !== null) {
                     balanceSlider.value = savedBal;
                     applyBalance(parseInt(savedBal));
                 }
 
                 // Playback mode
-                const savedPBMode = localStorage.getItem('setting_pb_mode') || 'stereo';
+                const savedPBMode = appStorage.getItem('setting_pb_mode') || 'stereo';
                 selectPbMode(savedPBMode);
 
                 // Accent color
-                const savedAccent = localStorage.getItem('setting_accent_color');
+                const savedAccent = appStorage.getItem('setting_accent_color');
                 if (savedAccent) {
                     document.documentElement.style.setProperty('--accent-color', savedAccent);
                     document.body.style.setProperty('--accent-color', savedAccent);
@@ -2274,36 +2283,36 @@
                 }
 
                 // Viz style
-                const savedVizStyle = localStorage.getItem('setting_viz_style') || 'circle-smooth';
+                const savedVizStyle = appStorage.getItem('setting_viz_style') || 'circle-smooth';
                 selectVizType(savedVizStyle);
 
                 // Viz peaks
-                const savedPeaks = localStorage.getItem('setting_viz_peaks');
+                const savedPeaks = appStorage.getItem('setting_viz_peaks');
                 if (savedPeaks !== null) { window.vizShowPeaks = savedPeaks === '1'; const el = document.getElementById('setting-viz-peaks'); if(el) el.checked = window.vizShowPeaks; }
                 else { window.vizShowPeaks = true; }
 
                 // Bars scroll gradient
-                const savedScrollGrad = localStorage.getItem('setting_viz_scroll_grad');
+                const savedScrollGrad = appStorage.getItem('setting_viz_scroll_grad');
                 if (savedScrollGrad !== null) { window.vizScrollGrad = savedScrollGrad === '1'; const el = document.getElementById('setting-viz-scroll-grad'); if(el) el.checked = window.vizScrollGrad; applyScrollGradRowVisibility(window.vizScrollGrad); }
                 else { window.vizScrollGrad = false; }
 
                 // Bars scroll speed
-                const savedScrollSpeed = localStorage.getItem('setting_viz_scroll_speed');
+                const savedScrollSpeed = appStorage.getItem('setting_viz_scroll_speed');
                 if (savedScrollSpeed !== null) { window.vizScrollSpeed = parseFloat(savedScrollSpeed); const el = document.getElementById('setting-viz-scroll-speed'); const lb = document.getElementById('setting-viz-scroll-speed-label'); if(el) el.value = savedScrollSpeed; if(lb) lb.textContent = parseFloat(savedScrollSpeed).toFixed(1); }
                 else { window.vizScrollSpeed = 1; }
 
                 // Waveform scroll gradient
-                const savedScrollGradWave = localStorage.getItem('setting_viz_scroll_grad_wave');
+                const savedScrollGradWave = appStorage.getItem('setting_viz_scroll_grad_wave');
                 if (savedScrollGradWave !== null) { window.vizScrollGradWave = savedScrollGradWave === '1'; const el = document.getElementById('setting-viz-scroll-grad-wave'); if(el) el.checked = window.vizScrollGradWave; applyScrollGradWaveRowVisibility(window.vizScrollGradWave); }
                 else { window.vizScrollGradWave = false; }
 
                 // Waveform scroll speed
-                const savedScrollSpeedWave = localStorage.getItem('setting_viz_scroll_speed_wave');
+                const savedScrollSpeedWave = appStorage.getItem('setting_viz_scroll_speed_wave');
                 if (savedScrollSpeedWave !== null) { window.vizScrollSpeedWave = parseFloat(savedScrollSpeedWave); const el = document.getElementById('setting-viz-scroll-speed-wave'); const lb = document.getElementById('setting-viz-scroll-speed-wave-label'); if(el) el.value = savedScrollSpeedWave; if(lb) lb.textContent = parseFloat(savedScrollSpeedWave).toFixed(1); }
                 else { window.vizScrollSpeedWave = 1; }
 
                 // Waveform trail
-                const savedWaveTrail = localStorage.getItem('setting_viz_wave_trail');
+                const savedWaveTrail = appStorage.getItem('setting_viz_wave_trail');
                 if (savedWaveTrail !== null) {
                     window.vizWaveTrail = savedWaveTrail === '1';
                     const el = document.getElementById('setting-viz-wave-trail');
@@ -2311,7 +2320,7 @@
                     applyWaveTrailRowVisibility(window.vizWaveTrail);
                 } else { window.vizWaveTrail = false; }
 
-                const savedWaveTrailAmount = localStorage.getItem('setting_viz_wave_trail_amount');
+                const savedWaveTrailAmount = appStorage.getItem('setting_viz_wave_trail_amount');
                 if (savedWaveTrailAmount !== null) {
                     window.vizWaveTrailAmount = parseFloat(savedWaveTrailAmount);
                     const el = document.getElementById('setting-viz-wave-trail-amount');
@@ -2321,7 +2330,7 @@
                 } else { window.vizWaveTrailAmount = 0.30; }
 
                 // Waveform hide on silence
-                const savedWaveHideSilence = localStorage.getItem('setting_viz_wave_hide_silence');
+                const savedWaveHideSilence = appStorage.getItem('setting_viz_wave_hide_silence');
                 if (savedWaveHideSilence !== null) {
                     window.vizHideOnSilence = savedWaveHideSilence === '1';
                     const el = document.getElementById('setting-viz-wave-hide-silence');
@@ -2331,21 +2340,21 @@
                 checkWaveformPerfWarning();
 
                 // Waveform lines
-                const savedWaveLines = localStorage.getItem('setting_viz_wave_lines');
+                const savedWaveLines = appStorage.getItem('setting_viz_wave_lines');
                 if (savedWaveLines !== null) { window.vizWaveLines = parseInt(savedWaveLines); const el = document.getElementById('setting-viz-wave-lines'); const lb = document.getElementById('setting-viz-wave-lines-label'); if(el) el.value = savedWaveLines; if(lb) lb.textContent = savedWaveLines; }
                 else { window.vizWaveLines = 1; }
-                const savedWaveSens = localStorage.getItem('setting_viz_wave_sens');
+                const savedWaveSens = appStorage.getItem('setting_viz_wave_sens');
                 if (savedWaveSens !== null) { window.vizWaveSens = parseFloat(savedWaveSens); const el = document.getElementById('setting-viz-wave-sens'); const lb = document.getElementById('setting-viz-wave-sens-label'); if(el) el.value = savedWaveSens; if(lb) lb.textContent = parseFloat(savedWaveSens).toFixed(1); }
                 else { window.vizWaveSens = 1.5; }
 
                 // Rotate speed
-                const savedRotateSpeed = localStorage.getItem('setting_viz_rotate_speed');
+                const savedRotateSpeed = appStorage.getItem('setting_viz_rotate_speed');
                 if (savedRotateSpeed !== null) { window.vizRotateSpeed = parseFloat(savedRotateSpeed); const el = document.getElementById('setting-viz-rotate-speed'); const lb = document.getElementById('setting-viz-rotate-speed-label'); if(el) el.value = savedRotateSpeed; if(lb) lb.textContent = parseFloat(savedRotateSpeed).toFixed(1); }
                 else { window.vizRotateSpeed = 1; }
 
                 // Fireworks (Салют)
-                selectFwColorMode(localStorage.getItem('setting_fw_color_mode') || 'random');
-                const savedFwCustomColors = localStorage.getItem('setting_fw_custom_colors');
+                selectFwColorMode(appStorage.getItem('setting_fw_color_mode') || 'random');
+                const savedFwCustomColors = appStorage.getItem('setting_fw_custom_colors');
                 if (savedFwCustomColors) {
                     try {
                         const arr = JSON.parse(savedFwCustomColors);
@@ -2357,50 +2366,50 @@
                 } else {
                     window.fireworksCustomColors = [fwCustomColor1.value, fwCustomColor2.value, fwCustomColor3.value];
                 }
-                const savedFwThreshold = localStorage.getItem('setting_fw_threshold');
+                const savedFwThreshold = appStorage.getItem('setting_fw_threshold');
                 if (savedFwThreshold !== null) { fwThresholdSlider.value = savedFwThreshold; fwThresholdLabel.textContent = parseFloat(savedFwThreshold).toFixed(2); window.fireworksThreshold = parseFloat(savedFwThreshold); }
                 else { window.fireworksThreshold = 0; }
-                const savedFwFreq = localStorage.getItem('setting_fw_frequency');
+                const savedFwFreq = appStorage.getItem('setting_fw_frequency');
                 if (savedFwFreq !== null) { fwFreqSlider.value = savedFwFreq; fwFreqLabel.textContent = parseFloat(savedFwFreq).toFixed(1); window.fireworksFrequency = parseFloat(savedFwFreq); }
                 else { window.fireworksFrequency = 1; }
-                const savedFwIdleSpawn = localStorage.getItem('setting_fw_idle_spawn');
+                const savedFwIdleSpawn = appStorage.getItem('setting_fw_idle_spawn');
                 fwIdleSpawnToggle.checked = savedFwIdleSpawn === null ? true : savedFwIdleSpawn === '1';
                 window.fireworksIdleSpawn = fwIdleSpawnToggle.checked;
-                const savedFwBeat = localStorage.getItem('setting_fw_beat_reactive');
+                const savedFwBeat = appStorage.getItem('setting_fw_beat_reactive');
                 fwBeatToggle.checked = savedFwBeat === null ? true : savedFwBeat === '1';
                 window.fireworksBeatReactive = fwBeatToggle.checked;
                 applyFwBeatBurstRowVisibility(fwBeatToggle.checked);
-                const savedFwBeatBurst = localStorage.getItem('setting_fw_beat_burst');
+                const savedFwBeatBurst = appStorage.getItem('setting_fw_beat_burst');
                 if (savedFwBeatBurst !== null) { fwBeatBurstSlider.value = savedFwBeatBurst; fwBeatBurstLabel.textContent = savedFwBeatBurst; window.fireworksBeatBurstCount = parseInt(savedFwBeatBurst); }
                 else { window.fireworksBeatBurstCount = 1; }
-                const savedFwTrail = localStorage.getItem('setting_fw_trail');
+                const savedFwTrail = appStorage.getItem('setting_fw_trail');
                 if (savedFwTrail !== null) { fwTrailSlider.value = savedFwTrail; fwTrailLabel.textContent = savedFwTrail; window.fireworksTrail = parseInt(savedFwTrail); }
                 else { window.fireworksTrail = 4; }
 
                 // Show viz
-                const savedShowViz = localStorage.getItem('setting_show_viz');
+                const savedShowViz = appStorage.getItem('setting_show_viz');
                 if (savedShowViz !== null) {
                     settingViz.checked = savedShowViz === '1';
                     applyVizVisibility(settingViz.checked);
                 }
 
                 // Show stars
-                const savedShowStars = localStorage.getItem('setting_show_stars');
+                const savedShowStars = appStorage.getItem('setting_show_stars');
                 if (savedShowStars !== null) {
                     settingStars.checked = savedShowStars === '1';
                     starCanvas.style.opacity = settingStars.checked ? '1' : '0';
                 }
-                window.starsInteractive = localStorage.getItem('setting_stars_interactive') === '1';
+                window.starsInteractive = appStorage.getItem('setting_stars_interactive') === '1';
                 if (settingStarsInteractive) settingStarsInteractive.checked = window.starsInteractive;
                 applyStarsInteractiveRowVisibility(settingStars.checked);
 
                 // Confetti
-                const savedConfetti = localStorage.getItem('setting_confetti');
+                const savedConfetti = appStorage.getItem('setting_confetti');
                 if (savedConfetti !== null) {
                     settingConfetti.checked = savedConfetti === '1';
                     applyConfettiVisibility(settingConfetti.checked);
                 }
-                const savedConfettiGrad = localStorage.getItem('setting_confetti_grad');
+                const savedConfettiGrad = appStorage.getItem('setting_confetti_grad');
                 if (savedConfettiGrad) {
                     try {
                         const [c1,c2,c3] = JSON.parse(savedConfettiGrad);
@@ -2411,19 +2420,19 @@
                     window.confettiColor1 = '#ff6b9d'; window.confettiColor2 = '#c44dff'; window.confettiColor3 = '#4daaff';
                 }
                 highlightActiveConfettiPreset();
-                const savedConfettiInt = localStorage.getItem('setting_confetti_intensity');
+                const savedConfettiInt = appStorage.getItem('setting_confetti_intensity');
                 if (savedConfettiInt !== null) {
                     confettiIntSlider.value = savedConfettiInt;
                     confettiIntLabel.textContent = parseFloat(savedConfettiInt).toFixed(1);
                     window.confettiIntensity = parseFloat(savedConfettiInt);
                 }
-                const savedConfettiIdle = localStorage.getItem('setting_confetti_idle');
+                const savedConfettiIdle = appStorage.getItem('setting_confetti_idle');
                 if (savedConfettiIdle) selectConfettiIdle(savedConfettiIdle);
                 // Spawn mode
-                const savedConfettiSpawn = localStorage.getItem('setting_confetti_spawn');
+                const savedConfettiSpawn = appStorage.getItem('setting_confetti_spawn');
                 if (savedConfettiSpawn) selectConfettiSpawn(savedConfettiSpawn);
                 // Sprinkler lines
-                const savedSprinklerLines = localStorage.getItem('setting_confetti_sprinkler_lines');
+                const savedSprinklerLines = appStorage.getItem('setting_confetti_sprinkler_lines');
                 if (savedSprinklerLines !== null) {
                     const v = parseInt(savedSprinklerLines);
                     window.confettiSprinklerLines = v;
@@ -2431,7 +2440,7 @@
                     if (sprinklerLinesLabel)  sprinklerLinesLabel.textContent = v;
                 }
                 // Beat sensitivity
-                const savedSens = localStorage.getItem('setting_confetti_sensitivity');
+                const savedSens = appStorage.getItem('setting_confetti_sensitivity');
                 if (savedSens !== null) {
                     const v = parseFloat(savedSens);
                     window.confettiSensitivity = v;
@@ -2439,27 +2448,27 @@
                     if (sensitivityLabel)  sensitivityLabel.textContent = v.toFixed(1);
                 }
                 // Gravity
-                const savedConfettiGrav = localStorage.getItem('setting_confetti_gravity');
+                const savedConfettiGrav = appStorage.getItem('setting_confetti_gravity');
                 if (savedConfettiGrav !== null) {
                     confettiGravSlider.value = savedConfettiGrav;
                     confettiGravLabel.textContent = parseFloat(savedConfettiGrav).toFixed(1);
                     window.confettiGravity = parseFloat(savedConfettiGrav);
                 }
                 // Size
-                const savedConfettiSize = localStorage.getItem('setting_confetti_size');
+                const savedConfettiSize = appStorage.getItem('setting_confetti_size');
                 if (savedConfettiSize !== null) {
                     confettiSizeSlider.value = savedConfettiSize;
                     confettiSizeLabel.textContent = parseFloat(savedConfettiSize).toFixed(1);
                     window.confettiSizeScale = parseFloat(savedConfettiSize);
                 }
                 // Swirl
-                const savedConfettiSwirl = localStorage.getItem('setting_confetti_swirl');
+                const savedConfettiSwirl = appStorage.getItem('setting_confetti_swirl');
                 if (savedConfettiSwirl !== null) {
                     settingConfettiSwirl.checked = savedConfettiSwirl === '1';
                     window.confettiSwirl = settingConfettiSwirl.checked;
                     applySwirlRowVisibility(settingConfettiSwirl.checked);
                 }
-                const savedConfettiSwirlStr = localStorage.getItem('setting_confetti_swirl_str');
+                const savedConfettiSwirlStr = appStorage.getItem('setting_confetti_swirl_str');
                 if (savedConfettiSwirlStr !== null) {
                     confettiSwirlStrSlider.value = savedConfettiSwirlStr;
                     confettiSwirlStrLabel.textContent = parseFloat(savedConfettiSwirlStr).toFixed(1);
@@ -2467,7 +2476,7 @@
                 }
 
                 // Viz intensity
-                const savedVizInt = localStorage.getItem('setting_viz_intensity');
+                const savedVizInt = appStorage.getItem('setting_viz_intensity');
                 if (savedVizInt !== null) {
                     vizIntSlider.value = savedVizInt;
                     vizIntLabel.textContent = parseFloat(savedVizInt).toFixed(1);
@@ -2475,14 +2484,14 @@
                 }
 
                 // Crossfade
-                const savedCrossfade = localStorage.getItem('setting_crossfade');
+                const savedCrossfade = appStorage.getItem('setting_crossfade');
                 if (savedCrossfade !== null) {
                     crossfadeEnabled = savedCrossfade === '1';
                     settingCrossfade.checked = crossfadeEnabled;
                     crossfadeDurationRow.classList.toggle('visible', crossfadeEnabled);
                     document.getElementById('crossfade-fadein-row').classList.toggle('visible', crossfadeEnabled);
                 }
-                const savedCFOut = localStorage.getItem('setting_crossfade_out');
+                const savedCFOut = appStorage.getItem('setting_crossfade_out');
                 if (savedCFOut !== null) {
                     crossfadeOutDuration = parseFloat(savedCFOut);
                     const el = document.getElementById('setting-crossfade-out');
@@ -2490,7 +2499,7 @@
                     if (el) el.value = crossfadeOutDuration;
                     if (lb) lb.textContent = crossfadeOutDuration.toFixed(1) + 'с';
                 }
-                const savedCFIn = localStorage.getItem('setting_crossfade_in');
+                const savedCFIn = appStorage.getItem('setting_crossfade_in');
                 if (savedCFIn !== null) {
                     crossfadeInDuration = parseFloat(savedCFIn);
                     const el = document.getElementById('setting-crossfade-in');
@@ -2500,29 +2509,29 @@
                 }
 
                 // Remember track
-                const savedRemember = localStorage.getItem('setting_remember_track');
+                const savedRemember = appStorage.getItem('setting_remember_track');
                 if (savedRemember !== null) settingRememberTrack.checked = savedRemember === '1';
                 applyRememberTrackSub(settingRememberTrack.checked);
 
                 // Autonext
-                const savedAutoNext = localStorage.getItem('setting_autonext');
+                const savedAutoNext = appStorage.getItem('setting_autonext');
                 if (savedAutoNext !== null) settingAutoNext.checked = savedAutoNext === '1';
-                const savedAutoNextPl = localStorage.getItem('setting_autonext_playlist');
+                const savedAutoNextPl = appStorage.getItem('setting_autonext_playlist');
                 if (savedAutoNextPl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = savedAutoNextPl === '1'; }
-                const savedMTT = localStorage.getItem('setting_minimize_to_tray');
+                const savedMTT = appStorage.getItem('setting_minimize_to_tray');
                 if (savedMTT !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = savedMTT === '1'; }
 
                 // Open links in external browser
-                const savedOLE = localStorage.getItem('setting_open_links_external');
+                const savedOLE = appStorage.getItem('setting_open_links_external');
                 { const el = document.getElementById('setting-open-links-external'); if(el) el.checked = savedOLE === null ? true : savedOLE === '1'; }
 
                 // Notifications
-                const savedNotif = localStorage.getItem('setting_notifications');
+                const savedNotif = appStorage.getItem('setting_notifications');
                 if (savedNotif !== null) settingNotifications.checked = savedNotif === '1';
                 else settingNotifications.checked = true;
 
                 // Viz gradient colors
-                const savedGrad = localStorage.getItem('setting_viz_grad');
+                const savedGrad = appStorage.getItem('setting_viz_grad');
                 if (savedGrad) {
                     try {
                         const [c1, c2, c3] = JSON.parse(savedGrad);
@@ -2537,7 +2546,7 @@
                 highlightActiveGradPreset();
 
                 // Viz rotate
-                const savedVizRotate = localStorage.getItem('setting_viz_rotate');
+                const savedVizRotate = appStorage.getItem('setting_viz_rotate');
                 if (savedVizRotate !== null) {
                     settingVizRotate.checked = savedVizRotate === '1';
                     window.vizRotateColors = settingVizRotate.checked;
@@ -2548,7 +2557,7 @@
                 applyRotateSpeedRowVisibility(settingVizRotate.checked);
 
                 // Viz inner
-                const savedVizInner = localStorage.getItem('setting_viz_inner');
+                const savedVizInner = appStorage.getItem('setting_viz_inner');
                 if (savedVizInner !== null) {
                     settingVizInner.checked = savedVizInner === '1';
                     window.vizShowInner = settingVizInner.checked;
@@ -2559,7 +2568,7 @@
                 updateInnerVizRowVisibility();
 
                 // Glass blur
-                const savedBlur = localStorage.getItem('setting_glass_blur');
+                const savedBlur = appStorage.getItem('setting_glass_blur');
                 if (savedBlur !== null) {
                     settingBlur.checked = savedBlur === '1';
                     applyBlurSetting(settingBlur.checked);
@@ -2569,7 +2578,7 @@
                 }
 
                 // Show cover art
-                const savedCover = localStorage.getItem('setting_show_cover');
+                const savedCover = appStorage.getItem('setting_show_cover');
                 if (savedCover !== null) {
                     settingShowCover.checked = savedCover === '1';
                     document.body.classList.toggle('show-covers', savedCover === '1');
@@ -2577,28 +2586,28 @@
 
                 // Custom background image — подгон, переключатель, недавние (сама загрузка
                 // файла/данных из хранилища выполняется один раз при старте, см. restoreBackgroundFromStorage)
-                selectBgFit(localStorage.getItem('setting_bg_image_fit') || 'cover');
+                selectBgFit(appStorage.getItem('setting_bg_image_fit') || 'cover');
                 renderRecentBackgrounds();
 
                 // Custom background image — общий переключатель
-                const savedBgEnabled = localStorage.getItem('setting_bg_image_enabled');
+                const savedBgEnabled = appStorage.getItem('setting_bg_image_enabled');
                 if (savedBgEnabled !== null) settingBgEnabled.checked = savedBgEnabled === '1';
                 applyBgImageEnabled(settingBgEnabled.checked);
 
                 // Пульсация под звук
-                const savedBgPulse = localStorage.getItem('setting_bg_pulse_enabled');
+                const savedBgPulse = appStorage.getItem('setting_bg_pulse_enabled');
                 if (savedBgPulse !== null) settingBgPulse.checked = savedBgPulse === '1';
                 window.bgPulseEnabled = settingBgPulse.checked;
                 applyBgPulseRowVisibility(window.bgPulseEnabled);
 
-                const savedBgPulseIntensity = localStorage.getItem('setting_bg_pulse_intensity');
+                const savedBgPulseIntensity = appStorage.getItem('setting_bg_pulse_intensity');
                 if (savedBgPulseIntensity !== null) {
                     bgPulseIntensitySlider.value = savedBgPulseIntensity;
                     bgPulseIntensityLabel.textContent = parseFloat(savedBgPulseIntensity).toFixed(1);
                     window.bgPulseIntensity = parseFloat(savedBgPulseIntensity);
                 } else { window.bgPulseIntensity = 1; }
 
-                const savedBgPulseThreshold = localStorage.getItem('setting_bg_pulse_threshold');
+                const savedBgPulseThreshold = appStorage.getItem('setting_bg_pulse_threshold');
                 if (savedBgPulseThreshold !== null) {
                     bgPulseThresholdSlider.value = savedBgPulseThreshold;
                     bgPulseThresholdLabel.textContent = parseFloat(savedBgPulseThreshold).toFixed(2);
@@ -2606,19 +2615,19 @@
                 } else { window.bgPulseThreshold = 0; }
 
                 // Размытие под звук
-                const savedBgBlur = localStorage.getItem('setting_bg_blur_enabled');
+                const savedBgBlur = appStorage.getItem('setting_bg_blur_enabled');
                 if (savedBgBlur !== null) settingBgBlur.checked = savedBgBlur === '1';
                 window.bgBlurEnabled = settingBgBlur.checked;
                 applyBgBlurRowVisibility(window.bgBlurEnabled);
 
-                const savedBgBlurIntensity = localStorage.getItem('setting_bg_blur_intensity');
+                const savedBgBlurIntensity = appStorage.getItem('setting_bg_blur_intensity');
                 if (savedBgBlurIntensity !== null) {
                     bgBlurIntensitySlider.value = savedBgBlurIntensity;
                     bgBlurIntensityLabel.textContent = parseFloat(savedBgBlurIntensity).toFixed(1);
                     window.bgBlurIntensity = parseFloat(savedBgBlurIntensity);
                 } else { window.bgBlurIntensity = 1; }
 
-                const savedBgBlurThreshold = localStorage.getItem('setting_bg_blur_threshold');
+                const savedBgBlurThreshold = appStorage.getItem('setting_bg_blur_threshold');
                 if (savedBgBlurThreshold !== null) {
                     bgBlurThresholdSlider.value = savedBgBlurThreshold;
                     bgBlurThresholdLabel.textContent = parseFloat(savedBgBlurThreshold).toFixed(2);
@@ -2626,140 +2635,140 @@
                 } else { window.bgBlurThreshold = 0; }
 
                 // Свечение под звук
-                const savedBgGlow = localStorage.getItem('setting_bg_glow_enabled');
+                const savedBgGlow = appStorage.getItem('setting_bg_glow_enabled');
                 if (savedBgGlow !== null) settingBgGlow.checked = savedBgGlow === '1';
                 window.bgGlowEnabled = settingBgGlow.checked;
                 applyBgGlowRowVisibility(window.bgGlowEnabled);
 
-                const savedBgGlowIntensity = localStorage.getItem('setting_bg_glow_intensity');
+                const savedBgGlowIntensity = appStorage.getItem('setting_bg_glow_intensity');
                 if (savedBgGlowIntensity !== null) {
                     bgGlowIntensitySlider.value = savedBgGlowIntensity;
                     bgGlowIntensityLabel.textContent = parseFloat(savedBgGlowIntensity).toFixed(1);
                     window.bgGlowIntensity = parseFloat(savedBgGlowIntensity);
                 } else { window.bgGlowIntensity = 1; }
 
-                const savedBgGlowThreshold = localStorage.getItem('setting_bg_glow_threshold');
+                const savedBgGlowThreshold = appStorage.getItem('setting_bg_glow_threshold');
                 if (savedBgGlowThreshold !== null) {
                     bgGlowThresholdSlider.value = savedBgGlowThreshold;
                     bgGlowThresholdLabel.textContent = parseFloat(savedBgGlowThreshold).toFixed(2);
                     window.bgGlowThreshold = parseFloat(savedBgGlowThreshold);
                 } else { window.bgGlowThreshold = 0; }
 
-                const savedBgGlowCustomColorEnabled = localStorage.getItem('setting_bg_glow_custom_color_enabled');
+                const savedBgGlowCustomColorEnabled = appStorage.getItem('setting_bg_glow_custom_color_enabled');
                 settingBgGlowCustomColor.checked = savedBgGlowCustomColorEnabled === '1';
                 window.bgGlowCustomColorEnabled = settingBgGlowCustomColor.checked;
                 setSettingsBlockVisible(bgGlowColorRow, window.bgGlowCustomColorEnabled, 'flex');
 
-                const savedBgGlowCustomColor = localStorage.getItem('setting_bg_glow_custom_color');
+                const savedBgGlowCustomColor = appStorage.getItem('setting_bg_glow_custom_color');
                 window.bgGlowCustomColor = savedBgGlowCustomColor || '#bb86fc';
                 bgGlowColorPicker.value = window.bgGlowCustomColor;
 
-                selectBgGlowStyle(localStorage.getItem('setting_bg_glow_style') || 'center');
+                selectBgGlowStyle(appStorage.getItem('setting_bg_glow_style') || 'center');
 
                 // Тряска (наклон) под звук
-                const savedBgTilt = localStorage.getItem('setting_bg_tilt_enabled');
+                const savedBgTilt = appStorage.getItem('setting_bg_tilt_enabled');
                 if (savedBgTilt !== null) settingBgTilt.checked = savedBgTilt === '1';
                 window.bgTiltEnabled = settingBgTilt.checked;
                 applyBgTiltRowVisibility(window.bgTiltEnabled);
 
-                const savedBgTiltIntensity = localStorage.getItem('setting_bg_tilt_intensity');
+                const savedBgTiltIntensity = appStorage.getItem('setting_bg_tilt_intensity');
                 if (savedBgTiltIntensity !== null) {
                     bgTiltIntensitySlider.value = savedBgTiltIntensity;
                     bgTiltIntensityLabel.textContent = parseFloat(savedBgTiltIntensity).toFixed(1);
                     window.bgTiltIntensity = parseFloat(savedBgTiltIntensity);
                 } else { window.bgTiltIntensity = 1; }
 
-                const savedBgTiltThreshold = localStorage.getItem('setting_bg_tilt_threshold');
+                const savedBgTiltThreshold = appStorage.getItem('setting_bg_tilt_threshold');
                 if (savedBgTiltThreshold !== null) {
                     bgTiltThresholdSlider.value = savedBgTiltThreshold;
                     bgTiltThresholdLabel.textContent = parseFloat(savedBgTiltThreshold).toFixed(2);
                     window.bgTiltThreshold = parseFloat(savedBgTiltThreshold);
                 } else { window.bgTiltThreshold = 0; }
 
-                const savedBgTiltSpeed = localStorage.getItem('setting_bg_tilt_speed');
+                const savedBgTiltSpeed = appStorage.getItem('setting_bg_tilt_speed');
                 if (savedBgTiltSpeed !== null) {
                     bgTiltSpeedSlider.value = savedBgTiltSpeed;
                     bgTiltSpeedLabel.textContent = parseFloat(savedBgTiltSpeed).toFixed(1);
                     window.bgTiltSpeed = parseFloat(savedBgTiltSpeed);
                 } else { window.bgTiltSpeed = 1; }
 
-                const savedBgTiltRotation = localStorage.getItem('setting_bg_tilt_rotation');
+                const savedBgTiltRotation = appStorage.getItem('setting_bg_tilt_rotation');
                 settingBgTiltRotation.checked = savedBgTiltRotation === null ? true : savedBgTiltRotation === '1';
                 window.bgTiltRotation = settingBgTiltRotation.checked;
 
-                const savedBgTiltShift = localStorage.getItem('setting_bg_tilt_shift');
+                const savedBgTiltShift = appStorage.getItem('setting_bg_tilt_shift');
                 settingBgTiltShift.checked = savedBgTiltShift === null ? true : savedBgTiltShift === '1';
                 window.bgTiltShift = settingBgTiltShift.checked;
 
                 // Следование за курсором
-                const savedBgCursor = localStorage.getItem('setting_bg_cursor_enabled');
+                const savedBgCursor = appStorage.getItem('setting_bg_cursor_enabled');
                 if (savedBgCursor !== null) settingBgCursor.checked = savedBgCursor === '1';
                 window.bgCursorEnabled = settingBgCursor.checked;
                 applyBgCursorSub(window.bgCursorEnabled);
 
-                const savedBgCursorIntensityX = localStorage.getItem('setting_bg_cursor_intensity_x');
+                const savedBgCursorIntensityX = appStorage.getItem('setting_bg_cursor_intensity_x');
                 if (savedBgCursorIntensityX !== null) {
                     bgCursorIntensityXSlider.value = savedBgCursorIntensityX;
                     bgCursorIntensityXLabel.textContent = parseFloat(savedBgCursorIntensityX).toFixed(1);
                     window.bgCursorIntensityX = parseFloat(savedBgCursorIntensityX);
                 } else { window.bgCursorIntensityX = 3; }
 
-                const savedBgCursorIntensityY = localStorage.getItem('setting_bg_cursor_intensity_y');
+                const savedBgCursorIntensityY = appStorage.getItem('setting_bg_cursor_intensity_y');
                 if (savedBgCursorIntensityY !== null) {
                     bgCursorIntensityYSlider.value = savedBgCursorIntensityY;
                     bgCursorIntensityYLabel.textContent = parseFloat(savedBgCursorIntensityY).toFixed(1);
                     window.bgCursorIntensityY = parseFloat(savedBgCursorIntensityY);
                 } else { window.bgCursorIntensityY = 3; }
 
-                const savedBgCursorInvert = localStorage.getItem('setting_bg_cursor_invert');
+                const savedBgCursorInvert = appStorage.getItem('setting_bg_cursor_invert');
                 settingBgCursorInvert.checked = savedBgCursorInvert === '1';
                 window.bgCursorInvert = settingBgCursorInvert.checked;
 
                 // Наклон за курсором (вложено в «Следование за курсором»)
-                const savedBgCursorTilt = localStorage.getItem('setting_bg_cursor_tilt_enabled');
+                const savedBgCursorTilt = appStorage.getItem('setting_bg_cursor_tilt_enabled');
                 if (savedBgCursorTilt !== null) settingBgCursorTilt.checked = savedBgCursorTilt === '1';
                 settingBgCursorTilt.disabled = !window.bgCursorEnabled;
                 window.bgCursorTiltEnabled = settingBgCursorTilt.checked && window.bgCursorEnabled;
                 applyBgCursorTiltSub(window.bgCursorTiltEnabled);
 
-                const savedBgCursorTiltIntensity = localStorage.getItem('setting_bg_cursor_tilt_intensity');
+                const savedBgCursorTiltIntensity = appStorage.getItem('setting_bg_cursor_tilt_intensity');
                 if (savedBgCursorTiltIntensity !== null) {
                     bgCursorTiltIntensitySlider.value = savedBgCursorTiltIntensity;
                     bgCursorTiltIntensityLabel.textContent = parseFloat(savedBgCursorTiltIntensity).toFixed(1);
                     window.bgCursorTiltIntensity = parseFloat(savedBgCursorTiltIntensity);
                 } else { window.bgCursorTiltIntensity = 2; }
 
-                const savedBgCursorTiltInvert = localStorage.getItem('setting_bg_cursor_tilt_invert');
+                const savedBgCursorTiltInvert = appStorage.getItem('setting_bg_cursor_tilt_invert');
                 settingBgCursorTiltInvert.checked = savedBgCursorTiltInvert === '1';
                 window.bgCursorTiltInvert = settingBgCursorTiltInvert.checked;
 
                 // Discord Rich Presence — только синхронизация UI/переменных, без
                 // повторного подключения при каждом открытии настроек (само
                 // подключение при старте приложения делает initDiscordRpcOnStartup()).
-                const savedDiscordRpcEnabled = localStorage.getItem('setting_discord_rpc_enabled') === '1';
+                const savedDiscordRpcEnabled = appStorage.getItem('setting_discord_rpc_enabled') === '1';
                 settingDiscordRpc.checked = savedDiscordRpcEnabled;
                 window.discordRPCEnabled = savedDiscordRpcEnabled;
                 applyDiscordRpcBodyVisibility(savedDiscordRpcEnabled);
 
-                const savedDiscordRpcManual = localStorage.getItem('setting_discord_rpc_manual') === '1';
+                const savedDiscordRpcManual = appStorage.getItem('setting_discord_rpc_manual') === '1';
                 settingDiscordRpcManual.checked = savedDiscordRpcManual;
                 setSettingsBlockVisible(discordRpcManualRow, savedDiscordRpcManual, 'block');
 
-                discordRpcClientIdInput.value = localStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
+                discordRpcClientIdInput.value = appStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
 
-                const savedDiscordRpcProgress = localStorage.getItem('setting_discord_rpc_progress');
+                const savedDiscordRpcProgress = appStorage.getItem('setting_discord_rpc_progress');
                 settingDiscordRpcProgress.checked = savedDiscordRpcProgress === null ? true : savedDiscordRpcProgress === '1';
                 window.discordRPCShowProgress = settingDiscordRpcProgress.checked;
 
-                const savedDiscordRpcRadioButton = localStorage.getItem('setting_discord_rpc_radio_button');
+                const savedDiscordRpcRadioButton = appStorage.getItem('setting_discord_rpc_radio_button');
                 settingDiscordRpcRadioButton.checked = savedDiscordRpcRadioButton === null ? true : savedDiscordRpcRadioButton === '1';
                 window.discordRPCShowRadioButton = settingDiscordRpcRadioButton.checked;
 
-                window.discordRPCRedirectBase = localStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.by/redirect';
+                window.discordRPCRedirectBase = appStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.ru/redirect';
                 discordRpcRedirectBaseInput.value = window.discordRPCRedirectBase;
 
                 if (savedDiscordRpcEnabled) {
-                    ipcRenderer.invoke('discord-rpc-status').then((s) => {
+                    noctune.discordRpcStatus().then((s) => {
                         if (s && s.connected) setDiscordRpcStatusPill('connected', 'Подключено');
                         else setDiscordRpcStatusPill('idle', 'Подключение…');
                     });
@@ -2770,9 +2779,9 @@
                 // Адаптивная палитра (акцент/градиент из фона) — только синхронизация галочек;
                 // сам пересчёт палитры запускается лишь при смене фона или переключении тумблера,
                 // а не при каждом открытии настроек (см. restoreBackgroundFromStorage и обработчики change)
-                window.adaptiveAccentEnabled = localStorage.getItem('setting_adaptive_accent') === '1';
+                window.adaptiveAccentEnabled = appStorage.getItem('setting_adaptive_accent') === '1';
                 if (settingAdaptiveAccent) settingAdaptiveAccent.checked = window.adaptiveAccentEnabled;
-                window.adaptiveGradientEnabled = localStorage.getItem('setting_adaptive_gradient') === '1';
+                window.adaptiveGradientEnabled = appStorage.getItem('setting_adaptive_gradient') === '1';
                 if (settingAdaptiveGradient) settingAdaptiveGradient.checked = window.adaptiveGradientEnabled;
                 refreshAdaptiveControlsDisabledState();
 
@@ -2792,35 +2801,35 @@
             // отделена от refreshSettingsUI(), которая теперь лишь синхронизирует
             // переключатели и ничего не перезагружает.
             function restoreBackgroundFromStorage() {
-                const savedBgPath = localStorage.getItem('setting_bg_image_path');
+                const savedBgPath = appStorage.getItem('setting_bg_image_path');
                 if (savedBgPath) {
-                    try {
-                        if (require('fs').existsSync(savedBgPath)) {
+                    noctune.fs.exists(savedBgPath).then((exists) => {
+                        if (exists) {
                             applyBgImagePath(savedBgPath, false);
                         } else {
-                            localStorage.removeItem('setting_bg_image_path');
+                            appStorage.removeItem('setting_bg_image_path');
                         }
-                    } catch (e) {}
+                    }).catch(() => {});
                 }
             }
 
             // Init on page load
             // Адаптивные флаги выставляем заранее: restoreBackgroundFromStorage() сама
             // запускает пересчёт палитры сразу после готовности картинки/видео фона.
-            window.adaptiveAccentEnabled = localStorage.getItem('setting_adaptive_accent') === '1';
-            window.adaptiveGradientEnabled = localStorage.getItem('setting_adaptive_gradient') === '1';
+            window.adaptiveAccentEnabled = appStorage.getItem('setting_adaptive_accent') === '1';
+            window.adaptiveGradientEnabled = appStorage.getItem('setting_adaptive_gradient') === '1';
             restoreBackgroundFromStorage();
             refreshSettingsUI();
             // Discord Rich Presence — если было включено в прошлый раз, подключаемся
             // автоматически при старте приложения (без необходимости открывать настройки).
             (function initDiscordRpcOnStartup() {
-                window.discordRPCEnabled = localStorage.getItem('setting_discord_rpc_enabled') === '1';
-                window.discordRPCShowProgress = (localStorage.getItem('setting_discord_rpc_progress') ?? '1') === '1';
-                window.discordRPCShowRadioButton = (localStorage.getItem('setting_discord_rpc_radio_button') ?? '1') === '1';
-                window.discordRPCRedirectBase = localStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelon.by/redirect';
-                const clientId = localStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
+                window.discordRPCEnabled = appStorage.getItem('setting_discord_rpc_enabled') === '1';
+                window.discordRPCShowProgress = (appStorage.getItem('setting_discord_rpc_progress') ?? '1') === '1';
+                window.discordRPCShowRadioButton = (appStorage.getItem('setting_discord_rpc_radio_button') ?? '1') === '1';
+                window.discordRPCRedirectBase = appStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.ru/redirect';
+                const clientId = appStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
                 if (window.discordRPCEnabled && clientId) {
-                    ipcRenderer.invoke('discord-rpc-connect', clientId);
+                    noctune.discordRpcConnect(clientId);
                 }
             })();
             window.vizIntensity = window.vizIntensity || 1;
@@ -2830,58 +2839,58 @@
 
             // Init crossfade from storage before settings open
             (function() {
-                const cf = localStorage.getItem('setting_crossfade');
+                const cf = appStorage.getItem('setting_crossfade');
                 if (cf !== null) crossfadeEnabled = cf === '1';
-                const cfo = localStorage.getItem('setting_crossfade_out');
+                const cfo = appStorage.getItem('setting_crossfade_out');
                 if (cfo !== null) crossfadeOutDuration = parseFloat(cfo);
-                const cfi = localStorage.getItem('setting_crossfade_in');
+                const cfi = appStorage.getItem('setting_crossfade_in');
                 if (cfi !== null) crossfadeInDuration = parseFloat(cfi);
-                const savedGrad = localStorage.getItem('setting_viz_grad');
+                const savedGrad = appStorage.getItem('setting_viz_grad');
                 if (savedGrad) { try { const [c1,c2,c3] = JSON.parse(savedGrad); window.vizGradColor1=c1; window.vizGradColor2=c2; window.vizGradColor3=c3; } catch(e){} }
                 else { window.vizGradColor1='#bb86fc'; window.vizGradColor2='#4a90e2'; window.vizGradColor3='#03dac6'; }
-                const vr = localStorage.getItem('setting_viz_rotate'); if (vr !== null) window.vizRotateColors = vr === '1';
-                const vi = localStorage.getItem('setting_viz_inner'); if (vi !== null) window.vizShowInner = vi === '1';
-                const ss = localStorage.getItem('setting_viz_scroll_speed'); if (ss !== null) window.vizScrollSpeed = parseFloat(ss); else window.vizScrollSpeed = 1;
-                const ssw = localStorage.getItem('setting_viz_scroll_speed_wave'); if (ssw !== null) window.vizScrollSpeedWave = parseFloat(ssw); else window.vizScrollSpeedWave = 1;
-                const sgw = localStorage.getItem('setting_viz_scroll_grad_wave'); if (sgw !== null) window.vizScrollGradWave = sgw === '1'; else window.vizScrollGradWave = false;
-                const rs = localStorage.getItem('setting_viz_rotate_speed'); if (rs !== null) window.vizRotateSpeed = parseFloat(rs); else window.vizRotateSpeed = 1;
+                const vr = appStorage.getItem('setting_viz_rotate'); if (vr !== null) window.vizRotateColors = vr === '1';
+                const vi = appStorage.getItem('setting_viz_inner'); if (vi !== null) window.vizShowInner = vi === '1';
+                const ss = appStorage.getItem('setting_viz_scroll_speed'); if (ss !== null) window.vizScrollSpeed = parseFloat(ss); else window.vizScrollSpeed = 1;
+                const ssw = appStorage.getItem('setting_viz_scroll_speed_wave'); if (ssw !== null) window.vizScrollSpeedWave = parseFloat(ssw); else window.vizScrollSpeedWave = 1;
+                const sgw = appStorage.getItem('setting_viz_scroll_grad_wave'); if (sgw !== null) window.vizScrollGradWave = sgw === '1'; else window.vizScrollGradWave = false;
+                const rs = appStorage.getItem('setting_viz_rotate_speed'); if (rs !== null) window.vizRotateSpeed = parseFloat(rs); else window.vizRotateSpeed = 1;
                 // Fireworks (Салют) early init
-                const fcm = localStorage.getItem('setting_fw_color_mode'); if (fcm) window.fireworksColorMode = fcm;
-                const fcc = localStorage.getItem('setting_fw_custom_colors'); if (fcc) { try { const arr = JSON.parse(fcc); if (Array.isArray(arr)) window.fireworksCustomColors = arr; } catch(e){} }
-                const fthresh = localStorage.getItem('setting_fw_threshold'); if (fthresh !== null) window.fireworksThreshold = parseFloat(fthresh);
-                const ffreq = localStorage.getItem('setting_fw_frequency'); if (ffreq !== null) window.fireworksFrequency = parseFloat(ffreq);
-                const fidle = localStorage.getItem('setting_fw_idle_spawn'); if (fidle !== null) window.fireworksIdleSpawn = fidle === '1';
-                const fbeat = localStorage.getItem('setting_fw_beat_reactive'); if (fbeat !== null) window.fireworksBeatReactive = fbeat === '1';
-                const fburst = localStorage.getItem('setting_fw_beat_burst'); if (fburst !== null) window.fireworksBeatBurstCount = parseInt(fburst);
-                const ftrail = localStorage.getItem('setting_fw_trail'); if (ftrail !== null) window.fireworksTrail = parseInt(ftrail);
+                const fcm = appStorage.getItem('setting_fw_color_mode'); if (fcm) window.fireworksColorMode = fcm;
+                const fcc = appStorage.getItem('setting_fw_custom_colors'); if (fcc) { try { const arr = JSON.parse(fcc); if (Array.isArray(arr)) window.fireworksCustomColors = arr; } catch(e){} }
+                const fthresh = appStorage.getItem('setting_fw_threshold'); if (fthresh !== null) window.fireworksThreshold = parseFloat(fthresh);
+                const ffreq = appStorage.getItem('setting_fw_frequency'); if (ffreq !== null) window.fireworksFrequency = parseFloat(ffreq);
+                const fidle = appStorage.getItem('setting_fw_idle_spawn'); if (fidle !== null) window.fireworksIdleSpawn = fidle === '1';
+                const fbeat = appStorage.getItem('setting_fw_beat_reactive'); if (fbeat !== null) window.fireworksBeatReactive = fbeat === '1';
+                const fburst = appStorage.getItem('setting_fw_beat_burst'); if (fburst !== null) window.fireworksBeatBurstCount = parseInt(fburst);
+                const ftrail = appStorage.getItem('setting_fw_trail'); if (ftrail !== null) window.fireworksTrail = parseInt(ftrail);
                 // Confetti early init
-                const scf = localStorage.getItem('setting_confetti'); if (scf !== null) { window.confettiEnabled = scf === '1'; const el = document.getElementById('confetti-canvas'); if(el) el.style.opacity = window.confettiEnabled ? '1' : '0'; }
-                const scfg = localStorage.getItem('setting_confetti_grad'); if (scfg) { try { const [c1,c2,c3]=JSON.parse(scfg); window.confettiColor1=c1; window.confettiColor2=c2; window.confettiColor3=c3; } catch(e){} }
-                const scfi = localStorage.getItem('setting_confetti_intensity'); if (scfi !== null) window.confettiIntensity = parseFloat(scfi);
-                const scfid = localStorage.getItem('setting_confetti_idle'); if (scfid) window.confettiIdleState = scfid;
-                const scfsp = localStorage.getItem('setting_confetti_spawn'); if (scfsp) window.confettiSpawnMode = scfsp;
-                const scfsl = localStorage.getItem('setting_confetti_sprinkler_lines'); if (scfsl !== null) window.confettiSprinklerLines = parseInt(scfsl);
+                const scf = appStorage.getItem('setting_confetti'); if (scf !== null) { window.confettiEnabled = scf === '1'; const el = document.getElementById('confetti-canvas'); if(el) el.style.opacity = window.confettiEnabled ? '1' : '0'; }
+                const scfg = appStorage.getItem('setting_confetti_grad'); if (scfg) { try { const [c1,c2,c3]=JSON.parse(scfg); window.confettiColor1=c1; window.confettiColor2=c2; window.confettiColor3=c3; } catch(e){} }
+                const scfi = appStorage.getItem('setting_confetti_intensity'); if (scfi !== null) window.confettiIntensity = parseFloat(scfi);
+                const scfid = appStorage.getItem('setting_confetti_idle'); if (scfid) window.confettiIdleState = scfid;
+                const scfsp = appStorage.getItem('setting_confetti_spawn'); if (scfsp) window.confettiSpawnMode = scfsp;
+                const scfsl = appStorage.getItem('setting_confetti_sprinkler_lines'); if (scfsl !== null) window.confettiSprinklerLines = parseInt(scfsl);
 
-                const scfsen = localStorage.getItem('setting_confetti_sensitivity'); if (scfsen !== null) window.confettiSensitivity = parseFloat(scfsen);
-                const scfgv = localStorage.getItem('setting_confetti_gravity'); if (scfgv !== null) window.confettiGravity = parseFloat(scfgv);
-                const scfsz = localStorage.getItem('setting_confetti_size'); if (scfsz !== null) window.confettiSizeScale = parseFloat(scfsz);
-                const scfsw = localStorage.getItem('setting_confetti_swirl'); if (scfsw !== null) window.confettiSwirl = scfsw === '1';
-                const scfss = localStorage.getItem('setting_confetti_swirl_str'); if (scfss !== null) window.confettiSwirlStr = parseFloat(scfss);
-                const notif = localStorage.getItem('setting_notifications');
+                const scfsen = appStorage.getItem('setting_confetti_sensitivity'); if (scfsen !== null) window.confettiSensitivity = parseFloat(scfsen);
+                const scfgv = appStorage.getItem('setting_confetti_gravity'); if (scfgv !== null) window.confettiGravity = parseFloat(scfgv);
+                const scfsz = appStorage.getItem('setting_confetti_size'); if (scfsz !== null) window.confettiSizeScale = parseFloat(scfsz);
+                const scfsw = appStorage.getItem('setting_confetti_swirl'); if (scfsw !== null) window.confettiSwirl = scfsw === '1';
+                const scfss = appStorage.getItem('setting_confetti_swirl_str'); if (scfss !== null) window.confettiSwirlStr = parseFloat(scfss);
+                const notif = appStorage.getItem('setting_notifications');
                 if (notif === null) { const n = document.getElementById('setting-notifications'); if(n) n.checked = true; }
-                const an = localStorage.getItem('setting_autonext');
+                const an = appStorage.getItem('setting_autonext');
                 if (an !== null) { const el = document.getElementById('setting-autonext'); if(el) el.checked = an === '1'; }
-                const anpl = localStorage.getItem('setting_autonext_playlist');
+                const anpl = appStorage.getItem('setting_autonext_playlist');
                 if (anpl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = anpl === '1'; }
 
-                const srp = localStorage.getItem('setting_restore_playback');
+                const srp = appStorage.getItem('setting_restore_playback');
                 if (srp !== null) { const el = document.getElementById('setting-restore-playback'); if(el) el.checked = srp === '1'; }
-                const mtt = localStorage.getItem('setting_minimize_to_tray');
+                const mtt = appStorage.getItem('setting_minimize_to_tray');
                 if (mtt !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = mtt === '1'; }
-                const rt = localStorage.getItem('setting_remember_track');
+                const rt = appStorage.getItem('setting_remember_track');
                 if (rt !== null) { const el = document.getElementById('setting-remember-track'); if(el) el.checked = rt === '1'; }
                 // Open links in external browser — default ON
-                const ole = localStorage.getItem('setting_open_links_external');
+                const ole = appStorage.getItem('setting_open_links_external');
                 { const el = document.getElementById('setting-open-links-external'); if(el) el.checked = ole === null ? true : ole === '1'; }
                 // Balance & channel mode are applied when AudioContext is created (initAudioEngine reads localStorage directly)
             })();
@@ -2903,11 +2912,15 @@
 
                 const settingEl = document.getElementById('setting-open-links-external');
                 const enabled = settingEl ? settingEl.checked
-                                           : (localStorage.getItem('setting_open_links_external') !== '0');
+                                           : (appStorage.getItem('setting_open_links_external') !== '0');
                 if (enabled) {
-                    ipcRenderer.send('open-external-url', href);
+                    noctune.openExternalUrl(href);
                 } else {
-                    ipcRenderer.send('open-internal-url', href);
+                    noctune.openInternalUrl(href);
                 }
             }, true); // capture phase
+
+            // Открыто наружу для renderer/playlist-io.js — после импорта .m3u
+            // нужно перерисовать список плейлистов прямо в открытых настройках.
+            window.renderPlEditor = renderPlEditor;
         })();

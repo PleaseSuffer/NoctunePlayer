@@ -159,6 +159,7 @@
 
     <div class="context-menu" id="context-menu">
         <button id="menu-play-next"><i data-lucide="arrow-right-to-line"></i> Воспроизвести следующим</button>
+        <button id="menu-check-radio"><i data-lucide="wifi"></i> Проверить доступность</button>
         <button id="menu-edit-radio"><i data-lucide="pencil"></i> Редактировать</button>
         <button id="menu-remove"><i data-lucide="trash-2"></i> Удалить из списка</button>
     </div>
@@ -333,6 +334,14 @@
                             <ul class="pl-editor-list custom-scroll" id="pl-editor-list">
                                 <!-- filled by JS -->
                             </ul>
+                            <div style="display:flex;gap:8px;margin-top:12px;">
+                                <button class="btn" id="btn-import-m3u" style="flex:1;padding:8px 12px;font-size:12px;background:var(--container-bg);color:var(--text-color);border:1px solid var(--border-color);">
+                                    <i data-lucide="file-input" style="width:13px;height:13px;"></i> Импорт .m3u
+                                </button>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+                                Экспорт отдельного плейлиста — кнопкой <i data-lucide="download" style="width:11px;height:11px;vertical-align:-1px;"></i> у него в списке выше. Радио и локальные плейлисты поддерживаются в обе стороны.
+                            </div>
                         </div>
 
                         <div class="settings-section-title">Поведение</div>
@@ -1606,7 +1615,7 @@
 
                                     <div class="integration-field-label">Базовый URL для кнопки «Слушать» (необязательно)</div>
                                     <input type="text" id="discord-rpc-redirect-base" class="integration-text-input"
-                                        value="https://noctune.lifeisafelony.by/redirect" placeholder="https://username.github.io/noctune-redirect/">
+                                        value="https://noctune.lifeisafelony.ru/redirect" placeholder="https://username.github.io/noctune-redirect/">
                                     <div class="settings-row-desc" style="margin-top:6px;">
                                         Discord принимает в кнопках только http(s)-ссылки. Без этого URL кнопка просто
                                         откроет поток радио в браузере; со страницей-редиректом — запустит ту же
@@ -1681,7 +1690,40 @@
                                     <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Проверить
                                 </button>
                             </div>
-                            <div class="update-status" id="update-status-msg">Нажмите «Проверить» для поиска новых версий на GitHub</div>
+                            <div class="update-status" id="update-status-msg">Нажмите «Проверить» для поиска новых версий</div>
+                        </div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;margin-top:10px;">
+                            <div class="settings-row" style="border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Автоматическая проверка обновлений</div>
+                                    <div class="settings-row-desc">Периодически проверять наличие новой версии в фоне</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-auto-check-updates" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <!-- Подменю "Автоматическая проверка обновлений" -->
+                            <div id="update-interval-row-wrap" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                                <div id="update-interval-row" style="padding:8px 0 10px 0;">
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Частота проверки</div>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <input type="range" id="setting-update-check-interval" min="1" max="24" step="1" value="6"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-update-check-interval-label" style="font-size:12px;font-weight:700;min-width:56px;text-align:right;flex-shrink:0;">6 ч</span>
+                                    </div>
+                                </div>
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">Скачивать автоматически</div>
+                                        <div class="settings-row-desc">Без подтверждения в toast — сразу качать при обнаружении, установка всё равно только вручную</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-auto-download-updates">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="settings-section-title">Сборка</div>
@@ -1728,5 +1770,7 @@
     <script src="renderer/visualizer.js"></script>
     <script src="renderer/bootstrap.js"></script>
     <script src="renderer/settings.js"></script>
+    <script src="renderer/playlist-io.js"></script>
+    <script src="renderer/updater.js"></script>
 </body>
 </html>

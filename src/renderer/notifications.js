@@ -5,7 +5,7 @@
         let notifCount = 0;
         const MAX_NOTIFS = 3;
 
-        function showNotification(msg, type = 'error', title = null, stackTrace = null) {
+        function showNotification(msg, type = 'error', title = null, stackTrace = null, options = {}) {
             // Check if notifications enabled
             const notifToggle = document.getElementById('setting-notifications');
             if (notifToggle && !notifToggle.checked) return;
@@ -29,6 +29,15 @@
                     Скопировать stack trace
                 </button>` : '';
 
+            // Опциональные кнопки-действия (например, "Скачать"/"Установить" у
+            // toast'ов автообновления) — рендерятся тем же стилем, что и кнопка
+            // копирования стека.
+            const actions = Array.isArray(options.actions) ? options.actions : [];
+            const actionsHtml = actions.length ? `
+                <div class="notification-toast-actions">
+                    ${actions.map((a, i) => `<button class="notification-toast-action${a.primary ? ' primary' : ''}" data-action-idx="${i}">${a.label}</button>`).join('')}
+                </div>` : '';
+
             const toast = document.createElement('div');
             toast.className = 'notification-toast';
             toast.innerHTML = `
@@ -39,6 +48,7 @@
                     <div class="notification-toast-title">${titleText}</div>
                     <div class="notification-toast-msg">${msg}</div>
                     ${copyBtnHtml}
+                    ${actionsHtml}
                 </div>
                 <button class="notification-toast-close" title="Закрыть">
                     <i data-lucide="x" style="width:13px;height:13px;"></i>
@@ -47,6 +57,15 @@
 
             const closeBtn = toast.querySelector('.notification-toast-close');
             closeBtn.addEventListener('click', () => dismissToast(toast));
+
+            actions.forEach((a, i) => {
+                const btn = toast.querySelector(`.notification-toast-action[data-action-idx="${i}"]`);
+                if (btn) btn.addEventListener('click', () => {
+                    try { a.onClick && a.onClick(); } finally {
+                        if (a.dismissOnClick !== false) dismissToast(toast);
+                    }
+                });
+            });
 
             // Обработчик копирования stack trace
             const copyBtn = toast.querySelector('.notification-toast-copy-stack');
@@ -86,101 +105,34 @@
             notifStack.appendChild(toast);
             lucide.createIcons();
 
-            const timer = setTimeout(() => dismissToast(toast), 6000);
-            toast._dismissTimer = timer;
+            // Toast'ы с кнопками-действиями (например, обновления) не гаснут
+            // сами по себе — пользователь должен успеть решить, а не потерять
+            // предложение скачать/установить обновление за 6 секунд.
+            if (!actions.length) {
+                const timer = setTimeout(() => dismissToast(toast), 6000);
+                toast._dismissTimer = timer;
+            }
+
+            return toast;
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const currentVersionEl = document.getElementById('update-current-version');
             const updateStatusMsg = document.getElementById('update-status-msg');
-            const btnCheckUpdates = document.getElementById('btn-check-updates');
-            
-            let downloadUrl = 'https://github.com/PleaseSuffer/NoctunePlayer/releases';
-            let localVersion = '0.0.0'; // Будем хранить чистую локальную версию для сравнения
 
-            let ipc = null;
-            if (typeof require !== 'undefined') {
-                try {
-                    ipc = require('electron').ipcRenderer;
-                } catch (e) {
-                    console.error("Не удалось импортировать electron через require:", e);
-                }
-            }
-
-            // Функция для корректного сравнения SemVer (1.1.2 > 1.1.1)
-            function isNewerVersion(local, remote) {
-                const clean = (v) => v.replace(/^v/, '').split('.').map(Number);
-                const [lMajor, lMinor, lPatch] = clean(local);
-                const [rMajor, rMinor, rPatch] = clean(remote);
-
-                if (rMajor !== lMajor) return rMajor > lMajor;
-                if (rMinor !== lMinor) return rMinor > lMinor;
-                return rPatch > lPatch;
-            }
-
-            // 1. Отображаем реальную версию приложения при запуске
+            // Отображаем реальную версию приложения при запуске. Сама проверка
+            // обновлений (кнопка "Проверить", периодический автопросмотр,
+            // toast-уведомления) теперь полностью в renderer/updater.js —
+            // через electron-updater, а не отдельный GitHub-опрос отсюда.
             try {
-                if (ipc) {
-                    const actualVersion = await ipc.invoke('get-app-version');
-                    localVersion = actualVersion.replace(/^v/, ''); // Сохраняем чистую версию
-                    if (currentVersionEl) currentVersionEl.textContent = `v${localVersion}`;
-                }
+                const actualVersion = await noctune.getAppVersion();
+                const localVersion = String(actualVersion || '0.0.0').replace(/^v/, '');
+                if (currentVersionEl) currentVersionEl.textContent = `v${localVersion}`;
                 if (updateStatusMsg) {
-                    updateStatusMsg.textContent = 'Нажмите «Проверить» для поиска новых версий на GitHub';
+                    updateStatusMsg.textContent = 'Нажмите «Проверить» для поиска новых версий';
                 }
             } catch (e) {
                 console.error('Не удалось получить версию приложения:', e);
-            }
-
-            // 2. Логика проверки при нажатии на кнопку
-            if (btnCheckUpdates) {
-                btnCheckUpdates.addEventListener('click', async () => {
-                    if (!ipc) {
-                        updateStatusMsg.textContent = 'Ошибка: среда Electron недоступна';
-                        return;
-                    }
-
-                    const icon = btnCheckUpdates.querySelector('i[data-lucide="refresh-cw"]');
-                    if (icon) icon.classList.add('lucide-spin');
-                    btnCheckUpdates.disabled = true;
-                    updateStatusMsg.textContent = 'Проверка наличия обновлений...';
-
-                    try {
-                        const result = await ipc.invoke('check-for-updates');
-
-                        if (!result.success) {
-                            updateStatusMsg.textContent = `Ошибка: ${result.error}`;
-                            updateStatusMsg.style.color = '#ff6b6b';
-                            return;
-                        }
-
-                        const hasRealUpdate = result.hasUpdate && isNewerVersion(localVersion, result.latestVersion);
-
-                        if (hasRealUpdate) {
-                            const cleanLatest = result.latestVersion.replace(/^v/, '');
-                            updateStatusMsg.innerHTML = `Доступна новая версия <span style="color:var(--accent-color); font-weight:bold;">v${cleanLatest}</span>. <span id="link-download" style="color:var(--accent-color); cursor:pointer; text-decoration:underline; margin-left:5px;">Скачать</span>`;
-                            updateStatusMsg.style.color = '';
-                            downloadUrl = result.updateUrl;
-
-                            const linkDownload = document.getElementById('link-download');
-                            if (linkDownload) {
-                                linkDownload.addEventListener('click', () => {
-                                    ipc.send('open-external-url', downloadUrl);
-                                });
-                            }
-                        } else {
-                            updateStatusMsg.textContent = 'У вас установлена самая свежая версия.';
-                            updateStatusMsg.style.color = '#2ecc71';
-                        }
-
-                    } catch (err) {
-                        updateStatusMsg.textContent = 'Произошла ошибка при проверке.';
-                        updateStatusMsg.style.color = '#ff6b6b';
-                    } finally {
-                        if (icon) icon.classList.remove('lucide-spin');
-                        btnCheckUpdates.disabled = false;
-                    }
-                });
             }
         });
 
@@ -222,11 +174,11 @@
             try {
                 lines.push('  UA       : ' + navigator.userAgent);
                 lines.push('  Platform : ' + navigator.platform);
-                if (typeof process !== 'undefined') {
-                    lines.push('  Electron : ' + (process.versions?.electron || 'n/a'));
-                    lines.push('  Node     : ' + (process.versions?.node     || 'n/a'));
-                    lines.push('  Chrome   : ' + (process.versions?.chrome   || 'n/a'));
-                    lines.push('  OS       : ' + (process.platform || 'n/a'));
+                if (typeof noctune !== 'undefined' && noctune.versions) {
+                    lines.push('  Electron : ' + (noctune.versions.electron || 'n/a'));
+                    lines.push('  Node     : ' + (noctune.versions.node     || 'n/a'));
+                    lines.push('  Chrome   : ' + (noctune.versions.chrome   || 'n/a'));
+                    lines.push('  OS       : ' + (noctune.platform || 'n/a'));
                 }
             } catch {}
             lines.push(sep);

@@ -68,10 +68,54 @@
         const btnSavePreset = document.getElementById('btn-save-preset');
         const contextMenu = document.getElementById('context-menu');
 
-        const { ipcRenderer } = require('electron');
+        // ── Мост к main-процессу (после включения contextIsolation) ────────
+        // Раньше рендерер напрямую делал require('electron')/require('fs') —
+        // теперь единственная точка входа это window.noctune, опубликованный
+        // preload-скриптом через contextBridge. Явную const-переменную здесь
+        // НЕ объявляем: contextBridge.exposeInMainWorld создаёт свойство
+        // window.noctune как non-configurable, а движок JS запрещает
+        // объявлять const/let на верхнем уровне скрипта с именем, которое уже
+        // занято таким non-configurable глобальным свойством — это кидает
+        // "Identifier 'noctune' has already been declared" ещё до первой
+        // строки. Просто используем window.noctune напрямую везде ниже;
+        // бэйр-идентификатор noctune и так резолвится в window.noctune через
+        // обычную цепочку области видимости.
+
+        // ── Синхронный shim поверх electron-store (замена localStorage) ────
+        // Повторяет API localStorage 1:1 (getItem/setItem/removeItem), чтобы
+        // не переписывать десятки мест использования по всему рендереру —
+        // но данные реально хранятся в electron-store (userData), а не в
+        // движке страницы, и переживают очистку данных сайта/куки.
+        const appStorage = (function () {
+            let cache = {};
+            try { cache = noctune.storage.getAll() || {}; } catch (e) { cache = {}; }
+            return {
+                getItem(key) {
+                    return Object.prototype.hasOwnProperty.call(cache, key) ? cache[key] : null;
+                },
+                setItem(key, value) {
+                    const strVal = String(value);
+                    cache[key] = strVal;
+                    try { noctune.storage.set(key, strVal); } catch (e) {}
+                },
+                removeItem(key) {
+                    delete cache[key];
+                    try { noctune.storage.remove(key); } catch (e) {}
+                }
+            };
+        })();
+
+        // ── Пауза requestAnimationFrame-циклов при сворачивании в трей ─────
+        // Читается визуализатором/звёздами/конфетти/фоном (см. visualizer.js,
+        // background-fx.js, confetti.js) — если true, эти циклы продолжают
+        // "тикать" (дёшево), но пропускают тяжёлую отрисовку.
+        window._rafSuspended = false;
+        noctune.onWindowTrayVisibility((visible) => {
+            window._rafSuspended = !visible;
+        });
 
         // Команды из трея
-        ipcRenderer.on('tray-cmd', (_e, cmd) => {
+        noctune.onTrayCmd((cmd) => {
             if (cmd === 'toggle' || cmd === 'playpause') togglePlayback();
             else if (cmd === 'play')  { if (!isPlaying) togglePlayback(); }
             else if (cmd === 'pause') { if (isPlaying)  togglePlayback(); }
@@ -91,10 +135,10 @@
         });
 
         // Отвечаем main.js на запрос о состоянии воспроизведения + настройке трея
-        ipcRenderer.on('query-playing-state', () => {
+        noctune.onQueryPlayingState(() => {
             const trayEl = document.getElementById('setting-minimize-to-tray');
             const minimizeToTray = !trayEl || trayEl.checked;
-            ipcRenderer.send('playing-state-response', isPlaying === true, minimizeToTray);
+            noctune.sendPlayingStateResponse(isPlaying === true, minimizeToTray);
         });
 
         // ── Discord Rich Presence: кнопка «Слушать» у друга ────────────────
@@ -102,7 +146,7 @@
         // распарсил noctune://radio?... и прислал название+URL станции сюда.
         // Создаём (или используем существующий) плейлист «Discord RPC» и
         // сразу запускаем эту радиостанцию у себя.
-        ipcRenderer.on('deep-link-radio', async (_e, payload) => {
+        noctune.onDeepLinkRadio(async (payload) => {
             try {
                 const { name, url } = payload || {};
                 if (!url) return;
@@ -128,9 +172,6 @@
                 console.error('Не удалось обработать ссылку радиостанции:', e);
             }
         });
-
-        const fs = require('fs').promises;
-        const path = require('path');
 
         // Глобальное состояние
         let userPlaylists = []; 

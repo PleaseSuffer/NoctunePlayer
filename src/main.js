@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, net, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 const iconPath = path.join(__dirname, '..', 'resources', 'app.ico');
@@ -371,8 +372,10 @@ function createWindow() {
     backgroundColor: '#121212', // Заменяем белый экран на темно-серый/черный
     icon: iconPath,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false, // preload.js использует require('fs')/require('path') напрямую
+      preload: path.join(__dirname, 'preload.js'),
     }
   });
 
@@ -435,64 +438,61 @@ ipcMain.on('setting-minimize-to-tray-changed', (_e, value) => {
     minimizeToTray = value;
 });
 
-// Обработчик проверки обновлений
-ipcMain.handle('check-for-updates', async () => {
-    return new Promise((resolve) => {
-        const currentVersion = app.getVersion(); // Получает версию из package.json
+// ── Автообновления через electron-updater ──────────────────────────────
+// Заменяет прежний самописный опрос GitHub API. Публикация релизов должна
+// быть настроена через electron-builder (build.publish в package.json) —
+// тогда electron-builder сам кладёт latest.yml рядом с установщиком, а
+// autoUpdater умеет сравнивать версии, докачивать дельту и запускать
+// установку. Сам процесс: main проверяет/качает, о результатах сообщает
+// рендереру через события updater:*, рендерер решает, показывать ли toast.
+autoUpdater.autoDownload = false;      // по умолчанию — только по клику в toast
+autoUpdater.autoInstallOnAppQuit = false;
 
-        // Делаем запрос к публичному GitHub API для получения последнего релиза
-        const request = net.request({
-            method: 'GET',
-            protocol: 'https:',
-            hostname: 'api.github.com',
-            port: 443,
-            path: '/repos/PleaseSuffer/NoctunePlayer/releases/latest',
-        });
+function sendToRenderer(channel, ...args) {
+    if (win && !win.isDestroyed() && win.webContents) {
+        win.webContents.send(channel, ...args);
+    }
+}
 
-        // GitHub API требует обязательного указания User-Agent
-        request.setHeader('User-Agent', 'NoctunePlayer');
+autoUpdater.on('checking-for-update', () => sendToRenderer('updater:checking'));
+autoUpdater.on('update-available', (info) => sendToRenderer('updater:available', {
+    version: info.version, releaseDate: info.releaseDate, releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : null
+}));
+autoUpdater.on('update-not-available', (info) => sendToRenderer('updater:not-available', { version: info && info.version }));
+autoUpdater.on('download-progress', (progress) => sendToRenderer('updater:progress', {
+    percent: progress.percent, bytesPerSecond: progress.bytesPerSecond, transferred: progress.transferred, total: progress.total
+}));
+autoUpdater.on('update-downloaded', (info) => sendToRenderer('updater:downloaded', { version: info.version }));
+autoUpdater.on('error', (err) => sendToRenderer('updater:error', String(err && err.message || err)));
 
-        request.on('response', (response) => {
-            let body = '';
-            
-            response.on('data', (chunk) => {
-                body += chunk.toString();
-            });
+ipcMain.handle('updater:check', async (_e, silent) => {
+    try {
+        // Настройка "автоматически скачивать" читается из хранилища перед
+        // каждой проверкой — пользователь мог поменять её только что.
+        const autoDl = store && store.get('setting_auto_download_updates');
+        autoUpdater.autoDownload = autoDl === '1';
+        await autoUpdater.checkForUpdates();
+        return { ok: true };
+    } catch (e) {
+        if (!silent) sendToRenderer('updater:error', String(e && e.message || e));
+        return { ok: false, error: String(e && e.message || e) };
+    }
+});
 
-            response.on('end', () => {
-                if (response.statusCode !== 200) {
-                    resolve({ success: false, error: `Сервер ответил кодом ${response.statusCode}` });
-                    return;
-                }
+ipcMain.handle('updater:download', async () => {
+    try {
+        await autoUpdater.downloadUpdate();
+        return { ok: true };
+    } catch (e) {
+        sendToRenderer('updater:error', String(e && e.message || e));
+        return { ok: false, error: String(e && e.message || e) };
+    }
+});
 
-                try {
-                    const data = JSON.parse(body);
-                    // Очищаем тег от префикса 'v', если он есть (например, v1.0.1 -> 1.0.1)
-                    const latestVersion = data.tag_name.replace(/^v/, '');
-                    const cleanCurrentVersion = currentVersion.replace(/^v/, '');
-
-                    // Сравниваем версии напрямую
-                    const hasUpdate = latestVersion !== cleanCurrentVersion;
-
-                    resolve({
-                        success: true,
-                        currentVersion,
-                        latestVersion: data.tag_name,
-                        hasUpdate,
-                        updateUrl: data.html_url // Ссылка на страницу релиза на GitHub
-                    });
-                } catch (e) {
-                    resolve({ success: false, error: 'Ошибка обработки данных от сервера' });
-                }
-            });
-        });
-
-        request.on('error', (err) => {
-            resolve({ success: false, error: 'Нет подключения к сети или сервер недоступен' });
-        });
-
-        request.end();
-    });
+ipcMain.handle('updater:install', () => {
+    isQuiting = true;
+    autoUpdater.quitAndInstall();
+    return { ok: true };
 });
 
 // Обработчик для открытия ссылки в браузере по умолчанию
@@ -563,6 +563,45 @@ ipcMain.handle('dialog:openImage', async () => {
     return result.filePaths[0];
 });
 
+// ── Импорт/экспорт плейлистов в .m3u ────────────────────────────────────
+ipcMain.handle('dialog:openM3U', async () => {
+    const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile'],
+        filters: [{ name: 'Плейлисты M3U', extensions: ['m3u', 'm3u8'] }]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+});
+
+ipcMain.handle('dialog:saveM3U', async (_e, defaultName) => {
+    const result = await dialog.showSaveDialog(win, {
+        defaultPath: (defaultName || 'playlist') + '.m3u',
+        filters: [{ name: 'Плейлисты M3U', extensions: ['m3u'] }]
+    });
+    if (result.canceled || !result.filePath) return null;
+    return result.filePath;
+});
+
+// ── Хранилище настроек рендерера (electron-store) ──────────────────────
+// Единая точка правды: рендерер больше не пишет напрямую в localStorage —
+// всё уходит сюда через preload.js, что переживает очистку данных сайта и
+// хранится вместе с остальными настройками приложения (userData/config.json).
+ipcMain.on('store:get-all-sync', (event) => {
+    try {
+        event.returnValue = (store && store.store) || {};
+    } catch (e) {
+        event.returnValue = {};
+    }
+});
+
+ipcMain.on('store:set', (_e, key, value) => {
+    try { if (store) store.set(key, value); } catch (e) {}
+});
+
+ipcMain.on('store:delete', (_e, key) => {
+    try { if (store) store.delete(key); } catch (e) {}
+});
+
 ipcMain.handle('get-app-version', () => {
     return app.getVersion();
 });
@@ -581,8 +620,10 @@ ipcMain.handle('get-tech-versions', async () => {
     };
 });
 
-// Проверка обновлений из трея — с уведомлением о результате
-ipcMain.on('tray-check-updates', async () => {
+// Проверка обновлений из трея — с уведомлением о результате через
+// electron-updater; те же события updater:* заодно долетают и до окна
+// (если оно открыто), так что в приложении тоже появится toast.
+function performTrayUpdateCheck() {
     if (Notification.isSupported()) {
         new Notification({
             title: 'Noctune Player',
@@ -591,76 +632,50 @@ ipcMain.on('tray-check-updates', async () => {
         }).show();
     }
 
-    try {
-        // Переиспользуем ту же логику что и в рендерере
-        const result = await new Promise((resolve) => {
-            const currentVersion = app.getVersion();
-            const request = net.request({
-                method: 'GET', protocol: 'https:',
-                hostname: 'api.github.com', port: 443,
-                path: '/repos/PleaseSuffer/NoctunePlayer/releases/latest',
-            });
-            request.setHeader('User-Agent', 'NoctunePlayer');
-            request.on('response', (response) => {
-                let body = '';
-                response.on('data', (chunk) => { body += chunk.toString(); });
-                response.on('end', () => {
-                    if (response.statusCode !== 200) {
-                        resolve({ success: false }); return;
-                    }
-                    try {
-                        const data = JSON.parse(body);
-                        const latestVersion = data.tag_name.replace(/^v/, '');
-                        const cleanCurrent = currentVersion.replace(/^v/, '');
-                        resolve({
-                            success: true,
-                            hasUpdate: latestVersion !== cleanCurrent,
-                            latestVersion: data.tag_name,
-                            currentVersion,
-                            updateUrl: data.html_url
-                        });
-                    } catch(e) { resolve({ success: false }); }
-                });
-            });
-            request.on('error', () => resolve({ success: false }));
-            request.end();
-        });
-
+    const onAvailable = (info) => {
+        cleanup();
         if (!Notification.isSupported()) return;
-
-        if (!result.success) {
+        const notif = new Notification({
+            title: 'Доступно обновление!',
+            body: `Версия ${info.version} доступна. Нажмите, чтобы открыть Noctune и скачать.`,
+            icon: iconPath
+        });
+        notif.on('click', () => { if (win) { win.show(); win.focus(); } });
+        notif.show();
+    };
+    const onNotAvailable = () => {
+        cleanup();
+        if (Notification.isSupported()) {
+            new Notification({
+                title: 'Noctune Player',
+                body: `У вас установлена актуальная версия (v${app.getVersion()}).`,
+                icon: iconPath
+            }).show();
+        }
+    };
+    const onError = () => {
+        cleanup();
+        if (Notification.isSupported()) {
             new Notification({
                 title: 'Noctune Player',
                 body: 'Не удалось проверить обновления. Проверьте подключение к сети.',
                 icon: iconPath
             }).show();
-        } else if (result.hasUpdate) {
-            const notif = new Notification({
-                title: 'Доступно обновление!',
-                body: `Версия ${result.latestVersion} доступна (у вас v${result.currentVersion}). Нажмите чтобы открыть страницу загрузки.`,
-                icon: iconPath
-            });
-            notif.on('click', () => {
-                require('electron').shell.openExternal(result.updateUrl);
-            });
-            notif.show();
-        } else {
-            new Notification({
-                title: 'Noctune Player',
-                body: `У вас установлена актуальная версия (v${result.currentVersion}).`,
-                icon: iconPath
-            }).show();
         }
-    } catch(e) {
-        if (Notification.isSupported()) {
-            new Notification({
-                title: 'Noctune Player',
-                body: 'Ошибка при проверке обновлений.',
-                icon: iconPath
-            }).show();
-        }
+    };
+    function cleanup() {
+        autoUpdater.removeListener('update-available', onAvailable);
+        autoUpdater.removeListener('update-not-available', onNotAvailable);
+        autoUpdater.removeListener('error', onError);
     }
-});
+    autoUpdater.once('update-available', onAvailable);
+    autoUpdater.once('update-not-available', onNotAvailable);
+    autoUpdater.once('error', onError);
+
+    autoUpdater.checkForUpdates().catch(() => onError());
+}
+
+ipcMain.on('tray-check-updates', performTrayUpdateCheck);
 
 // ── Интеграция: Discord Rich Presence — IPC ──────────────────────────────
 ipcMain.handle('discord-rpc-connect', async (_e, clientId) => {
@@ -785,7 +800,8 @@ if (!gotTheLock) {
           label: 'О приложении',
           submenu: [
             { label: 'Noctune Player v' + app.getVersion(), enabled: false },
-            { label: 'GitHub', click: () => require('electron').shell.openExternal('https://github.com/PleaseSuffer/NoctunePlayer') },
+            { label: 'Проверить обновления', click: () => performTrayUpdateCheck() },
+            { label: 'GitHub', click: () => shell.openExternal('https://github.com/PleaseSuffer/NoctunePlayer') },
           ]
         },
         { type: 'separator' },
@@ -815,6 +831,12 @@ if (!gotTheLock) {
     // Обновляем метку при смене видимости окна
     win.on('show', refreshTrayMenu);
     win.on('hide', refreshTrayMenu);
+
+    // Сигнализируем рендереру о видимости окна, чтобы он мог поставить на
+    // паузу requestAnimationFrame-циклы (визуализатор, звёзды, конфетти, фон)
+    // пока плеер свёрнут в трей и не тратить CPU/GPU впустую.
+    win.on('show', () => sendToRenderer('window-tray-visibility', true));
+    win.on('hide', () => sendToRenderer('window-tray-visibility', false));
 
     tray.on('click', () => {
       if (win.isVisible()) { win.focus(); } else { win.show(); win.focus(); }

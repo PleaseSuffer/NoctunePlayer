@@ -231,6 +231,7 @@
 
         function animateConfetti() {
             requestAnimationFrame(animateConfetti);
+            if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
 
             if (!window.confettiEnabled) {
                 if (confettiParticles.length > 0) {

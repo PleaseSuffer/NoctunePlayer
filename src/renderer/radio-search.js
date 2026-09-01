@@ -130,7 +130,7 @@
             if (volumeValue > 0) isMuted = false;
             volumeSlider.value = volumeValue;
             miniVolumeSlider.value = volumeValue;
-            localStorage.setItem('player_volume', volumeValue);
+            appStorage.setItem('player_volume', volumeValue);
             const gainValue = isMuted ? 0 : volumeSliderToGain(volumeValue);
             if (window.volumeNode) {
                 window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);

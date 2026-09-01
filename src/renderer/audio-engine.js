@@ -63,7 +63,7 @@
 
             // Balance (StereoPanner) + channel-mode (Splitter/Merger) nodes
             window.pannerNode = audioCtx.createStereoPanner();
-            const savedBal = localStorage.getItem('setting_balance');
+            const savedBal = appStorage.getItem('setting_balance');
             window.pannerNode.pan.value = savedBal !== null ? (parseFloat(savedBal) - 50) / 50 : 0;
 
             window.chSplitter = audioCtx.createChannelSplitter(2);
@@ -75,7 +75,7 @@
             window.pannerNode.connect(audioCtx.destination);
 
             // Apply saved channel mode
-            const savedPBMode = localStorage.getItem('setting_pb_mode');
+            const savedPBMode = appStorage.getItem('setting_pb_mode');
             if (savedPBMode && savedPBMode !== 'stereo') applyChannelMode(savedPBMode);
 
             // Initial fallback connection (replaced when volumeNode is created)
@@ -153,11 +153,11 @@
             
             presets[name] = currentValues;
             
-            const saved = localStorage.getItem('player_custom_presets');
+            const saved = appStorage.getItem('player_custom_presets');
             let toSave = {};
             if (saved) { toSave = JSON.parse(saved); }
             toSave[name] = currentValues;
-            localStorage.setItem('player_custom_presets', JSON.stringify(toSave));
+            appStorage.setItem('player_custom_presets', JSON.stringify(toSave));
 
             customPresetName.value = '';
             renderPresetButtons();
@@ -308,7 +308,7 @@
             if (now - _positionSaveTimer >= 5000) {
                 _positionSaveTimer = now;
                 _lastSavedPosition = current;
-                localStorage.setItem('player_last_track_position', current.toFixed(2));
+                appStorage.setItem('player_last_track_position', current.toFixed(2));
             }
         }
 
@@ -463,9 +463,9 @@
             // Save last track
             const rememberToggle = document.getElementById('setting-remember-track');
             if (!rememberToggle || rememberToggle.checked) {
-                localStorage.setItem('player_last_playlist', currentPlaylistId || '');
-                localStorage.setItem('player_last_track_order', orderIndex);
-                localStorage.setItem('player_last_track_position', '0');
+                appStorage.setItem('player_last_playlist', currentPlaylistId || '');
+                appStorage.setItem('player_last_track_order', orderIndex);
+                appStorage.setItem('player_last_track_position', '0');
             }
             // Lock active playlist to the one currently playing
             activePlaylistId = currentPlaylistId;
@@ -569,14 +569,13 @@
                 try {
                     const filePath = entry.path;
                     const meta = parsedMetadataCache[absoluteTrackId] || await (async () => {
-                        // Быстрое чтение метаданных если кэш ещё не заполнен
+                        // Быстрое чтение метаданных если кэш ещё не заполнен —
+                        // единый вызов через music-metadata (preload) вместо
+                        // ручного fs.open + самописного ID3-парсера.
                         try {
-                            const fileHandle = await fs.open(filePath, 'r');
-                            const buf = Buffer.alloc(4096);
-                            await fileHandle.read(buf, 0, 4096, 0);
-                            await fileHandle.close();
-                            const tagBlob = new Blob([buf], { type: 'audio/mpeg' });
-                            return await parseAudioTags(tagBlob, entry.name);
+                            const m = await noctune.metadata.parseFile(filePath, entry.name);
+                            if (m.fileSize) entry._fileSize = m.fileSize;
+                            return m;
                         } catch(e) {
                             return { title: entry.name.replace(/\.[^/.]+$/, ""), artist: "Неизвестный исполнитель" };
                         }
@@ -693,7 +692,7 @@
 
                     // Если размер файла не закэширован — подгружаем в фоне
                     if (!entry._fileSize) {
-                        fs.stat(filePath).then(stats => {
+                        noctune.fs.stat(filePath).then(stats => {
                             entry._fileSize = stats.size;
                             // Обновим kbps если длительность уже известна
                             if (myToken === _loadToken && currentTrackDuration > 0) {
@@ -824,7 +823,7 @@
             startTime = audioCtx.currentTime;
             pausedAt = position;
             isPlaying = true;
-            localStorage.setItem('player_was_playing', '1');
+            appStorage.setItem('player_was_playing', '1');
 
             updateSMTCPosition(position);
             updatePlayIcons(true);
@@ -837,7 +836,7 @@
             try {
                 const title = document.getElementById('track-title')?.textContent || 'Ничего не играет';
                 const hasPlaylist = playlistOrder.length > 0;
-                ipcRenderer.send('tray-state-update', {
+                noctune.sendTrayState({
                     isPlaying,
                     trackTitle: title.length > 40 ? title.slice(0, 38) + '…' : title,
                     prevEnabled: hasPlaylist && currentIndex > 0,
@@ -917,10 +916,10 @@
             if (!window.discordRPCEnabled) return;
             try {
                 if (!isPlaying && !playlistOrder.length) {
-                    ipcRenderer.send('discord-rpc-clear-activity');
+                    noctune.discordRpcClearActivity();
                     return;
                 }
-                ipcRenderer.send('discord-rpc-set-activity', buildDiscordActivity());
+                noctune.discordRpcSetActivity(buildDiscordActivity());
             } catch (e) {}
         }
         // Раз в 20с подстраховочно пересылаем активность — на случай дрейфа/сна
@@ -991,7 +990,7 @@
             volumeSlider.value = volumeValue;
             miniVolumeSlider.value = volumeValue;
             
-            if (saveToStorage) { localStorage.setItem('player_volume', volumeValue); }
+            if (saveToStorage) { appStorage.setItem('player_volume', volumeValue); }
             const gainValue = isMuted ? 0 : volumeSliderToGain(volumeValue);
             if (window.volumeNode) {
                 window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
@@ -1101,9 +1100,9 @@
                     if (currentIndex === -1) {
                         playTrack(0);
                     } else {
-                        const lastOrder = parseInt(localStorage.getItem('player_last_track_order'));
+                        const lastOrder = parseInt(appStorage.getItem('player_last_track_order'));
                         const startIdx = (!isNaN(lastOrder) && lastOrder >= 0 && lastOrder < playlistOrder.length) ? lastOrder : 0;
-                        const savedPos = parseFloat(localStorage.getItem('player_last_track_position') || '0');
+                        const savedPos = parseFloat(appStorage.getItem('player_last_track_position') || '0');
                         playTrack(startIdx, savedPos > 0 ? savedPos : 0);
                     }
                 }
@@ -1121,9 +1120,9 @@
                 // Save position on pause
                 const remToggle = document.getElementById('setting-remember-track');
                 if (!remToggle || remToggle.checked) {
-                    localStorage.setItem('player_last_track_position', pausedAt.toFixed(2));
+                    appStorage.setItem('player_last_track_position', pausedAt.toFixed(2));
                 }
-                localStorage.setItem('player_was_playing', '0');
+                appStorage.setItem('player_was_playing', '0');
             } else {
                 const duration = currentTrackDuration || localAudioElement.duration || 0;
                 if (pausedAt >= duration && duration > 0) pausedAt = 0;

@@ -1,9 +1,9 @@
         function savePlaylistsToStorage() {
-            localStorage.setItem('noctune_playlists', JSON.stringify(userPlaylists));
+            appStorage.setItem('noctune_playlists', JSON.stringify(userPlaylists));
         }
 
         function loadPlaylistsFromStorage() {
-            const stored = localStorage.getItem('noctune_playlists');
+            const stored = appStorage.getItem('noctune_playlists');
             if (stored) {
                 try { userPlaylists = JSON.parse(stored); } catch(e) { userPlaylists = []; }
             }
@@ -247,12 +247,13 @@
                             <div class="track-title-item">${station.name}</div>
                             <div class="track-artist-item">Поток Радио</div>
                         </div>
-                        <span class="radio-status-badge checking" id="radio-status-${index}">...</span>
+                        <span class="radio-status-badge checking" id="radio-status-${index}" title="Нажмите, чтобы проверить ещё раз">...</span>
                         <button class="actions-btn radio-item-action" data-id="${index}"><i data-lucide="more-vertical"></i></button>
                     `;
 
                     li.addEventListener('click', (e) => {
                         if (e.target.closest('.actions-btn')) return;
+                        if (e.target.closest('.radio-status-badge')) return;
                         playTrack(playlistOrder.indexOf(index));
                     });
 
@@ -262,11 +263,23 @@
 
             lucide.createIcons();
 
+            // Клик по самому бейджу — быстрая ручная перепроверка станции,
+            // без похода в контекстное меню.
+            playlistElem.querySelectorAll('.radio-status-badge').forEach((badge) => {
+                badge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(badge.id.replace('radio-status-', ''));
+                    const entry = fileEntries[idx];
+                    if (entry) checkOneRadioStation(entry.path, badge);
+                });
+            });
+
             document.querySelectorAll('.radio-item-action').forEach(b => {
                 b.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
                     document.getElementById('menu-edit-radio').style.display = 'flex';
+                    document.getElementById('menu-check-radio').style.display = 'flex';
                     document.getElementById('menu-play-next').style.display = 'none';
                     contextMenu.style.top = `${e.clientY}px`;
                     contextMenu.style.left = `${e.clientX - 140}px`;
@@ -280,31 +293,38 @@
             checkRadioStations(playlistObj.stations);
         }
 
+        // Автоматическая (при загрузке плейлиста) и ручная (клик по бейджу
+        // или пункт контекстного меню) проверка доступности станции идут
+        // через noctune.checkRadioStation — это запрос из Node в preload,
+        // а не fetch() из рендерера, поэтому CORS не мешает: раньше у
+        // большинства радио-серверов не было нужных CORS-заголовков, и
+        // проверка либо ошибочно показывала "Offline", либо вовсе падала
+        // ещё до отправки запроса.
+        async function checkOneRadioStation(url, badgeEl) {
+            if (!badgeEl) return;
+            badgeEl.textContent = '...';
+            badgeEl.className = 'radio-status-badge checking';
+            try {
+                const { online } = await noctune.checkRadioStation(url);
+                badgeEl.textContent = online ? 'Online' : 'Offline';
+                badgeEl.className = 'radio-status-badge ' + (online ? 'online' : 'offline');
+            } catch (e) {
+                badgeEl.textContent = 'Offline';
+                badgeEl.className = 'radio-status-badge offline';
+            }
+        }
+
         async function checkRadioStations(stations) {
             if (!stations || stations.length === 0) return;
             const BATCH = 3;
             for (let i = 0; i < stations.length; i += BATCH) {
                 const batch = stations.slice(i, i + BATCH);
-                await Promise.all(batch.map(async (station, batchIdx) => {
+                await Promise.all(batch.map((station, batchIdx) => {
                     const idx = i + batchIdx;
                     const badge = document.getElementById(`radio-status-${idx}`);
-                    if (!badge) return;
-                    try {
-                        // Try to fetch a small amount from the stream
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 5000);
-                        const resp = await fetch(station.url, { signal: controller.signal, method: 'GET', headers: { 'Range': 'bytes=0-1023' } });
-                        clearTimeout(timeoutId);
-                        const ct = resp.headers.get('content-type') || '';
-                        const isAudio = ct.includes('audio') || ct.includes('ogg') || ct.includes('mpeg') || resp.status === 200 || resp.status === 206;
-                        badge.textContent = isAudio ? 'Online' : 'Offline';
-                        badge.className = 'radio-status-badge ' + (isAudio ? 'online' : 'offline');
-                    } catch(e) {
-                        badge.textContent = 'Offline';
-                        badge.className = 'radio-status-badge offline';
-                    }
+                    return checkOneRadioStation(station.url, badge);
                 }));
-                // Small delay between batches
+                // Небольшая пауза между партиями, чтобы не заваливать сеть/CPU
                 await new Promise(r => setTimeout(r, 300));
             }
         }
@@ -355,14 +375,14 @@
             const targetDir = dirPath || (pl && pl.path);
             if (!targetDir) return;
             try {
-                await fs.access(targetDir);
-                const files = await fs.readdir(targetDir);
+                if (!(await noctune.fs.exists(targetDir))) throw new Error('dir-not-found');
+                const files = await noctune.fs.readDir(targetDir);
                 const existingPaths = new Set(fileEntries.map(e => e.path));
-                const newFiles = files.filter(f => isAudioFile(f) && !existingPaths.has(path.join(targetDir, f)));
+                const newFiles = files.filter(f => isAudioFile(f) && !existingPaths.has(noctune.fs.joinPath(targetDir, f)));
                 if (newFiles.length === 0) { if (isManual) statusText.textContent = 'Новых файлов не найдено'; return; }
 
                 for (const fileName of newFiles) {
-                    const fullPath = path.join(targetDir, fileName);
+                    const fullPath = noctune.fs.joinPath(targetDir, fileName);
                     const trackIndex = fileEntries.length;
                     fileEntries.push({ name: fileName, path: fullPath, kind: 'file' });
                     playlistOrder.push(trackIndex);
@@ -390,6 +410,7 @@
                         e.stopPropagation();
                         selectedTrackIndexInMenu = trackIndex;
                         document.getElementById('menu-edit-radio').style.display = 'none';
+                        document.getElementById('menu-check-radio').style.display = 'none';
                         document.getElementById('menu-play-next').style.display = 'flex';
                         contextMenu.style.top = `${e.clientY}px`;
                         contextMenu.style.left = `${e.clientX - 140}px`;
@@ -412,31 +433,15 @@
                         const trackIndex = i + bIdx;
                         try {
                             const filePath = entry.path;
-                            const stats = await fs.stat(filePath);
-                            
-                            // 1. Увеличиваем буфер или читаем файл полностью (для Node.js/Electron)
-                            // 512 КБ хватает для 99% файлов с обложками. Если обложки гигантские, лучше зачитать весь buffer через fs.readFile
-                            const fileBuffer = await fs.readFile(filePath);
-                            const tagBlob = new Blob([fileBuffer], { type: 'audio/mpeg' });
-                            
-                            const meta = await parseAudioTags(tagBlob, entry.name);
-                            entry._fileSize = stats.size;
+                            // Единый вызов вместо fs.stat + fs.readFile + самописного
+                            // ID3-парсера + отдельного зонда длительности через <audio> —
+                            // music-metadata (в preload) отдаёт всё сразу и для любых
+                            // форматов (MP3/FLAC/OGG/WAV/M4A), а не только MP3.
+                            const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                            entry._fileSize = meta.fileSize;
 
-                            // 2. Рассчитываем длительность с экранированием пути
-                            const duration = await new Promise((resolve) => {
-                                const tmpAudio = new Audio();
-                                tmpAudio.preload = 'metadata';
-                                tmpAudio.onloadedmetadata = () => resolve(tmpAudio.duration);
-                                tmpAudio.onerror = () => resolve(0);
-                                
-                                // Кодируем URI, чтобы избежать проблем со спецсимволами (#, ?, пробелы)
-                                const safePath = entry.path.replace(/\\/g, '/');
-                                tmpAudio.src = `file://${encodeURI(safePath).replace(/#/g, '%23').replace(/\?/g, '%3F')}`;
-                            });
-
-                            const kbps = duration > 0 ? Math.round((stats.size * 8) / duration / 1000) : 0;
-                            meta.duration = duration;
-                            meta.kbps = kbps;
+                            const duration = meta.duration;
+                            const kbps = meta.kbps;
 
                             // Сохраняем в кэш полный объект
                             parsedMetadataCache[trackIndex] = meta;
@@ -482,7 +487,7 @@
                 let filePaths;
                 try {
                     // main.js returns filePaths array directly (or null if canceled)
-                    const result = await ipcRenderer.invoke('dialog:openFiles');
+                    const result = await noctune.dialogOpenFiles();
                     if (!result || result.length === 0) return;
                     filePaths = result;
                 } catch(ipcErr) {
@@ -538,6 +543,7 @@
                         e.stopPropagation();
                         selectedTrackIndexInMenu = trackIndex;
                         document.getElementById('menu-edit-radio').style.display = 'none';
+                        document.getElementById('menu-check-radio').style.display = 'none';
                         document.getElementById('menu-play-next').style.display = 'flex';
                         contextMenu.style.top = `${e.clientY}px`;
                         contextMenu.style.left = `${e.clientX - 140}px`;
@@ -558,17 +564,8 @@
                         const trackIndex = i + bIdx;
                         try {
                             const filePath = entry.path;
-                            const stats = await fs.stat(filePath);
-                            const fileHandle = await fs.open(filePath, 'r');
-                            const startBuffer = Buffer.alloc(131072);
-                            await fileHandle.read(startBuffer, 0, 131072, 0);
-                            const endBuffer = Buffer.alloc(128);
-                            const endPos = stats.size > 128 ? stats.size - 128 : 0;
-                            await fileHandle.read(endBuffer, 0, 128, endPos);
-                            await fileHandle.close();
-                            const tagBlob = new Blob([startBuffer, endBuffer], { type: 'audio/mpeg' });
-                            const meta = await parseAudioTags(tagBlob, entry.name);
-                            entry._fileSize = stats.size;
+                            const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                            entry._fileSize = meta.fileSize;
                             const titleElem = document.getElementById(`title-${trackIndex}`);
                             const artistElem = document.getElementById(`artist-${trackIndex}`);
                             if (titleElem) titleElem.textContent = meta.title;
@@ -579,19 +576,8 @@
                                 if (coverImg) { coverImg.src = meta.coverDataUrl; coverImg.classList.add('loaded'); }
                                 if (coverPh) coverPh.style.display = 'none';
                             }
-                            if (parsedMetadataCache[trackIndex]) parsedMetadataCache[trackIndex].coverDataUrl = meta.coverDataUrl;
-
-                            // Load duration and compute bitrate
-                            const duration = await new Promise((resolve) => {
-                                const tmpAudio = new Audio();
-                                tmpAudio.preload = 'metadata';
-                                tmpAudio.onloadedmetadata = () => resolve(tmpAudio.duration);
-                                tmpAudio.onerror = () => resolve(0);
-                                tmpAudio.src = `file://${entry.path.replace(/\\/g, '/')}`;
-                            });
-                            const kbps = duration > 0 ? Math.round((stats.size * 8) / duration / 1000) : 0;
-                            meta.duration = duration;
-                            meta.kbps = kbps;
+                            const duration = meta.duration;
+                            const kbps = meta.kbps;
                             parsedMetadataCache[trackIndex] = meta;
                             const metaElem = document.getElementById(`meta-${trackIndex}`);
                             if (metaElem) metaElem.textContent = duration > 0 ? `${formatTime(duration)} | ${kbps}kbps` : '--:--';
@@ -611,7 +597,7 @@
             const pl = userPlaylists.find(p => p.id === currentPlaylistId);
             if (!pl || pl.type !== 'folder') return;
             try {
-                const dirPath = await ipcRenderer.invoke('dialog:openDirectory');
+                const dirPath = await noctune.dialogOpenDirectory();
                 if (!dirPath) return;
                 // Save folder path to playlist so it survives playlist switching
                 if (!pl.path) {
@@ -635,7 +621,7 @@
 
         async function loadMusicFromDirectory(dirPath) {
             try {
-                try { await fs.access(dirPath); } catch (err) {
+                if (!(await noctune.fs.exists(dirPath))) {
                     statusText.textContent = `Нет доступа к папке`;
                     return;
                 }
@@ -647,12 +633,12 @@
                 playlistElem.innerHTML = '';
                 statusText.textContent = 'Импорт треков...';
 
-                const files = await fs.readdir(dirPath);
+                const files = await noctune.fs.readDir(dirPath);
                 let count = 0;
 
                 for (const fileName of files) {
                     if (isAudioFile(fileName)) {
-                        const fullPath = path.join(dirPath, fileName);
+                        const fullPath = noctune.fs.joinPath(dirPath, fileName);
                         fileEntries.push({ name: fileName, path: fullPath, kind: 'file' });
                         playlistOrder.push(count);
 
@@ -695,6 +681,7 @@
                         );
 
                         document.getElementById('menu-edit-radio').style.display = 'none';
+                        document.getElementById('menu-check-radio').style.display = 'none';
                         document.getElementById('menu-play-next').style.display = 'flex';
 
                         contextMenu.style.top = `${e.clientY}px`;
@@ -726,19 +713,8 @@
                     try {
                         if (entry.kind === 'radio') return;
                         const filePath = entry.path;
-                        const stats = await fs.stat(filePath);
-                        const fileSize = stats.size;
-
-                        const fileHandle = await fs.open(filePath, 'r');
-                        const startBuffer = Buffer.alloc(131072);
-                        await fileHandle.read(startBuffer, 0, 131072, 0);
-                        const endBuffer = Buffer.alloc(128);
-                        const endPosition = fileSize > 128 ? fileSize - 128 : 0;
-                        await fileHandle.read(endBuffer, 0, 128, endPosition);
-                        await fileHandle.close();
-
-                        const tagBlob = new Blob([startBuffer, endBuffer], { type: 'audio/mpeg' });
-                        const meta = await parseAudioTags(tagBlob, entry.name);
+                        const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                        entry._fileSize = meta.fileSize;
 
                         const titleElem = document.getElementById(`title-${trackIndex}`);
                         const artistElem = document.getElementById(`artist-${trackIndex}`);
@@ -753,19 +729,9 @@
                         } else {
                             if (coverImg) coverImg.classList.remove('loaded');
                         }
-                        if (parsedMetadataCache[trackIndex]) parsedMetadataCache[trackIndex].coverDataUrl = meta.coverDataUrl;
 
-                        const duration = await new Promise((resolve) => {
-                            const tempAudio = new Audio();
-                            tempAudio.preload = 'metadata';
-                            tempAudio.onloadedmetadata = () => resolve(tempAudio.duration);
-                            tempAudio.onerror = () => resolve(0);
-                            tempAudio.src = `file://${filePath.replace(/\\/g, '/')}`;
-                        });
-
-                        const kbps = duration > 0 ? Math.round((fileSize * 8) / duration / 1000) : 0;
-                        meta.duration = duration;
-                        meta.kbps = kbps;
+                        const duration = meta.duration;
+                        const kbps = meta.kbps;
                         parsedMetadataCache[trackIndex] = meta;
 
                         const metaElem = document.getElementById(`meta-${trackIndex}`);
@@ -820,6 +786,7 @@
                     e.stopPropagation();
                     selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
                     document.getElementById('menu-edit-radio').style.display = 'none';
+                    document.getElementById('menu-check-radio').style.display = 'none';
                     document.getElementById('menu-play-next').style.display = 'flex';
                     contextMenu.style.top = `${e.clientY}px`;
                     contextMenu.style.left = `${e.clientX - 140}px`;
@@ -846,6 +813,17 @@
             if (selectedTrackIndexInMenu !== -1) {
                 playNextIndex = selectedTrackIndexInMenu;
                 statusText.textContent = 'Следующий трек назначен';
+            }
+        });
+
+        // Ручная проверка доступности радиостанции из контекстного меню —
+        // тот же путь (без CORS), что и авто-проверка при загрузке плейлиста.
+        document.getElementById('menu-check-radio').addEventListener('click', () => {
+            if (selectedTrackIndexInMenu === -1) return;
+            const badge = document.getElementById(`radio-status-${selectedTrackIndexInMenu}`);
+            const entry = fileEntries[selectedTrackIndexInMenu];
+            if (entry && entry.kind === 'radio') {
+                checkOneRadioStation(entry.path, badge);
             }
         });
 
@@ -902,7 +880,7 @@
                         trackArtist.textContent = '';
                         miniTrackTitle.textContent = 'Удалено';
                         triggerMiniMarquee();
-                        if (window.discordRPCEnabled) ipcRenderer.send('discord-rpc-clear-activity');
+                        if (window.discordRPCEnabled) noctune.discordRpcClearActivity();
                     } else if (currentIndex > orderIdx) {
                         // Трек выше удалённого — сдвигаем индекс
                         currentIndex--;

@@ -14,6 +14,7 @@
         // смещение с пульсацией/размытием/свечением/тряской.
         function updateBgCursor() {
             requestAnimationFrame(updateBgCursor);
+            if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
             // Сглаживание целевой позиции — всегда, чтобы при включении
             // эффекта не было рывка с произвольного значения.
             const tx = window._bgCursorTargetX || 0;
@@ -52,6 +53,7 @@
 
         function visualize() {
             requestAnimationFrame(visualize);
+            if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
             if (!analyzer) return;
 
             const bufferLength = analyzer.frequencyBinCount;

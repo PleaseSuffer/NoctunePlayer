@@ -4,7 +4,7 @@
             else { shuffleList = []; currentShufflePos = -1; }
             btnShuffle.classList.toggle('active', isShuffle);
             miniBtnShuffle.classList.toggle('active', isShuffle);
-            localStorage.setItem('player_shuffle', isShuffle ? '1' : '0');
+            appStorage.setItem('player_shuffle', isShuffle ? '1' : '0');
         }
 
         function updateRepeatUI() {
@@ -24,7 +24,7 @@
         function toggleRepeat() {
             repeatMode = (repeatMode + 1) % 3;
             updateRepeatUI();
-            localStorage.setItem('player_repeat', String(repeatMode));
+            appStorage.setItem('player_repeat', String(repeatMode));
         }
 
         // ========================

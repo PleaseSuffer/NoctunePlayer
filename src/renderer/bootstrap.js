@@ -17,7 +17,7 @@
         });
 
         function restoreEqState() {
-            const saved = localStorage.getItem('player_eq_state');
+            const saved = appStorage.getItem('player_eq_state');
             if (!saved) { applyPreset("Обычный", false); return; }
 
             const state = JSON.parse(saved);
@@ -99,9 +99,9 @@
             loadPlaylistsFromStorage();
 
             try {
-                const version = await ipcRenderer.invoke('get-app-version');
+                const version = await noctune.getAppVersion();
                 try {
-                    const tech = await ipcRenderer.invoke('get-tech-versions');
+                    const tech = await noctune.getTechVersions();
                     const ev = document.getElementById('about-electron-version');
                     const sv = document.getElementById('about-store-version');
                     const nv = document.getElementById('about-node-version');
@@ -114,7 +114,7 @@
                 document.getElementById('app-version').textContent = 'v1.0.0 (dev)';
             }
 
-            const savedPath = await ipcRenderer.invoke('get-saved-directory');
+            const savedPath = await noctune.getSavedDirectory();
             if (savedPath && userPlaylists.length === 0) {
                 const fallbackPl = {
                     id: 'pl_default',
@@ -131,8 +131,8 @@
                 // Restore last playlist and track
                 const rememberToggle = document.getElementById('setting-remember-track');
                 const shouldRemember = !rememberToggle || rememberToggle.checked;
-                const lastPlId = localStorage.getItem('player_last_playlist');
-                const lastTrackOrder = localStorage.getItem('player_last_track_order');
+                const lastPlId = appStorage.getItem('player_last_playlist');
+                const lastTrackOrder = appStorage.getItem('player_last_track_order');
                 
                 if (shouldRemember && lastPlId && userPlaylists.find(p => p.id === lastPlId)) {
                     await selectPlaylist(lastPlId);
@@ -164,7 +164,7 @@
                             }
 
                             // Восстанавливаем позицию
-                            const savedPos = parseFloat(localStorage.getItem('player_last_track_position') || '0');
+                            const savedPos = parseFloat(appStorage.getItem('player_last_track_position') || '0');
                             if (savedPos > 0) {
                                 pausedAt = savedPos;
                                 if (entry && entry.kind !== 'radio') {
@@ -193,7 +193,7 @@
 
                             // Авто-воспроизведение если было включено и настройка разрешает
                             const restorePlayback = document.getElementById('setting-restore-playback');
-                            const wasPlaying = localStorage.getItem('player_was_playing') === '1';
+                            const wasPlaying = appStorage.getItem('player_was_playing') === '1';
                             if (restorePlayback?.checked && wasPlaying && entry && entry.kind !== 'radio') {
                                 // Небольшая задержка чтобы AudioContext успел инициализироваться
                                 setTimeout(() => playTrack(idx, savedPos > 0 ? savedPos : 0), 300);
@@ -208,21 +208,21 @@
 
         renderPresetButtons();
 
-        const savedTheme = localStorage.getItem('player_theme');
+        const savedTheme = appStorage.getItem('player_theme');
         if (savedTheme === 'dark') {
             document.body.setAttribute('data-theme', 'dark');
             themeToggle.innerHTML = '<i data-lucide="sun"></i>';
         }
 
-        const savedVolume = localStorage.getItem('player_volume');
+        const savedVolume = appStorage.getItem('player_volume');
         if (savedVolume !== null) { updateVolume(parseFloat(savedVolume), false); }
 
-        if (localStorage.getItem('player_shuffle') === '1') {
+        if (appStorage.getItem('player_shuffle') === '1') {
             isShuffle = true;
             btnShuffle.classList.add('active');
             miniBtnShuffle.classList.add('active');
         }
-        const savedRepeat = parseInt(localStorage.getItem('player_repeat') || '0');
+        const savedRepeat = parseInt(appStorage.getItem('player_repeat') || '0');
         if (savedRepeat >= 0 && savedRepeat <= 2) repeatMode = savedRepeat;
         updateRepeatUI();
 

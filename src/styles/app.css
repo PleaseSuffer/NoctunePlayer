@@ -784,6 +784,7 @@
             display: inline-block;
             width: 46px;
             height: 24px;
+            flex-shrink: 0; /* длинные settings-row-desc иначе сжимают тумблер внутри flex-строки */
         }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
         .slider-round {
@@ -1751,6 +1752,34 @@
         .notification-toast-copy-stack.copied {
             color: #2ecc71;
             border-color: #2ecc71;
+        }
+        .notification-toast-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .notification-toast-action {
+            flex: 1;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--track-hover);
+            color: var(--text-color);
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .notification-toast-action:hover {
+            border-color: var(--accent-color);
+        }
+        .notification-toast-action.primary {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+        }
+        .notification-toast-action.primary:hover {
+            opacity: 0.9;
         }
         @keyframes toastSlideIn {
             from { opacity: 0; transform: translateX(30px); }

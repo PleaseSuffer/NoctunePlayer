@@ -9,11 +9,11 @@
 
         function loadHotkeyBindings() {
             try {
-                const saved = JSON.parse(localStorage.getItem('setting_hotkeys') || 'null');
+                const saved = JSON.parse(appStorage.getItem('setting_hotkeys') || 'null');
                 const merged = Object.assign({}, DEFAULT_HOTKEYS, saved || {});
                 Object.keys(merged).forEach(k => { merged[k] = migrateLegacyCombo(merged[k]); });
                 window.hotkeyBindings = merged;
-                localStorage.setItem('setting_hotkeys', JSON.stringify(merged));
+                appStorage.setItem('setting_hotkeys', JSON.stringify(merged));
             } catch (e) {
                 window.hotkeyBindings = Object.assign({}, DEFAULT_HOTKEYS);
             }

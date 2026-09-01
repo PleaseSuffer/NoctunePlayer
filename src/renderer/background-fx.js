@@ -147,6 +147,7 @@
         for (let i = 0; i < 60; i++) stars.push(new Star());
 
         function animateStars() {
+            if (window._rafSuspended) { requestAnimationFrame(animateStars); return; } // окно свёрнуто в трей
             starCtx.clearRect(0, 0, starCanvas.clientWidth, starCanvas.clientHeight);
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             const color = isDark ? '255, 255, 255' : '100, 100, 100';
