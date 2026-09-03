@@ -880,10 +880,17 @@
                 } else {
                     const duration = currentTrackDuration || (localAudioElement ? localAudioElement.duration : 0);
                     const pos = localAudioElement ? localAudioElement.currentTime : 0;
+                    // Discord сам «тикает» индикатор прогресса по реальному времени между
+                    // startTimestamp и endTimestamp — он не знает о playbackRate трека.
+                    // Поэтому оставшуюся и уже прошедшую часть нужно масштабировать на
+                    // 1/rate: при 2x аудио-секунда проходит за полсекунды реального времени
+                    // и наоборот при замедлении — иначе полоска в Discord рассинхронизируется
+                    // с реальной позицией и временем окончания трека.
+                    const rate = (localAudioElement && localAudioElement.playbackRate > 0) ? localAudioElement.playbackRate : 1;
                     if (duration && isFinite(duration) && duration > 0) {
-                        const startMs = now - Math.floor(pos * 1000);
+                        const startMs = now - Math.floor((pos / rate) * 1000);
                         activity.startTimestamp = Math.floor(startMs / 1000);
-                        activity.endTimestamp = Math.floor((startMs + duration * 1000) / 1000);
+                        activity.endTimestamp = Math.floor((startMs + (duration / rate) * 1000) / 1000);
                     }
                 }
             } else if (!isRadioMode) {

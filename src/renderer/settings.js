@@ -155,7 +155,7 @@
             function applyRememberTrackSub(checked) {
                 const sub     = document.getElementById('remember-track-sub');
                 const restoreEl = document.getElementById('setting-restore-playback');
-                setSettingsBlockVisible(sub, checked, '');
+                setSettingsBlockVisible(sub, checked, 'block');
                 if (restoreEl) {
                     restoreEl.disabled = !checked;
                     if (!checked) { restoreEl.checked = false; appStorage.setItem('setting_restore_playback', '0'); }
@@ -460,7 +460,7 @@
             const settingVizRotate = document.getElementById('setting-viz-rotate-colors');
             const vizRotateSpeedRow = document.getElementById('viz-rotate-speed-row');
             function applyRotateSpeedRowVisibility(checked) {
-                setSettingsBlockVisible(vizRotateSpeedRow, checked, '');
+                setSettingsBlockVisible(vizRotateSpeedRow, checked, 'block');
             }
             settingVizRotate.addEventListener('change', () => {
                 window.vizRotateColors = settingVizRotate.checked;
@@ -495,7 +495,7 @@
             const settingScrollGrad = document.getElementById('setting-viz-scroll-grad');
             const vizScrollSpeedRow = document.getElementById('viz-scroll-speed-row');
             function applyScrollGradRowVisibility(checked) {
-                setSettingsBlockVisible(vizScrollSpeedRow, checked, '');
+                setSettingsBlockVisible(vizScrollSpeedRow, checked, 'block');
             }
             if (settingScrollGrad) settingScrollGrad.addEventListener('change', () => {
                 window.vizScrollGrad = settingScrollGrad.checked;
@@ -516,7 +516,7 @@
             const settingScrollGradWave = document.getElementById('setting-viz-scroll-grad-wave');
             const vizScrollSpeedWaveRow = document.getElementById('viz-scroll-speed-wave-row');
             function applyScrollGradWaveRowVisibility(checked) {
-                setSettingsBlockVisible(vizScrollSpeedWaveRow, checked, '');
+                setSettingsBlockVisible(vizScrollSpeedWaveRow, checked, 'block');
             }
             if (settingScrollGradWave) settingScrollGradWave.addEventListener('change', () => {
                 window.vizScrollGradWave = settingScrollGradWave.checked;
@@ -565,7 +565,7 @@
             const settingWaveTrail = document.getElementById('setting-viz-wave-trail');
             const vizWaveTrailRow  = document.getElementById('viz-wave-trail-row');
             function applyWaveTrailRowVisibility(checked) {
-                setSettingsBlockVisible(vizWaveTrailRow, checked, '');
+                setSettingsBlockVisible(vizWaveTrailRow, checked, 'block');
             }
             if (settingWaveTrail) settingWaveTrail.addEventListener('change', () => {
                 window.vizWaveTrail = settingWaveTrail.checked;
@@ -638,6 +638,10 @@
                 if (mainLabel) mainLabel.textContent = label;
                 if (localAudioElement) localAudioElement.playbackRate = v;
                 appStorage.setItem('setting_playback_speed', v);
+                // Пересчитываем start/endTimestamp для Discord RPC сразу — иначе полоска
+                // прогресса в Discord останется рассинхронизирована до следующего
+                // периодического пуша (раз в 20с, см. pushDiscordActivity в audio-engine.js).
+                if (typeof pushDiscordActivity === 'function') pushDiscordActivity();
             }
 
             speedSlider.addEventListener('input', () => applyPlaybackSpeed(parseFloat(speedSlider.value)));
@@ -1191,8 +1195,12 @@
                     const removeBtn = document.createElement('button');
                     removeBtn.type = 'button';
                     removeBtn.title = 'Удалить из недавних';
-                    removeBtn.style.cssText = 'position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:var(--bg-secondary,#2a2a2a);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-primary);padding:0;';
-                    removeBtn.innerHTML = '<i data-lucide="x" style="width:10px;height:10px;"></i>';
+                    // Тёмный полупрозрачный фон + белая иконка — как у бейджа видео выше,
+                    // намеренно НЕ завязано на тему/акцент (var(--bg-secondary)/var(--text-primary)
+                    // раньше не существовали в палитре, из-за чего в светлой теме крестик
+                    // становился практически невидимым — тёмно-серый фон + тёмная иконка).
+                    removeBtn.style.cssText = 'position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.65);border:1px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;';
+                    removeBtn.innerHTML = '<i data-lucide="x" style="width:10px;height:10px;color:#fff;"></i>';
                     removeBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         removeRecentBackground(item.path);
@@ -1616,7 +1624,7 @@
             const settingBgCursorTiltInvert = document.getElementById('setting-bg-cursor-tilt-invert');
 
             function applyBgCursorTiltSub(enabled) {
-                setSettingsBlockVisible(bgCursorTiltSub, enabled, '');
+                setSettingsBlockVisible(bgCursorTiltSub, enabled, 'block');
                 if (settingBgCursorTilt) {
                     settingBgCursorTilt.disabled = !enabled;
                     if (!enabled) {
@@ -1627,7 +1635,7 @@
                 }
             }
             function applyBgCursorSub(enabled) {
-                setSettingsBlockVisible(bgCursorSub, enabled, '');
+                setSettingsBlockVisible(bgCursorSub, enabled, 'block');
                 if (settingBgCursorTilt) settingBgCursorTilt.disabled = !enabled;
                 if (!enabled) applyBgCursorTiltSub(false);
             }
@@ -1688,6 +1696,26 @@
             const discordRpcManualRow           = document.getElementById('discord-rpc-manual-row');
             const discordRpcRedirectBaseInput   = document.getElementById('discord-rpc-redirect-base');
 
+            // Значения по умолчанию — используются, когда «Ручная настройка» ВЫКЛЮЧЕНА,
+            // независимо от того, что осталось введено в полях (поля просто скрыты,
+            // но раньше их значения всё равно продолжали применяться — баг).
+            const DISCORD_RPC_DEFAULT_CLIENT_ID     = '1519344685871792128';
+            const DISCORD_RPC_DEFAULT_REDIRECT_BASE = 'https://noctune.lifeisafelony.by/redirect';
+
+            function getDiscordRpcClientId() {
+                if (settingDiscordRpcManual.checked) {
+                    const v = discordRpcClientIdInput.value.trim();
+                    if (v) return v;
+                }
+                return DISCORD_RPC_DEFAULT_CLIENT_ID;
+            }
+            function getDiscordRpcRedirectBase() {
+                if (settingDiscordRpcManual.checked) {
+                    return discordRpcRedirectBaseInput.value.trim();
+                }
+                return DISCORD_RPC_DEFAULT_REDIRECT_BASE;
+            }
+
             function setDiscordRpcStatusPill(state, text) {
                 discordRpcStatusPill.classList.remove('is-connected', 'is-error');
                 if (state === 'connected') discordRpcStatusPill.classList.add('is-connected');
@@ -1705,14 +1733,11 @@
                 applyDiscordRpcBodyVisibility(enabled);
                 appStorage.setItem('setting_discord_rpc_enabled', enabled ? '1' : '0');
 
+                window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
+
                 if (enabled) {
-                    const clientId = discordRpcClientIdInput.value.trim();
-                    if (!clientId) {
-                        setDiscordRpcStatusPill('error', 'Укажите Application ID');
-                        return;
-                    }
                     setDiscordRpcStatusPill('idle', 'Подключение…');
-                    const res = await noctune.discordRpcConnect(clientId);
+                    const res = await noctune.discordRpcConnect(getDiscordRpcClientId());
                     if (res && res.ok) {
                         pushDiscordActivity();
                     } else if (res && res.error === 'not-installed') {
@@ -1726,12 +1751,14 @@
                 }
             });
 
+            // Поле Application ID имеет значение только пока включена «Ручная
+            // настройка» — при выключенном тумблере оно скрыто и не должно
+            // влиять на то, к какому приложению идёт подключение.
             discordRpcClientIdInput.addEventListener('change', async () => {
-                const clientId = discordRpcClientIdInput.value.trim();
-                appStorage.setItem('setting_discord_rpc_client_id', clientId);
-                if (window.discordRPCEnabled && clientId) {
+                appStorage.setItem('setting_discord_rpc_client_id', discordRpcClientIdInput.value.trim());
+                if (window.discordRPCEnabled && settingDiscordRpcManual.checked) {
                     setDiscordRpcStatusPill('idle', 'Подключение…');
-                    const res = await noctune.discordRpcConnect(clientId);
+                    const res = await noctune.discordRpcConnect(getDiscordRpcClientId());
                     if (res && res.ok) pushDiscordActivity();
                 }
             });
@@ -1746,14 +1773,24 @@
                 appStorage.setItem('setting_discord_rpc_radio_button', settingDiscordRpcRadioButton.checked ? '1' : '0');
                 pushDiscordActivity();
             });
-            settingDiscordRpcManual.addEventListener('change', () => {
+            settingDiscordRpcManual.addEventListener('change', async () => {
                 setSettingsBlockVisible(discordRpcManualRow, settingDiscordRpcManual.checked, 'block');
                 appStorage.setItem('setting_discord_rpc_manual', settingDiscordRpcManual.checked ? '1' : '0');
+                // Переключение "ручная/по умолчанию" меняет эффективный Application ID
+                // и redirect-URL — переподключаемся и пересчитываем кнопку "Слушать".
+                window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
+                if (window.discordRPCEnabled) {
+                    setDiscordRpcStatusPill('idle', 'Подключение…');
+                    const res = await noctune.discordRpcConnect(getDiscordRpcClientId());
+                    if (res && res.ok) pushDiscordActivity();
+                }
             });
             discordRpcRedirectBaseInput.addEventListener('change', () => {
-                window.discordRPCRedirectBase = discordRpcRedirectBaseInput.value.trim();
-                appStorage.setItem('setting_discord_rpc_redirect_base', window.discordRPCRedirectBase);
-                pushDiscordActivity();
+                appStorage.setItem('setting_discord_rpc_redirect_base', discordRpcRedirectBaseInput.value.trim());
+                if (settingDiscordRpcManual.checked) {
+                    window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
+                    pushDiscordActivity();
+                }
             });
 
             noctune.onDiscordRpcStatus((status) => {
@@ -2054,6 +2091,41 @@
                         a: appStorage.getItem('setting_adaptive_accent') === '1',
                         g: appStorage.getItem('setting_adaptive_gradient') === '1',
                     },
+                    si: settingStarsInteractive.checked,                             // stars interactive
+                    vint: parseFloat(appStorage.getItem('setting_viz_intensity') || '1'), // viz intensity
+                    vsty: appStorage.getItem('setting_viz_style') || 'circle-smooth', // viz type
+                    vin: (appStorage.getItem('setting_viz_inner') ?? '1') === '1',   // inner circle
+                    vpk: (appStorage.getItem('setting_viz_peaks') ?? '1') === '1',   // bar peaks
+                    w: {                                                              // waveform
+                        tr: settingWaveTrail.checked,
+                        tra: parseFloat(appStorage.getItem('setting_viz_wave_trail_amount') || '0.3'),
+                        hs: settingWaveHideSilence.checked,
+                        ln: parseInt(waveLineSlider.value, 10) || 1,
+                        sn: parseFloat(waveSensSlider.value) || 1.5,
+                    },
+                    fw: {                                                             // fireworks
+                        cm: appStorage.getItem('setting_fw_color_mode') || 'random',
+                        cc: safeParseJSON(appStorage.getItem('setting_fw_custom_colors'), ['#ffaa33', '#ff5e7d', '#4da6ff']),
+                        th: parseFloat(appStorage.getItem('setting_fw_threshold') || '0'),
+                        fr: parseFloat(appStorage.getItem('setting_fw_frequency') || '1'),
+                        id: (appStorage.getItem('setting_fw_idle_spawn') ?? '1') === '1',
+                        br: (appStorage.getItem('setting_fw_beat_reactive') ?? '1') === '1',
+                        bb: parseInt(appStorage.getItem('setting_fw_beat_burst') || '1', 10),
+                        tl: parseInt(appStorage.getItem('setting_fw_trail') || '4', 10),
+                    },
+                    cf: {                                                             // confetti
+                        en: settingConfetti.checked,
+                        sp: appStorage.getItem('setting_confetti_spawn') || 'top',
+                        gr: safeParseJSON(appStorage.getItem('setting_confetti_grad'), ['#ff6b9d', '#c44dff', '#4daaff']),
+                        it: parseFloat(appStorage.getItem('setting_confetti_intensity') || '1'),
+                        gv: parseFloat(appStorage.getItem('setting_confetti_gravity') || '1'),
+                        sz: parseFloat(appStorage.getItem('setting_confetti_size') || '1'),
+                        sl: parseInt(appStorage.getItem('setting_confetti_sprinkler_lines') || '4', 10),
+                        sv: parseFloat(appStorage.getItem('setting_confetti_sensitivity') || '1'),
+                        sw: settingConfettiSwirl.checked,
+                        ss: parseFloat(appStorage.getItem('setting_confetti_swirl_str') || '1'),
+                        id2: appStorage.getItem('setting_confetti_idle') || 'drift',
+                    },
                     bg: null,
                 };
 
@@ -2183,6 +2255,58 @@
                     setValueAndFire(bgCursorTiltIntensitySlider, payload.bg.cti);
                     if (typeof payload.bg.ctv === 'boolean') setCheckedAndFire(settingBgCursorTiltInvert, payload.bg.ctv);
                     showNotification('Настройки фона применены — само изображение/видео тема не переносит, выберите его вручную', 'info');
+                }
+
+                if (typeof payload.si === 'boolean') setCheckedAndFire(settingStarsInteractive, payload.si);
+                setValueAndFire(vizIntSlider, payload.vint);
+                if (payload.vsty) selectVizType(payload.vsty);
+                if (typeof payload.vin === 'boolean') setCheckedAndFire(settingVizInner, payload.vin);
+                if (typeof payload.vpk === 'boolean') setCheckedAndFire(settingVizPeaks, payload.vpk);
+
+                if (payload.w) {
+                    const w = payload.w;
+                    if (typeof w.tr === 'boolean') setCheckedAndFire(settingWaveTrail, w.tr);
+                    setValueAndFire(waveTrailAmountSlider, w.tra);
+                    if (typeof w.hs === 'boolean') setCheckedAndFire(settingWaveHideSilence, w.hs);
+                    setValueAndFire(waveLineSlider, w.ln);
+                    setValueAndFire(waveSensSlider, w.sn);
+                }
+
+                if (payload.fw) {
+                    const fw = payload.fw;
+                    if (fw.cm) selectFwColorMode(fw.cm);
+                    if (Array.isArray(fw.cc) && fw.cc.length === 3) {
+                        fwCustomColor1.value = fw.cc[0];
+                        fwCustomColor2.value = fw.cc[1];
+                        fwCustomColor3.value = fw.cc[2];
+                        applyFwCustomColors();
+                    }
+                    setValueAndFire(fwThresholdSlider, fw.th);
+                    setValueAndFire(fwFreqSlider, fw.fr);
+                    if (typeof fw.id === 'boolean') setCheckedAndFire(fwIdleSpawnToggle, fw.id);
+                    if (typeof fw.br === 'boolean') setCheckedAndFire(fwBeatToggle, fw.br);
+                    setValueAndFire(fwBeatBurstSlider, fw.bb);
+                    setValueAndFire(fwTrailSlider, fw.tl);
+                }
+
+                if (payload.cf) {
+                    const cf = payload.cf;
+                    if (typeof cf.en === 'boolean') setCheckedAndFire(settingConfetti, cf.en);
+                    if (cf.sp) selectConfettiSpawn(cf.sp);
+                    if (Array.isArray(cf.gr) && cf.gr.length === 3) {
+                        confettiC1.value = cf.gr[0];
+                        confettiC2.value = cf.gr[1];
+                        confettiC3.value = cf.gr[2];
+                        applyConfettiColors();
+                    }
+                    setValueAndFire(confettiIntSlider, cf.it);
+                    setValueAndFire(confettiGravSlider, cf.gv);
+                    setValueAndFire(confettiSizeSlider, cf.sz);
+                    setValueAndFire(sprinklerLinesSlider, cf.sl);
+                    setValueAndFire(sensitivitySlider, cf.sv);
+                    if (typeof cf.sw === 'boolean') setCheckedAndFire(settingConfettiSwirl, cf.sw);
+                    setValueAndFire(confettiSwirlStrSlider, cf.ss);
+                    if (cf.id2) selectConfettiIdle(cf.id2);
                 }
 
                 // Адаптивные тумблеры применяем последними: если у импортирующего
@@ -2754,7 +2878,7 @@
                 settingDiscordRpcManual.checked = savedDiscordRpcManual;
                 setSettingsBlockVisible(discordRpcManualRow, savedDiscordRpcManual, 'block');
 
-                discordRpcClientIdInput.value = appStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
+                discordRpcClientIdInput.value = appStorage.getItem('setting_discord_rpc_client_id') || DISCORD_RPC_DEFAULT_CLIENT_ID;
 
                 const savedDiscordRpcProgress = appStorage.getItem('setting_discord_rpc_progress');
                 settingDiscordRpcProgress.checked = savedDiscordRpcProgress === null ? true : savedDiscordRpcProgress === '1';
@@ -2764,8 +2888,10 @@
                 settingDiscordRpcRadioButton.checked = savedDiscordRpcRadioButton === null ? true : savedDiscordRpcRadioButton === '1';
                 window.discordRPCShowRadioButton = settingDiscordRpcRadioButton.checked;
 
-                window.discordRPCRedirectBase = appStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.ru/redirect';
-                discordRpcRedirectBaseInput.value = window.discordRPCRedirectBase;
+                discordRpcRedirectBaseInput.value = appStorage.getItem('setting_discord_rpc_redirect_base') || DISCORD_RPC_DEFAULT_REDIRECT_BASE;
+                // Эффективный redirect-URL зависит от тумблера "Ручная настройка" —
+                // считаем ПОСЛЕ того, как settingDiscordRpcManual.checked уже восстановлен выше.
+                window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
 
                 if (savedDiscordRpcEnabled) {
                     noctune.discordRpcStatus().then((s) => {
@@ -2826,10 +2952,14 @@
                 window.discordRPCEnabled = appStorage.getItem('setting_discord_rpc_enabled') === '1';
                 window.discordRPCShowProgress = (appStorage.getItem('setting_discord_rpc_progress') ?? '1') === '1';
                 window.discordRPCShowRadioButton = (appStorage.getItem('setting_discord_rpc_radio_button') ?? '1') === '1';
-                window.discordRPCRedirectBase = appStorage.getItem('setting_discord_rpc_redirect_base') || 'https://noctune.lifeisafelony.ru/redirect';
-                const clientId = appStorage.getItem('setting_discord_rpc_client_id') || '1519344685871792128';
-                if (window.discordRPCEnabled && clientId) {
-                    noctune.discordRpcConnect(clientId);
+                // refreshSettingsUI() (вызван строкой выше) уже восстановил
+                // settingDiscordRpcManual.checked и поля ввода — используем те же
+                // помощники, чтобы при выключенной "Ручной настройке" всегда
+                // подключались с ID/redirect-URL по умолчанию, а не тем, что
+                // осталось в скрытых полях.
+                window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
+                if (window.discordRPCEnabled) {
+                    noctune.discordRpcConnect(getDiscordRpcClientId());
                 }
             })();
             window.vizIntensity = window.vizIntensity || 1;
