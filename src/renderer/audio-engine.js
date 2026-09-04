@@ -1,3 +1,53 @@
+        // ── Интеграция: Last.fm (скробблинг) ────────────────────────────────
+        // Состояние сбрасывается при каждой смене трека (lastfmResetTrackState),
+        // "now playing" уходит один раз на трек (дедуп по artist|title — повторные
+        // паузы/резюме одного трека не долбят API), а сам скробл срабатывает один
+        // раз, когда позиция пересекает порог по правилам Last.fm: трек короче 30с
+        // не скробблится, иначе порог = min(половина длительности, 4 минуты).
+        let _lastfmTrackMeta = null;
+        let _lastfmScrobbled = false;
+        let _lastfmNowPlayingSentFor = null;
+
+        function lastfmResetTrackState(meta) {
+            _lastfmTrackMeta = meta;
+            _lastfmScrobbled = false;
+            _lastfmNowPlayingSentFor = null;
+        }
+
+        function pushLastfmNowPlaying() {
+            if (!window.lastfmEnabled || !window.lastfmConnected || window.lastfmNowPlayingEnabled === false) return;
+            if (isRadioMode || !isPlaying || !_lastfmTrackMeta || !_lastfmTrackMeta.artist || !_lastfmTrackMeta.title) return;
+            const key = _lastfmTrackMeta.artist + '|' + _lastfmTrackMeta.title;
+            if (_lastfmNowPlayingSentFor === key) return;
+            _lastfmNowPlayingSentFor = key;
+            noctune.lastfm.nowPlaying({
+                artist: _lastfmTrackMeta.artist,
+                track: _lastfmTrackMeta.title,
+                album: _lastfmTrackMeta.album || undefined,
+                duration: _lastfmTrackMeta.duration || undefined,
+            }).catch(() => {});
+        }
+
+        function maybeLastfmScrobble(current) {
+            if (!window.lastfmEnabled || !window.lastfmConnected || window.lastfmScrobbleEnabled === false) return;
+            if (_lastfmScrobbled || isRadioMode || !_lastfmTrackMeta || !_lastfmTrackMeta.artist || !_lastfmTrackMeta.title) return;
+            const duration = _lastfmTrackMeta.duration || 0;
+            if (duration < 30) return; // короткие треки Last.fm не скробблит
+            const threshold = Math.min(duration / 2, 240);
+            if (current < threshold) return;
+            _lastfmScrobbled = true;
+            noctune.lastfm.scrobble({
+                artist: _lastfmTrackMeta.artist,
+                track: _lastfmTrackMeta.title,
+                album: _lastfmTrackMeta.album || undefined,
+                duration: duration,
+                // Момент "начала" трека восстанавливаем от текущей позиции —
+                // достаточно точно для API и не требует хранить реальный wall-clock
+                // старт (который сдвигался бы при каждой паузе).
+                timestamp: Math.floor(Date.now() / 1000) - Math.floor(current),
+            }).catch(() => {});
+        }
+
         function applyChannelMode(mode) {
             if (!window.chSplitter || !window.chMerger) return;
             // Disconnect all existing splitter→merger connections
@@ -332,6 +382,7 @@
 
                 timeCurrent.textContent = formatTime(current);
                 maybeSavePosition(current);
+                maybeLastfmScrobble(current);
 
                 // Resync SMTC position every ~10 s to correct drift
                 _smtcSyncCounter++;
@@ -505,6 +556,7 @@
                     });
                 }
                 _discordRadioStartedAt = Date.now();
+                lastfmResetTrackState(null); // радио не скробблим — см. пометку в карточке настроек
 
                 try {
                     if (!radioAudioElement) {
@@ -588,6 +640,7 @@
                     trackArtist.textContent = meta.artist;
                     miniTrackTitle.textContent = `${meta.artist} — ${meta.title}`;
                     triggerMiniMarquee();
+                    lastfmResetTrackState({ artist: meta.artist, title: meta.title, album: meta.album || '', duration: 0 });
 
                     // Update main player cover art
                     const playerCoverImg = document.getElementById('player-cover-img');
@@ -668,6 +721,7 @@
                         // Для совместимости с seek/tooltip — эмулируем объект с duration
                         currentDecodedBuffer = { duration: currentTrackDuration };
                         timeTotal.textContent = formatTime(currentTrackDuration);
+                        if (_lastfmTrackMeta) _lastfmTrackMeta.duration = currentTrackDuration;
                         // Now that duration is known, sync SMTC position state
                         updateSMTCPosition(localAudioElement.currentTime || startPosition);
 
@@ -844,6 +898,7 @@
                 });
             } catch(e) {}
             pushDiscordActivity();
+            pushLastfmNowPlaying();
         }
 
         // ── Интеграция: Discord Rich Presence ──────────────────────────────

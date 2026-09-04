@@ -1625,17 +1625,90 @@
                             </div>
                         </div>
 
-                        <!-- Заготовка под следующую интеграцию — наглядно показывает шаблон -->
-                        <div class="settings-card integration-card integration-card-disabled">
+                        <!-- Last.fm — скробблинг локальных треков. Структура намеренно повторяет
+                             карточку Discord выше: тумблер в шапке включает/выключает саму фичу,
+                             тело карточки — статус аккаунта, одна кнопка авторизации/выхода и
+                             настройки. Ручные API key/secret (для тех, кто не хочет пользоваться
+                             встроенным ключом Noctune) вводятся в замаскированные поля и нигде в
+                             интерфейсе не подсказываются реальным значением — только то, что ввёл
+                             сам пользователь. -->
+                        <div class="settings-card integration-card" id="integration-card-lastfm">
                             <div class="integration-card-header">
-                                <div class="integration-card-icon">
-                                    <i data-lucide="radio-tower" style="width:18px;height:18px;"></i>
+                                <div class="integration-card-icon" style="background:rgba(212,0,26,0.15);">
+                                    <i data-lucide="radio" style="width:18px;height:18px;color:#d51007;"></i>
                                 </div>
                                 <div class="integration-card-info">
                                     <div class="integration-card-name">Last.fm Scrobbling</div>
-                                    <div class="integration-card-desc">Отправка истории прослушиваний</div>
+                                    <div class="integration-card-desc" id="lastfm-card-desc">Отправка истории прослушиваний в ваш профиль Last.fm</div>
                                 </div>
-                                <span class="integration-soon-badge">Скоро</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-lastfm-enabled">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="integration-card-body" id="lastfm-body" style="display:none;">
+
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                                    <span class="integration-field-label" style="margin-bottom:0;">Статус аккаунта</span>
+                                    <span class="integration-status-pill" id="lastfm-status-pill">
+                                        <span class="integration-status-dot"></span><span id="lastfm-status-text">Не авторизовано</span>
+                                    </span>
+                                </div>
+
+                                <button class="btn" id="btn-lastfm-auth" style="width:100%;margin-bottom:14px;">Авторизовать</button>
+
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">Скробблинг</div>
+                                        <div class="settings-row-desc">Отправлять трек в историю после прослушивания половины (или 4 минут)</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-lastfm-scrobble" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">«Сейчас слушаю»</div>
+                                        <div class="settings-row-desc">Показывать текущий трек на странице профиля в реальном времени</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-lastfm-now-playing" checked>
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div>
+                                        <div class="settings-row-label" style="font-size:12px;">Ручная настройка</div>
+                                        <div class="settings-row-desc">Свои API key и Shared secret вместо встроенных в приложение</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-lastfm-manual">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+
+                                <div id="lastfm-manual-row" style="display:none;margin-top:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                    <div class="integration-field-label">API key</div>
+                                    <input type="password" id="lastfm-manual-key" class="integration-text-input"
+                                        placeholder="Ваш API key" autocomplete="off" style="margin-bottom:10px;">
+
+                                    <div class="integration-field-label">Shared secret</div>
+                                    <input type="password" id="lastfm-manual-secret" class="integration-text-input"
+                                        placeholder="Ваш Shared secret" autocomplete="off">
+                                    <div class="settings-row-desc" style="margin-top:6px;">
+                                        last.fm/api/account/create → создайте приложение, вставьте выданные
+                                        API key и Shared secret. Значения хранятся только локально на этом
+                                        компьютере и никуда, кроме last.fm, не отправляются. При смене
+                                        ключей потребуется авторизоваться заново.
+                                    </div>
+                                </div>
+
+                                <div class="settings-row-desc" style="margin-top:10px;">
+                                    Скробблится только локальная музыка (у радиопотоков нет надёжной
+                                    длительности, которая нужна Last.fm для правила «половина трека»).
+                                </div>
                             </div>
                         </div>
                     </div>

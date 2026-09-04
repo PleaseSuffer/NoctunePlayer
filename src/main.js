@@ -139,6 +139,140 @@ async function disconnectDiscordRPC() {
   discordRPCConnected = false;
 }
 
+// ── Интеграция: Last.fm (скробблинг) ────────────────────────────────────────
+// API key/secret принадлежат самому приложению Noctune (регистрируются один
+// раз разработчиком на last.fm/api/account/create), а не отдельному
+// пользователю. Каждый пользователь один раз авторизует СВОЙ аккаунт через
+// classic desktop-flow: auth.getToken → пользователь подтверждает в браузере
+// → auth.getSession отдаёт персональный session key, который живёт бессрочно
+// (пока пользователь не отзовёт доступ на last.fm/settings/applications) и
+// хранится локально в electron-store.
+//
+// ЧТОБЫ ФУНКЦИЯ ЗАРАБОТАЛА: зарегистрируйте приложение на
+// https://www.last.fm/api/account/create (бесплатно, ~2 минуты, никакого
+// review/модерации не требуется) и подставьте выданные API key и
+// Shared secret вместо плейсхолдеров ниже.
+const LASTFM_API_KEY    = 'ВСТАВЬТЕ_СЮДА_API_KEY';
+const LASTFM_API_SECRET = 'ВСТАВЬТЕ_СЮДА_SHARED_SECRET';
+const LASTFM_AUTH_ROOT  = 'https://www.last.fm/api/auth/';
+
+let lastfmSessionKey = null;
+let lastfmUsername = null;
+
+// Ручной оверрайд ключа/секрета — пользователь может ввести свои в
+// настройках (Интеграции → Last.fm → «Ручная настройка»); хранится в том же
+// electron-store, что и остальные настройки (через store:set из preload.js),
+// поэтому здесь просто читаем его заново на каждый запрос — без кеширования,
+// чтобы смена ключа в настройках сразу подхватывалась.
+function lastfmActiveCredentials() {
+  try {
+    if (store && store.get('setting_lastfm_manual') === '1') {
+      const key = (store.get('setting_lastfm_manual_key') || '').trim();
+      const secret = (store.get('setting_lastfm_manual_secret') || '').trim();
+      if (key && secret) return { key, secret };
+    }
+  } catch (e) {}
+  return { key: LASTFM_API_KEY, secret: LASTFM_API_SECRET };
+}
+
+function lastfmSign(params) {
+  // Подпись = md5(конкатенация "ключ+значение" всех параметров в алфавитном
+  // порядке ключей, БЕЗ format/callback, + shared secret) — формат из
+  // документации last.fm/api/webauth.
+  const { secret } = lastfmActiveCredentials();
+  const keys = Object.keys(params).filter(k => k !== 'format' && k !== 'callback').sort();
+  let base = '';
+  for (const k of keys) base += k + params[k];
+  base += secret;
+  return require('crypto').createHash('md5').update(base, 'utf8').digest('hex');
+}
+
+function lastfmRequest(params, httpMethod = 'GET') {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const querystring = require('querystring');
+
+    const { key } = lastfmActiveCredentials();
+    const fullParams = Object.assign({ api_key: key, format: 'json' }, params);
+    fullParams.api_sig = lastfmSign(fullParams);
+    const body = querystring.stringify(fullParams);
+
+    const options = {
+      hostname: 'ws.audioscrobbler.com',
+      path: '/2.0/' + (httpMethod === 'GET' ? ('?' + body) : ''),
+      method: httpMethod,
+      headers: httpMethod === 'POST'
+        ? { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }
+        : {},
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.error) reject(new Error(json.message || ('Last.fm error ' + json.error)));
+          else resolve(json);
+        } catch (e) { reject(new Error('Некорректный ответ Last.fm')); }
+      });
+    });
+    req.on('error', reject);
+    if (httpMethod === 'POST') req.write(body);
+    req.end();
+  });
+}
+
+function lastfmLoadSession() {
+  lastfmSessionKey = store.get('lastfm_session_key') || null;
+  lastfmUsername   = store.get('lastfm_username') || null;
+}
+
+async function lastfmBeginAuth() {
+  const res = await lastfmRequest({ method: 'auth.getToken' }, 'GET');
+  const token = res.token;
+  const authUrl = `${LASTFM_AUTH_ROOT}?api_key=${LASTFM_API_KEY}&token=${token}`;
+  shell.openExternal(authUrl);
+  return { ok: true, token };
+}
+
+async function lastfmCompleteAuth(token) {
+  // Вызывается после того, как пользователь нажал «Разрешить доступ» в
+  // браузере — до этого момента getSession с валидным, но неподтверждённым
+  // токеном отвечает ошибкой (это штатно, рендерер это учитывает при опросе).
+  const res = await lastfmRequest({ method: 'auth.getSession', token }, 'GET');
+  lastfmSessionKey = res.session.key;
+  lastfmUsername = res.session.name;
+  store.set('lastfm_session_key', lastfmSessionKey);
+  store.set('lastfm_username', lastfmUsername);
+  return { ok: true, username: lastfmUsername };
+}
+
+function lastfmDisconnect() {
+  lastfmSessionKey = null;
+  lastfmUsername = null;
+  store.delete('lastfm_session_key');
+  store.delete('lastfm_username');
+}
+
+async function lastfmUpdateNowPlaying({ artist, track, album, duration }) {
+  if (!lastfmSessionKey) return { ok: false, error: 'not-connected' };
+  const params = { method: 'track.updateNowPlaying', artist, track, sk: lastfmSessionKey };
+  if (album) params.album = album;
+  if (duration) params.duration = String(Math.round(duration));
+  try { await lastfmRequest(params, 'POST'); return { ok: true }; }
+  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+}
+
+async function lastfmScrobble({ artist, track, album, timestamp, duration }) {
+  if (!lastfmSessionKey) return { ok: false, error: 'not-connected' };
+  const params = { method: 'track.scrobble', artist, track, timestamp: String(timestamp), sk: lastfmSessionKey };
+  if (album) params.album = album;
+  if (duration) params.duration = String(Math.round(duration));
+  try { await lastfmRequest(params, 'POST'); return { ok: true }; }
+  catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+}
+
 function createWindow() {
   // 1. Создаем splash screen (окно загрузки)
   splash = new BrowserWindow({
@@ -692,6 +826,23 @@ ipcMain.handle('discord-rpc-status', () => {
     return { connected: discordRPCConnected, enabled: discordRPCEnabled };
 });
 
+// ── Интеграция: Last.fm — IPC ────────────────────────────────────────────
+ipcMain.handle('lastfm-begin-auth', async () => {
+    try { return await lastfmBeginAuth(); }
+    catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+});
+ipcMain.handle('lastfm-complete-auth', async (_e, token) => {
+    try { return await lastfmCompleteAuth(token); }
+    catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+});
+ipcMain.handle('lastfm-disconnect', () => {
+    lastfmDisconnect();
+    return { ok: true };
+});
+ipcMain.handle('lastfm-status', () => ({ connected: !!lastfmSessionKey, username: lastfmUsername }));
+ipcMain.handle('lastfm-now-playing', (_e, payload) => lastfmUpdateNowPlaying(payload || {}));
+ipcMain.handle('lastfm-scrobble', (_e, payload) => lastfmScrobble(payload || {}));
+
 ipcMain.on('discord-rpc-set-activity', (_e, activity) => {
     discordRPCLastActivity = activity || null;
     if (!discordRPC || !discordRPCConnected || !activity) return;
@@ -753,6 +904,7 @@ if (!gotTheLock) {
     app.setAppUserModelId('Noctune');
     initStore().then(() => {
       console.log('Store инициализирован');
+      lastfmLoadSession();
     });
     createWindow();
     handleArgvForDeepLink(process.argv);

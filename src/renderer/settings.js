@@ -1800,6 +1800,178 @@
             });
 
             // ====================================================
+            // ИНТЕГРАЦИИ: Last.fm (скробблинг)
+            // ====================================================
+            const settingLastfmEnabled   = document.getElementById('setting-lastfm-enabled');
+            const btnLastfmAuth          = document.getElementById('btn-lastfm-auth');
+            const lastfmBody             = document.getElementById('lastfm-body');
+            const lastfmCardDesc         = document.getElementById('lastfm-card-desc');
+            const lastfmStatusPill       = document.getElementById('lastfm-status-pill');
+            const lastfmStatusText       = document.getElementById('lastfm-status-text');
+            const settingLastfmScrobble    = document.getElementById('setting-lastfm-scrobble');
+            const settingLastfmNowPlaying  = document.getElementById('setting-lastfm-now-playing');
+            const settingLastfmManual     = document.getElementById('setting-lastfm-manual');
+            const lastfmManualRow        = document.getElementById('lastfm-manual-row');
+            const lastfmManualKeyInput   = document.getElementById('lastfm-manual-key');
+            const lastfmManualSecretInput = document.getElementById('lastfm-manual-secret');
+
+            function setLastfmStatusPill(state, text) {
+                lastfmStatusPill.classList.remove('is-connected', 'is-error');
+                if (state === 'connected') lastfmStatusPill.classList.add('is-connected');
+                else if (state === 'error') lastfmStatusPill.classList.add('is-error');
+                lastfmStatusText.textContent = text;
+            }
+
+            // Единая точка обновления UI карточки по факту подключения —
+            // вызывается и при старте приложения, и после успешной/неуспешной
+            // авторизации, и при отключении аккаунта. Кнопка одна — её текст и
+            // действие меняются в зависимости от состояния (вместо пары
+            // Подключить/Отключить, как раньше).
+            function refreshLastfmCardUI(connected, username) {
+                window.lastfmConnected = connected;
+                btnLastfmAuth.textContent = connected ? 'Отключить' : 'Авторизовать';
+                if (connected) {
+                    setLastfmStatusPill('connected', username ? `@${username}` : 'Подключено');
+                    lastfmCardDesc.textContent = 'Отправка истории прослушиваний в ваш профиль Last.fm';
+                } else {
+                    setLastfmStatusPill('idle', 'Не авторизовано');
+                    lastfmCardDesc.textContent = 'Отправка истории прослушиваний в ваш профиль Last.fm';
+                }
+            }
+
+            let _lastfmAuthPollTimer = null;
+            function stopLastfmAuthPoll() {
+                if (_lastfmAuthPollTimer) { clearInterval(_lastfmAuthPollTimer); _lastfmAuthPollTimer = null; }
+            }
+
+            async function lastfmBeginAuthFlow() {
+                btnLastfmAuth.disabled = true;
+                setLastfmStatusPill('idle', 'Открываем браузер для подтверждения…');
+
+                let res;
+                try { res = await noctune.lastfm.beginAuth(); }
+                catch (e) { res = { ok: false, error: String(e && e.message || e) }; }
+
+                if (!res || !res.ok || !res.token) {
+                    btnLastfmAuth.disabled = false;
+                    setLastfmStatusPill('error', 'Не удалось начать авторизацию');
+                    showNotification('Не удалось связаться с Last.fm — проверьте API key/secret и интернет-соединение', 'error');
+                    return;
+                }
+
+                const token = res.token;
+                // Пока пользователь не нажал «Разрешить доступ» на открывшейся странице,
+                // auth.getSession отвечает ошибкой — это ожидаемо, поэтому опрашиваем
+                // раз в 3 секунды, а не считаем первую неудачу финальной.
+                let attemptsLeft = 40; // ~2 минуты на подтверждение в браузере
+                _lastfmAuthPollTimer = setInterval(async () => {
+                    attemptsLeft--;
+                    let auth;
+                    try { auth = await noctune.lastfm.completeAuth(token); } catch (e) { auth = { ok: false }; }
+
+                    if (auth && auth.ok) {
+                        stopLastfmAuthPoll();
+                        btnLastfmAuth.disabled = false;
+                        refreshLastfmCardUI(true, auth.username);
+                        showNotification(`Last.fm подключён — аккаунт ${auth.username}`, 'info', 'Скробблинг включён');
+                        return;
+                    }
+                    if (attemptsLeft <= 0) {
+                        stopLastfmAuthPoll();
+                        btnLastfmAuth.disabled = false;
+                        setLastfmStatusPill('error', 'Время ожидания истекло');
+                        showNotification('Не удалось подтвердить доступ к Last.fm — попробуйте ещё раз', 'error');
+                    }
+                }, 3000);
+            }
+
+            async function lastfmDoDisconnect(silent) {
+                stopLastfmAuthPoll();
+                try { await noctune.lastfm.disconnect(); } catch (e) {}
+                refreshLastfmCardUI(false, null);
+                if (!silent) showNotification('Аккаунт Last.fm отключён', 'info');
+            }
+
+            // Одна кнопка вместо пары «Подключить» / «Отключить» — действие
+            // определяется текущим состоянием подключения.
+            btnLastfmAuth.addEventListener('click', () => {
+                if (window.lastfmConnected) lastfmDoDisconnect(false);
+                else lastfmBeginAuthFlow();
+            });
+
+            settingLastfmEnabled.addEventListener('change', () => {
+                setSettingsBlockVisible(lastfmBody, settingLastfmEnabled.checked, 'block');
+                appStorage.setItem('setting_lastfm_enabled', settingLastfmEnabled.checked ? '1' : '0');
+                window.lastfmEnabled = settingLastfmEnabled.checked;
+            });
+
+            settingLastfmScrobble.addEventListener('change', () => {
+                window.lastfmScrobbleEnabled = settingLastfmScrobble.checked;
+                appStorage.setItem('setting_lastfm_scrobble', settingLastfmScrobble.checked ? '1' : '0');
+            });
+            settingLastfmNowPlaying.addEventListener('change', () => {
+                window.lastfmNowPlayingEnabled = settingLastfmNowPlaying.checked;
+                appStorage.setItem('setting_lastfm_now_playing', settingLastfmNowPlaying.checked ? '1' : '0');
+            });
+
+            // Ручной API key/secret — как только меняются ключи (или сам режим
+            // "ручная настройка" переключается), текущая сессия становится
+            // недействительной для нового приложения-идентификатора на стороне
+            // Last.fm, поэтому принудительно разлогиниваем и просим авторизоваться
+            // заново — тихо переподключать нельзя, т.к. это требует подтверждения
+            // пользователем в браузере.
+            settingLastfmManual.addEventListener('change', async () => {
+                setSettingsBlockVisible(lastfmManualRow, settingLastfmManual.checked, 'block');
+                appStorage.setItem('setting_lastfm_manual', settingLastfmManual.checked ? '1' : '0');
+                if (window.lastfmConnected) {
+                    await lastfmDoDisconnect(true);
+                    showNotification('Учётные данные Last.fm изменились — авторизуйтесь заново', 'warning');
+                }
+            });
+            async function onLastfmManualCredsChanged() {
+                appStorage.setItem('setting_lastfm_manual_key', lastfmManualKeyInput.value.trim());
+                appStorage.setItem('setting_lastfm_manual_secret', lastfmManualSecretInput.value.trim());
+                if (window.lastfmConnected) {
+                    await lastfmDoDisconnect(true);
+                    showNotification('Ключ Last.fm изменился — авторизуйтесь заново', 'warning');
+                }
+            }
+            lastfmManualKeyInput.addEventListener('change', onLastfmManualCredsChanged);
+            lastfmManualSecretInput.addEventListener('change', onLastfmManualCredsChanged);
+
+            // Загрузка сохранённых настроек — единожды при старте (сам статус
+            // подключения синхронизируется в refreshSettingsUI(), см. ниже по файлу,
+            // чтобы переживать гонку с асинхронной инициализацией electron-store).
+            // Поля ключа/секрета НЕ предзаполняются никаким встроенным значением —
+            // только тем, что реально сохранил сам пользователь.
+            const savedLastfmEnabled = appStorage.getItem('setting_lastfm_enabled');
+            settingLastfmEnabled.checked = savedLastfmEnabled === '1';
+            window.lastfmEnabled = settingLastfmEnabled.checked;
+            setSettingsBlockVisible(lastfmBody, settingLastfmEnabled.checked, 'block');
+
+            const savedLastfmScrobble = appStorage.getItem('setting_lastfm_scrobble');
+            settingLastfmScrobble.checked = savedLastfmScrobble === null ? true : savedLastfmScrobble === '1';
+            window.lastfmScrobbleEnabled = settingLastfmScrobble.checked;
+
+            const savedLastfmNowPlaying = appStorage.getItem('setting_lastfm_now_playing');
+            settingLastfmNowPlaying.checked = savedLastfmNowPlaying === null ? true : savedLastfmNowPlaying === '1';
+            window.lastfmNowPlayingEnabled = settingLastfmNowPlaying.checked;
+
+            settingLastfmManual.checked = appStorage.getItem('setting_lastfm_manual') === '1';
+            setSettingsBlockVisible(lastfmManualRow, settingLastfmManual.checked, 'block');
+            lastfmManualKeyInput.value = appStorage.getItem('setting_lastfm_manual_key') || '';
+            lastfmManualSecretInput.value = appStorage.getItem('setting_lastfm_manual_secret') || '';
+
+            async function refreshLastfmStatusFromMain() {
+                try {
+                    const status = await noctune.lastfm.status();
+                    refreshLastfmCardUI(!!(status && status.connected), status && status.username);
+                } catch (e) {
+                    refreshLastfmCardUI(false, null);
+                }
+            }
+
+            // ====================================================
             // ГОРЯЧИЕ КЛАВИШИ
             // ====================================================
             const HOTKEY_DEFS = [
@@ -2901,6 +3073,11 @@
                 } else {
                     setDiscordRpcStatusPill('idle', 'Отключено');
                 }
+
+                // Last.fm — статус подключения (сессия персистится в main-процессе)
+                // спрашиваем заново при каждом открытии настроек: это же самое
+                // защищает от гонки со стартовой асинхронной инициализацией store.
+                refreshLastfmStatusFromMain();
 
                 // Адаптивная палитра (акцент/градиент из фона) — только синхронизация галочек;
                 // сам пересчёт палитры запускается лишь при смене фона или переключении тумблера,

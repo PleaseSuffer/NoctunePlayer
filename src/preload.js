@@ -241,6 +241,16 @@ contextBridge.exposeInMainWorld('noctune', {
   discordRpcClearActivity: () => ipcRenderer.send('discord-rpc-clear-activity'),
   onDiscordRpcStatus: (cb) => ipcRenderer.on('discord-rpc-status', (_e, status) => cb(status)),
 
+  // ── Last.fm (скробблинг) ──
+  lastfm: {
+    beginAuth: () => ipcRenderer.invoke('lastfm-begin-auth'),
+    completeAuth: (token) => ipcRenderer.invoke('lastfm-complete-auth', token),
+    disconnect: () => ipcRenderer.invoke('lastfm-disconnect'),
+    status: () => ipcRenderer.invoke('lastfm-status'),
+    nowPlaying: (payload) => ipcRenderer.invoke('lastfm-now-playing', payload),
+    scrobble: (payload) => ipcRenderer.invoke('lastfm-scrobble', payload),
+  },
+
   // ── Радио ──
   checkRadioStation: (url) => checkRadioStreamReachable(url),
 
