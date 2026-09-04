@@ -46,7 +46,8 @@
       {
         "provider": "github",
         "owner": "PleaseSuffer",
-        "repo": "NoctunePlayer"
+        "repo": "NoctunePlayer",
+        "vPrefixedTagName": false
       }
     ]
   },
