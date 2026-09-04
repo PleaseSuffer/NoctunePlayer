@@ -148,12 +148,13 @@ async function disconnectDiscordRPC() {
 // (пока пользователь не отзовёт доступ на last.fm/settings/applications) и
 // хранится локально в electron-store.
 //
-// ЧТОБЫ ФУНКЦИЯ ЗАРАБОТАЛА: зарегистрируйте приложение на
+// ЧТОБЫ СМЕНИТЬ ПРИЛОЖЕНИЕ: зарегистрируйте своё на
 // https://www.last.fm/api/account/create (бесплатно, ~2 минуты, никакого
 // review/модерации не требуется) и подставьте выданные API key и
-// Shared secret вместо плейсхолдеров ниже.
-const LASTFM_API_KEY    = 'ВСТАВЬТЕ_СЮДА_API_KEY';
-const LASTFM_API_SECRET = 'ВСТАВЬТЕ_СЮДА_SHARED_SECRET';
+// Shared secret вместо значений ниже. Пользователи также могут задать
+// собственные ключи локально — см. «Ручная настройка» в Интеграции.
+const LASTFM_API_KEY    = '85adffbf7505acdde0f9d165c77e2106';
+const LASTFM_API_SECRET = 'fd397762931284ef63a3975b268ebc45';
 const LASTFM_AUTH_ROOT  = 'https://www.last.fm/api/auth/';
 
 let lastfmSessionKey = null;
@@ -231,7 +232,9 @@ function lastfmLoadSession() {
 async function lastfmBeginAuth() {
   const res = await lastfmRequest({ method: 'auth.getToken' }, 'GET');
   const token = res.token;
-  const authUrl = `${LASTFM_AUTH_ROOT}?api_key=${LASTFM_API_KEY}&token=${token}`;
+  const { key } = lastfmActiveCredentials(); // раньше тут была захардкожена LASTFM_API_KEY —
+                                              // ручной ключ игнорировался именно в этой ссылке
+  const authUrl = `${LASTFM_AUTH_ROOT}?api_key=${key}&token=${token}`;
   shell.openExternal(authUrl);
   return { ok: true, token };
 }
