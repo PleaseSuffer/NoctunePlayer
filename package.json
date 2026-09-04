@@ -2,7 +2,7 @@
   "name": "noctune",
   "displayName": "Noctune",
   "productName": "Noctune",
-  "version": "1.2.0-indev",
+  "version": "1.2.0",
   "main": "src/main.js",
   "devDependencies": {
     "electron": "^42.2.0",
