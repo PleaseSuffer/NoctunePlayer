@@ -20,6 +20,7 @@
   "build": {
     "appId": "com.noctune.player",
     "productName": "Noctune",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "files": [
       "src/**/*",
       "resources/app.ico",
@@ -28,7 +29,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "resources/app.ico"
+      "icon": "resources/app.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
