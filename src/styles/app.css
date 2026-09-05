@@ -4,6 +4,7 @@
             --text-color: #333;
             --text-muted: #666;
             --accent-color: #4a90e2;
+            --accent-fg: #4a90e2; /* безопасная для иконок производная — см. computeAccentFg в settings.js */
             --artist-color: #8e44ad;
             --border-color: #e0e0e0;
             --shadow: rgba(0, 0, 0, 0.1);
@@ -18,6 +19,7 @@
             --text-color: #e0e0e0;
             --text-muted: #aaa;
             --accent-color: #bb86fc;
+            --accent-fg: #bb86fc;
             --artist-color: #d19bf7;
             --border-color: #333;
             --shadow: rgba(0, 0, 0, 0.5);
@@ -508,7 +510,7 @@
         }
         .control-btn:hover { background: var(--track-hover); }
         .control-btn.active {
-            color: var(--accent-color);
+            color: var(--accent-fg);
             background: rgba(128,128,128,0.1);
         }
         .control-btn.play-pause {
@@ -709,7 +711,7 @@
             border-radius: 50%;
         }
         .mini-btn:hover { background: var(--track-hover); }
-        .mini-btn.active { color: var(--accent-color); }
+        .mini-btn.active { color: var(--accent-fg); }
         .mini-btn.play-pause {
             background: var(--accent-color);
             color: #fff;

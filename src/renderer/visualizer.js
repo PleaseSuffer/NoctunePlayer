@@ -111,8 +111,14 @@
             // всегда даёт одинаковый, предсказуемый отклик — фон остаётся
             // преимущественно статичным и не «подстраивается» адаптивно под
             // конкретный трек, как раньше.
-            if (window.bgImageEnabled && window.bgImagePath &&
-                (window.bgPulseEnabled || window.bgBlurEnabled || window.bgGlowEnabled || window.bgTiltEnabled || window.bgCursorEnabled)) {
+            // Свечение — единственный из пяти эффектов, не завязанный на
+            // bgImageEnabled/bgImagePath: это самостоятельный radial-gradient
+            // поверх слоя фона (см. #custom-bg-glow), а не манипуляция самой
+            // картинкой/видео, поэтому работает и без своего фона — просто на
+            // обычном чёрном/белом фоне плеера.
+            const bgHasImage = window.bgImageEnabled && window.bgImagePath;
+            if (window.bgGlowEnabled ||
+                (bgHasImage && (window.bgPulseEnabled || window.bgBlurEnabled || window.bgTiltEnabled || window.bgCursorEnabled))) {
                 // Общий уровень звука по всему спектру (0..1) — без выделения
                 // отдельных полос частот и без скользящей самонормализации.
                 let soundSum = 0;

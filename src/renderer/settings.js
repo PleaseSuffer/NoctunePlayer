@@ -771,6 +771,71 @@
                 startAutoRefresh(savedAutoRefreshInterval);
             }
 
+            // ---- APPEARANCE: безопасный для иконок вариант акцента ----
+            // --accent-color используется и как ФОН (плей-кнопка, слайдеры,
+            // градиенты) — там тёмный/светлый акцент не проблема, и как ЦВЕТ
+            // САМОЙ ИКОНКИ (активный shuffle/repeat, кнопка "развернуть") — а
+            // вот тут тёмный акцент на тёмной теме (или светлый на светлой)
+            // почти пропадает на фоне. --accent-fg — производная от акцента
+            // переменная с зажатой светлотой специально под такие места;
+            // сам --accent-color при этом никогда не подменяется.
+            function computeAccentFg(hex) {
+                let h = (hex || '#4a90e2').replace('#', '');
+                if (h.length === 3) h = h.split('').map(c => c + c).join('');
+                const r = parseInt(h.substr(0, 2), 16) / 255;
+                const g = parseInt(h.substr(2, 2), 16) / 255;
+                const b = parseInt(h.substr(4, 2), 16) / 255;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                const l = (max + min) / 2;
+                let hue = 0, s = 0;
+                const d = max - min;
+                if (d !== 0) {
+                    s = d / (1 - Math.abs(2 * l - 1));
+                    switch (max) {
+                        case r: hue = ((g - b) / d) % 6; break;
+                        case g: hue = (b - r) / d + 2; break;
+                        default: hue = (r - g) / d + 4;
+                    }
+                    hue *= 60;
+                    if (hue < 0) hue += 360;
+                }
+
+                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                // На тёмной теме иконка сидит на тёмном фоне — нужна светлота
+                // не ниже ~48%. На светлой — наоборот, не выше ~62%.
+                const minL = isDark ? 0.48 : 0.15;
+                const maxL = isDark ? 0.92 : 0.62;
+                const clampedL = Math.min(maxL, Math.max(minL, l));
+
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                let rr, gg, bb;
+                if (s === 0) { rr = gg = bb = clampedL; }
+                else {
+                    const q = clampedL < 0.5 ? clampedL * (1 + s) : clampedL + s - clampedL * s;
+                    const p = 2 * clampedL - q;
+                    const hn = hue / 360;
+                    rr = hue2rgb(p, q, hn + 1/3);
+                    gg = hue2rgb(p, q, hn);
+                    bb = hue2rgb(p, q, hn - 1/3);
+                }
+                const toHex = (v) => Math.round(v * 255).toString(16).padStart(2, '0');
+                return `#${toHex(rr)}${toHex(gg)}${toHex(bb)}`;
+            }
+
+            function refreshAccentFg() {
+                const current = getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
+                const safeFg = computeAccentFg(current);
+                document.documentElement.style.setProperty('--accent-fg', safeFg);
+                document.body.style.setProperty('--accent-fg', safeFg);
+            }
+
             // ---- APPEARANCE: Dark theme toggle in settings ----
             const settingDark = document.getElementById('setting-dark-theme');
             settingDark.addEventListener('change', () => {
@@ -784,10 +849,12 @@
                     themeToggle.innerHTML = '<i data-lucide="moon"></i>';
                 }
                 lucide.createIcons();
+                refreshAccentFg(); // светлота считалась под старую тему — пересчитываем
             });
             // Sync with main theme toggle
             themeToggle.addEventListener('click', () => {
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
+                refreshAccentFg();
             });
 
             // ---- APPEARANCE: Accent color swatches ----
@@ -799,6 +866,7 @@
                 appStorage.setItem('setting_accent_color', color);
                 colorPicker.value = color;
                 swatches.forEach(s => s.classList.toggle('active', s.dataset.color === color));
+                refreshAccentFg();
             }
             swatches.forEach(s => s.addEventListener('click', () => setAccentColor(s.dataset.color)));
             colorPicker.addEventListener('input', () => setAccentColor(colorPicker.value));
@@ -1065,9 +1133,18 @@
             const bgRecentRow         = document.getElementById('bg-recent-row');
             const bgRecentList        = document.getElementById('bg-recent-list');
 
+            function updateBgLayerVisibility() {
+                // Слой фона показываем, если включена своя картинка/видео ИЛИ
+                // включено "Свечение под звук" — свечение не обязано зависеть
+                // от наличия картинки, оно рисуется отдельным элементом
+                // (#custom-bg-glow) и само по себе смотрится и на обычном
+                // чёрном/белом фоне плеера.
+                customBgLayer.style.opacity = (window.bgImageEnabled || window.bgGlowEnabled) ? '1' : '0';
+            }
+
             function applyBgImageEnabled(enabled) {
                 window.bgImageEnabled = enabled;
-                customBgLayer.style.opacity = enabled ? '1' : '0';
+                updateBgLayerVisibility();
                 setSettingsBlockVisible(bgAdvancedSettings, enabled, 'flex');
                 // Видео не крутим вхолостую, когда фон выключен
                 if (window.bgImageIsVideo && customBgVideoEl.getAttribute('src')) {
@@ -1509,6 +1586,7 @@
                 applyBgGlowRowVisibility(settingBgGlow.checked);
                 appStorage.setItem('setting_bg_glow_enabled', settingBgGlow.checked ? '1' : '0');
                 if (!settingBgGlow.checked && customBgGlowEl) customBgGlowEl.style.opacity = '0';
+                updateBgLayerVisibility();
             });
             bgGlowIntensitySlider.addEventListener('input', () => {
                 const v = parseFloat(bgGlowIntensitySlider.value);
@@ -1624,20 +1702,23 @@
             const settingBgCursorTiltInvert = document.getElementById('setting-bg-cursor-tilt-invert');
 
             function applyBgCursorTiltSub(enabled) {
+                // Только видимость под-панели с деталями наклона. НЕ трогаем
+                // .disabled самого чекбокса тут — это исключительно забота
+                // applyBgCursorSub (родителя). Раньше это было объединено в
+                // одной функции, из-за чего выключение самого "Наклона" тут же
+                // блокировало его собственный чекбокс — до полного
+                // переключения "Следования за курсором" туда-обратно.
                 setSettingsBlockVisible(bgCursorTiltSub, enabled, 'block');
-                if (settingBgCursorTilt) {
-                    settingBgCursorTilt.disabled = !enabled;
-                    if (!enabled) {
-                        settingBgCursorTilt.checked = false;
-                        window.bgCursorTiltEnabled = false;
-                        appStorage.setItem('setting_bg_cursor_tilt_enabled', '0');
-                    }
-                }
             }
             function applyBgCursorSub(enabled) {
                 setSettingsBlockVisible(bgCursorSub, enabled, 'block');
                 if (settingBgCursorTilt) settingBgCursorTilt.disabled = !enabled;
-                if (!enabled) applyBgCursorTiltSub(false);
+                if (!enabled) {
+                    if (settingBgCursorTilt) settingBgCursorTilt.checked = false;
+                    window.bgCursorTiltEnabled = false;
+                    appStorage.setItem('setting_bg_cursor_tilt_enabled', '0');
+                    applyBgCursorTiltSub(false);
+                }
             }
             settingBgCursor.addEventListener('change', () => {
                 window.bgCursorEnabled = settingBgCursor.checked;
@@ -2935,6 +3016,7 @@
                 if (savedBgGlow !== null) settingBgGlow.checked = savedBgGlow === '1';
                 window.bgGlowEnabled = settingBgGlow.checked;
                 applyBgGlowRowVisibility(window.bgGlowEnabled);
+                updateBgLayerVisibility(); // теперь bgGlowEnabled восстановлен — пересчитываем видимость слоя
 
                 const savedBgGlowIntensity = appStorage.getItem('setting_bg_glow_intensity');
                 if (savedBgGlowIntensity !== null) {

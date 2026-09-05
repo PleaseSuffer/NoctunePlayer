@@ -13,11 +13,12 @@
             const intervalSlider = document.getElementById('setting-update-check-interval');
             const intervalLabel = document.getElementById('setting-update-check-interval-label');
             const intervalRow = document.getElementById('update-interval-row-wrap');
+            const checkOnStartupToggle = document.getElementById('setting-check-on-startup');
             const autoDownloadToggle = document.getElementById('setting-auto-download-updates');
             const notifyToggle = document.getElementById('setting-update-notify');
             const btnAction = document.getElementById('btn-update-action');
 
-            if (!btnCheck || !statusMsg || !autoCheckToggle || !intervalSlider || !autoDownloadToggle || !notifyToggle || !btnAction) return;
+            if (!btnCheck || !statusMsg || !autoCheckToggle || !intervalSlider || !autoDownloadToggle || !notifyToggle || !btnAction || !checkOnStartupToggle) return;
 
             let _scheduleTimer = null;
             let _pendingVersion = null;   // предложена, но ещё не скачана/отклонена — не дублируем toast
@@ -53,6 +54,12 @@
 
             const savedNotify = appStorage.getItem('setting_update_notify');
             notifyToggle.checked = savedNotify === null ? true : savedNotify === '1';
+
+            const savedCheckOnStartup = appStorage.getItem('setting_check_on_startup');
+            checkOnStartupToggle.checked = savedCheckOnStartup === null ? true : savedCheckOnStartup === '1';
+            checkOnStartupToggle.addEventListener('change', () => {
+                appStorage.setItem('setting_check_on_startup', checkOnStartupToggle.checked ? '1' : '0');
+            });
 
             if (intervalRow) intervalRow.style.display = autoCheckToggle.checked ? '' : 'none';
 
@@ -211,7 +218,10 @@
 
             // ── запуск: расписание + отложенная первая проверка ──
             scheduleAutoCheck();
-            if (autoCheckToggle.checked) {
+            // Независимо от периодической фоновой автопроверки — отдельный
+            // тумблер "Проверять при запуске" отвечает только за разовую
+            // проверку сразу после старта.
+            if (checkOnStartupToggle.checked) {
                 // Небольшая задержка, чтобы не мешать первому старту приложения.
                 setTimeout(() => { noctune.updater.check(true); }, 8000);
             }
