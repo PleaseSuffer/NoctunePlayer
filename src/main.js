@@ -774,11 +774,17 @@ ipcMain.handle('get-tech-versions', async () => {
         const pkg = require(require('path').join(__dirname, '..', 'node_modules', 'electron-store', 'package.json'));
         storeVersion = pkg.version;
     } catch(e) {}
+    let lucideVersion = '—';
+    try {
+        const pkg = require(require('path').join(__dirname, '..', 'node_modules', 'lucide', 'package.json'));
+        lucideVersion = pkg.version;
+    } catch(e) {}
     return {
         electron: process.versions.electron,
         node: process.versions.node,
         chrome: process.versions.chrome,
         electronStore: storeVersion,
+        lucide: lucideVersion,
     };
 });
 

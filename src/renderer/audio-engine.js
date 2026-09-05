@@ -135,8 +135,10 @@
                 slider.addEventListener('input', (e) => {
                     const idx = e.target.getAttribute('data-index');
                     const val = parseFloat(e.target.value);
-                    document.getElementById(`v-${idx}`).textContent = `${val > 0 ? '+' : ''}${val}dB`;
-                    
+                    // Зеркалим во все копии этого слайдера (модал + вкладка
+                    // "Эквалайзер" в Настройках) и обе подписи под ним.
+                    writeEqBandUI(idx, val);
+
                     if (idx === 'preamp') {
                         if (!isEqBypassed && window.preampNode && audioCtx) {
                             window.preampNode.gain.setValueAtTime(Math.pow(10, val / 20), audioCtx.currentTime);
@@ -158,66 +160,36 @@
             currentSelectedPresetName = name;
             
             document.querySelectorAll('.preset-btn').forEach(b => {
-                b.classList.toggle('active', b.textContent === name);
+                b.classList.toggle('active', b.textContent.trim() === name);
             });
 
             const preampVal = values[0];
-            const preampSlider = document.querySelector(`.eq-slider[data-index="preamp"]`);
-            if (preampSlider) {
-                preampSlider.value = preampVal;
-                document.getElementById(`v-preamp`).textContent = `${preampVal > 0 ? '+' : ''}${preampVal}dB`;
-                if (!isEqBypassed && window.preampNode && audioCtx) {
-                    window.preampNode.gain.setValueAtTime(Math.pow(10, preampVal / 20), audioCtx.currentTime);
-                }
+            writeEqBandUI('preamp', preampVal);
+            if (!isEqBypassed && window.preampNode && audioCtx) {
+                window.preampNode.gain.setValueAtTime(Math.pow(10, preampVal / 20), audioCtx.currentTime);
             }
 
             for (let i = 0; i < 12; i++) {
                 const val = values[i + 1];
-                const slider = document.querySelector(`.eq-slider[data-index="${i}"]`);
-                if (slider) {
-                    slider.value = val;
-                    document.getElementById(`v-${i}`).textContent = `${val > 0 ? '+' : ''}${val}dB`;
-                    if (!isEqBypassed && eqFilters[i] && audioCtx) {
-                        eqFilters[i].gain.setValueAtTime(val, audioCtx.currentTime);
-                    }
+                writeEqBandUI(i, val);
+                if (!isEqBypassed && eqFilters[i] && audioCtx) {
+                    eqFilters[i].gain.setValueAtTime(val, audioCtx.currentTime);
                 }
             }
 
             if (save) saveEqState();
         }
 
-        btnSavePreset.addEventListener('click', () => {
-            let name = customPresetName.value.trim();
-            if(!name) return;
-            if (name.length > 16) name = name.slice(0, 16);
-            
-            const currentValues = [];
-            
-            const preampSlider = document.querySelector(`.eq-slider[data-index="preamp"]`);
-            currentValues.push(preampSlider ? parseFloat(preampSlider.value) : 0);
-
-            for (let i = 0; i < 12; i++) {
-                const slider = document.querySelector(`.eq-slider[data-index="${i}"]`);
-                currentValues.push(slider ? parseFloat(slider.value) : 0);
-            }
-            
-            presets[name] = currentValues;
-            
-            const saved = appStorage.getItem('player_custom_presets');
-            let toSave = {};
-            if (saved) { toSave = JSON.parse(saved); }
-            toSave[name] = currentValues;
-            appStorage.setItem('player_custom_presets', JSON.stringify(toSave));
-
-            customPresetName.value = '';
-            renderPresetButtons();
-            applyPreset(name);
-        });
-
         eqToggle.addEventListener('change', (e) => {
             isEqBypassed = !e.target.checked;
             openEqBtn.classList.toggle('active', !isEqBypassed);
-            
+            // Держим тумблер во вкладке "Эквалайзер" (Настройки) в курсе — на
+            // случай если переключили именно этот, основной eq-toggle
+            // (обратное направление уже обрабатывает equalizer.js).
+            if (typeof eqToggleSettings !== 'undefined' && eqToggleSettings) {
+                eqToggleSettings.checked = e.target.checked;
+            }
+
             if (window.preampNode && audioCtx) {
                 const preampSlider = document.querySelector(`.eq-slider[data-index="preamp"]`);
                 const targetGain = isEqBypassed ? 1 : Math.pow(10, parseFloat(preampSlider.value) / 20);

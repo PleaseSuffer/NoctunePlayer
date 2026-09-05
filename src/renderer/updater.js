@@ -15,12 +15,31 @@
             const intervalRow = document.getElementById('update-interval-row-wrap');
             const autoDownloadToggle = document.getElementById('setting-auto-download-updates');
             const notifyToggle = document.getElementById('setting-update-notify');
+            const btnAction = document.getElementById('btn-update-action');
 
-            if (!btnCheck || !statusMsg || !autoCheckToggle || !intervalSlider || !autoDownloadToggle || !notifyToggle) return;
+            if (!btnCheck || !statusMsg || !autoCheckToggle || !intervalSlider || !autoDownloadToggle || !notifyToggle || !btnAction) return;
 
             let _scheduleTimer = null;
             let _pendingVersion = null;   // предложена, но ещё не скачана/отклонена — не дублируем toast
             let _downloadedVersion = null;
+
+            // Постоянная кнопка рядом с "Проверить" — раньше скачать/установить
+            // можно было только из toast'а, а если его закрыли ("Позже"/крестик)
+            // или он потерялся среди других уведомлений — пользователь оставался
+            // без способа вернуться к обновлению, не запуская проверку заново.
+            // Теперь состояние апдейта отражено прямо тут, независимо от toast'ов.
+            function setActionButton(mode, onClick) {
+                if (mode === 'hidden') {
+                    btnAction.style.display = 'none';
+                    btnAction.onclick = null;
+                    return;
+                }
+                btnAction.style.display = 'flex';
+                btnAction.disabled = false;
+                btnAction.textContent = mode === 'download' ? 'Скачать обновление' : 'Установить и перезапустить';
+                btnAction.onclick = onClick;
+            }
+            setActionButton('hidden');
 
             // ── восстановление настроек ──
             const savedAutoCheck = appStorage.getItem('setting_auto_check_updates');
@@ -94,6 +113,7 @@
             noctune.updater.onNotAvailable(() => {
                 statusMsg.textContent = 'У вас установлена самая свежая версия.';
                 statusMsg.style.color = '#2ecc71';
+                setActionButton('hidden');
             });
 
             noctune.updater.onError((message) => {
@@ -106,20 +126,30 @@
                 statusMsg.innerHTML = `Доступна новая версия <span style="color:var(--accent-color);font-weight:bold;">v${version}</span>.`;
                 statusMsg.style.color = '';
 
-                // Не показываем повторный toast за ту же версию, если она уже
-                // предложена или уже скачана (например, автопроверка сработала
-                // повторно, пока пользователь ещё не отреагировал на первый toast).
-                if (_pendingVersion === version || _downloadedVersion === version) return;
-                _pendingVersion = version;
-
                 if (autoDownloadToggle.checked) {
-                    // Настройка "скачивать автоматически" — без клика в toast,
-                    // но установка всё равно только по ручному подтверждению
-                    // (см. onDownloaded ниже).
-                    noctune.updater.download();
-                    showNotification(`Скачивается версия v${version}...`, 'info', 'Обновление найдено');
+                    // Настройка "скачивать автоматически" — без подтверждения,
+                    // но установка всё равно только вручную (см. onDownloaded).
+                    // Кнопку тут не показываем — скачивание уже пошло само.
+                    if (_pendingVersion !== version && _downloadedVersion !== version) {
+                        noctune.updater.download();
+                        showNotification(`Скачивается версия v${version}...`, 'info', 'Обновление найдено');
+                    }
+                    _pendingVersion = version;
                     return;
                 }
+
+                setActionButton('download', () => {
+                    noctune.updater.download();
+                    setActionButton('hidden');
+                    showNotification(`Скачивается версия v${version}...`, 'info', 'Загрузка обновления');
+                });
+
+                // Toast — по-прежнему показываем (удобно, если окно свёрнуто в
+                // трей), но теперь это не единственный способ скачать: кнопка
+                // выше остаётся, даже если toast закрыли или он потерялся среди
+                // остальных уведомлений.
+                if (_pendingVersion === version || _downloadedVersion === version) return;
+                _pendingVersion = version;
 
                 showNotification(
                     `Доступна новая версия Noctune v${version}.`,
@@ -133,6 +163,7 @@
                                 primary: true,
                                 onClick: () => {
                                     noctune.updater.download();
+                                    setActionButton('hidden');
                                     showNotification(`Скачивается версия v${version}...`, 'info', 'Загрузка обновления');
                                 }
                             },
@@ -146,6 +177,9 @@
                 const pct = Math.round((progress && progress.percent) || 0);
                 statusMsg.textContent = `Загрузка обновления: ${pct}%`;
                 statusMsg.style.color = '';
+                btnAction.style.display = 'flex';
+                btnAction.disabled = true;
+                btnAction.textContent = `Загрузка... ${pct}%`;
             });
 
             noctune.updater.onDownloaded((info) => {
@@ -154,6 +188,8 @@
                 _pendingVersion = null;
                 statusMsg.innerHTML = `Версия <span style="color:#2ecc71;font-weight:bold;">v${version}</span> скачана и готова к установке.`;
                 statusMsg.style.color = '';
+
+                setActionButton('install', () => { noctune.updater.install(); });
 
                 showNotification(
                     `Версия v${version} скачана и готова к установке.`,

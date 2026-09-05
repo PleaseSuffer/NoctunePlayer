@@ -14,41 +14,94 @@
         }
         loadUserPresets();
 
-        function generateSliders() {
-            slidersWrapper.innerHTML = '';
-            
+        // ── Дублированная вкладка "Эквалайзер" в Настройках ─────────────────
+        // Полосы/пресеты/тумблер там — не отдельное состояние, а зеркало
+        // плавающего EQ-модала: одни и те же presets/eqFilters, просто вторая
+        // проекция тех же данных в DOM. См. writeEqBandUI/renderPresetButtons.
+        const eqToggleSettings        = document.getElementById('eq-toggle-settings');
+        const slidersWrapperSettings  = document.getElementById('sliders-wrapper-settings');
+        const presetsContainerSettings = document.getElementById('presets-container-settings');
+        const customPresetNameSettings = document.getElementById('custom-preset-name-settings');
+        const btnSavePresetSettings    = document.getElementById('btn-save-preset-settings');
+
+        function buildEqSliderMarkup(container, idPrefix) {
+            if (!container) return;
+            container.innerHTML = '';
+
             const preampBox = document.createElement('div');
             preampBox.className = 'slider-box';
             preampBox.innerHTML = `
-                <span class="slider-label" id="v-preamp">0dB</span>
+                <span class="slider-label" id="${idPrefix}preamp">0dB</span>
                 <input type="range" class="eq-slider" data-index="preamp" min="-12" max="12" step="1" value="0">
                 <span class="slider-label">Preamp</span>
             `;
-            slidersWrapper.appendChild(preampBox);
+            container.appendChild(preampBox);
 
             const separator = document.createElement('div');
             separator.className = 'eq-separator';
-            slidersWrapper.appendChild(separator);
+            container.appendChild(separator);
 
             frequencies.forEach((freq, idx) => {
                 const labelStr = freq >= 1000 ? `${freq/1000}kHz` : `${freq}Hz`;
                 const box = document.createElement('div');
                 box.className = 'slider-box';
                 box.innerHTML = `
-                    <span class="slider-label" id="v-${idx}">0dB</span>
+                    <span class="slider-label" id="${idPrefix}${idx}">0dB</span>
                     <input type="range" class="eq-slider" data-index="${idx}" min="-12" max="12" step="1" value="0">
                     <span class="slider-label">${labelStr}</span>
                 `;
-                slidersWrapper.appendChild(box);
+                container.appendChild(box);
             });
         }
+
+        function generateSliders() {
+            buildEqSliderMarkup(slidersWrapper, 'v-');
+            buildEqSliderMarkup(slidersWrapperSettings, 'v2-');
+        }
         generateSliders();
+
+        // Пишет значение одной полосы (или preamp) сразу во ВСЕ её копии —
+        // и слайдер, и подпись под ним, в обоих местах (модал + Настройки).
+        // Единая точка правды для любого места, которое двигает эквалайзер:
+        // drag мышью, применение пресета, восстановление сохранённого стейта.
+        function writeEqBandUI(idx, val) {
+            document.querySelectorAll(`.eq-slider[data-index="${idx}"]`).forEach(s => { s.value = val; });
+            const text = `${val > 0 ? '+' : ''}${val}dB`;
+            const label1 = document.getElementById(idx === 'preamp' ? 'v-preamp' : `v-${idx}`);
+            const label2 = document.getElementById(idx === 'preamp' ? 'v2-preamp' : `v2-${idx}`);
+            if (label1) label1.textContent = text;
+            if (label2) label2.textContent = text;
+        }
 
         const SYSTEM_PRESETS = ['Обычный', 'Супер Бас', 'Поп', 'Рок', 'Акустика'];
         let _presetsPage = 0;
 
+        function _buildPresetButton(name, isSystem, savedState) {
+            const btn = document.createElement('button');
+            btn.className = 'preset-btn';
+            if (savedState && savedState.selectedPreset === name) btn.classList.add('active');
+            btn.innerHTML = `<span>${name}</span>${!isSystem ? '<i data-lucide="x"></i>' : ''}`;
+
+            btn.addEventListener('click', (e) => {
+                if (e.target.closest('[data-lucide="x"]')) {
+                    deletePreset(name);
+                } else {
+                    applyPreset(name);
+                    const state = { enabled: eqToggle.checked, selectedPreset: name };
+                    appStorage.setItem('player_eq_state', JSON.stringify(state));
+                    // Активную подсветку снимаем/ставим сразу везде — кнопка с
+                    // этим именем встречается в обоих контейнерах (модал + Настройки).
+                    document.querySelectorAll('.preset-btn').forEach(b => {
+                        b.classList.toggle('active', b.textContent.trim() === name);
+                    });
+                }
+            });
+            return btn;
+        }
+
         function renderPresetButtons() {
             presetsContainer.innerHTML = '';
+            if (presetsContainerSettings) presetsContainerSettings.innerHTML = '';
 
             // Sort: system presets first (in defined order), then user presets alphabetically
             const systemNames = SYSTEM_PRESETS.filter(n => presets[n] !== undefined);
@@ -59,25 +112,9 @@
 
             const savedState = JSON.parse(appStorage.getItem('player_eq_state'));
             allNames.forEach(name => {
-                const btn = document.createElement('button');
-                btn.className = 'preset-btn';
-                if (savedState && savedState.selectedPreset === name) btn.classList.add('active');
-
                 const isSystem = SYSTEM_PRESETS.includes(name);
-                btn.innerHTML = `<span>${name}</span>${!isSystem ? '<i data-lucide="x"></i>' : ''}`;
-
-                btn.addEventListener('click', (e) => {
-                    if (e.target.closest('[data-lucide="x"]')) {
-                        deletePreset(name);
-                    } else {
-                        applyPreset(name);
-                        const state = { enabled: eqToggle.checked, selectedPreset: name };
-                        appStorage.setItem('player_eq_state', JSON.stringify(state));
-                        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                    }
-                });
-                presetsContainer.appendChild(btn);
+                presetsContainer.appendChild(_buildPresetButton(name, isSystem, savedState));
+                if (presetsContainerSettings) presetsContainerSettings.appendChild(_buildPresetButton(name, isSystem, savedState));
             });
 
             lucide.createIcons();
@@ -213,6 +250,35 @@
             appStorage.setItem('player_eq_state', JSON.stringify(state));
         }
 
+        // Общая логика для кнопки "Сохранить пресет" — вызывается и из модала,
+        // и из вкладки "Эквалайзер" в Настройках, с указанием на свой инпут имени.
+        function doSaveCustomPreset(nameInputEl) {
+            if (!nameInputEl) return;
+            let name = nameInputEl.value.trim();
+            if (!name) return;
+            if (name.length > 16) name = name.slice(0, 16);
+
+            const currentValues = [];
+            const preampSlider = document.querySelector(`.eq-slider[data-index="preamp"]`);
+            currentValues.push(preampSlider ? parseFloat(preampSlider.value) : 0);
+            for (let i = 0; i < 12; i++) {
+                const slider = document.querySelector(`.eq-slider[data-index="${i}"]`);
+                currentValues.push(slider ? parseFloat(slider.value) : 0);
+            }
+
+            presets[name] = currentValues;
+
+            const saved = appStorage.getItem('player_custom_presets');
+            let toSave = {};
+            if (saved) { toSave = JSON.parse(saved); }
+            toSave[name] = currentValues;
+            appStorage.setItem('player_custom_presets', JSON.stringify(toSave));
+
+            nameInputEl.value = '';
+            renderPresetButtons();
+            applyPreset(name);
+        }
+
         themeToggle.addEventListener('click', () => {
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             const newTheme = isDark ? 'light' : 'dark';
@@ -224,6 +290,22 @@
 
         openEqBtn.addEventListener('click', () => eqModal.style.display = 'flex');
         closeEqBtn.addEventListener('click', () => eqModal.style.display = 'none');
+
+        btnSavePreset.addEventListener('click', () => doSaveCustomPreset(customPresetName));
+        if (btnSavePresetSettings) {
+            btnSavePresetSettings.addEventListener('click', () => doSaveCustomPreset(customPresetNameSettings));
+        }
+
+        // Тумблер "Включить эквалайзер" во вкладке Настроек — не отдельное
+        // состояние, а зеркало основного eq-toggle: просто копирует его
+        // checked и переигрывает событие change на нём, чтобы вся логика
+        // байпаса (см. audio-engine.js) сработала ровно один раз, из одного места.
+        if (eqToggleSettings) {
+            eqToggleSettings.addEventListener('change', (e) => {
+                eqToggle.checked = e.target.checked;
+                eqToggle.dispatchEvent(new Event('change'));
+            });
+        }
 
 
         document.querySelector('.mini-volume-zone button').addEventListener('click', toggleMute);

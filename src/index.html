@@ -307,6 +307,9 @@
                     <div class="settings-nav-item" data-panel="panel-player">
                         <i data-lucide="music-2" style="width:15px;height:15px;"></i> Плеер
                     </div>
+                    <div class="settings-nav-item" data-panel="panel-equalizer">
+                        <i data-lucide="sliders-horizontal" style="width:15px;height:15px;"></i> Эквалайзер
+                    </div>
                     <div class="settings-nav-item" data-panel="panel-appearance">
                         <i data-lucide="palette" style="width:15px;height:15px;"></i> Внешний вид
                     </div>
@@ -386,7 +389,7 @@
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Показывать кнопку эквалайзера</div>
-                                    <div class="settings-row-desc">Кнопка в панели управления плеера</div>
+                                    <div class="settings-row-desc">Кнопка в панели управления плеера — сам эквалайзер всегда доступен во вкладке «Эквалайзер»</div>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="setting-show-eq-btn" checked>
@@ -582,6 +585,42 @@
                                     </label>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- === ЭКВАЛАЙЗЕР === -->
+                    <!-- Полное зеркало плавающего EQ-модала (см. #eq-modal) — те же
+                         presets/полосы/тумблер, синхронизированные через writeEqBandUI
+                         и общие presets-объект (см. equalizer.js). Список пресетов тут
+                         не карусель, а просто перенос строк — в отдельной вкладке
+                         достаточно места, стрелки/точки пагинации ни к чему. -->
+                    <div class="settings-panel" id="panel-equalizer">
+                        <div class="settings-section-title">Эквалайзер</div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
+                            <div class="settings-row" style="border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Включить эквалайзер</div>
+                                    <div class="settings-row-desc">Тот же переключатель, что и в самом эквалайзере — изменения синхронны в обе стороны</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="eq-toggle-settings" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="settings-section-title">Пресеты</div>
+                        <div class="settings-card">
+                            <div id="presets-container-settings" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+                            <div class="custom-preset-builder" style="margin-top:12px;">
+                                <input type="text" id="custom-preset-name-settings" placeholder="Название (макс. 16 симв.)" maxlength="16">
+                                <button class="btn" id="btn-save-preset-settings" style="margin:0;padding:6px 12px;font-size:12px;">Сохранить пресет</button>
+                            </div>
+                        </div>
+
+                        <div class="settings-section-title">Полосы</div>
+                        <div class="settings-card">
+                            <div class="sliders-container custom-scroll" id="sliders-wrapper-settings"></div>
                         </div>
                     </div>
 
@@ -1736,22 +1775,6 @@
                             <div class="about-version-badge" id="settings-app-version">v1.0.0</div>
                         </div>
 
-                        <div class="settings-section-title">Автор</div>
-                        <div style="display:flex;flex-direction:column;gap:8px;">
-                            <a class="about-link" href="https://t.me/borisik_denis" target="_blank">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-                                Автор в Telegram
-                            </a>
-                            <a class="about-link" href="https://github.com/PleaseSuffer" target="_blank">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.2c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
-                                Автор на GitHub
-                            </a>
-                            <a class="about-link" href="https://t.me/noctuneplayer" target="_blank">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-                                Канал Noctune Player
-                            </a>
-                        </div>
-
                         <div class="settings-section-title">Обновления</div>
                         <div class="update-check-area">
                             <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1764,6 +1787,12 @@
                                 </button>
                             </div>
                             <div class="update-status" id="update-status-msg">Нажмите «Проверить» для поиска новых версий</div>
+                            <!-- Постоянная кнопка скачивания/установки — раньше это можно
+                                 было сделать только из toast-уведомления, которое рано или
+                                 поздно закрывается (крестиком/«Позже») и обратно не вызвать
+                                 без повторной проверки. Живёт тут же и отражает текущую фазу
+                                 апдейта (найдено/качается/готово) независимо от toast'ов. -->
+                            <button class="btn" id="btn-update-action" style="display:none;width:100%;margin-top:2px;">Скачать обновление</button>
                         </div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;margin-top:10px;">
                             <div class="settings-row" style="border-bottom:none;">
@@ -1809,6 +1838,22 @@
                             </div>
                         </div>
 
+                        <div class="settings-section-title">Автор</div>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                            <a class="about-link" href="https://t.me/borisik_denis" target="_blank">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                                Автор в Telegram
+                            </a>
+                            <a class="about-link" href="https://github.com/PleaseSuffer" target="_blank">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.2c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+                                Автор на GitHub
+                            </a>
+                            <a class="about-link" href="https://t.me/noctuneplayer" target="_blank">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                                Канал Noctune Player
+                            </a>
+                        </div>
+
                         <div class="settings-section-title">Сборка</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:6px;">
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
@@ -1822,6 +1867,10 @@
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
                                 <span style="color:var(--text-muted);">Node.js</span>
                                 <span style="font-weight:600;" id="about-node-version">—</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px;">
+                                <span style="color:var(--text-muted);">Lucide</span>
+                                <span style="font-weight:600;" id="about-lucide-version">—</span>
                             </div>
                             <div style="display:flex;justify-content:space-between;font-size:12px;">
                                 <span style="color:var(--text-muted);">Репозиторий</span>

@@ -22,6 +22,7 @@
 
             const state = JSON.parse(saved);
             eqToggle.checked = state.enabled;
+            if (eqToggleSettings) eqToggleSettings.checked = state.enabled;
             isEqBypassed = !state.enabled;
             openEqBtn.classList.toggle('active', state.enabled);
 
@@ -105,9 +106,11 @@
                     const ev = document.getElementById('about-electron-version');
                     const sv = document.getElementById('about-store-version');
                     const nv = document.getElementById('about-node-version');
+                    const lv = document.getElementById('about-lucide-version');
                     if (ev) ev.textContent = 'v' + tech.electron;
                     if (sv) sv.textContent = 'v' + tech.electronStore;
                     if (nv) nv.textContent = 'v' + tech.node;
+                    if (lv) lv.textContent = 'v' + tech.lucide;
                 } catch(e) {}
                 document.getElementById('app-version').textContent = `v${version}`;
             } catch (e) {

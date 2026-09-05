@@ -259,6 +259,8 @@
             font-size: 13px;
         }
         .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn:disabled:hover { opacity: 0.55; }
 
         .btn-icon-only {
             width: 36px;
@@ -1960,6 +1962,8 @@
             font-size: 12px;
             color: var(--text-muted);
             font-style: italic;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         /* ══════════════════════════════════════════════════════
