@@ -14,8 +14,9 @@
             const intervalLabel = document.getElementById('setting-update-check-interval-label');
             const intervalRow = document.getElementById('update-interval-row-wrap');
             const autoDownloadToggle = document.getElementById('setting-auto-download-updates');
+            const notifyToggle = document.getElementById('setting-update-notify');
 
-            if (!btnCheck || !statusMsg || !autoCheckToggle || !intervalSlider || !autoDownloadToggle) return;
+            if (!btnCheck || !statusMsg || !autoCheckToggle || !intervalSlider || !autoDownloadToggle || !notifyToggle) return;
 
             let _scheduleTimer = null;
             let _pendingVersion = null;   // предложена, но ещё не скачана/отклонена — не дублируем toast
@@ -30,6 +31,9 @@
             intervalLabel.textContent = `${intervalSlider.value} ч`;
 
             autoDownloadToggle.checked = appStorage.getItem('setting_auto_download_updates') === '1';
+
+            const savedNotify = appStorage.getItem('setting_update_notify');
+            notifyToggle.checked = savedNotify === null ? true : savedNotify === '1';
 
             if (intervalRow) intervalRow.style.display = autoCheckToggle.checked ? '' : 'none';
 
@@ -54,6 +58,10 @@
 
             autoDownloadToggle.addEventListener('change', () => {
                 appStorage.setItem('setting_auto_download_updates', autoDownloadToggle.checked ? '1' : '0');
+            });
+
+            notifyToggle.addEventListener('change', () => {
+                appStorage.setItem('setting_update_notify', notifyToggle.checked ? '1' : '0');
             });
 
             // ── кнопка "Проверить" в О программе ──

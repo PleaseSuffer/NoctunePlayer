@@ -603,16 +603,41 @@ autoUpdater.on('update-downloaded', (info) => sendToRenderer('updater:downloaded
 autoUpdater.on('error', (err) => sendToRenderer('updater:error', String(err && err.message || err)));
 
 ipcMain.handle('updater:check', async (_e, silent) => {
+    // Настройка "автоматически скачивать" читается из хранилища перед
+    // каждой проверкой — пользователь мог поменять её только что.
+    const autoDl = store && store.get('setting_auto_download_updates');
+    autoUpdater.autoDownload = autoDl === '1';
+
+    // Системный toast при найденном обновлении — только для фоновой (silent)
+    // проверки и только если включено в настройках. При проверке по клику
+    // «Проверить» в самих Настройках пользователь и так смотрит на экран —
+    // дублировать нативным уведомлением незачем, там уже есть toast в UI.
+    // Слушатель одноразовый и всегда снимается по завершении этого конкретного
+    // вызова (см. finally) — иначе он повис бы до следующего update-available
+    // от совсем другой, более поздней проверки.
+    let onSilentAvailable = null;
+    const notifyOnFind = silent && Notification.isSupported() && store && store.get('setting_update_notify') !== '0';
+    if (notifyOnFind) {
+        onSilentAvailable = (info) => {
+            const notif = new Notification({
+                title: 'Доступно обновление!',
+                body: `Версия ${info.version} доступна. Нажмите, чтобы открыть Noctune и скачать.`,
+                icon: iconPath
+            });
+            notif.on('click', () => { if (win) { win.show(); win.focus(); } });
+            notif.show();
+        };
+        autoUpdater.once('update-available', onSilentAvailable);
+    }
+
     try {
-        // Настройка "автоматически скачивать" читается из хранилища перед
-        // каждой проверкой — пользователь мог поменять её только что.
-        const autoDl = store && store.get('setting_auto_download_updates');
-        autoUpdater.autoDownload = autoDl === '1';
         await autoUpdater.checkForUpdates();
         return { ok: true };
     } catch (e) {
         if (!silent) sendToRenderer('updater:error', String(e && e.message || e));
         return { ok: false, error: String(e && e.message || e) };
+    } finally {
+        if (onSilentAvailable) autoUpdater.removeListener('update-available', onSilentAvailable);
     }
 });
 
@@ -904,7 +929,12 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    app.setAppUserModelId('Noctune');
+    // AUMID должен буквально совпадать с build.appId из package.json — именно
+    // с этим значением NSIS-инсталлятор регистрирует ярлык в Пуске. При
+    // несовпадении Windows не находит зарегистрированную идентичность
+    // приложения и откатывается на generic "Electron" — как имя, так и иконку
+    // (проявляется в toast-уведомлениях и группировке в таскбаре).
+    app.setAppUserModelId('com.noctune.player');
     initStore().then(() => {
       console.log('Store инициализирован');
       lastfmLoadSession();
