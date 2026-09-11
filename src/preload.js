@@ -45,6 +45,8 @@ async function parseAudioMetadata(filePath, fallbackName) {
     duration: 0,
     kbps: 0,
     fileSize: 0,
+    replayGainTrackDb: null,   // дБ, из тега (если есть) — null означает "тега нет"
+    replayGainAlbumDb: null,
   };
 
   try {
@@ -68,6 +70,22 @@ async function parseAudioMetadata(filePath, fallbackName) {
           result.coverDataUrl = `data:${mime};base64,${base64}`;
         } catch (e) { /* повреждённая обложка — просто пропускаем */ }
       }
+      // ReplayGain: music-metadata отдаёт его в разных формах в зависимости
+      // от версии/формата тега — число, строка "-6.5 dB" или объект
+      // {dB, ratio}. Разбираем защитно, вместо того чтобы полагаться на одну
+      // конкретную форму.
+      const parseGainDb = (v) => {
+        if (v === null || v === undefined) return null;
+        if (typeof v === 'number' && isFinite(v)) return v;
+        if (typeof v === 'object' && typeof v.dB === 'number' && isFinite(v.dB)) return v.dB;
+        if (typeof v === 'string') {
+          const n = parseFloat(v);
+          return isFinite(n) ? n : null;
+        }
+        return null;
+      };
+      result.replayGainTrackDb = parseGainDb(metadata.common.replaygain_track_gain);
+      result.replayGainAlbumDb = parseGainDb(metadata.common.replaygain_album_gain);
     }
     if (metadata.format) {
       if (typeof metadata.format.duration === 'number' && isFinite(metadata.format.duration)) {
@@ -218,6 +236,7 @@ contextBridge.exposeInMainWorld('noctune', {
 
   // ── Ссылки ──
   openExternalUrl: (url) => ipcRenderer.send('open-external-url', url),
+  showItemInFolder: (filePath) => ipcRenderer.send('show-item-in-folder', filePath),
   openInternalUrl: (url) => ipcRenderer.send('open-internal-url', url),
 
   // ── Трей / окно ──

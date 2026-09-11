@@ -662,6 +662,12 @@ ipcMain.on('open-external-url', (_event, url) => {
     shell.openExternal(url);
 });
 
+// Показать файл в проводнике/Finder с выделением (например, только что
+// экспортированный .m3u) — используется кнопкой-действием в toast'е.
+ipcMain.on('show-item-in-folder', (_event, filePath) => {
+    try { shell.showItemInFolder(filePath); } catch (e) {}
+});
+
 // Обработчик для открытия ссылки во встроенном браузере
 ipcMain.on('open-internal-url', (_event, url) => {
     const browserWin = new BrowserWindow({

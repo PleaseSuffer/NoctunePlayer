@@ -1682,6 +1682,10 @@
             gap: 10px;
             animation: toastSlideIn 0.3s ease;
             transition: opacity 0.3s, transform 0.3s;
+            position: relative;
+        }
+        .notification-toast.has-corner-action {
+            padding-bottom: 34px; /* место под кнопку в нижнем правом углу, чтобы не наезжала на текст */
         }
         .notification-toast.hiding {
             opacity: 0;
@@ -1785,6 +1789,26 @@
         .notification-toast-action.primary:hover {
             opacity: 0.9;
         }
+        .notification-toast-corner-action {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--track-hover);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .notification-toast-corner-action:hover {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
         @keyframes toastSlideIn {
             from { opacity: 0; transform: translateX(30px); }
             to   { opacity: 1; transform: translateX(0); }
@@ -1856,14 +1880,66 @@
         }
 
         /* Main player cover art */
+        .cover-waveform-stack {
+            position: relative;
+            width: 100%;
+            height: 256px;
+            margin-bottom: 12px;
+        }
         .player-cover-wrap {
             display: none;
             justify-content: center;
-            margin-bottom: 12px;
+            align-items: center;
+            width: 100%;
+            height: 100%;
         }
         body.show-covers .player-cover-wrap {
             display: flex;
         }
+        /* Waveform трека — намеренно ВНЕ .player-cover-wrap: он не должен
+           зависеть от переключателя "Показывать обложку трека", раз он и
+           обложка — независимые настройки (см. index.html). Тусклый базовый
+           слой + яркая копия поверх, обрезаемая clip-path по мере прогресса
+           воспроизведения (см. waveform.js). Оба канваса шире самой обложки и
+           растянуты на всю ширину .cover-waveform-stack, поэтому столбики
+           выходят по бокам от обложки, как в примере из Яндекс.Музыки. */
+        #waveform-wrap {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 200px;
+            opacity: 0;
+            z-index: 1;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        #waveform-canvas-base, #waveform-canvas-progress {
+            position: absolute;
+            top: 0; left: 0;
+            height: 100%;
+            width: 100%;
+            transition: transform 0.25s linear;
+            will-change: transform;
+        }
+        #waveform-canvas-progress {
+            transition: transform 0.25s linear, clip-path 0.25s linear;
+        }
+        /* Режим "Прокрутка" — те же два канваса (база + заливка прогресса),
+           просто шире вьюпорта и едут вместе через transform:translateX
+           (плавно, за счёт CSS-transition выше — дёшево, не требует
+           requestAnimationFrame). Заливка остаётся на месте в обоих режимах —
+           без неё у краёв трека (когда прокрутка упирается в начало/конец и
+           не центрируется) непонятно, где именно идёт воспроизведение. */
+        /* Ширина канвасов проставляется инлайн из waveform.js (totalW) —
+           в режиме "Прокрутка" она больше вьюпорта, поэтому здесь фиксированной
+           не задаём. Затухание по краям теперь считается прямо в отрисовке (альфа
+           каждого бара, см. edgeFadeMultiplier в waveform.js) — надёжнее,
+           чем CSS mask-image (ненадёжно рендерится в некоторых сборках
+           Chromium/Electron с canvas-детьми) или подгон градиента под цвет
+           фона (ломается, если фон под канвасом не тот, что ожидали). */
         .player-cover-img {
             width: 256px;
             height: 256px;
@@ -1871,6 +1947,8 @@
             object-fit: cover;
             box-shadow: 0 6px 20px var(--shadow);
             display: none;
+            position: relative;
+            z-index: 2;
         }
         .player-cover-img.loaded {
             display: block;
@@ -1885,6 +1963,8 @@
             justify-content: center;
             color: var(--text-muted);
             box-shadow: 0 6px 20px var(--shadow);
+            position: relative;
+            z-index: 2;
         }
         body.show-covers .player-cover-img.loaded + .player-cover-placeholder {
             display: none;
@@ -1997,7 +2077,7 @@
                 width: 180px;
                 height: 180px;
             }
-            .player-cover-wrap { margin-bottom: 8px; }
+            .cover-waveform-stack { height: 180px; margin-bottom: 8px; }
 
             .track-title { font-size: 18px; }
             .track-artist { font-size: 13px; margin-bottom: 4px; }
@@ -2039,6 +2119,7 @@
                 width: 130px;
                 height: 130px;
             }
+            .cover-waveform-stack { height: 130px; }
 
             .track-title { font-size: 15px; }
             .track-artist { font-size: 12px; }

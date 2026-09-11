@@ -1,3 +1,15 @@
+        // ========================
+        // CROSSFADE STATE
+        // ========================
+        // Раньше жило в background-fx.js (файл про визуальные эффекты фона,
+        // тематически не при чём) — оба места, где реально используются эти
+        // переменные (fade-out у конца трека и fade-in у нового), находятся
+        // ниже, в этом же файле, так что переехали сюда.
+        let crossfadeEnabled = false;
+        let crossfadeOutDuration = 3;
+        let crossfadeInDuration = 0;
+        let _crossfadeTimeout = null;
+
         // ── Интеграция: Last.fm (скробблинг) ────────────────────────────────
         // Состояние сбрасывается при каждой смене трека (lastfmResetTrackState),
         // "now playing" уходит один раз на трек (дедуп по artist|title — повторные
@@ -48,6 +60,23 @@
             }).catch(() => {});
         }
 
+        // ── ReplayGain ───────────────────────────────────────────────────────
+        // window._currentTrackReplayGainDb хранит значение из тега ТЕКУЩЕГО
+        // трека (или null, если тега нет) — записывается сразу после чтения
+        // метаданных в playTrack(), задолго до того как граф Web Audio вообще
+        // может существовать (initAudioEngine() ленивый, создаётся по первому
+        // воспроизведению). Поэтому применение отделено от чтения: эта функция
+        // безопасно no-op'ает, если узел ещё не создан, и вызывается заново
+        // сразу после его создания в initAudioEngine().
+        window._currentTrackReplayGainDb = null;
+        function applyReplayGainNow() {
+            if (!window.replayGainNode || !audioCtx) return;
+            const enabled = window.replayGainEnabled && !isRadioMode;
+            const db = enabled ? window._currentTrackReplayGainDb : null;
+            const gain = (typeof db === 'number' && isFinite(db)) ? Math.pow(10, db / 20) : 1;
+            window.replayGainNode.gain.setValueAtTime(gain, audioCtx.currentTime);
+        }
+
         function applyChannelMode(mode) {
             if (!window.chSplitter || !window.chMerger) return;
             // Disconnect all existing splitter→merger connections
@@ -90,6 +119,14 @@
             const preampVal = preampSlider ? parseFloat(preampSlider.value) : 0;
             window.preampNode.gain.value = isEqBypassed ? 1 : Math.pow(10, preampVal / 20);
 
+            // ReplayGain — отдельный узел ПЕРЕД преампом/эквалайзером, чтобы
+            // выравнивание громкости трека не искажалось цветовой окраской EQ.
+            // Для радио остаётся 1 (0dB) всегда — у потоков нет ReplayGain-тега.
+            window.replayGainNode = audioCtx.createGain();
+            window.replayGainNode.gain.value = 1;
+            window.replayGainNode.connect(window.preampNode);
+            applyReplayGainNow();
+
             let lastNode = window.preampNode;
 
             frequencies.forEach((freq, index) => {
@@ -105,6 +142,34 @@
                 eqFilters.push(filter);
                 lastNode = filter;
             });
+
+            // Лимитер — DynamicsCompressorNode как предохранитель от хрипов/
+            // клиппинга. Стоит СРАЗУ ПОСЛЕ всей цепочки, которая может
+            // поднять уровень выше 0dBFS: ReplayGain (может задрать тихие
+            // треки), преамп (+12dB) и все 12 полос EQ (тоже до +12dB каждая,
+            // и при одновременном подъёме нескольких соседних полос суммарный
+            // подъём на конкретной частоте может оказаться заметно больше,
+            // чем показывает любой отдельный слайдер — классика для любого
+            // параметрического эквалайзера). Настройки — "прозрачный
+            // брикволл": быстрая атака ловит транзиенты до клиппинга, порог
+            // с запасом до нуля, высокий ratio почти без слышимого "накачивания".
+            window.limiterNode = audioCtx.createDynamicsCompressor();
+            // Значения читаются из сохранённых настроек (appStorage), если
+            // пользователь их менял — иначе используются дефолты ниже. И то,
+            // и то — настраивается во вкладке "Эквалайзер" (см. settings.js).
+            const limDefaults = { threshold: -3, knee: 6, ratio: 20, attack: 0.003, release: 0.15 };
+            const limThreshold = appStorage.getItem('setting_limiter_threshold');
+            const limKnee = appStorage.getItem('setting_limiter_knee');
+            const limRatio = appStorage.getItem('setting_limiter_ratio');
+            const limAttack = appStorage.getItem('setting_limiter_attack'); // хранится в мс
+            const limRelease = appStorage.getItem('setting_limiter_release'); // хранится в мс
+            window.limiterNode.threshold.value = limThreshold !== null ? parseFloat(limThreshold) : limDefaults.threshold;
+            window.limiterNode.knee.value = limKnee !== null ? parseFloat(limKnee) : limDefaults.knee;
+            window.limiterNode.ratio.value = limRatio !== null ? parseFloat(limRatio) : limDefaults.ratio;
+            window.limiterNode.attack.value = limAttack !== null ? parseFloat(limAttack) / 1000 : limDefaults.attack;
+            window.limiterNode.release.value = limRelease !== null ? parseFloat(limRelease) / 1000 : limDefaults.release;
+            lastNode.connect(window.limiterNode);
+            lastNode = window.limiterNode;
 
             analyzer = audioCtx.createAnalyser();
             analyzer.fftSize = 512; 
@@ -355,6 +420,7 @@
                 timeCurrent.textContent = formatTime(current);
                 maybeSavePosition(current);
                 maybeLastfmScrobble(current);
+                if (typeof updateWaveformProgress === 'function' && duration > 0) updateWaveformProgress(current / duration);
 
                 // Resync SMTC position every ~10 s to correct drift
                 _smtcSyncCounter++;
@@ -529,6 +595,9 @@
                 }
                 _discordRadioStartedAt = Date.now();
                 lastfmResetTrackState(null); // радио не скробблим — см. пометку в карточке настроек
+                window._currentTrackReplayGainDb = null;
+                applyReplayGainNow();
+                if (typeof renderWaveform === 'function') renderWaveform(null); // нет фиксированной длины потока — waveform не строим
 
                 try {
                     if (!radioAudioElement) {
@@ -545,7 +614,7 @@
                         radioAudioElement.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none;opacity:0;';
                         document.body.appendChild(radioAudioElement);
                         mediaElementSourceNode = audioCtx.createMediaElementSource(radioAudioElement);
-                        mediaElementSourceNode.connect(window.preampNode);
+                        mediaElementSourceNode.connect(window.replayGainNode || window.preampNode);
                     }
 
                     radioAudioElement.src = entry.path;
@@ -613,6 +682,8 @@
                     miniTrackTitle.textContent = `${meta.artist} — ${meta.title}`;
                     triggerMiniMarquee();
                     lastfmResetTrackState({ artist: meta.artist, title: meta.title, album: meta.album || '', duration: 0 });
+                    window._currentTrackReplayGainDb = (typeof meta.replayGainTrackDb === 'number') ? meta.replayGainTrackDb : null;
+                    applyReplayGainNow();
 
                     // Update main player cover art
                     const playerCoverImg = document.getElementById('player-cover-img');
@@ -639,6 +710,8 @@
                         });
                     }
 
+                    if (typeof loadTrackWaveform === 'function') loadTrackWaveform(filePath, myToken);
+
                     // Каждый трек — новый Audio() + новый MediaElementSourceNode.
                     // createMediaElementSource можно вызвать для одного элемента только один раз,
                     // поэтому переиспользовать нельзя — создаём свежую пару.
@@ -664,7 +737,7 @@
 
                     // Подключаем в аудиограф сразу (до установки src)
                     localMediaSource = audioCtx.createMediaElementSource(localAudioElement);
-                    localMediaSource.connect(window.preampNode);
+                    localMediaSource.connect(window.replayGainNode || window.preampNode);
 
                     // volumeNode создаём если ещё нет
                     if (!window.volumeNode) {

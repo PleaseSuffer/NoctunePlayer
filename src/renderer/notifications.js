@@ -38,8 +38,17 @@
                     ${actions.map((a, i) => `<button class="notification-toast-action${a.primary ? ' primary' : ''}" data-action-idx="${i}">${a.label}</button>`).join('')}
                 </div>` : '';
 
+            // Угловая кнопка-иконка в правом нижнем углу — для быстрых
+            // контекстных действий без текста (например, "показать файл в
+            // папке" у уведомления об экспорте). Один такой слот на toast.
+            const cornerAction = options.cornerAction || null;
+            const cornerActionHtml = cornerAction ? `
+                <button class="notification-toast-corner-action" title="${cornerAction.title || ''}">
+                    <i data-lucide="${cornerAction.icon || 'external-link'}" style="width:13px;height:13px;"></i>
+                </button>` : '';
+
             const toast = document.createElement('div');
-            toast.className = 'notification-toast';
+            toast.className = 'notification-toast' + (cornerAction ? ' has-corner-action' : '');
             toast.innerHTML = `
                 <div class="notification-toast-icon ${type}">
                     <i data-lucide="${iconName}" style="width:16px;height:16px;"></i>
@@ -53,10 +62,20 @@
                 <button class="notification-toast-close" title="Закрыть">
                     <i data-lucide="x" style="width:13px;height:13px;"></i>
                 </button>
+                ${cornerActionHtml}
             `;
 
             const closeBtn = toast.querySelector('.notification-toast-close');
             closeBtn.addEventListener('click', () => dismissToast(toast));
+
+            if (cornerAction) {
+                const cornerBtn = toast.querySelector('.notification-toast-corner-action');
+                if (cornerBtn) cornerBtn.addEventListener('click', () => {
+                    try { cornerAction.onClick && cornerAction.onClick(); } finally {
+                        if (cornerAction.dismissOnClick) dismissToast(toast);
+                    }
+                });
+            }
 
             actions.forEach((a, i) => {
                 const btn = toast.querySelector(`.notification-toast-action[data-action-idx="${i}"]`);

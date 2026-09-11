@@ -72,10 +72,16 @@
             </div>
 
             <div class="track-info">
-                <div class="player-cover-wrap" id="player-cover-wrap">
-                    <img class="player-cover-img" id="player-cover-img" alt="">
-                    <div class="player-cover-placeholder" id="player-cover-placeholder">
-                        <i data-lucide="music-2" style="width:64px;height:64px;opacity:0.4;"></i>
+                <div class="cover-waveform-stack" id="cover-waveform-stack">
+                    <div id="waveform-wrap">
+                        <canvas id="waveform-canvas-base"></canvas>
+                        <canvas id="waveform-canvas-progress"></canvas>
+                    </div>
+                    <div class="player-cover-wrap" id="player-cover-wrap">
+                        <img class="player-cover-img" id="player-cover-img" alt="">
+                        <div class="player-cover-placeholder" id="player-cover-placeholder">
+                            <i data-lucide="music-2" style="width:64px;height:64px;opacity:0.4;"></i>
+                        </div>
                     </div>
                 </div>
                 <div class="track-title" id="track-title">Музыка не выбрана</div>
@@ -388,16 +394,6 @@
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
                             <div class="settings-row">
                                 <div>
-                                    <div class="settings-row-label">Показывать кнопку эквалайзера</div>
-                                    <div class="settings-row-desc">Кнопка в панели управления плеера — сам эквалайзер всегда доступен во вкладке «Эквалайзер»</div>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-show-eq-btn" checked>
-                                    <span class="slider-round"></span>
-                                </label>
-                            </div>
-                            <div class="settings-row">
-                                <div>
                                     <div class="settings-row-label">Плавное затухание между треками</div>
                                     <div class="settings-row-desc">Crossfade при смене трека</div>
                                 </div>
@@ -435,10 +431,10 @@
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">ReplayGain</div>
-                                    <div class="settings-row-desc">Использовать метаданные громкости из файла</div>
+                                    <div class="settings-row-desc">Использовать метаданные громкости из тега файла (если он там есть)</div>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-replaygain" disabled>
+                                    <input type="checkbox" id="setting-replaygain">
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
@@ -622,6 +618,55 @@
                         <div class="settings-card">
                             <div class="sliders-container custom-scroll" id="sliders-wrapper-settings"></div>
                         </div>
+
+                        <div class="settings-section-title">Лимитер</div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
+                            <div class="settings-row-desc" style="margin-bottom:12px;">
+                                Предохранитель после эквалайзера — не даёт сигналу перегрузиться и захрипеть,
+                                особенно при одновременном подъёме нескольких соседних полос. Без крайней
+                                необходимости лучше не трогать — значения по умолчанию подобраны так, чтобы
+                                лимитер оставался практически неслышимым и включался только на реальных пиках.
+                            </div>
+
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог (threshold)</div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                <input type="range" id="setting-limiter-threshold" min="-24" max="0" step="0.5" value="-3"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-limiter-threshold-label" style="font-size:12px;font-weight:700;min-width:52px;text-align:right;flex-shrink:0;">-3 дБ</span>
+                            </div>
+
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Колено (knee)</div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                <input type="range" id="setting-limiter-knee" min="0" max="40" step="1" value="6"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-limiter-knee-label" style="font-size:12px;font-weight:700;min-width:52px;text-align:right;flex-shrink:0;">6 дБ</span>
+                            </div>
+
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Ratio</div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                <input type="range" id="setting-limiter-ratio" min="1" max="20" step="0.5" value="20"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-limiter-ratio-label" style="font-size:12px;font-weight:700;min-width:52px;text-align:right;flex-shrink:0;">20:1</span>
+                            </div>
+
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Атака (attack)</div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                <input type="range" id="setting-limiter-attack" min="0" max="50" step="1" value="3"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-limiter-attack-label" style="font-size:12px;font-weight:700;min-width:52px;text-align:right;flex-shrink:0;">3 мс</span>
+                            </div>
+
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Восстановление (release)</div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                                <input type="range" id="setting-limiter-release" min="10" max="1000" step="10" value="150"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-limiter-release-label" style="font-size:12px;font-weight:700;min-width:52px;text-align:right;flex-shrink:0;">150 мс</span>
+                            </div>
+
+                            <button class="btn" id="btn-limiter-reset" style="width:100%;background:transparent;color:var(--text-color);border:1px solid var(--border-color);">
+                                <i data-lucide="rotate-ccw" style="width:13px;height:13px;"></i> Сбросить к значениям по умолчанию
+                            </button>
+                        </div>
                     </div>
 
                     <!-- === ВНЕШНИЙ ВИД === -->
@@ -709,76 +754,6 @@
                                     <input type="checkbox" id="setting-bg-image-enabled">
                                     <span class="slider-round"></span>
                                 </label>
-                            </div>
-
-                            <!-- Свечение под звук — намеренно ВНЕ #bg-image-advanced-settings:
-                                 не требует своего фона, рисуется отдельным radial-gradient
-                                 поверх обычного чёрного/белого фона плеера тоже (см. updateBgLayerVisibility в settings.js). -->
-                            <div style="border-top:1px solid var(--border-color);padding-top:10px;margin-top:10px;">
-                                <div class="settings-row" style="border-bottom:none;">
-                                    <div>
-                                        <div class="settings-row-label">Свечение под звук</div>
-                                        <div class="settings-row-desc">Мягкое зарево в такт звуку — работает и без своего фона</div>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="setting-bg-glow-enabled">
-                                        <span class="slider-round"></span>
-                                    </label>
-                                </div>
-                                <div id="bg-glow-intensity-row" style="display:none;padding:0 0 10px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
-                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность свечения</div>
-                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                                        <input type="range" id="setting-bg-glow-intensity" min="0.2" max="2.5" step="0.1" value="1"
-                                            style="flex:1;accent-color:var(--accent-color);">
-                                        <span id="setting-bg-glow-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
-                                    </div>
-                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог срабатывания</div>
-                                    <div class="settings-row-desc" style="margin-bottom:6px;">Игнорировать тихие моменты</div>
-                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-                                        <input type="range" id="setting-bg-glow-threshold" min="0" max="0.5" step="0.02" value="0"
-                                            style="flex:1;accent-color:var(--accent-color);">
-                                        <span id="setting-bg-glow-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
-                                    </div>
-
-                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Стиль свечения</div>
-                                    <div class="viz-type-dropdown-wrapper" id="bg-glow-style-dropdown-wrapper" style="margin-bottom:12px;">
-                                        <button class="viz-type-dropdown-btn" id="bg-glow-style-dropdown-btn">
-                                            <span class="pd-icon"><i data-lucide="sun" style="width:14px;height:14px;"></i></span>
-                                            <span class="pd-label" id="bg-glow-style-label">Из центра</span>
-                                            <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
-                                        </button>
-                                        <div class="viz-type-dropdown-menu" id="bg-glow-style-dropdown-menu">
-                                            <div class="viz-type-menu-item active" data-glow-style="center" data-icon="sun">
-                                                <i data-lucide="sun" style="width:14px;height:14px;color:var(--accent-color);"></i> Из центра
-                                            </div>
-                                            <div class="viz-type-menu-item" data-glow-style="edges" data-icon="square">
-                                                <i data-lucide="square" style="width:14px;height:14px;color:var(--accent-color);"></i> По краям
-                                            </div>
-                                            <div class="viz-type-menu-item" data-glow-style="top" data-icon="arrow-down">
-                                                <i data-lucide="arrow-down" style="width:14px;height:14px;color:var(--accent-color);"></i> Сверху
-                                            </div>
-                                            <div class="viz-type-menu-item" data-glow-style="bottom" data-icon="arrow-up">
-                                                <i data-lucide="arrow-up" style="width:14px;height:14px;color:var(--accent-color);"></i> Снизу
-                                            </div>
-                                            <div class="viz-type-menu-item" data-glow-style="ring" data-icon="circle-dashed">
-                                                <i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Кольцом
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style="display:flex;align-items:center;justify-content:space-between;">
-                                        <span style="font-size:12px;color:var(--text-muted);">Свой цвет свечения</span>
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" id="setting-bg-glow-custom-color">
-                                            <span class="slider-round"></span>
-                                        </label>
-                                    </div>
-                                    <div id="bg-glow-color-row" style="display:none;align-items:center;gap:10px;padding-top:10px;">
-                                        <label style="font-size:12px;color:var(--text-muted);">Цвет:</label>
-                                        <input type="color" id="bg-glow-color-picker" value="#bb86fc"
-                                            style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                    </div>
-                                </div>
                             </div>
 
                             <div id="bg-image-advanced-settings" style="display:none;flex-direction:column;gap:0;border-top:1px solid var(--border-color);padding-top:10px;">
@@ -1005,6 +980,141 @@
                                     </div>
                                 </div>
 
+                            </div>
+
+                            <!-- Свечение под звук — намеренно ВНЕ #bg-image-advanced-settings:
+                                 не требует своего фона, рисуется отдельным radial-gradient
+                                 поверх обычного чёрного/белого фона плеера тоже (см. updateBgLayerVisibility в settings.js). -->
+                            <div style="border-top:1px solid var(--border-color);padding-top:10px;margin-top:10px;">
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div>
+                                        <div class="settings-row-label">Свечение под звук</div>
+                                        <div class="settings-row-desc">Мягкое зарево в такт звуку — работает и без своего фона</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-bg-glow-enabled">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div id="bg-glow-intensity-row" style="display:none;padding:0 0 10px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность свечения</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                        <input type="range" id="setting-bg-glow-intensity" min="0.2" max="2.5" step="0.1" value="1"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-glow-intensity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                    </div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог срабатывания</div>
+                                    <div class="settings-row-desc" style="margin-bottom:6px;">Игнорировать тихие моменты</div>
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                        <input type="range" id="setting-bg-glow-threshold" min="0" max="0.5" step="0.02" value="0"
+                                            style="flex:1;accent-color:var(--accent-color);">
+                                        <span id="setting-bg-glow-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
+                                    </div>
+
+                                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Стиль свечения</div>
+                                    <div class="viz-type-dropdown-wrapper" id="bg-glow-style-dropdown-wrapper" style="margin-bottom:12px;">
+                                        <button class="viz-type-dropdown-btn" id="bg-glow-style-dropdown-btn">
+                                            <span class="pd-icon"><i data-lucide="sun" style="width:14px;height:14px;"></i></span>
+                                            <span class="pd-label" id="bg-glow-style-label">Из центра</span>
+                                            <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                        </button>
+                                        <div class="viz-type-dropdown-menu" id="bg-glow-style-dropdown-menu">
+                                            <div class="viz-type-menu-item active" data-glow-style="center" data-icon="sun">
+                                                <i data-lucide="sun" style="width:14px;height:14px;color:var(--accent-color);"></i> Из центра
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="edges" data-icon="square">
+                                                <i data-lucide="square" style="width:14px;height:14px;color:var(--accent-color);"></i> По краям
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="top" data-icon="arrow-down">
+                                                <i data-lucide="arrow-down" style="width:14px;height:14px;color:var(--accent-color);"></i> Сверху
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="bottom" data-icon="arrow-up">
+                                                <i data-lucide="arrow-up" style="width:14px;height:14px;color:var(--accent-color);"></i> Снизу
+                                            </div>
+                                            <div class="viz-type-menu-item" data-glow-style="ring" data-icon="circle-dashed">
+                                                <i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Кольцом
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style="display:flex;align-items:center;justify-content:space-between;">
+                                        <span style="font-size:12px;color:var(--text-muted);">Свой цвет свечения</span>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="setting-bg-glow-custom-color">
+                                            <span class="slider-round"></span>
+                                        </label>
+                                    </div>
+                                    <div id="bg-glow-color-row" style="display:none;align-items:center;gap:10px;padding-top:10px;">
+                                        <label style="font-size:12px;color:var(--text-muted);">Цвет:</label>
+                                        <input type="color" id="bg-glow-color-picker" value="#bb86fc"
+                                            style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section-title">Waveform</div>
+                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
+                            <div class="settings-row" style="border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Показывать waveform трека</div>
+                                    <div class="settings-row-desc">Форма волны за обложкой, синхронизирована с воспроизведением</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-waveform-enabled">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div id="waveform-settings-sub" style="display:none;padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+
+                                <div style="font-size:12px;color:var(--text-muted);margin:8px 0 6px;">Режим отображения</div>
+                                <div class="viz-type-dropdown-wrapper" id="waveform-mode-dropdown-wrapper" style="margin-bottom:6px;">
+                                    <button class="viz-type-dropdown-btn" id="waveform-mode-dropdown-btn">
+                                        <span class="pd-icon"><i data-lucide="align-center" style="width:14px;height:14px;"></i></span>
+                                        <span class="pd-label" id="waveform-mode-label">Полностью</span>
+                                        <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                    </button>
+                                    <div class="viz-type-dropdown-menu" id="waveform-mode-dropdown-menu">
+                                        <div class="viz-type-menu-item active" data-waveform-mode="full">
+                                            <i data-lucide="align-center" style="width:14px;height:14px;color:var(--accent-color);"></i> Полностью
+                                        </div>
+                                        <div class="viz-type-menu-item" data-waveform-mode="scroll">
+                                            <i data-lucide="move-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Прокрутка
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row-desc" id="waveform-mode-desc" style="margin-bottom:12px;">Вся форма волны сразу, заливается по мере воспроизведения</div>
+
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Чувствительность</div>
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                    <input type="range" id="setting-waveform-sensitivity" min="0.4" max="2.5" step="0.1" value="1"
+                                        style="flex:1;accent-color:var(--accent-color);">
+                                    <span id="setting-waveform-sensitivity-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
+                                </div>
+
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
+                                <div class="viz-type-dropdown-wrapper" id="waveform-color-dropdown-wrapper" style="margin-bottom:6px;">
+                                    <button class="viz-type-dropdown-btn" id="waveform-color-dropdown-btn">
+                                        <span class="pd-icon"><i data-lucide="palette" style="width:14px;height:14px;"></i></span>
+                                        <span class="pd-label" id="waveform-color-mode-label">Свой цвет</span>
+                                        <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                    </button>
+                                    <div class="viz-type-dropdown-menu" id="waveform-color-dropdown-menu">
+                                        <div class="viz-type-menu-item" data-waveform-color-mode="adaptive">
+                                            <i data-lucide="wand-2" style="width:14px;height:14px;color:var(--accent-color);"></i> Адаптивный
+                                        </div>
+                                        <div class="viz-type-menu-item active" data-waveform-color-mode="custom">
+                                            <i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i> Свой цвет
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row-desc" id="waveform-color-mode-desc" style="margin-bottom:10px;">Без своего фона адаптивный режим возьмёт нейтральный цвет от текущей темы</div>
+
+                                <div id="waveform-color-row" style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+                                    <label style="font-size:12px;color:var(--text-muted);">Цвет:</label>
+                                    <input type="color" id="waveform-color-picker" value="#4a90e2"
+                                        style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+                                </div>
                             </div>
                         </div>
 
@@ -1565,8 +1675,8 @@
                                     <div class="settings-row-label">Экспорт темы</div>
                                     <div class="settings-row-desc">Сохраняет акцент, градиенты визуализатора и настройки фона (без самого изображения/видео) в один короткий код</div>
                                 </div>
-                                <button class="btn" id="btn-export-theme" style="padding:7px 14px;font-size:12px;">
-                                    <i data-lucide="share-2" style="width:13px;height:13px;"></i> Экспортировать тему
+                                <button class="btn" id="btn-export-theme" style="width:100%;padding:9px 14px;font-size:13px;">
+                                    <i data-lucide="share-2" style="width:14px;height:14px;"></i> Экспортировать тему
                                 </button>
                             </div>
                             <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;border-bottom:none;">
@@ -1574,13 +1684,11 @@
                                     <div class="settings-row-label">Импорт темы</div>
                                     <div class="settings-row-desc">Вставьте код вида <code>noctune:...</code> и нажмите «Импортировать»</div>
                                 </div>
-                                <div style="display:flex;gap:8px;width:100%;">
-                                    <input type="text" id="theme-import-input" placeholder="noctune:..."
-                                        style="flex:1;min-width:0;padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: transparent; color: var(--text-color);font-size:12px;">
-                                    <button class="btn" id="btn-import-theme" style="padding:7px 14px;font-size:12px;flex-shrink:0;">
-                                        <i data-lucide="check" style="width:13px;height:13px;"></i> Импортировать
-                                    </button>
-                                </div>
+                                <input type="text" id="theme-import-input" placeholder="noctune:..."
+                                    style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-color);font-size:13px;">
+                                <button class="btn" id="btn-import-theme" style="width:100%;padding:9px 14px;font-size:13px;">
+                                    <i data-lucide="check" style="width:14px;height:14px;"></i> Импортировать
+                                </button>
                             </div>
                         </div>
 
@@ -1910,6 +2018,7 @@
     <script src="renderer/playback-controls.js"></script>
     <script src="renderer/equalizer.js"></script>
     <script src="renderer/playlists.js"></script>
+    <script src="renderer/waveform.js"></script>
     <script src="renderer/audio-engine.js"></script>
     <script src="renderer/hotkeys.js"></script>
     <script src="renderer/radio-search.js"></script>

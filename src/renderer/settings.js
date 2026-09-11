@@ -150,6 +150,72 @@
                 appStorage.setItem('setting_crossfade_in', crossfadeInDuration);
             });
 
+            // ---- PLAYER: ReplayGain ----
+            const settingReplayGain = document.getElementById('setting-replaygain');
+            settingReplayGain.addEventListener('change', () => {
+                window.replayGainEnabled = settingReplayGain.checked;
+                appStorage.setItem('setting_replaygain', settingReplayGain.checked ? '1' : '0');
+                // Пересчитываем сразу для уже играющего трека — не ждём смены трека.
+                if (typeof applyReplayGainNow === 'function') applyReplayGainNow();
+            });
+
+            // ---- ЭКВАЛАЙЗЕР: Лимитер ----
+            const LIMITER_DEFAULTS = { threshold: -3, knee: 6, ratio: 20, attack: 3, release: 150 }; // attack/release в мс — так удобнее пользователю, в AudioParam уходят секундами
+            const limiterThresholdSlider = document.getElementById('setting-limiter-threshold');
+            const limiterThresholdLabel  = document.getElementById('setting-limiter-threshold-label');
+            const limiterKneeSlider      = document.getElementById('setting-limiter-knee');
+            const limiterKneeLabel       = document.getElementById('setting-limiter-knee-label');
+            const limiterRatioSlider     = document.getElementById('setting-limiter-ratio');
+            const limiterRatioLabel      = document.getElementById('setting-limiter-ratio-label');
+            const limiterAttackSlider    = document.getElementById('setting-limiter-attack');
+            const limiterAttackLabel     = document.getElementById('setting-limiter-attack-label');
+            const limiterReleaseSlider   = document.getElementById('setting-limiter-release');
+            const limiterReleaseLabel    = document.getElementById('setting-limiter-release-label');
+            const btnLimiterReset        = document.getElementById('btn-limiter-reset');
+
+            function setLimiterParam(audioParamName, storageKey, uiValue, toAudioParamValue) {
+                if (window.limiterNode && audioCtx) {
+                    window.limiterNode[audioParamName].setValueAtTime(toAudioParamValue(uiValue), audioCtx.currentTime);
+                }
+                appStorage.setItem(storageKey, uiValue);
+            }
+
+            limiterThresholdSlider.addEventListener('input', () => {
+                const v = parseFloat(limiterThresholdSlider.value);
+                limiterThresholdLabel.textContent = `${v} дБ`;
+                setLimiterParam('threshold', 'setting_limiter_threshold', v, x => x);
+            });
+            limiterKneeSlider.addEventListener('input', () => {
+                const v = parseFloat(limiterKneeSlider.value);
+                limiterKneeLabel.textContent = `${v} дБ`;
+                setLimiterParam('knee', 'setting_limiter_knee', v, x => x);
+            });
+            limiterRatioSlider.addEventListener('input', () => {
+                const v = parseFloat(limiterRatioSlider.value);
+                limiterRatioLabel.textContent = `${v}:1`;
+                setLimiterParam('ratio', 'setting_limiter_ratio', v, x => x);
+            });
+            limiterAttackSlider.addEventListener('input', () => {
+                const v = parseFloat(limiterAttackSlider.value);
+                limiterAttackLabel.textContent = `${v} мс`;
+                setLimiterParam('attack', 'setting_limiter_attack', v, x => x / 1000);
+            });
+            limiterReleaseSlider.addEventListener('input', () => {
+                const v = parseFloat(limiterReleaseSlider.value);
+                limiterReleaseLabel.textContent = `${v} мс`;
+                setLimiterParam('release', 'setting_limiter_release', v, x => x / 1000);
+            });
+
+            btnLimiterReset.addEventListener('click', () => {
+                limiterThresholdSlider.value = LIMITER_DEFAULTS.threshold;
+                limiterKneeSlider.value = LIMITER_DEFAULTS.knee;
+                limiterRatioSlider.value = LIMITER_DEFAULTS.ratio;
+                limiterAttackSlider.value = LIMITER_DEFAULTS.attack;
+                limiterReleaseSlider.value = LIMITER_DEFAULTS.release;
+                [limiterThresholdSlider, limiterKneeSlider, limiterRatioSlider, limiterAttackSlider, limiterReleaseSlider]
+                    .forEach(el => el.dispatchEvent(new Event('input')));
+            });
+
             // ---- PLAYER: Remember last track + submenu ----
             const settingRememberTrack = document.getElementById('setting-remember-track');
             function applyRememberTrackSub(checked) {
@@ -619,11 +685,6 @@
             });
 
             function updateInnerVizRowVisibility() { /* legacy compat */ }
-            const settingShowEq = document.getElementById('setting-show-eq-btn');
-            settingShowEq.addEventListener('change', () => {
-                openEqBtn.style.display = settingShowEq.checked ? '' : 'none';
-                appStorage.setItem('setting_show_eq_btn', settingShowEq.checked ? '1' : '0');
-            });
 
             // ---- PLAYER: Playback speed ----
             const speedSlider = document.getElementById('setting-playback-speed');
@@ -850,11 +911,13 @@
                 }
                 lucide.createIcons();
                 refreshAccentFg(); // светлота считалась под старую тему — пересчитываем
+                if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             });
             // Sync with main theme toggle
             themeToggle.addEventListener('click', () => {
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
                 refreshAccentFg();
+                if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             });
 
             // ---- APPEARANCE: Accent color swatches ----
@@ -867,6 +930,7 @@
                 colorPicker.value = color;
                 swatches.forEach(s => s.classList.toggle('active', s.dataset.color === color));
                 refreshAccentFg();
+                if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             }
             swatches.forEach(s => s.addEventListener('click', () => setAccentColor(s.dataset.color)));
             colorPicker.addEventListener('input', () => setAccentColor(colorPicker.value));
@@ -1151,6 +1215,13 @@
                     if (enabled) { const p = customBgVideoEl.play(); if (p && p.catch) p.catch(() => {}); }
                     else customBgVideoEl.pause();
                 }
+                // Прячем саму картинку/видео явно — раз "Свечение под звук"
+                // не зависит от своего фона, слой (#custom-bg-layer) может
+                // остаться видимым и при выключенном фоне, и тогда старое
+                // изображение просто "просвечивало" бы из-под свечения вместо
+                // того, чтобы пропасть вместе с выключенным тумблером.
+                customBgImageEl.style.visibility = enabled ? '' : 'hidden';
+                customBgVideoEl.style.visibility = enabled ? '' : 'hidden';
             }
             settingBgEnabled.addEventListener('change', () => {
                 applyBgImageEnabled(settingBgEnabled.checked);
@@ -1638,6 +1709,132 @@
                 window.bgGlowCustomColor = bgGlowColorPicker.value;
                 appStorage.setItem('setting_bg_glow_custom_color', bgGlowColorPicker.value);
                 applyBgGlowStyle();
+            });
+
+            // ── Waveform за обложкой ──
+            const settingWaveformEnabled = document.getElementById('setting-waveform-enabled');
+            const waveformSettingsSub    = document.getElementById('waveform-settings-sub');
+            const waveformColorRow       = document.getElementById('waveform-color-row');
+            const waveformColorPicker    = document.getElementById('waveform-color-picker');
+            const waveformSensSlider     = document.getElementById('setting-waveform-sensitivity');
+            const waveformSensLabel      = document.getElementById('setting-waveform-sensitivity-label');
+
+            const waveformModeBtn   = document.getElementById('waveform-mode-dropdown-btn');
+            const waveformModeMenu  = document.getElementById('waveform-mode-dropdown-menu');
+            const waveformModeLabel = document.getElementById('waveform-mode-label');
+            const waveformModeDesc  = document.getElementById('waveform-mode-desc');
+
+            const waveformColorModeBtn   = document.getElementById('waveform-color-dropdown-btn');
+            const waveformColorModeMenu  = document.getElementById('waveform-color-dropdown-menu');
+            const waveformColorModeLabel = document.getElementById('waveform-color-mode-label');
+            const waveformColorModeDesc  = document.getElementById('waveform-color-mode-desc');
+
+            const WAVEFORM_MODES = {
+                full:   { label: 'Полностью', icon: 'align-center',    desc: 'Вся форма волны сразу, заливается по мере воспроизведения' },
+                scroll: { label: 'Прокрутка',  icon: 'move-horizontal', desc: 'Небольшой отрезок вокруг текущего момента, плавно едет по треку' },
+            };
+            const WAVEFORM_COLOR_MODES = {
+                adaptive: { label: 'Адаптивный', icon: 'wand-2',  desc: 'Текущий акцент; без своего фона — нейтральный цвет от темы' },
+                custom:   { label: 'Свой цвет',  icon: 'palette', desc: 'Один и тот же цвет независимо от темы, акцента и фона' },
+            };
+
+            function reloadWaveformForCurrentTrack() {
+                // Если трек уже играет — либо перерисовываем из кеша (поменялись
+                // цвет/чувствительность/режим), либо запускаем декодирование
+                // заново (waveform только что включили, трек ещё не декодировался).
+                if (typeof refreshWaveformColorIfNeeded !== 'function') return;
+                if (window._waveformCache && window._waveformCurrentFilePath && window._waveformCache.has(window._waveformCurrentFilePath)) {
+                    refreshWaveformColorIfNeeded();
+                } else if (window.waveformEnabled && typeof currentIndex !== 'undefined' && currentIndex >= 0 && !isRadioMode) {
+                    const entry = fileEntries[playlistOrder[currentIndex]];
+                    if (entry && entry.path && typeof loadTrackWaveform === 'function') {
+                        loadTrackWaveform(entry.path, _loadToken);
+                    }
+                }
+            }
+
+            settingWaveformEnabled.addEventListener('change', () => {
+                window.waveformEnabled = settingWaveformEnabled.checked;
+                setSettingsBlockVisible(waveformSettingsSub, settingWaveformEnabled.checked, 'block');
+                appStorage.setItem('setting_waveform_enabled', settingWaveformEnabled.checked ? '1' : '0');
+                if (!settingWaveformEnabled.checked && typeof renderWaveform === 'function') renderWaveform(null);
+                else reloadWaveformForCurrentTrack();
+            });
+
+            function selectWaveformMode(mode) {
+                window.waveformMode = mode;
+                const def = WAVEFORM_MODES[mode] || WAVEFORM_MODES.full;
+                waveformModeLabel.textContent = def.label;
+                waveformModeDesc.textContent = def.desc;
+                waveformModeBtn.querySelector('.pd-icon').innerHTML = `<i data-lucide="${def.icon}" style="width:14px;height:14px;"></i>`;
+                waveformModeMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
+                    el.classList.toggle('active', el.dataset.waveformMode === mode));
+                appStorage.setItem('setting_waveform_mode', mode);
+                lucide.createIcons();
+                reloadWaveformForCurrentTrack();
+            }
+            waveformModeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = waveformModeMenu.classList.toggle('open');
+                waveformModeBtn.classList.toggle('open', open);
+            });
+            waveformModeMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('.viz-type-menu-item');
+                if (!item) return;
+                e.stopPropagation();
+                selectWaveformMode(item.dataset.waveformMode);
+                waveformModeMenu.classList.remove('open');
+                waveformModeBtn.classList.remove('open');
+            });
+
+            function selectWaveformColorMode(mode) {
+                window.waveformColorMode = mode;
+                const def = WAVEFORM_COLOR_MODES[mode] || WAVEFORM_COLOR_MODES.custom;
+                waveformColorModeLabel.textContent = def.label;
+                waveformColorModeDesc.textContent = def.desc;
+                waveformColorModeBtn.querySelector('.pd-icon').innerHTML = `<i data-lucide="${def.icon}" style="width:14px;height:14px;"></i>`;
+                waveformColorModeMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
+                    el.classList.toggle('active', el.dataset.waveformColorMode === mode));
+                setSettingsBlockVisible(waveformColorRow, mode === 'custom', 'flex');
+                appStorage.setItem('setting_waveform_color_mode', mode);
+                lucide.createIcons();
+                reloadWaveformForCurrentTrack();
+            }
+            waveformColorModeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = waveformColorModeMenu.classList.toggle('open');
+                waveformColorModeBtn.classList.toggle('open', open);
+            });
+            waveformColorModeMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('.viz-type-menu-item');
+                if (!item) return;
+                e.stopPropagation();
+                selectWaveformColorMode(item.dataset.waveformColorMode);
+                waveformColorModeMenu.classList.remove('open');
+                waveformColorModeBtn.classList.remove('open');
+            });
+            // Общий обработчик закрытия дропдаунов по клику вне их — уже
+            // существует для остальных viz-type-dropdown в этом же файле
+            // (см. bgGlowStyleMenu выше), тут просто добавляем свои два в тот
+            // же слушатель через отдельную регистрацию.
+            document.addEventListener('click', () => {
+                waveformModeMenu.classList.remove('open');
+                waveformModeBtn.classList.remove('open');
+                waveformColorModeMenu.classList.remove('open');
+                waveformColorModeBtn.classList.remove('open');
+            });
+
+            waveformColorPicker.addEventListener('input', () => {
+                window.waveformCustomColor = waveformColorPicker.value;
+                appStorage.setItem('setting_waveform_custom_color', waveformColorPicker.value);
+                reloadWaveformForCurrentTrack();
+            });
+            waveformSensSlider.addEventListener('input', () => {
+                const v = parseFloat(waveformSensSlider.value);
+                waveformSensLabel.textContent = v.toFixed(1);
+                window.waveformSensitivity = v;
+                appStorage.setItem('setting_waveform_sensitivity', v);
+                reloadWaveformForCurrentTrack();
             });
 
             // ── Тряска (наклон) под звук ──
@@ -2379,6 +2576,13 @@
                         ss: parseFloat(appStorage.getItem('setting_confetti_swirl_str') || '1'),
                         id2: appStorage.getItem('setting_confetti_idle') || 'drift',
                     },
+                    wf: {                                                             // waveform за обложкой (не путать с "w" — тип визуализатора)
+                        en: settingWaveformEnabled.checked,
+                        cm: window.waveformColorMode || 'custom',
+                        cc: appStorage.getItem('setting_waveform_custom_color') || '#4a90e2',
+                        md: window.waveformMode || 'full',
+                        sv: window.waveformSensitivity || 1,
+                    },
                     bg: null,
                 };
 
@@ -2562,6 +2766,19 @@
                     if (cf.id2) selectConfettiIdle(cf.id2);
                 }
 
+                if (payload.wf) {
+                    const wf = payload.wf;
+                    if (typeof wf.en === 'boolean') setCheckedAndFire(settingWaveformEnabled, wf.en);
+                    if (wf.cc) {
+                        waveformColorPicker.value = wf.cc;
+                        window.waveformCustomColor = wf.cc;
+                        appStorage.setItem('setting_waveform_custom_color', wf.cc);
+                    }
+                    if (wf.cm) selectWaveformColorMode(wf.cm);
+                    if (wf.md) selectWaveformMode(wf.md);
+                    if (typeof wf.sv === 'number') setValueAndFire(waveformSensSlider, wf.sv);
+                }
+
                 // Адаптивные тумблеры применяем последними: если у импортирующего
                 // уже есть свой фон, палитра пересчитается именно от него.
                 if (payload.ad) {
@@ -2620,10 +2837,6 @@
             function refreshSettingsUI() {
                 // Dark theme
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
-
-                // EQ button
-                const savedEqBtn = appStorage.getItem('setting_show_eq_btn');
-                if (savedEqBtn !== null) settingShowEq.checked = savedEqBtn === '1';
 
                 // Playback speed
                 const savedSpeed = appStorage.getItem('setting_playback_speed');
@@ -2885,6 +3098,34 @@
                     if (lb) lb.textContent = crossfadeInDuration.toFixed(1) + 'с';
                 }
 
+                // ReplayGain
+                const savedReplayGain = appStorage.getItem('setting_replaygain');
+                settingReplayGain.checked = savedReplayGain === '1';
+                window.replayGainEnabled = settingReplayGain.checked;
+
+                // Лимитер — только UI (сам audio-узел при создании в
+                // initAudioEngine() уже читает эти же ключи из appStorage
+                // напрямую, см. audio-engine.js)
+                const limT = appStorage.getItem('setting_limiter_threshold');
+                limiterThresholdSlider.value = limT !== null ? parseFloat(limT) : LIMITER_DEFAULTS.threshold;
+                limiterThresholdLabel.textContent = `${limiterThresholdSlider.value} дБ`;
+
+                const limK = appStorage.getItem('setting_limiter_knee');
+                limiterKneeSlider.value = limK !== null ? parseFloat(limK) : LIMITER_DEFAULTS.knee;
+                limiterKneeLabel.textContent = `${limiterKneeSlider.value} дБ`;
+
+                const limR = appStorage.getItem('setting_limiter_ratio');
+                limiterRatioSlider.value = limR !== null ? parseFloat(limR) : LIMITER_DEFAULTS.ratio;
+                limiterRatioLabel.textContent = `${limiterRatioSlider.value}:1`;
+
+                const limA = appStorage.getItem('setting_limiter_attack');
+                limiterAttackSlider.value = limA !== null ? parseFloat(limA) : LIMITER_DEFAULTS.attack;
+                limiterAttackLabel.textContent = `${limiterAttackSlider.value} мс`;
+
+                const limRel = appStorage.getItem('setting_limiter_release');
+                limiterReleaseSlider.value = limRel !== null ? parseFloat(limRel) : LIMITER_DEFAULTS.release;
+                limiterReleaseLabel.textContent = `${limiterReleaseSlider.value} мс`;
+
                 // Remember track
                 const savedRemember = appStorage.getItem('setting_remember_track');
                 if (savedRemember !== null) settingRememberTrack.checked = savedRemember === '1';
@@ -3042,6 +3283,26 @@
                 bgGlowColorPicker.value = window.bgGlowCustomColor;
 
                 selectBgGlowStyle(appStorage.getItem('setting_bg_glow_style') || 'center');
+
+                // Waveform за обложкой
+                const savedWaveform = appStorage.getItem('setting_waveform_enabled');
+                settingWaveformEnabled.checked = savedWaveform === '1';
+                window.waveformEnabled = settingWaveformEnabled.checked;
+                setSettingsBlockVisible(waveformSettingsSub, window.waveformEnabled, 'block');
+
+                selectWaveformMode(appStorage.getItem('setting_waveform_mode') || 'full');
+
+                // По умолчанию — "Свой цвет": без фона адаптивному режиму
+                // неоткуда брать цвет, поэтому предсказуемый свой — разумный дефолт.
+                selectWaveformColorMode(appStorage.getItem('setting_waveform_color_mode') || 'custom');
+
+                window.waveformCustomColor = appStorage.getItem('setting_waveform_custom_color') || '#4a90e2';
+                waveformColorPicker.value = window.waveformCustomColor;
+
+                const savedWaveformSens = appStorage.getItem('setting_waveform_sensitivity');
+                window.waveformSensitivity = savedWaveformSens !== null ? parseFloat(savedWaveformSens) : 1;
+                waveformSensSlider.value = window.waveformSensitivity;
+                waveformSensLabel.textContent = window.waveformSensitivity.toFixed(1);
 
                 // Тряска (наклон) под звук
                 const savedBgTilt = appStorage.getItem('setting_bg_tilt_enabled');

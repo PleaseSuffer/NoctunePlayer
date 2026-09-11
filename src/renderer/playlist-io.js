@@ -52,7 +52,13 @@
 
                 const m3uText = await noctune.m3u.build(pl.name || 'Playlist', items);
                 await noctune.fs.writeTextFile(savePath, m3uText);
-                showNotification(`Плейлист «${pl.name}» экспортирован в .m3u`, 'info', 'Экспорт завершён');
+                showNotification(`Плейлист «${pl.name}» экспортирован в .m3u`, 'info', 'Экспорт завершён', null, {
+                    cornerAction: {
+                        icon: 'folder-open',
+                        title: 'Показать файл в папке',
+                        onClick: () => noctune.showItemInFolder(savePath),
+                    }
+                });
             } catch (e) {
                 console.error('Ошибка экспорта плейлиста в .m3u:', e);
                 showNotification('Не удалось экспортировать плейлист', 'error');

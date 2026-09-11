@@ -1,10 +1,3 @@
-        // ========================
-        // CROSSFADE STATE
-        // ========================
-        let crossfadeEnabled = false;
-        let crossfadeOutDuration = 3;
-        let crossfadeInDuration = 0;
-        let _crossfadeTimeout = null;
         let currentDecodedBuffer = null;   // остаётся для совместимости seek/tooltip (хранит длительность)
         let currentTrackDuration = 0;      // длительность текущего трека (секунды)
         let isEqBypassed = false;
@@ -60,7 +53,8 @@
         
         let presets = {
             "Обычный": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "Супер Бас": [0, 9, 7, 5, 2, 0, -1, -2, -1, 0, 1, 2, 2],
+            "Усиление НЧ": [0, 9, 7, 5, 2, 0, -1, -2, -1, 0, 1, 2, 2],
+            "Усиление ВЧ": [0, 2, 2, 1, 0, -1, -2, -1, 0, 2, 5, 7, 9],
             "Поп": [0, -2, -1, 1, 3, 4, 3, 1, -1, -2, -2, -1, -1],
             "Рок": [0, 5, 4, 2, -1, -2, 0, 2, 4, 5, 4, 3, 3],
             "Акустика": [0, 2, 1, 2, 3, 1, 2, 3, 2, 3, 2, 1, 0]
@@ -100,6 +94,7 @@
 
         window.addEventListener('resize', () => {
             updateAllCanvasSizes();
+            if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             stars.forEach(star => star.reset());
         });
 

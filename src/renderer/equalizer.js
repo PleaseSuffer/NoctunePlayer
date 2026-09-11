@@ -73,7 +73,7 @@
             if (label2) label2.textContent = text;
         }
 
-        const SYSTEM_PRESETS = ['Обычный', 'Супер Бас', 'Поп', 'Рок', 'Акустика'];
+        const SYSTEM_PRESETS = ['Обычный', 'Усиление НЧ', 'Усиление ВЧ', 'Поп', 'Рок', 'Акустика'];
         let _presetsPage = 0;
 
         function _buildPresetButton(name, isSystem, savedState) {

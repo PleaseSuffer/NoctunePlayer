@@ -174,6 +174,7 @@
                 progressFill.style.width = `${percentage * 100}%`;
                 timeCurrent.textContent = formatTime(targetTime);
             }
+            if (typeof updateWaveformProgress === 'function') updateWaveformProgress(percentage);
         });
 
         // Мягкий «гейт» по громкости: ниже порога эффект полностью выключен (0),
