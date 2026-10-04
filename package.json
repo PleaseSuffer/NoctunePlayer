@@ -3,7 +3,7 @@
   "displayName": "Noctune",
   "productName": "Noctune",
   "version": "1.2.2",
-  "main": "src/main.js",
+  "main": "src/main/index.js",
   "devDependencies": {
     "electron": "^42.2.0",
     "electron-builder": "^26.8.1"
@@ -12,7 +12,8 @@
   "description": "Noctune: Lightweight music player",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "test": "node tests/run.cjs"
   },
   "keywords": [],
   "license": "MIT",

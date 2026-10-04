@@ -1,14 +1,29 @@
-        // ========================
-        // CROSSFADE STATE
-        // ========================
-        // Раньше жило в background-fx.js (файл про визуальные эффекты фона,
-        // тематически не при чём) — оба места, где реально используются эти
-        // переменные (fade-out у конца трека и fade-in у нового), находятся
-        // ниже, в этом же файле, так что переехали сюда.
+        // Последовательные затухание и нарастание, без перекрытия треков.
         let crossfadeEnabled = false;
         let crossfadeOutDuration = 3;
         let crossfadeInDuration = 0;
-        let _crossfadeTimeout = null;
+        let crossfadeIntensity = 1;
+        let _trackLoading = false;
+        let _navigationToken = 0;
+        let _trackEndHandledToken = -1;
+        let _endFadeActive = false;
+
+        function fadeEnvelope(progress) {
+            return Math.pow(Math.max(0, Math.min(1, progress)), crossfadeIntensity);
+        }
+
+        function applyTrackEndFade() {
+            if (!window.volumeNode || !audioCtx || isRadioMode || !localAudioElement) return;
+            const duration = currentTrackDuration || localAudioElement.duration;
+            const remaining = duration - localAudioElement.currentTime;
+            const fading = crossfadeEnabled && crossfadeOutDuration > 0 && isFinite(duration) && duration > 0 && remaining <= crossfadeOutDuration;
+            if (!fading && !_endFadeActive) return;
+            const factor = fading ? fadeEnvelope(remaining / crossfadeOutDuration) : 1;
+            const gain = isMuted ? 0 : volumeSliderToGain(parseFloat(volumeSlider.value)) * factor;
+            window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            window.volumeNode.gain.setValueAtTime(gain, audioCtx.currentTime);
+            _endFadeActive = fading;
+        }
 
         // ── Интеграция: Last.fm (скробблинг) ────────────────────────────────
         // Состояние сбрасывается при каждой смене трека (lastfmResetTrackState),
@@ -75,6 +90,21 @@
             const db = enabled ? window._currentTrackReplayGainDb : null;
             const gain = (typeof db === 'number' && isFinite(db)) ? Math.pow(10, db / 20) : 1;
             window.replayGainNode.gain.setValueAtTime(gain, audioCtx.currentTime);
+        }
+
+        // Включение/выключение лимитера уже во время работающего аудиографа
+        // (переключатель в настройках → Эквалайзер → Лимитер). ratio=1
+        // математически означает «без компрессии при любом входном уровне» —
+        // то есть полностью прозрачный проход независимо от threshold/knee,
+        // поэтому узел можно оставить в графе и не перестраивать соединения.
+        function applyLimiterEnabled(enabled) {
+            if (!window.limiterNode || !audioCtx) return;
+            if (enabled) {
+                const limRatio = appStorage.getItem('setting_limiter_ratio');
+                window.limiterNode.ratio.setValueAtTime(limRatio !== null ? parseFloat(limRatio) : 20, audioCtx.currentTime);
+            } else {
+                window.limiterNode.ratio.setValueAtTime(1, audioCtx.currentTime);
+            }
         }
 
         function applyChannelMode(mode) {
@@ -168,6 +198,12 @@
             window.limiterNode.ratio.value = limRatio !== null ? parseFloat(limRatio) : limDefaults.ratio;
             window.limiterNode.attack.value = limAttack !== null ? parseFloat(limAttack) / 1000 : limDefaults.attack;
             window.limiterNode.release.value = limRelease !== null ? parseFloat(limRelease) / 1000 : limDefaults.release;
+            // Лимитер можно полностью выключить — узел остаётся в графе (см.
+            // applyLimiterEnabled), но при создании графа стартовое значение
+            // ratio должно сразу учитывать сохранённое состояние тумблера.
+            const limEnabledSetting = appStorage.getItem('setting_limiter_enabled');
+            const limiterEnabledAtInit = limEnabledSetting === null ? true : limEnabledSetting === '1';
+            if (!limiterEnabledAtInit) window.limiterNode.ratio.value = 1;
             lastNode.connect(window.limiterNode);
             lastNode = window.limiterNode;
 
@@ -431,25 +467,20 @@
                     progressFill.style.width = `${Math.min(pct, 100)}%`;
                     document.getElementById('mini-progress-fill').style.width = `${Math.min(pct, 100)}%`;
                     
-                    // Crossfade: start fade-out when nearing end
-                    if (crossfadeEnabled && repeatMode !== 1 && crossfadeOutDuration > 0 && window.volumeNode && audioCtx) {
-                        const timeLeft = duration - current;
-                        if (timeLeft <= crossfadeOutDuration && timeLeft > 0) {
-                            const fadeVol = (timeLeft / crossfadeOutDuration) * (isMuted ? 0 : volumeSliderToGain(parseFloat(volumeSlider.value)));
-                            window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
-                            window.volumeNode.gain.setValueAtTime(fadeVol, audioCtx.currentTime);
-                        }
-                    }
+                    applyTrackEndFade();
 
-                    if (current >= duration - 0.3) {
-                        clearInterval(progressInterval);
-                        handleTrackEnded();
-                    }
                 }
             }, 250);
         }
 
         function stopTrack() {
+            // Отменяем также асинхронные загрузки и обработчики старого трека.
+            _loadToken++;
+            _navigationToken++;
+            _trackLoading = false;
+            _endFadeActive = false;
+            clearInterval(progressInterval);
+            progressInterval = null;
             if (audioBufferSource) {
                 try { audioBufferSource.stop(); } catch(e){}
                 audioBufferSource.disconnect();
@@ -457,12 +488,11 @@
             }
             if (localAudioElement) {
                 localAudioElement.pause();
-                localAudioElement.src = '';
-                // Не вызываем load() на пустом src — это даёт MEDIA_ERR_SRC_NOT_SUPPORTED
+                localAudioElement.removeAttribute('src');
             }
             if (radioAudioElement) {
                 radioAudioElement.pause();
-                radioAudioElement.src = '';
+                radioAudioElement.removeAttribute('src');
             }
             if (radioMetadataAbort) {
                 radioMetadataAbort.abort();
@@ -471,7 +501,7 @@
             isPlaying = false;
         }
 
-        // Tooltip при наведении на полосу прокрутки
+        // Tooltip при наведении на полосу прогресса
         function attachTooltip(wrapper, tooltip) {
             wrapper.addEventListener('mousemove', (e) => {
                 if (isRadioMode) {
@@ -541,13 +571,16 @@
         }
 
         async function playTrack(orderIndex, startPosition = 0) {
-            if (orderIndex < 0 || orderIndex >= playlistOrder.length) return;
+            if (!Number.isInteger(orderIndex) || orderIndex < 0 || orderIndex >= playlistOrder.length || !fileEntries[playlistOrder[orderIndex]]) return;
 
             // Синхронизируем позицию курсора в виртуальном плейлисте
             if (isShuffle) syncShufflePos(orderIndex);
 
             initAudioEngine();
+
             stopTrack();
+            const myToken = _loadToken;
+            if (window.setLyricsTrack) window.setLyricsTrack(null, myToken);
 
             // Save last track
             const rememberToggle = document.getElementById('setting-remember-track');
@@ -571,6 +604,7 @@
             
             if (entry.kind === 'radio') {
                 isRadioMode = true;
+                if (window.setLyricsTrack) window.setLyricsTrack({ radio: true, artist: 'Радио', title: entry.name }, myToken);
                 statusText.textContent = 'Подключение к потоку...';
                 trackTitle.textContent = entry.name;
                 trackArtist.textContent = "Интернет Радиостанция";
@@ -629,11 +663,18 @@
                     const currentVol = isMuted ? 0 : volumeSliderToGain(parseFloat(volumeSlider.value));
                     window.volumeNode.gain.setValueAtTime(currentVol, audioCtx.currentTime);
 
+                    window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
+                    window.volumeNode.gain.setValueAtTime(currentVol, audioCtx.currentTime);
                     radioAudioElement.play().then(() => {
+                        if (myToken !== _loadToken) return;
                         startRadioMetadataReader(entry.path, entry.name);
                     }).catch(err => {
                         // AbortError — ожидаемо при быстром переключении
                         if (err.name === 'AbortError') return;
+                        if (myToken !== _loadToken) return;
+                        stopTrack();
+                        updatePlayIcons(false);
+                        statusText.textContent = 'Ошибка потока';
                         console.error(err);
                     });
                     isPlaying = true;
@@ -653,9 +694,7 @@
             } else {
                 isRadioMode = false;
 
-                // --- Отмена предыдущей загрузки ---
-                _loadToken++;
-                const myToken = _loadToken;
+                _trackLoading = true;
 
                 statusText.textContent = 'Загрузка...';
                 
@@ -677,6 +716,7 @@
                     // Проверяем, не был ли уже выбран другой трек
                     if (myToken !== _loadToken) return;
 
+                    if (window.setLyricsTrack) window.setLyricsTrack({ ...meta, filePath }, myToken);
                     trackTitle.textContent = meta.title;
                     trackArtist.textContent = meta.artist;
                     miniTrackTitle.textContent = `${meta.artist} — ${meta.title}`;
@@ -685,20 +725,6 @@
                     window._currentTrackReplayGainDb = (typeof meta.replayGainTrackDb === 'number') ? meta.replayGainTrackDb : null;
                     applyReplayGainNow();
 
-                    // Update main player cover art
-                    const playerCoverImg = document.getElementById('player-cover-img');
-                    const playerCoverPh = document.getElementById('player-cover-placeholder');
-                    if (meta.coverDataUrl) {
-                        if (playerCoverImg) {
-                            playerCoverImg.src = meta.coverDataUrl;
-                            playerCoverImg.classList.add('loaded');
-                        }
-                        if (playerCoverPh) playerCoverPh.style.display = 'none';
-                    } else {
-                        if (playerCoverImg) { playerCoverImg.classList.remove('loaded'); playerCoverImg.src = ''; }
-                        if (playerCoverPh) playerCoverPh.style.display = '';
-                    }
-                    
                     if ('mediaSession' in navigator) {
                         const artwork = [];
                         if (meta.coverDataUrl) artwork.push({ src: meta.coverDataUrl, sizes: '512x512', type: 'image/jpeg' });
@@ -721,8 +747,7 @@
                     }
                     if (localAudioElement) {
                         localAudioElement.pause();
-                        localAudioElement.src = "";
-                        try { localAudioElement.load(); } catch(e){}
+                        localAudioElement.removeAttribute('src');
                         // Remove from DOM — each track gets a fresh element
                         try { if (localAudioElement.parentNode) localAudioElement.parentNode.removeChild(localAudioElement); } catch(e){}
                     }
@@ -763,6 +788,7 @@
                         if (myToken !== _loadToken) return;
                         const dur = localAudioElement.duration;
                         currentTrackDuration = isFinite(dur) ? dur : 0;
+                        if (window.setLyricsTrack) window.setLyricsTrack({ ...meta, filePath, duration: currentTrackDuration }, myToken);
                         // Для совместимости с seek/tooltip — эмулируем объект с duration
                         currentDecodedBuffer = { duration: currentTrackDuration };
                         timeTotal.textContent = formatTime(currentTrackDuration);
@@ -782,11 +808,15 @@
                     };
 
                     localAudioElement.addEventListener('loadedmetadata', onMeta, { once: true });
+                    localAudioElement.addEventListener('ended', () => {
+                        if (myToken === _loadToken && isPlaying) handleTrackEnded();
+                    });
 
                     // Проверяем ещё раз перед запуском
                     if (myToken !== _loadToken) return;
 
                     // Запускаем воспроизведение немедленно (не ждём полной загрузки)
+                    _trackLoading = false;
                     startSourceAt(startPosition);
 
                     // Если размер файла не закэширован — подгружаем в фоне
@@ -812,6 +842,8 @@
                     }
                 } catch (e) {
                     if (myToken === _loadToken) statusText.textContent = 'Ошибка загрузки';
+                } finally {
+                    if (myToken === _loadToken) _trackLoading = false;
                 }
             }
         }
@@ -887,7 +919,10 @@
 
         function startSourceAt(position, fadeIn = true) {
             if (isRadioMode) return;
-            if (!localAudioElement || !localAudioElement.src) return;
+            if (!localAudioElement || !localAudioElement.getAttribute('src') || _trackLoading) return;
+
+            _endFadeActive = false;
+            _trackEndHandledToken = -1;
 
             if (!window.volumeNode) {
                 window.volumeNode = audioCtx.createGain();
@@ -902,7 +937,9 @@
                 // Fade-in: стартуем с нулевой громкостью, плавно поднимаем
                 window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                 window.volumeNode.gain.setValueAtTime(0, audioCtx.currentTime);
-                window.volumeNode.gain.linearRampToValueAtTime(targetVol, audioCtx.currentTime + crossfadeInDuration);
+                const curve = new Float32Array(65);
+                for (let i = 0; i < curve.length; i++) curve[i] = targetVol * fadeEnvelope(i / (curve.length - 1));
+                window.volumeNode.gain.setValueCurveAtTime(curve, audioCtx.currentTime, crossfadeInDuration);
             } else {
                 window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                 window.volumeNode.gain.setValueAtTime(targetVol, audioCtx.currentTime);
@@ -913,9 +950,15 @@
             if (audioCtx && audioCtx.state === 'suspended') {
                 audioCtx.resume().catch(() => {});
             }
+            const playingElement = localAudioElement;
+            const playingToken = _loadToken;
             localAudioElement.play().catch(err => {
                 // AbortError — ожидаемо при быстром переключении треков (play прерван pause)
                 if (err.name === 'AbortError') return;
+                if (playingToken !== _loadToken || playingElement !== localAudioElement) return;
+                stopTrack();
+                updatePlayIcons(false);
+                statusText.textContent = 'Ошибка воспроизведения';
                 console.error("Ошибка воспроизведения:", err);
             });
 
@@ -1106,18 +1149,25 @@
             // radioAudioElement.volume не меняем — см. комментарий в playTrack:
             // громкость радио целиком регулируется через window.volumeNode,
             // как и у локальных треков, чтобы шкала слайдера ощущалась одинаково.
+            applyTrackEndFade();
             updateVolumeIcons(isMuted ? 0 : volumeValue);
         }
 
         async function handleTrackEnded() {
+            if (_trackEndHandledToken === _loadToken || !isPlaying || isRadioMode) return;
             stopTrack();
+            const endedToken = _loadToken;
+            _trackEndHandledToken = endedToken;
+
             // If user switched to a different playlist while playing, restore the active one first
             if (activePlaylistId && activePlaylistId !== currentPlaylistId) {
                 await selectPlaylist(activePlaylistId);
+                if (endedToken !== _loadToken) return;
             }
 
-            // repeatMode === 1 (повтор трека): getNextTrackIndex вернёт currentIndex,
+            // Повтор текущего трека только при явно включённом режиме.
             if (repeatMode === 1) {
+                stopTrack();
                 playTrack(currentIndex, 0);
                 return;
             }
@@ -1133,6 +1183,7 @@
             const settingAutoNext = document.getElementById('setting-autonext');
             const autoNext = !settingAutoNext || settingAutoNext.checked;
             if (!autoNext) {
+                stopTrack();
                 currentIndex = -1;
                 updatePlayIcons(false);
                 statusText.textContent = 'Окончено';
@@ -1155,6 +1206,7 @@
             if (autoNextPlaylist && folderPlaylists.length > 1 && curPlIdx !== -1) {
                 const nextPl = folderPlaylists[(curPlIdx + 1) % folderPlaylists.length];
                 await selectPlaylist(nextPl.id);
+                if (endedToken !== _loadToken) return;
                 if (playlistOrder.length > 0) {
                     playTrack(0, 0);
                     return;
@@ -1162,9 +1214,10 @@
             }
 
             // Плейлист завершён — останавливаемся
+            stopTrack();
             if (localAudioElement) {
                 localAudioElement.pause();
-                localAudioElement.src = '';
+                localAudioElement.removeAttribute('src');
                 localAudioElement = null;
             }
             currentIndex = -1;
@@ -1178,14 +1231,20 @@
         }
 
         function togglePlayback() {
-            if (isRadioMode && radioAudioElement) {
+            if (_trackLoading) {
+                stopTrack();
+                updatePlayIcons(false);
+                statusText.textContent = 'Остановлено';
+                return;
+            }
+            if (isRadioMode && radioAudioElement && radioAudioElement.getAttribute('src')) {
                 if (isPlaying) {
                     radioAudioElement.pause();
                     isPlaying = false;
                     updatePlayIcons(false);
                     statusText.textContent = 'Пауза';
                 } else {
-                    radioAudioElement.play();
+                    radioAudioElement.play().catch(err => { if (err.name !== 'AbortError') console.error(err); });
                     isPlaying = true;
                     updatePlayIcons(true);
                     statusText.textContent = 'Трансляция';
@@ -1194,7 +1253,7 @@
             }
 
             // Трек был удалён во время воспроизведения — запускаем следующий доступный
-            if (localAudioElement && !localAudioElement.src && playlistOrder.length > 0) {
+            if (localAudioElement && !localAudioElement.getAttribute('src') && playlistOrder.length > 0) {
                 const nextIdx = currentIndex >= 0 && currentIndex < playlistOrder.length
                     ? currentIndex
                     : 0;
@@ -1241,8 +1300,10 @@
         miniBtnPlayPause.addEventListener('click', togglePlayback);
 
         async function playPrev() {
+            const navigationToken = ++_navigationToken;
             if (activePlaylistId && activePlaylistId !== currentPlaylistId) {
                 await selectPlaylist(activePlaylistId);
+                if (navigationToken !== _navigationToken) return;
             }
             if (playlistOrder.length === 0) return;
             const prevIdx = getNextTrackIndex(false);
@@ -1250,8 +1311,10 @@
         }
 
         async function playNext() {
+            const navigationToken = ++_loadToken;
             if (activePlaylistId && activePlaylistId !== currentPlaylistId) {
                 await selectPlaylist(activePlaylistId);
+                if (navigationToken !== _loadToken) return;
             }
             if (playlistOrder.length === 0) return;
             const nextIdx = getNextTrackIndex(true);

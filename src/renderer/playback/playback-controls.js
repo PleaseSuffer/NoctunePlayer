@@ -101,7 +101,7 @@
                     window.volumeNode.gain.cancelScheduledValues(audioCtx.currentTime);
                     window.volumeNode.gain.setValueAtTime(0, audioCtx.currentTime);
                 }
-                // radioAudioElement.volume НЕ трогаем — звук радио идёт через тот же
+                // radioAudioElement.volume НЕ трогаем - звук радио идёт через тот же
                 // window.volumeNode, что и локальные треки; элемент остаётся на 1 (unity),
                 // иначе громкость уйдёт в ноль вдвойне (см. updateVolume ниже).
                 updateVolumeIcons(0);
@@ -117,4 +117,3 @@
         miniBtnShuffle.addEventListener('click', toggleShuffle);
         btnRepeat.addEventListener('click', toggleRepeat);
         miniBtnRepeat.addEventListener('click', toggleRepeat);
-

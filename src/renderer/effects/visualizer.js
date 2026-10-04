@@ -250,7 +250,7 @@
             window._vizLastTime = now;
             // Угол для кругового вращения (радианы)
             window._vizAngle = ((window._vizAngle || 0) + dt * 0.6 * (window.vizRotateSpeed || 1)) % (Math.PI * 2);
-            // Смещение горизонтального градиента для полос (пиксели)
+            // Фаза прокрутки градиента полос (в долях ширины холста)
             const W_canvas = canvas.clientWidth;
             window._vizGradOffset = ((window._vizGradOffset || 0) + dt * W_canvas * 0.07 * (window.vizScrollSpeed || 1)) % W_canvas;
             // Смещение для осциллографа (независимая скорость)
@@ -265,6 +265,17 @@
                 g.addColorStop(0, gc1 + 'e6');
                 g.addColorStop(0.5, gc2 + 'e6');
                 g.addColorStop(1, gc3 + 'e6');
+                return g;
+            }
+
+            // Прокрутка вдоль исходной оси градиента. Обратная половина
+            // цикла соединяет крайние цвета без скачка на границе повтора.
+            function makeScrollingBarGradient(y0, y1, colors) {
+                const phase = (gradOffset / W_canvas) * 2;
+                const span = y1 - y0;
+                const g = ctx.createLinearGradient(0, y0 + (phase - 2) * span, 0, y0 + (phase + 2) * span);
+                const cycle = [colors[0], colors[1], colors[2], colors[1]];
+                for (let i = 0; i <= 8; i++) g.addColorStop(i / 8, cycle[i % 4] + 'dd');
                 return g;
             }
 
@@ -378,23 +389,7 @@
 
                 let bbGrad;
                 if (scrollGradBB) {
-                    // Рисуем один цикл gc1→gc2→gc3→gc1 на offscreen-canvas шириной W,
-                    // создаём паттерн с repeat и сдвигаем только его transform.
-                    // Столбцы рисуются на своих позициях — двигаются только цвета.
-                    const off = new OffscreenCanvas(W, 1);
-                    const offCtx = off.getContext('2d');
-                    const og = offCtx.createLinearGradient(0, 0, W, 0);
-                    og.addColorStop(0,    gc1 + 'dd');
-                    og.addColorStop(0.33, gc2 + 'dd');
-                    og.addColorStop(0.66, gc3 + 'dd');
-                    og.addColorStop(1,    gc1 + 'dd'); // gc1 на обоих концах — бесшовный повтор
-                    offCtx.fillStyle = og;
-                    offCtx.fillRect(0, 0, W, 1);
-                    const pat = ctx.createPattern(off, 'repeat');
-                    const m = new DOMMatrix();
-                    m.translateSelf(gradOffset % W, 0);
-                    pat.setTransform(m);
-                    bbGrad = pat;
+                    bbGrad = makeScrollingBarGradient(H, H - maxBarH, [gc1, gc2, gc3]);
                 } else {
                     const g = ctx.createLinearGradient(0, H, 0, H - maxBarH);
                     g.addColorStop(0,   gc1 + 'dd');
@@ -436,24 +431,10 @@
                 const scrollGrad = window.vizScrollGrad;
                 if (window.barFall2 === undefined || window.barFall2.length !== barCount) window.barFall2 = new Array(barCount).fill(0);
                 if (window.barPeaks2 === undefined || window.barPeaks2.length !== barCount) window.barPeaks2 = new Array(barCount).fill(0);
-                const W_bc = canvas.clientWidth;
 
                 let gradCenter;
                 if (scrollGrad) {
-                    const off = new OffscreenCanvas(W_bc, 1);
-                    const offCtx = off.getContext('2d');
-                    const og = offCtx.createLinearGradient(0, 0, W_bc, 0);
-                    og.addColorStop(0,    gc1 + 'dd');
-                    og.addColorStop(0.33, gc2 + 'dd');
-                    og.addColorStop(0.66, gc3 + 'dd');
-                    og.addColorStop(1,    gc1 + 'dd');
-                    offCtx.fillStyle = og;
-                    offCtx.fillRect(0, 0, W_bc, 1);
-                    const pat = ctx.createPattern(off, 'repeat');
-                    const m = new DOMMatrix();
-                    m.translateSelf(gradOffset % W_bc, 0);
-                    pat.setTransform(m);
-                    gradCenter = pat;
+                    gradCenter = makeScrollingBarGradient(midY - maxBarH, midY + maxBarH, [gc3, gc2, gc1]);
                 } else {
                     gradCenter = ctx.createLinearGradient(0, midY - maxBarH, 0, midY + maxBarH);
                     gradCenter.addColorStop(0,   gc3 + 'dd');
@@ -715,4 +696,3 @@
                 ctx.restore();
             }
         }
-

@@ -38,6 +38,7 @@
                 fab.classList.add('open');
                 refreshSettingsUI();
                 lucide.createIcons();
+                buildSettingsToc();
             });
             function closeSettings() {
                 overlay.classList.remove('open');
@@ -57,8 +58,125 @@
                     document.getElementById(target).classList.add('active');
                     if (settingsContent) settingsContent.scrollTop = 0;
                     if (target === 'panel-general') renderPlEditor();
+                    buildSettingsToc();
                 });
             });
+
+            // ====================================================
+            // ЯРЛЫКИ РАЗДЕЛОВ (быстрые якоря справа от модалки настроек)
+            // ====================================================
+            // Список заголовков (.settings-section-title) внутри АКТИВНОЙ
+            // вкладки — клик скроллит .settings-content к нужному разделу,
+            // подсветка «текущего» пункта следует за прокруткой. Строится
+            // заново при каждом открытии настроек и при каждом переключении
+            // вкладки, потому что набор заголовков у каждой вкладки свой.
+            const settingsToc = document.getElementById('settings-toc');
+            let clickedTocTarget = null;
+
+            // titleEl.offsetTop НЕЛЬЗЯ использовать напрямую здесь: он
+            // отсчитывается от offsetParent — ближайшего позиционированного
+            // предка, а у .settings-content (сам скролл-контейнер) нет
+            // position, поэтому offsetParent для заголовков — это
+            // .settings-modal-overlay (position:fixed) где-то выше по
+            // дереву, а не .settings-content. offsetTop в итоге вообще не
+            // связан с scrollTop контейнера, из-за чего подсветка ярлыка не
+            // соответствовала тому, что реально видно на экране. Считаем
+            // позицию вручную через getBoundingClientRect — так она всегда
+            // в системе координат именно .settings-content, независимо от
+            // того, что является offsetParent у элементов внутри.
+            function getTitleOffsetInContent(titleEl) {
+                if (!settingsContent) return 0;
+                return titleEl.getBoundingClientRect().top - settingsContent.getBoundingClientRect().top + settingsContent.scrollTop;
+            }
+
+            function buildSettingsToc() {
+                if (!settingsToc) return;
+                const activePanel = document.querySelector('.settings-panel.active');
+                settingsToc.innerHTML = '';
+                if (settingsContent) settingsContent.scrollTo({ top: settingsContent.scrollTop, behavior: 'instant' });
+                clickedTocTarget = null;
+                if (!activePanel) { settingsToc.classList.remove('has-items'); return; }
+
+                const titles = [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
+                if (titles.length < 2) {
+                    // В короткой вкладке (1 раздел или их нет) якоря не нужны
+                    settingsToc.classList.remove('has-items');
+                    return;
+                }
+
+                titles.forEach((titleEl, idx) => {
+                    if (!titleEl.id) titleEl.id = `settings-toc-target-${idx}-${Date.now()}`;
+                    const item = document.createElement('div');
+                    item.className = 'settings-toc-item' + (idx === 0 ? ' active' : '');
+                    item.textContent = titleEl.textContent;
+                    item.addEventListener('click', () => {
+                        if (!settingsContent) return;
+                        const maxScroll = Math.max(0, settingsContent.scrollHeight - settingsContent.clientHeight);
+                        const top = Math.min(maxScroll, Math.max(0, getTitleOffsetInContent(titleEl) - 12));
+                        // Подсветка держится на выбранном разделе весь переход,
+                        // включая короткие разделы, упирающиеся в конец контента.
+                        clickedTocTarget = { index: idx, scrollTop: top, moving: true };
+                        settingsContent.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+                        updateSettingsTocActive();
+                    });
+                    settingsToc.appendChild(item);
+                });
+                settingsToc.classList.add('has-items');
+                updateSettingsTocActive();
+            }
+
+            function updateSettingsTocActive() {
+                if (!settingsToc || !settingsContent) return;
+                const items = settingsToc.querySelectorAll('.settings-toc-item');
+                if (!items.length) return;
+                const activePanel = document.querySelector('.settings-panel.active');
+                if (!activePanel) return;
+                const titles = [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
+                const scrollPos = settingsContent.scrollTop + 20; // небольшой запас — подсветка меняется чуть заранее
+
+                let currentIdx = 0;
+                titles.forEach((titleEl, idx) => {
+                    if (getTitleOffsetInContent(titleEl) <= scrollPos) currentIdx = idx;
+                });
+                if (clickedTocTarget && (clickedTocTarget.moving || Math.abs(settingsContent.scrollTop - clickedTocTarget.scrollTop) <= 1)) {
+                    currentIdx = clickedTocTarget.index;
+                    if (Math.abs(settingsContent.scrollTop - clickedTocTarget.scrollTop) <= 1) clickedTocTarget.moving = false;
+                } else {
+                    clickedTocTarget = null;
+                    const maxScroll = settingsContent.scrollHeight - settingsContent.clientHeight;
+                    if (maxScroll > 0 && settingsContent.scrollTop >= maxScroll - 1) currentIdx = titles.length - 1;
+                }
+                items.forEach((item, idx) => item.classList.toggle('active', idx === currentIdx));
+            }
+
+            if (settingsContent) {
+                const interruptTocScroll = () => {
+                    if (!clickedTocTarget) return;
+                    if (clickedTocTarget.moving) settingsContent.scrollTo({ top: settingsContent.scrollTop, behavior: 'instant' });
+                    clickedTocTarget = null;
+                    updateSettingsTocActive();
+                };
+                settingsContent.addEventListener('wheel', interruptTocScroll, { passive: true });
+                settingsContent.addEventListener('touchstart', interruptTocScroll, { passive: true });
+                settingsContent.addEventListener('pointerdown', interruptTocScroll);
+                settingsContent.addEventListener('keydown', e => {
+                    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) interruptTocScroll();
+                });
+                settingsContent.addEventListener('scrollend', () => {
+                    if (clickedTocTarget) {
+                        if (Math.abs(settingsContent.scrollTop - clickedTocTarget.scrollTop) <= 1) clickedTocTarget.moving = false;
+                        else clickedTocTarget = null;
+                    }
+                    updateSettingsTocActive();
+                });
+                settingsContent.addEventListener('scroll', () => {
+                    if (window._settingsTocScrollRaf) return;
+                    window._settingsTocScrollRaf = requestAnimationFrame(() => {
+                        window._settingsTocScrollRaf = null;
+                        updateSettingsTocActive();
+                    });
+                });
+            }
 
             // ---- GENERAL: Playlist editor ----
             function renderPlEditor() {
@@ -130,18 +248,31 @@
             const crossfadeInSlider   = document.getElementById('setting-crossfade-in');
             const crossfadeInLabel    = document.getElementById('setting-crossfade-in-label');
             const crossfadeFadeinRow  = document.getElementById('crossfade-fadein-row');
+            const crossfadeIntensityRow = document.getElementById('crossfade-intensity-row');
+            const crossfadeIntensitySlider = document.getElementById('setting-crossfade-intensity');
+            const crossfadeIntensityLabel = document.getElementById('setting-crossfade-intensity-label');
+
+            crossfadeIntensitySlider.addEventListener('input', () => {
+                crossfadeIntensity = parseFloat(crossfadeIntensitySlider.value);
+                crossfadeIntensityLabel.textContent = crossfadeIntensity.toFixed(1);
+                appStorage.setItem('setting_crossfade_intensity', crossfadeIntensity);
+                applyTrackEndFade();
+            });
 
             settingCrossfade.addEventListener('change', () => {
                 crossfadeEnabled = settingCrossfade.checked;
                 crossfadeDurationRow.classList.toggle('visible', crossfadeEnabled);
                 crossfadeFadeinRow.classList.toggle('visible', crossfadeEnabled);
+                crossfadeIntensityRow.classList.toggle('visible', crossfadeEnabled);
                 appStorage.setItem('setting_crossfade', crossfadeEnabled ? '1' : '0');
+                applyTrackEndFade();
             });
 
             crossfadeOutSlider.addEventListener('input', () => {
                 crossfadeOutDuration = parseFloat(crossfadeOutSlider.value);
                 crossfadeOutLabel.textContent = crossfadeOutDuration.toFixed(1) + 'с';
                 appStorage.setItem('setting_crossfade_out', crossfadeOutDuration);
+                applyTrackEndFade();
             });
 
             crossfadeInSlider.addEventListener('input', () => {
@@ -172,6 +303,29 @@
             const limiterReleaseSlider   = document.getElementById('setting-limiter-release');
             const limiterReleaseLabel    = document.getElementById('setting-limiter-release-label');
             const btnLimiterReset        = document.getElementById('btn-limiter-reset');
+
+            // ---- ЭКВАЛАЙЗЕР: Включение/выключение лимитера ----
+            // При выключении узел остаётся в графе (см. applyLimiterEnabled в
+            // audio-engine.js — ratio=1 математически означает «без компрессии»),
+            // а сами слайдеры просто блокируются, чтобы не создавать иллюзию,
+            // что их можно крутить, пока лимитер не действует.
+            const settingLimiterEnabled  = document.getElementById('setting-limiter-enabled');
+            const limiterSlidersAndReset = [
+                limiterThresholdSlider, limiterKneeSlider, limiterRatioSlider,
+                limiterAttackSlider, limiterReleaseSlider, btnLimiterReset
+            ];
+            function applyLimiterSlidersDisabled(disabled) {
+                limiterSlidersAndReset.forEach(el => {
+                    if (!el) return;
+                    el.disabled = disabled;
+                    el.style.opacity = disabled ? '0.45' : '';
+                });
+            }
+            if (settingLimiterEnabled) settingLimiterEnabled.addEventListener('change', () => {
+                appStorage.setItem('setting_limiter_enabled', settingLimiterEnabled.checked ? '1' : '0');
+                applyLimiterSlidersDisabled(!settingLimiterEnabled.checked);
+                if (typeof applyLimiterEnabled === 'function') applyLimiterEnabled(settingLimiterEnabled.checked);
+            });
 
             function setLimiterParam(audioParamName, storageKey, uiValue, toAudioParamValue) {
                 if (window.limiterNode && audioCtx) {
@@ -911,12 +1065,14 @@
                 }
                 lucide.createIcons();
                 refreshAccentFg(); // светлота считалась под старую тему — пересчитываем
+                if (typeof applyGlassOpacity === 'function') applyGlassOpacity(); // альфа фона зависит от базового RGB темы
                 if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             });
             // Sync with main theme toggle
             themeToggle.addEventListener('click', () => {
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
                 refreshAccentFg();
+                if (typeof applyGlassOpacity === 'function') applyGlassOpacity();
                 if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             });
 
@@ -1185,6 +1341,47 @@
             settingBlur.addEventListener('change', () => {
                 applyBlurSetting(settingBlur.checked);
                 appStorage.setItem('setting_glass_blur', settingBlur.checked ? '1' : '0');
+            });
+
+            // ---- APPEARANCE: Glass opacity (непрозрачность стеклянных панелей) ----
+            // Отдельно от размытия — размытие управляет только backdrop-filter,
+            // а альфа-канал фона панелей раньше был жёстко зашит в CSS (0.85 и
+            // для тёмной, и для светлой темы) и никак не настраивался. Теперь
+            // альфа считается динамически и перезаписывается через инлайн-стиль
+            // --container-bg, поэтому пересчёт нужен и при смене темы (другой
+            // базовый RGB) — см. вызовы applyGlassOpacity() в переключателях темы.
+            const settingGlassOpacity = document.getElementById('setting-glass-opacity');
+            const glassOpacityRow = document.getElementById('glass-opacity-row');
+            const glassOpacitySlider = document.getElementById('setting-glass-opacity-value');
+            const glassOpacityLabel = document.getElementById('setting-glass-opacity-value-label');
+
+            function applyGlassOpacity() {
+                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                const baseRGB = isDark ? '30, 30, 30' : '255, 255, 255';
+                const alpha = window.glassOpacityEnabled
+                    ? (typeof window.glassOpacityValue === 'number' ? window.glassOpacityValue : 0.85)
+                    : 1;
+                const value = `rgba(${baseRGB}, ${alpha})`;
+                document.documentElement.style.setProperty('--container-bg', value);
+                document.body.style.setProperty('--container-bg', value);
+            }
+            window.applyGlassOpacity = applyGlassOpacity;
+
+            function applyGlassOpacityRowVisibility(enabled) {
+                setSettingsBlockVisible(glassOpacityRow, enabled, 'block');
+            }
+            if (settingGlassOpacity) settingGlassOpacity.addEventListener('change', () => {
+                window.glassOpacityEnabled = settingGlassOpacity.checked;
+                appStorage.setItem('setting_glass_opacity_enabled', settingGlassOpacity.checked ? '1' : '0');
+                applyGlassOpacityRowVisibility(settingGlassOpacity.checked);
+                applyGlassOpacity();
+            });
+            if (glassOpacitySlider) glassOpacitySlider.addEventListener('input', () => {
+                const v = parseFloat(glassOpacitySlider.value);
+                glassOpacityLabel.textContent = v.toFixed(2);
+                window.glassOpacityValue = v;
+                appStorage.setItem('setting_glass_opacity_value', v);
+                applyGlassOpacity();
             });
 
             // ---- APPEARANCE: Custom background image ----
@@ -2110,10 +2307,10 @@
                 btnLastfmAuth.textContent = connected ? 'Отключить' : 'Авторизовать';
                 if (connected) {
                     setLastfmStatusPill('connected', username ? `@${username}` : 'Подключено');
-                    lastfmCardDesc.textContent = 'Отправка истории прослушиваний в ваш профиль Last.fm';
+                    lastfmCardDesc.textContent = 'История прослушиваний и обложки песен';
                 } else {
                     setLastfmStatusPill('idle', 'Не авторизовано');
-                    lastfmCardDesc.textContent = 'Отправка истории прослушиваний в ваш профиль Last.fm';
+                    lastfmCardDesc.textContent = 'История прослушиваний и обложки песен';
                 }
             }
 
@@ -2181,6 +2378,7 @@
                 setSettingsBlockVisible(lastfmBody, settingLastfmEnabled.checked, 'block');
                 appStorage.setItem('setting_lastfm_enabled', settingLastfmEnabled.checked ? '1' : '0');
                 window.lastfmEnabled = settingLastfmEnabled.checked;
+                if (window.refreshLyricsArtwork) window.refreshLyricsArtwork();
             });
 
             settingLastfmScrobble.addEventListener('change', () => {
@@ -2528,6 +2726,8 @@
                     a: appStorage.getItem('setting_accent_color') || '#4a90e2',     // accent
                     st: (appStorage.getItem('setting_show_stars') ?? '1') === '1',  // stars
                     gb: (appStorage.getItem('setting_glass_blur') ?? '1') === '1',  // glass blur
+                    go: (appStorage.getItem('setting_glass_opacity_enabled') ?? '1') === '1', // glass opacity toggle
+                    gov: parseFloat(appStorage.getItem('setting_glass_opacity_value') || '0.85'), // glass opacity value
                     g: {                                                              // gradient
                         c: safeParseJSON(appStorage.getItem('setting_viz_grad'), ['#bb86fc', '#4a90e2', '#03dac6']),
                         r: (appStorage.getItem('setting_viz_rotate') ?? '1') === '1',
@@ -2583,6 +2783,7 @@
                         md: window.waveformMode || 'full',
                         sv: window.waveformSensitivity || 1,
                     },
+                    lyr: window.getLyricsAppearance ? window.getLyricsAppearance() : undefined,
                     bg: null,
                 };
 
@@ -2661,10 +2862,13 @@
             }
 
             async function applyThemePayload(payload) {
+                if (payload.lyr && window.applyLyricsAppearanceTheme) window.applyLyricsAppearanceTheme(payload.lyr);
                 if (typeof payload.d === 'boolean') setCheckedAndFire(settingDark, payload.d);
                 if (payload.a) setAccentColor(payload.a);
                 if (typeof payload.st === 'boolean') setCheckedAndFire(settingStars, payload.st);
                 if (typeof payload.gb === 'boolean') setCheckedAndFire(settingBlur, payload.gb);
+                if (typeof payload.go === 'boolean' && settingGlassOpacity) setCheckedAndFire(settingGlassOpacity, payload.go);
+                if (typeof payload.gov === 'number' && glassOpacitySlider) setValueAndFire(glassOpacitySlider, payload.gov);
 
                 if (payload.g) {
                     const g = payload.g;
@@ -2830,7 +3034,7 @@
 
             // ---- ABOUT: Version & update check ----
             // Кнопка "Проверить" и вся логика electron-updater теперь в
-            // renderer/updater.js (единая точка правды, без дублирования
+            // renderer/updates/updater.js (единая точка правды, без дублирования
             // обработчиков на одной и той же кнопке).
 
             // ---- Restore saved settings on load ----
@@ -2871,6 +3075,15 @@
                 } else {
                     swatches.forEach(s => s.classList.toggle('active', s.dataset.color === '#4a90e2'));
                 }
+                // Баг: --accent-fg раньше не пересчитывался здесь при старте —
+                // оставался статичным значением из CSS (#4a90e2 светлая тема /
+                // #bb86fc тёмная), поэтому элементы, использующие --accent-fg
+                // (активная кнопка EQ, активный shuffle/repeat и т.п.), после
+                // перезапуска приложения могли визуально не совпадать с реально
+                // выбранным --accent-color, пока пользователь не тронет акцент
+                // вручную ещё раз. Пересчитываем сразу, теперь под актуальную
+                // тему (она уже применена выше по файлу к этому моменту).
+                refreshAccentFg();
 
                 // Viz style
                 const savedVizStyle = appStorage.getItem('setting_viz_style') || 'circle-smooth';
@@ -3074,12 +3287,18 @@
                 }
 
                 // Crossfade
+                const savedCFIntensity = Number(appStorage.getItem('setting_crossfade_intensity') ?? 1);
+                crossfadeIntensity = Number.isFinite(savedCFIntensity) ? Math.max(0.2, Math.min(2.5, savedCFIntensity)) : 1;
+                crossfadeIntensitySlider.value = crossfadeIntensity;
+                crossfadeIntensityLabel.textContent = crossfadeIntensity.toFixed(1);
+                crossfadeIntensityRow.classList.toggle('visible', crossfadeEnabled);
                 const savedCrossfade = appStorage.getItem('setting_crossfade');
                 if (savedCrossfade !== null) {
                     crossfadeEnabled = savedCrossfade === '1';
                     settingCrossfade.checked = crossfadeEnabled;
                     crossfadeDurationRow.classList.toggle('visible', crossfadeEnabled);
                     document.getElementById('crossfade-fadein-row').classList.toggle('visible', crossfadeEnabled);
+                    crossfadeIntensityRow.classList.toggle('visible', crossfadeEnabled);
                 }
                 const savedCFOut = appStorage.getItem('setting_crossfade_out');
                 if (savedCFOut !== null) {
@@ -3125,6 +3344,12 @@
                 const limRel = appStorage.getItem('setting_limiter_release');
                 limiterReleaseSlider.value = limRel !== null ? parseFloat(limRel) : LIMITER_DEFAULTS.release;
                 limiterReleaseLabel.textContent = `${limiterReleaseSlider.value} мс`;
+
+                // Включён ли лимитер вообще
+                const savedLimiterEnabled = appStorage.getItem('setting_limiter_enabled');
+                if (settingLimiterEnabled) settingLimiterEnabled.checked = savedLimiterEnabled === null ? true : savedLimiterEnabled === '1';
+                applyLimiterSlidersDisabled(settingLimiterEnabled ? !settingLimiterEnabled.checked : false);
+                if (typeof applyLimiterEnabled === 'function' && settingLimiterEnabled) applyLimiterEnabled(settingLimiterEnabled.checked);
 
                 // Remember track
                 const savedRemember = appStorage.getItem('setting_remember_track');
@@ -3194,6 +3419,19 @@
                     // По умолчанию blur включён
                     applyBlurSetting(true);
                 }
+
+                // Glass opacity (непрозрачность стеклянных панелей)
+                const savedGlassOpacityEnabled = appStorage.getItem('setting_glass_opacity_enabled');
+                if (settingGlassOpacity) settingGlassOpacity.checked = savedGlassOpacityEnabled === null ? true : savedGlassOpacityEnabled === '1';
+                window.glassOpacityEnabled = settingGlassOpacity ? settingGlassOpacity.checked : true;
+                applyGlassOpacityRowVisibility(window.glassOpacityEnabled);
+
+                const savedGlassOpacityValue = appStorage.getItem('setting_glass_opacity_value');
+                window.glassOpacityValue = savedGlassOpacityValue !== null ? parseFloat(savedGlassOpacityValue) : 0.85;
+                if (glassOpacitySlider) glassOpacitySlider.value = window.glassOpacityValue;
+                if (glassOpacityLabel) glassOpacityLabel.textContent = window.glassOpacityValue.toFixed(2);
+
+                applyGlassOpacity();
 
                 // Show cover art
                 const savedCover = appStorage.getItem('setting_show_cover');
@@ -3570,7 +3808,7 @@
                 }
             }, true); // capture phase
 
-            // Открыто наружу для renderer/playlist-io.js — после импорта .m3u
+            // Открыто наружу для renderer/library/playlist-io.js — после импорта .m3u
             // нужно перерисовать список плейлистов прямо в открытых настройках.
             window.renderPlEditor = renderPlEditor;
         })();

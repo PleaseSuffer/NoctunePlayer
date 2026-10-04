@@ -92,4 +92,3 @@
             e.preventDefault();
             handler();
         });
-

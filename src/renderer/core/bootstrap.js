@@ -199,7 +199,13 @@
                             const wasPlaying = appStorage.getItem('player_was_playing') === '1';
                             if (restorePlayback?.checked && wasPlaying && entry && entry.kind !== 'radio') {
                                 // Небольшая задержка чтобы AudioContext успел инициализироваться
-                                setTimeout(() => playTrack(idx, savedPos > 0 ? savedPos : 0), 300);
+                                const restoreToken = _loadToken;
+                                const restorePlaylist = currentPlaylistId;
+                                setTimeout(() => {
+                                    if (restoreToken === _loadToken && restorePlaylist === currentPlaylistId && !isPlaying) {
+                                        playTrack(idx, savedPos > 0 ? savedPos : 0);
+                                    }
+                                }, 300);
                             }
                         }
                     }
@@ -231,4 +237,3 @@
 
         restoreEqState();
         lucide.createIcons();
-

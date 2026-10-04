@@ -254,4 +254,3 @@
                 window._fwParticles.splice(0, window._fwParticles.length - 1400);
             }
         }
-

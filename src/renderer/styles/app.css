@@ -986,7 +986,8 @@
             left: -8vw;
             width: 116vw;
             height: 116vh;
-            z-index: -1;
+            /* Над фоном body, под звёздами, визуализатором и плеером. */
+            z-index: 0;
             pointer-events: none;
             overflow: hidden;
             opacity: 0;
@@ -1035,9 +1036,11 @@
             background: radial-gradient(circle at 50% 50%, var(--accent-color) 0%, transparent 68%);
             opacity: 0;
             pointer-events: none;
-            mix-blend-mode: screen;
+            /* Обычное смешивание сохраняет цвет и на светлой теме. */
+            mix-blend-mode: normal;
             will-change: opacity;
-            z-index: 1;
+            transition: none;
+            z-index: 3;
         }
 
         #star-canvas {
@@ -2133,4 +2136,187 @@
             .slider-box input[type="range"] { height: 70px; }
 
             .settings-modal { height: 500px; max-height: 92vh; }
+        }
+
+        /* ══════════════════════════════════════════════════════
+           НАСТРОЙКИ: ЯРЛЫКИ РАЗДЕЛОВ (боковые якоря)
+           ══════════════════════════════════════════════════════ */
+        .settings-toc {
+            display: none;
+            position: absolute;
+            left: calc(50% + 350px + 22px);
+            top: 50%;
+            transform: translateY(-50%);
+            flex-direction: column;
+            gap: 11px;
+            width: 210px;
+        }
+        .settings-modal-overlay.open .settings-toc.has-items {
+            display: flex;
+        }
+        .settings-toc-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.3;
+            color: rgba(255, 255, 255, 0.55);
+            padding: 2px 0 2px 14px;
+            border-left: 2px solid rgba(255, 255, 255, 0.25);
+            transition: color 0.2s ease, border-color 0.2s ease, font-size 0.2s ease;
+            user-select: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .settings-toc-item:hover {
+            color: rgba(255, 255, 255, 0.85);
+        }
+        .settings-toc-item.active {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            border-left-color: var(--accent-color);
+        }
+        @media (max-width: 1180px) {
+            .settings-toc { display: none !important; }
+        }
+
+        /* Текст текущей песни */
+        #btn-lyrics[hidden], #mini-btn-lyrics[hidden], #lyrics-modal button[hidden] { display: none; }
+        .lyrics-dialog { max-width: 620px; height: min(680px, 88vh); overflow: hidden; }
+        .lyrics-track { font-weight: 600; overflow-wrap: anywhere; }
+        #lyrics-status { font-size: 12px; color: var(--text-muted); }
+        #lyrics-content { flex: 1; min-height: 0; overflow-y: auto; position: relative; padding: 12px 8px; }
+        .lyrics-line { display: block; width: 100%; border: 0; background: transparent; padding: 12px 8px; text-align: center; color: var(--text-muted); font-size: 18px; line-height: 1.6; cursor: pointer; overflow-wrap: anywhere; }
+        .lyrics-line:hover { background: var(--track-hover); border-radius: 8px; }
+        .lyrics-line.active { color: var(--accent-fg); font-weight: 700; }
+        .lyrics-line:focus-visible { outline: 2px solid var(--accent-fg); border-radius: 8px; }
+        .lyrics-plain { white-space: pre-wrap; line-height: 1.9; font-size: 16px; overflow-wrap: anywhere; }
+        .lyrics-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+        .lyrics-footer .btn { padding: 6px 10px; font-size: 12px; }
+
+        .lyrics-view-actions { display: flex; gap: 8px; }
+        .lyrics-layout { display: flex; flex: 1; min-height: 0; }
+        .lyrics-text-column { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; gap: 15px; }
+        .lyrics-now-playing { display: none; }
+        #lyrics-modal.lyrics-expanded { background: transparent; backdrop-filter: none; padding: 32px 5vw; overflow: hidden; }
+        #lyrics-modal.lyrics-expanded .lyrics-dialog { width: 100%; max-width: 1500px; height: 100%; max-height: none; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: hidden; }
+        #lyrics-modal.lyrics-expanded .modal-header { flex-shrink: 0; }
+        #lyrics-modal.lyrics-expanded .modal-header { justify-content: flex-end; }
+        #lyrics-modal.lyrics-expanded #lyrics-heading,
+        #lyrics-modal.lyrics-expanded #lyrics-status.lyrics-synced-hint { display: none; }
+        #lyrics-modal.lyrics-expanded .lyrics-layout { align-items: center; gap: clamp(30px, 6vw, 110px); }
+        #lyrics-modal.lyrics-expanded .lyrics-now-playing { display: flex; flex-direction: column; align-items: center; flex: 0 0 34%; gap: 12px; min-width: 0; }
+        .lyrics-cover { width: min(32vw, 42vh, 420px); aspect-ratio: 1; border-radius: 14px; overflow: hidden; box-shadow: 0 12px 35px rgba(0,0,0,0.25); }
+        #lyrics-cover-image { width: 100%; height: 100%; object-fit: cover; }
+        #lyrics-cover-image[hidden], #lyrics-cover-placeholder[hidden] { display: none; }
+        #lyrics-cover-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: var(--container-bg); }
+        #lyrics-cover-placeholder svg { width: 70px; height: 70px; color: var(--text-muted); }
+        #lyrics-song-title { font-size: 20px; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
+        #lyrics-song-artist { color: var(--text-muted); text-align: center; overflow-wrap: anywhere; }
+        .lyrics-seek-row { display: flex; align-items: center; gap: 10px; width: 100%; font-size: 12px; }
+        #lyrics-seek { flex: 1; min-width: 0; accent-color: var(--accent-color); cursor: pointer; }
+        .lyrics-playback { display: flex; justify-content: center; gap: 20px; }
+        #lyrics-modal.lyrics-expanded .lyrics-text-column { height: 100%; padding: 28px 0 16px; }
+        #lyrics-modal.lyrics-expanded .lyrics-track { display: none; }
+        #lyrics-modal.lyrics-expanded #lyrics-content { padding: 30vh 8px; mask-image: linear-gradient(to bottom, transparent, black 15%, black 80%, transparent); }
+        #lyrics-modal.lyrics-expanded .lyrics-line { font-size: clamp(24px, 2.5vw, 46px); font-weight: 700; line-height: 1.4; padding: 20px 8px; color: var(--text-color); opacity: 0.35; text-shadow: 0 2px 12px var(--bg-color); transition: opacity 0.3s, color 0.3s; }
+        #lyrics-modal.lyrics-expanded .lyrics-line.active { opacity: 1; color: var(--text-color); }
+        #lyrics-modal.lyrics-expanded .lyrics-line:hover { opacity: 0.85; background: transparent; }
+        #lyrics-modal.lyrics-expanded .lyrics-plain { font-size: clamp(20px, 2vw, 32px); text-shadow: 0 2px 12px var(--bg-color); }
+        body.lyrics-expanded > .player-container,
+        body.lyrics-expanded > .mini-player-bar,
+        body.lyrics-expanded > .settings-fab { visibility: hidden; }
+        @media (max-width: 760px) {
+            #lyrics-modal.lyrics-expanded { padding: 20px; }
+            #lyrics-modal.lyrics-expanded .lyrics-layout { flex-direction: column; gap: 12px; }
+            #lyrics-modal.lyrics-expanded .lyrics-now-playing { flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; justify-content: center; width: 100%; gap: 8px 12px; }
+            .lyrics-cover { width: 64px; }
+            #lyrics-song-title { font-size: 15px; max-width: 45%; }
+            #lyrics-song-artist { font-size: 12px; max-width: 30%; }
+            .lyrics-seek-row { max-width: 60%; }
+            .lyrics-playback { gap: 10px; }
+            #lyrics-modal.lyrics-expanded .lyrics-text-column { width: 100%; padding: 0; }
+            #lyrics-modal.lyrics-expanded #lyrics-content { padding-block: 18vh; }
+        }
+
+        /* Оформление текста песен */
+        #lyrics-appearance-settings input[type="range"] { width: 125px; flex-shrink: 0; accent-color: var(--accent-color); }
+        #lyrics-appearance-settings .settings-row > div:first-child { flex: 1; min-width: 0; }
+        .lyrics-setting-value { min-width: 45px; text-align: right; font-size: 12px; font-weight: 600; }
+        #lyrics-modal .lyrics-line, #lyrics-modal .lyrics-plain { color: var(--lyrics-color, var(--text-color)); text-shadow: var(--lyrics-shadow, none); }
+        #lyrics-modal .lyrics-line { opacity: var(--lyrics-inactive, 0.35); font-size: calc(18px * var(--lyrics-scale, 1)); }
+        #lyrics-modal .lyrics-line.active, #lyrics-modal .lyrics-line:hover { opacity: 1; }
+        #lyrics-modal .lyrics-plain { font-size: calc(16px * var(--lyrics-scale, 1)); }
+        #lyrics-modal.lyrics-expanded { background: rgba(0,0,0,var(--lyrics-dim, 0)); backdrop-filter: blur(var(--lyrics-blur, 0px)); }
+        #lyrics-modal.lyrics-expanded .lyrics-line { color: var(--lyrics-color, var(--text-color)); opacity: var(--lyrics-inactive, 0.35); font-size: calc(clamp(24px, 2.5vw, 46px) * var(--lyrics-scale, 1)); text-shadow: var(--lyrics-shadow, none); }
+        #lyrics-modal.lyrics-expanded .lyrics-line.active, #lyrics-modal.lyrics-expanded .lyrics-line:hover { color: var(--lyrics-color, var(--text-color)); opacity: 1; }
+        #lyrics-modal.lyrics-expanded .lyrics-plain { color: var(--lyrics-color, var(--text-color)); font-size: calc(clamp(20px, 2vw, 32px) * var(--lyrics-scale, 1)); text-shadow: var(--lyrics-shadow, none); }
+        /* Белый difference-текст инвертирует реальный фон под буквами:
+           светлый на тёмном, тёмный на светлом, в том числе поверх видео. */
+        #lyrics-modal.lyrics-expanded[data-lyrics-color="adaptive"] .lyrics-line,
+        #lyrics-modal.lyrics-expanded[data-lyrics-color="adaptive"] .lyrics-plain { color: #fff; mix-blend-mode: difference; text-shadow: none; }
+
+        #lyrics-appearance-settings { flex-direction: column; gap: 20px; }
+        #lyrics-color-menu .lyrics-color-option { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; }
+        #lyrics-color-menu .lyrics-color-option:hover { background: var(--track-hover); }
+        #lyrics-color-menu .lyrics-color-option.active { background: var(--accent-color); color: #fff; }
+        #lyrics-color-menu .lyrics-color-option.active svg { color: #fff !important; }
+        #lyrics-color-menu .lyrics-color-option:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
+        #lyrics-modal.lyrics-expanded.lyrics-no-text .lyrics-text-column { display: none; }
+        #lyrics-modal.lyrics-expanded.lyrics-no-text .lyrics-layout { justify-content: center; }
+        #lyrics-modal.lyrics-expanded.lyrics-no-text .lyrics-now-playing { flex: 0 1 440px; width: min(100%, 440px); flex-direction: column; }
+        #lyrics-modal.lyrics-expanded.lyrics-no-text .lyrics-cover { width: min(100%, 42vh, 420px); }
+        #lyrics-modal.lyrics-expanded.lyrics-no-text .lyrics-seek-row { max-width: none; }
+
+        /* Обложка сохраняет место во время поиска и мягко проявляется после загрузки. */
+        #player-cover-wrap, .lyrics-cover { position: relative; }
+        #player-cover-img[src] {
+            display: block; position: absolute; left: 50%; top: 50%;
+            opacity: 0; filter: blur(12px); transform: translate(-50%, -50%) scale(.97);
+            transition: opacity .45s ease, filter .6s ease, transform .6s ease;
+            pointer-events: none;
+        }
+        #player-cover-img[src].loaded { opacity: 1; filter: blur(0); transform: translate(-50%, -50%) scale(1); }
+        #player-cover-placeholder { overflow: hidden; transition: opacity .45s ease; }
+        body.show-covers #player-cover-img.loaded + #player-cover-placeholder { display: flex; opacity: 0; pointer-events: none; }
+        #lyrics-cover-image { position: absolute; inset: 0; opacity: 0; filter: blur(12px); transition: opacity .45s ease, filter .6s ease; }
+        #lyrics-cover-image.loaded { opacity: 1; filter: blur(0); }
+        #player-cover-placeholder::before, #lyrics-cover-placeholder::before {
+            content: ''; position: absolute; inset: 0; opacity: 0;
+            background: linear-gradient(0deg, var(--accent-color), transparent);
+            transform: translateY(100%); transition: transform .3s ease, opacity .3s ease; pointer-events: none;
+        }
+        #lyrics-cover-placeholder { position: relative; overflow: hidden; }
+        [data-artwork-state="downloading"] #player-cover-placeholder::before,
+        [data-artwork-state="downloading"] #lyrics-cover-placeholder::before {
+            opacity: .3; transform: translateY(calc((1 - var(--cover-progress, 0)) * 100%));
+        }
+        [data-artwork-state="searching"] #player-cover-placeholder::before,
+        [data-artwork-state="searching"] #lyrics-cover-placeholder::before,
+        [data-artwork-state="downloading"].artwork-indeterminate #player-cover-placeholder::before,
+        [data-artwork-state="downloading"].artwork-indeterminate #lyrics-cover-placeholder::before {
+            opacity: .25; animation: cover-search-fill 1.8s ease-in-out infinite;
+        }
+        [data-artwork-state="searching"] #player-cover-placeholder > svg,
+        [data-artwork-state="downloading"] #player-cover-placeholder > svg,
+        [data-artwork-state="searching"] #lyrics-cover-placeholder > svg,
+        [data-artwork-state="downloading"] #lyrics-cover-placeholder > svg { animation: cover-search-note 1.8s ease-in-out infinite; }
+        @keyframes cover-search-fill { 0%, 100% { transform: translateY(85%); } 50% { transform: translateY(20%); } }
+        @keyframes cover-search-note { 0%, 100% { opacity: .8; filter: blur(0); } 50% { opacity: .45; filter: blur(2px); } }
+        #cover-cache-location-menu .cover-cache-location-option { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; }
+        #cover-cache-location-menu .cover-cache-location-option:hover { background: var(--track-hover); }
+        #cover-cache-location-menu .cover-cache-location-option.active { background: var(--accent-color); color: #fff; }
+        #cover-cache-location-menu .cover-cache-location-option:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
+        .cover-cache-info-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .cover-cache-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        #lastfm-cover-cache-options .cover-cache-icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 30px; height: 30px; }
+        .cover-cache-icon-btn svg { width: 15px; height: 15px; }
+        #lastfm-cover-cache-options .cover-cache-small-btn { padding: 5px 9px; font-size: 11px; line-height: 1.4; white-space: nowrap; }
+        @media (prefers-reduced-motion: reduce) {
+            #player-cover-img[src], #lyrics-cover-image, #player-cover-placeholder { transition: none; }
+            #player-cover-placeholder::before, #lyrics-cover-placeholder::before,
+            #player-cover-placeholder > svg, #lyrics-cover-placeholder > svg { animation: none !important; }
         }

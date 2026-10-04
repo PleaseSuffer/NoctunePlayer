@@ -450,22 +450,12 @@
                             const titleElem = document.getElementById(`title-${trackIndex}`);
                             const artistElem = document.getElementById(`artist-${trackIndex}`);
                             const metaElem = document.getElementById(`meta-${trackIndex}`);
-                            const coverImg = document.getElementById(`cover-${trackIndex}`);
-                            const coverPh = document.getElementById(`cover-ph-${trackIndex}`);
 
                             if (titleElem && meta.title) titleElem.textContent = meta.title;
                             if (artistElem && meta.artist) artistElem.textContent = meta.artist;
                             if (metaElem) metaElem.textContent = duration > 0 ? `${formatTime(duration)} | ${kbps}kbps` : '--:--';
 
-                            if (meta.coverDataUrl) {
-                                if (coverImg) { 
-                                    coverImg.src = meta.coverDataUrl; 
-                                    coverImg.classList.add('loaded'); 
-                                }
-                                if (coverPh) coverPh.style.display = 'none';
-                            } else {
-                                if (coverImg) coverImg.classList.remove('loaded');
-                            }
+                            window.updateTrackArtwork(trackIndex, meta, filePath);
 
                         } catch(e) {
                             console.warn(`Ошибка парсинга файла ${entry.name}:`, e);
@@ -570,12 +560,7 @@
                             const artistElem = document.getElementById(`artist-${trackIndex}`);
                             if (titleElem) titleElem.textContent = meta.title;
                             if (artistElem) artistElem.textContent = meta.artist;
-                            const coverImg = document.getElementById(`cover-${trackIndex}`);
-                            const coverPh = document.getElementById(`cover-ph-${trackIndex}`);
-                            if (meta.coverDataUrl) {
-                                if (coverImg) { coverImg.src = meta.coverDataUrl; coverImg.classList.add('loaded'); }
-                                if (coverPh) coverPh.style.display = 'none';
-                            }
+                            window.updateTrackArtwork(trackIndex, meta, filePath);
                             const duration = meta.duration;
                             const kbps = meta.kbps;
                             parsedMetadataCache[trackIndex] = meta;
@@ -721,14 +706,7 @@
                         if (titleElem) titleElem.textContent = meta.title || entry.name.replace(/\.[^/.]+$/, "");
                         if (artistElem) artistElem.textContent = meta.artist || "Неизвестный исполнитель";
 
-                        const coverImg = document.getElementById(`cover-${trackIndex}`);
-                        const coverPh = document.getElementById(`cover-ph-${trackIndex}`);
-                        if (meta.coverDataUrl) {
-                            if (coverImg) { coverImg.src = meta.coverDataUrl; coverImg.classList.add('loaded'); }
-                            if (coverPh) coverPh.style.display = 'none';
-                        } else {
-                            if (coverImg) coverImg.classList.remove('loaded');
-                        }
+                        window.updateTrackArtwork(trackIndex, meta, filePath);
 
                         const duration = meta.duration;
                         const kbps = meta.kbps;
@@ -888,4 +866,3 @@
                 }
             }
         });
-

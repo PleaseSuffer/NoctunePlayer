@@ -141,7 +141,7 @@
 
             // Отображаем реальную версию приложения при запуске. Сама проверка
             // обновлений (кнопка "Проверить", периодический автопросмотр,
-            // toast-уведомления) теперь полностью в renderer/updater.js —
+            // toast-уведомления) теперь полностью в renderer/updates/updater.js —
             // через electron-updater, а не отдельный GitHub-опрос отсюда.
             try {
                 const actualVersion = await noctune.getAppVersion();
@@ -293,4 +293,3 @@
                 showNotification(msg.substring(0, 200), 'warning');
             }
         };
-

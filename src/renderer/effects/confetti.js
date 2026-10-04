@@ -327,4 +327,3 @@
         };
         resizeCanvasToDisplaySize(confettiCanvas);
         animateConfetti();
-

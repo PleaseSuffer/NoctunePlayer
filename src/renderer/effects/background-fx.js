@@ -174,4 +174,3 @@
         
         updateAllCanvasSizes();
         animateStars();
-

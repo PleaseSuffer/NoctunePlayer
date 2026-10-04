@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NoctuneMusic</title>
-    <script src="../node_modules/lucide/dist/umd/lucide.js"></script>
-    <script src="renderer/polyfill.js"></script>
+    <script src="../../node_modules/lucide/dist/umd/lucide.js"></script>
+    <script src="core/polyfill.js"></script>
     <link rel="stylesheet" href="styles/app.css">
 </head>
 <body>
@@ -107,6 +107,7 @@
                         <button class="control-btn" id="btn-next" title="Следующий"><i data-lucide="skip-forward"></i></button>
                         <button class="control-btn" id="btn-repeat" title="Повторять этот трек"><i data-lucide="repeat-1"></i></button>
                         <button class="control-btn active" id="open-eq-btn" title="Настройка эквалайзера"><i data-lucide="sliders"></i></button>
+                        <button class="control-btn" id="btn-lyrics" title="Текст песни" aria-label="Текст песни"><i data-lucide="text-initial"></i></button>
                     </div>
 
                     <div class="volume-container">
@@ -146,6 +147,7 @@
             <div class="mini-progress-fill" id="mini-progress-fill"></div>
         </div>
         <div class="mini-controls">
+            <button class="mini-btn" id="mini-btn-lyrics" title="Текст песни" aria-label="Текст песни"><i data-lucide="text-initial"></i></button>
             <button class="mini-btn" id="mini-btn-shuffle" title="Случайный порядок"><i data-lucide="shuffle"></i></button>
             <button class="mini-btn" id="mini-btn-prev"><i data-lucide="skip-back"></i></button>
             <button class="mini-btn play-pause" id="mini-btn-play-pause"><i data-lucide="play" id="mini-play-icon"></i></button>
@@ -160,6 +162,37 @@
             </div>
 
             <button class="mini-btn" id="btn-expand" title="Развернуть" style="margin-left: 6px; color: var(--accent-fg);"><i data-lucide="maximize-2"></i></button>
+        </div>
+    </div>
+
+    <div class="modal" id="lyrics-modal" role="dialog" aria-modal="true" aria-labelledby="lyrics-heading">
+        <div class="modal-content lyrics-dialog">
+            <div class="modal-header">
+                <h3 id="lyrics-heading">Текст песни</h3>
+                <div class="lyrics-view-actions">
+                    <button class="actions-btn" id="lyrics-view-toggle" title="Большой вид" aria-label="Большой вид" aria-pressed="false"><i data-lucide="expand"></i></button>
+                    <button class="actions-btn" id="lyrics-close" title="Закрыть" aria-label="Закрыть"><i data-lucide="x"></i></button>
+                </div>
+            </div>
+            <div class="lyrics-layout">
+                <div class="lyrics-now-playing">
+                    <div class="lyrics-cover" id="lyrics-cover-wrap"><img id="lyrics-cover-image" alt="Обложка текущей песни" hidden><div id="lyrics-cover-placeholder"><i data-lucide="music-2"></i></div></div>
+                    <div id="lyrics-song-title"></div>
+                    <div id="lyrics-song-artist"></div>
+                    <div class="lyrics-seek-row"><span id="lyrics-time-current">0:00</span><input type="range" id="lyrics-seek" aria-label="Позиция воспроизведения" min="0" max="100" step="0.1" value="0"><span id="lyrics-time-total">0:00</span></div>
+                    <div class="lyrics-playback">
+                        <button class="control-btn" id="lyrics-prev" aria-label="Предыдущая песня"><i data-lucide="skip-back"></i></button>
+                        <button class="control-btn play-pause" id="lyrics-play" aria-label="Воспроизвести"><i data-lucide="play" id="lyrics-play-icon"></i></button>
+                        <button class="control-btn" id="lyrics-next" aria-label="Следующая песня"><i data-lucide="skip-forward"></i></button>
+                    </div>
+                </div>
+                <div class="lyrics-text-column">
+                    <div id="lyrics-track" class="lyrics-track"></div>
+                    <div id="lyrics-status" role="status"></div>
+                    <div id="lyrics-content" class="custom-scroll"></div>
+                    <div class="lyrics-footer"><span>Тексты: LRCLIB</span><button class="btn" id="lyrics-retry" hidden>Повторить поиск</button><button class="btn" id="lyrics-follow" hidden>К текущей строке</button></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -395,7 +428,7 @@
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Плавное затухание между треками</div>
-                                    <div class="settings-row-desc">Crossfade при смене трека</div>
+                                    <div class="settings-row-desc">Затухание в конце и нарастание в начале, без наложения треков</div>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="setting-crossfade">
@@ -417,6 +450,14 @@
                                 <input type="range" id="setting-crossfade-in" min="0" max="8" step="0.5" value="0"
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-crossfade-in-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">0.0с</span>
+                            </div>
+                            <div class="crossfade-duration-row" id="crossfade-intensity-row">
+                                <div style="flex:1;">
+                                    <label for="setting-crossfade-intensity" class="settings-row-label" style="font-size:12px;">Интенсивность</label>
+                                </div>
+                                <input type="range" id="setting-crossfade-intensity" min="0.2" max="2.5" step="0.1" value="1"
+                                    style="flex:1;accent-color:var(--accent-color);">
+                                <span id="setting-crossfade-intensity-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">1.0</span>
                             </div>
                             <div class="settings-row">
                                 <div>
@@ -628,6 +669,17 @@
                                 лимитер оставался практически неслышимым и включался только на реальных пиках.
                             </div>
 
+                            <div class="settings-row" style="padding-top:0;margin-bottom:10px;">
+                                <div>
+                                    <div class="settings-row-label">Включить лимитер</div>
+                                    <div class="settings-row-desc">Выключение полностью убирает ограничение сигнала</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-limiter-enabled" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+
                             <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Порог (threshold)</div>
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
                                 <input type="range" id="setting-limiter-threshold" min="-24" max="0" step="0.5" value="-3"
@@ -731,7 +783,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Размытие фона (blur)</div>
                                     <div class="settings-row-desc">Стеклянный эффект контейнера</div>
@@ -740,6 +792,24 @@
                                     <input type="checkbox" id="setting-glass-blur" checked>
                                     <span class="slider-round"></span>
                                 </label>
+                            </div>
+                            <div class="settings-row" style="border-bottom:none;">
+                                <div>
+                                    <div class="settings-row-label">Прозрачность фона</div>
+                                    <div class="settings-row-desc">Полупрозрачность панелей — отдельно от размытия</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-glass-opacity" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div id="glass-opacity-row" style="padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Уровень прозрачности</div>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <input type="range" id="setting-glass-opacity-value" min="0.2" max="1" step="0.05" value="0.85"
+                                        style="flex:1;accent-color:var(--accent-color);">
+                                    <span id="setting-glass-opacity-value-label" style="font-size:12px;font-weight:700;min-width:32px;">0.85</span>
+                                </div>
                             </div>
                         </div>
 
@@ -1668,6 +1738,38 @@
                             </div><!-- /confetti-settings-block -->
                         </div><!-- /confetti card -->
 
+                        <div id="lyrics-appearance-settings">
+                            <div class="settings-section-title">Текст песни</div>
+                            <div class="settings-card">
+                                <div class="settings-row">
+                                    <div><div class="settings-row-label">Цвет текста</div><div class="settings-row-desc">Для окна текста и развёрнутого вида</div></div>
+                                    <div class="viz-type-dropdown-wrapper" id="lyrics-color-dropdown" style="width:180px;flex-shrink:0;">
+                                        <button type="button" class="viz-type-dropdown-btn" id="setting-lyrics-color-mode" aria-label="Цвет текста" aria-haspopup="listbox" aria-expanded="false" aria-controls="lyrics-color-menu">
+                                            <span class="pd-icon" id="lyrics-color-icon"><i data-lucide="wand-2" style="width:14px;height:14px;"></i></span>
+                                            <span class="pd-label" id="lyrics-color-label">Адаптивный</span>
+                                            <span class="pd-chevron"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></span>
+                                        </button>
+                                        <div class="viz-type-dropdown-menu" id="lyrics-color-menu" role="listbox" aria-label="Цвет текста">
+                                        <button type="button" class="viz-type-menu-item lyrics-color-option" data-mode="adaptive" role="option"><i data-lucide="wand-2" style="width:14px;height:14px;color:var(--accent-color);"></i>Адаптивный</button>
+                                        <button type="button" class="viz-type-menu-item lyrics-color-option" data-mode="accent" role="option"><i data-lucide="pipette" style="width:14px;height:14px;color:var(--accent-color);"></i>Из акцента</button>
+                                        <button type="button" class="viz-type-menu-item lyrics-color-option" data-mode="custom" role="option"><i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i>Свой цвет</button>
+                                        <button type="button" class="viz-type-menu-item lyrics-color-option" data-mode="light" role="option"><i data-lucide="sun" style="width:14px;height:14px;color:var(--accent-color);"></i>Светлый</button>
+                                        <button type="button" class="viz-type-menu-item lyrics-color-option" data-mode="dark" role="option"><i data-lucide="moon" style="width:14px;height:14px;color:var(--accent-color);"></i>Тёмный</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row" id="lyrics-custom-color-row" style="display:none;">
+                                    <label for="setting-lyrics-color" class="settings-row-label">Свой цвет текста</label>
+                                    <input type="color" id="setting-lyrics-color" value="#ffffff" aria-label="Свой цвет текста">
+                                </div>
+                                <div class="settings-row"><div><div class="settings-row-label">Затемнение фона</div><div class="settings-row-desc">Только в развёрнутом виде</div></div><input type="range" id="setting-lyrics-dim" aria-label="Затемнение фона" min="0" max="80" step="5" value="0"><span id="setting-lyrics-dim-label" class="lyrics-setting-value">0%</span></div>
+                                <div class="settings-row"><div><div class="settings-row-label">Размытие фона</div><div class="settings-row-desc">Только в развёрнутом виде</div></div><input type="range" id="setting-lyrics-blur" aria-label="Размытие фона" min="0" max="12" step="1" value="0"><span id="setting-lyrics-blur-label" class="lyrics-setting-value">0 px</span></div>
+                                <div class="settings-row"><div class="settings-row-label">Размер текста</div><input type="range" id="setting-lyrics-size" aria-label="Размер текста" min="75" max="150" step="5" value="100"><span id="setting-lyrics-size-label" class="lyrics-setting-value">100%</span></div>
+                                <div class="settings-row"><div><div class="settings-row-label">Яркость остальных строк</div><div class="settings-row-desc">Текущая строка всегда выделена</div></div><input type="range" id="setting-lyrics-inactive" aria-label="Яркость остальных строк" min="15" max="80" step="5" value="35"><span id="setting-lyrics-inactive-label" class="lyrics-setting-value">35%</span></div>
+                                <div class="settings-row" style="border-bottom:none;"><div><div class="settings-row-label">Тень текста</div><div class="settings-row-desc">Помогает читать текст на изображениях</div></div><label class="toggle-switch"><input type="checkbox" id="setting-lyrics-shadow" checked><span class="slider-round"></span></label></div>
+                            </div>
+                        </div>
+
                         <div class="settings-section-title">Импорт/экспорт темы</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
                             <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
@@ -1789,8 +1891,8 @@
                                     <i data-lucide="radio" style="width:18px;height:18px;color:#d51007;"></i>
                                 </div>
                                 <div class="integration-card-info">
-                                    <div class="integration-card-name">Last.fm Scrobbling</div>
-                                    <div class="integration-card-desc" id="lastfm-card-desc">Отправка истории прослушиваний в ваш профиль Last.fm</div>
+                                    <div class="integration-card-name">Last.fm</div>
+                                    <div class="integration-card-desc" id="lastfm-card-desc">История прослушиваний и обложки песен</div>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="setting-lastfm-enabled">
@@ -1830,6 +1932,51 @@
                                 </div>
 
                                 <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div><div class="settings-row-label" style="font-size:12px;">Обложки для текста песен</div><div class="settings-row-desc">Загружать из Last.fm, если в файле нет обложки. Вход в аккаунт не требуется.</div></div>
+                                    <label class="toggle-switch"><input type="checkbox" id="setting-lastfm-covers" checked><span class="slider-round"></span></label>
+                                </div>
+                                <div id="lastfm-cover-cache-settings">
+                                    <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                        <div><div class="settings-row-label" style="font-size:12px;">Кэшировать обложки</div><div class="settings-row-desc">Повторно открывать обложки без скачивания, в том числе без интернета.</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="setting-lastfm-cover-cache" checked><span class="slider-round"></span></label>
+                                    </div>
+                                    <div id="lastfm-cover-cache-options" style="border-left:2px solid var(--border-color);padding-left:16px;margin:8px 0;">
+                                        <div class="settings-row" style="border-bottom:none;">
+                                            <div class="settings-row-label" style="font-size:12px;">Максимальный размер кэша</div>
+                                            <input type="range" id="lastfm-cover-cache-limit" min="10" max="300" step="10" value="30" aria-label="Размер кэша обложек" style="width:110px;accent-color:var(--accent-color);">
+                                            <span id="lastfm-cover-cache-limit-label" style="font-size:12px;white-space:nowrap;">30 МБ</span>
+                                        </div>
+                                        <div class="integration-field-label">Место хранения</div>
+                                        <div class="viz-type-dropdown-wrapper" id="cover-cache-location-dropdown">
+                                            <button type="button" class="viz-type-dropdown-btn" id="cover-cache-location-button" aria-haspopup="listbox" aria-expanded="false">
+                                                <span class="pd-icon"><i data-lucide="folder" style="width:14px;height:14px;"></i></span><span class="pd-label" id="cover-cache-location-label">Кэш приложения</span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></span>
+                                            </button>
+                                            <div class="viz-type-dropdown-menu" id="cover-cache-location-menu" role="listbox" aria-label="Место хранения обложек">
+                                                <button type="button" class="viz-type-menu-item cover-cache-location-option" data-location="app" role="option">Кэш приложения</button>
+                                                <button type="button" class="viz-type-menu-item cover-cache-location-option" data-location="music" role="option">В папке с музыкой</button>
+                                                <button type="button" class="viz-type-menu-item cover-cache-location-option" data-location="custom" role="option">Своя папка</button>
+                                            </div>
+                                        </div>
+                                        <div id="cover-cache-custom-row" class="cover-cache-info-row" style="display:none;">
+                                            <div class="settings-row-desc" id="cover-cache-custom-path" style="overflow-wrap:anywhere;flex:1;min-width:0;">Папка не выбрана</div>
+                                            <button type="button" class="btn cover-cache-small-btn" id="cover-cache-choose-folder">Выбрать…</button>
+                                        </div>
+                                        <div class="settings-row-desc" id="cover-cache-location-hint" style="margin-top:8px;"></div>
+                                        <div class="cover-cache-info-row">
+                                            <div style="flex:1;min-width:0;">
+                                                <div class="settings-row-desc" id="lastfm-cover-cache-usage">Занято: —</div>
+                                                <div class="settings-row-desc" id="lastfm-cover-cache-path" style="margin-top:4px;overflow-wrap:anywhere;"></div>
+                                            </div>
+                                            <div class="cover-cache-actions">
+                                                <button type="button" class="btn cover-cache-icon-btn" id="lastfm-cover-cache-clear" title="Очистить кэш обложек" aria-label="Очистить кэш обложек"><i data-lucide="trash-2"></i></button>
+                                                <button type="button" class="btn cover-cache-icon-btn" id="cover-cache-open-folder" title="Открыть текущую папку обложек" aria-label="Открыть текущую папку обложек"><i data-lucide="folder-open"></i></button>
+                                            </div>
+                                        </div>
+                                        <div class="settings-row-desc" id="lastfm-cover-cache-status" role="status"></div>
+                                    </div>
+                                </div>
+
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
                                     <div>
                                         <div class="settings-row-label" style="font-size:12px;">Ручная настройка</div>
                                         <div class="settings-row-desc">Свои API key и Shared secret вместо встроенных в приложение</div>
@@ -1859,6 +2006,22 @@
                                 <div class="settings-row-desc" style="margin-top:10px;">
                                     Скробблится только локальная музыка (у радиопотоков нет надёжной
                                     длительности, которая нужна Last.fm для правила «половина трека»).
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-card integration-card" id="integration-card-lyrics">
+                            <div class="integration-card-header">
+                                <div class="integration-card-icon" style="background:color-mix(in srgb, var(--accent-color) 15%, transparent);"><i data-lucide="text-initial" style="width:18px;height:18px;color:var(--accent-fg);"></i></div>
+                                <div class="integration-card-info">
+                                    <div class="integration-card-name">Текст песни · LRCLIB</div>
+                                    <div class="integration-card-desc">Тексты песен и подсветка текущей строки. Без регистрации.</div>
+                                </div>
+                                <label class="toggle-switch"><input type="checkbox" id="setting-lyrics-enabled" checked><span class="slider-round"></span></label>
+                            </div>
+                            <div class="integration-card-body" id="lyrics-settings-body">
+                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div><div class="settings-row-label" style="font-size:12px;">Автопрокрутка текста</div><div class="settings-row-desc">Следовать за текущей строкой во время песни</div></div>
+                                    <label class="toggle-switch"><input type="checkbox" id="setting-lyrics-autoscroll" checked><span class="slider-round"></span></label>
                                 </div>
                             </div>
                         </div>
@@ -2008,24 +2171,26 @@
                 </div>
             </div>
         </div>
+        <div class="settings-toc" id="settings-toc"></div>
     </div>
 
-    <script src="renderer/dom-refs-state.js"></script>
-    <script src="renderer/notifications.js"></script>
-    <script src="renderer/background-fx.js"></script>
-    <script src="renderer/confetti.js"></script>
-    <script src="renderer/fireworks.js"></script>
-    <script src="renderer/playback-controls.js"></script>
-    <script src="renderer/equalizer.js"></script>
-    <script src="renderer/playlists.js"></script>
-    <script src="renderer/waveform.js"></script>
-    <script src="renderer/audio-engine.js"></script>
-    <script src="renderer/hotkeys.js"></script>
-    <script src="renderer/radio-search.js"></script>
-    <script src="renderer/visualizer.js"></script>
-    <script src="renderer/bootstrap.js"></script>
-    <script src="renderer/settings.js"></script>
-    <script src="renderer/playlist-io.js"></script>
-    <script src="renderer/updater.js"></script>
+    <script src="core/dom-refs-state.js"></script>
+    <script src="ui/notifications.js"></script>
+    <script src="effects/background-fx.js"></script>
+    <script src="effects/confetti.js"></script>
+    <script src="effects/fireworks.js"></script>
+    <script src="playback/playback-controls.js"></script>
+    <script src="playback/equalizer.js"></script>
+    <script src="library/playlists.js"></script>
+    <script src="effects/waveform.js"></script>
+    <script src="playback/audio-engine.js"></script>
+    <script src="integrations/lyrics.js"></script>
+    <script src="ui/hotkeys.js"></script>
+    <script src="integrations/radio-search.js"></script>
+    <script src="effects/visualizer.js"></script>
+    <script src="core/bootstrap.js"></script>
+    <script src="ui/settings.js"></script>
+    <script src="library/playlist-io.js"></script>
+    <script src="updates/updater.js"></script>
 </body>
 </html>

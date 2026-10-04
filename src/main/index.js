@@ -2,7 +2,12 @@ const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell } =
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
-const iconPath = path.join(__dirname, '..', 'resources', 'app.ico');
+const iconPath = path.join(__dirname, '..', '..', 'resources', 'app.ico');
+
+const { createLyricsClient } = require('./integrations/lrclib/lyrics-service');
+const lyricsClient = createLyricsClient({ userAgent: 'Noctune/' + app.getVersion() + ' (https://github.com/PleaseSuffer/NoctunePlayer)' });
+ipcMain.handle('lyrics:get', (_event, payload) => lyricsClient.get(payload));
+
 
 app.commandLine.appendSwitch('hardware-media-key-handling');
 app.commandLine.appendSwitch('enable-features', 'MediaSessionService');
@@ -213,12 +218,17 @@ function lastfmRequest(params, httpMethod = 'GET') {
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
-          if (json.error) reject(new Error(json.message || ('Last.fm error ' + json.error)));
+          if (json.error) {
+            const error = new Error(json.message || ('Last.fm error ' + json.error));
+            error.code = Number(json.error);
+            reject(error);
+          }
           else resolve(json);
         } catch (e) { reject(new Error('Некорректный ответ Last.fm')); }
       });
     });
     req.on('error', reject);
+    req.setTimeout(15000, () => req.destroy(new Error('Last.fm request timed out')));
     if (httpMethod === 'POST') req.write(body);
     req.end();
   });
@@ -511,13 +521,13 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false, // preload.js использует require('fs')/require('path') напрямую
-      preload: path.join(__dirname, 'preload.js'),
+      sandbox: false, // preload/index.js использует require('fs')/require('path') напрямую
+      preload: path.join(__dirname, '..', 'preload', 'index.js'),
     }
   });
 
   Menu.setApplicationMenu(null);
-  win.loadFile('src/index.html');
+  win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   
 
@@ -777,12 +787,12 @@ ipcMain.handle('get-app-version', () => {
 ipcMain.handle('get-tech-versions', async () => {
     let storeVersion = '—';
     try {
-        const pkg = require(require('path').join(__dirname, '..', 'node_modules', 'electron-store', 'package.json'));
+        const pkg = require(require('path').join(__dirname, '..', '..', 'node_modules', 'electron-store', 'package.json'));
         storeVersion = pkg.version;
     } catch(e) {}
     let lucideVersion = '—';
     try {
-        const pkg = require(require('path').join(__dirname, '..', 'node_modules', 'lucide', 'package.json'));
+        const pkg = require(require('path').join(__dirname, '..', '..', 'node_modules', 'lucide', 'package.json'));
         lucideVersion = pkg.version;
     } catch(e) {}
     return {
@@ -878,6 +888,49 @@ ipcMain.handle('lastfm-complete-auth', async (_e, token) => {
 ipcMain.handle('lastfm-disconnect', () => {
     lastfmDisconnect();
     return { ok: true };
+});
+const { createLastfmCoverClient } = require('./integrations/lastfm/cover-service');
+const { createCoverCacheDirectoryResolver } = require('./cache/cover-cache-location');
+const coverCacheDirectory = createCoverCacheDirectoryResolver({
+    settings: () => ({ location: store?.get('setting_lastfm_cover_cache_location'), customPath: store?.get('setting_lastfm_cover_cache_custom_path') }),
+    userData: () => app.getPath('userData'),
+});
+const lastfmCoverClient = createLastfmCoverClient({
+    request: lastfmRequest,
+    settings: () => ({ enabled: store?.get('setting_lastfm_enabled') === '1' && store?.get('setting_lastfm_covers') !== '0', cache: store?.get('setting_lastfm_cover_cache') !== '0', limitMB: store?.get('setting_lastfm_cover_cache_limit') || 30 }),
+    cacheDirectory: coverCacheDirectory,
+});
+ipcMain.handle('lastfm-cover', (event, payload) => lastfmCoverClient.get(payload, progress => {
+    if (!event.sender.isDestroyed() && typeof payload?.requestId === 'string') event.sender.send('lastfm-cover-progress', { ...progress, requestId: payload.requestId });
+}));
+ipcMain.handle('lastfm-cover-cache-stats', async (_event, payload) => {
+    try { return { ok: true, ...await lastfmCoverClient.stats(payload) }; } catch (_) { return { ok: false }; }
+});
+ipcMain.handle('lastfm-cover-cache-configure', async (_event, payload) => {
+    try { return { ok: true, ...await lastfmCoverClient.configure(payload) }; } catch (_) { return { ok: false }; }
+});
+ipcMain.handle('lastfm-cover-cache-clear', async (_event, payload) => {
+    try { return await lastfmCoverClient.clear(payload); } catch (_) { return { ok: false }; }
+});
+ipcMain.handle('lastfm-cover-cache-choose-folder', async () => {
+    try {
+        const result = await dialog.showOpenDialog(win, {
+            title: 'Папка для кэша обложек', properties: ['openDirectory', 'createDirectory'],
+            defaultPath: store?.get('setting_lastfm_cover_cache_custom_path') || app.getPath('userData'),
+        });
+        if (result.canceled || !result.filePaths.length) return { canceled: true };
+        const directory = result.filePaths[0];
+        store.set('setting_lastfm_cover_cache_custom_path', directory);
+        return { ok: true, directory };
+    } catch (_) { return { ok: false }; }
+});
+ipcMain.handle('lastfm-cover-cache-open-folder', async (_event, payload) => {
+    try {
+        const directory = await coverCacheDirectory(payload);
+        await require('fs').promises.mkdir(directory, { recursive: true });
+        const error = await shell.openPath(directory);
+        return { ok: !error };
+    } catch (_) { return { ok: false }; }
 });
 ipcMain.handle('lastfm-status', () => ({ connected: !!lastfmSessionKey, username: lastfmUsername }));
 ipcMain.handle('lastfm-now-playing', (_e, payload) => lastfmUpdateNowPlaying(payload || {}));

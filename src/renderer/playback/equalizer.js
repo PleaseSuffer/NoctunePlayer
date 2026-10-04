@@ -311,7 +311,7 @@
         document.querySelector('.mini-volume-zone button').addEventListener('click', toggleMute);
 
         // Чтение тегов теперь полностью на стороне preload через
-        // music-metadata (см. src/preload.js → noctune.metadata.parseFile).
+        // music-metadata (см. src/preload/index.js → noctune.metadata.parseFile).
         // Самописный ID3v2-парсер убран — он читал теги только у MP3, тогда
         // как файловые фильтры приложения (WAV/OGG/M4A/FLAC) он не покрывал.
 
@@ -319,4 +319,3 @@
             const ext = filename.split('.').pop().toLowerCase();
             return ['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(ext);
         }
-

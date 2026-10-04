@@ -1,12 +1,12 @@
 // ══════════════════════════════════════════════════════════════════════════
 // PRELOAD SCRIPT
 // ══════════════════════════════════════════════════════════════════════════
-// С contextIsolation: true рендерер (index.html + renderer/*.js) больше не
+// С contextIsolation: true рендерер (renderer/index.html + renderer/**/*.js) больше не
 // имеет прямого доступа к Node.js / Electron API — только к тому, что явно
 // опубликовано здесь через contextBridge как window.noctune.
 //
 // Сам preload выполняется в привилегированном контексте (у него есть require,
-// т.к. webPreferences.sandbox = false в main.js) — поэтому вся файловая
+// т.к. webPreferences.sandbox = false в main/index.js) — поэтому вся файловая
 // работа (fs, path, чтение метаданных) сделана прямо тут, без лишнего IPC
 // round-trip до main-процесса. Всё, что требует ресурсов главного процесса
 // (диалоги, трей, Discord RPC, автообновления, electron-store) — проксируется
@@ -22,7 +22,7 @@ const { pathToFileURL } = require('url');
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac']);
 
 // music-metadata — ESM-only пакет, поэтому подключаем через динамический
-// import (как electron-store в main.js). Кэшируем промис, чтобы не грузить
+// import (как electron-store в main/index.js). Кэшируем промис, чтобы не грузить
 // модуль повторно на каждый вызов.
 let _mmPromise = null;
 function loadMusicMetadata() {
@@ -216,6 +216,7 @@ function parseM3U(text) {
 // Публичный API, доступный в рендерере как window.noctune
 // ══════════════════════════════════════════════════════════════════════════
 contextBridge.exposeInMainWorld('noctune', {
+  lyrics: { get: payload => ipcRenderer.invoke('lyrics:get', payload) },
   // Статичные значения окружения (нужны, например, для отчётов об ошибках,
   // где раньше использовался глобальный process.*, недоступный без
   // nodeIntegration)
@@ -266,6 +267,17 @@ contextBridge.exposeInMainWorld('noctune', {
     completeAuth: (token) => ipcRenderer.invoke('lastfm-complete-auth', token),
     disconnect: () => ipcRenderer.invoke('lastfm-disconnect'),
     status: () => ipcRenderer.invoke('lastfm-status'),
+    cover: payload => ipcRenderer.invoke('lastfm-cover', payload),
+    clearCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-clear', payload),
+    coverCacheStats: payload => ipcRenderer.invoke('lastfm-cover-cache-stats', payload),
+    configureCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-configure', payload),
+    chooseCoverCacheFolder: () => ipcRenderer.invoke('lastfm-cover-cache-choose-folder'),
+    openCoverCacheFolder: payload => ipcRenderer.invoke('lastfm-cover-cache-open-folder', payload),
+    onCoverProgress: callback => {
+      const listener = (_event, progress) => callback(progress);
+      ipcRenderer.on('lastfm-cover-progress', listener);
+      return () => ipcRenderer.removeListener('lastfm-cover-progress', listener);
+    },
     nowPlaying: (payload) => ipcRenderer.invoke('lastfm-now-playing', payload),
     scrobble: (payload) => ipcRenderer.invoke('lastfm-scrobble', payload),
   },
