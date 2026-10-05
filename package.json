@@ -25,9 +25,19 @@
     "files": [
       "src/**/*",
       "resources/app.ico",
+      "resources/app.png",
       "package.json",
       "node_modules/**/*"
     ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "pacman",
+        "tar.gz"
+      ],
+      "icon": "resources/app.png",
+      "category": "Audio"
+    },
     "win": {
       "target": "nsis",
       "icon": "resources/app.ico",

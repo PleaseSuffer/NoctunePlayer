@@ -2,7 +2,10 @@ const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell } =
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
-const iconPath = path.join(__dirname, '..', '..', 'resources', 'app.ico');
+const iconPath = path.join(
+  __dirname, '..', '..', 'resources',
+  process.platform === 'win32' ? 'app.ico' : 'app.png'
+);
 
 const { createLyricsClient } = require('./integrations/lrclib/lyrics-service');
 const lyricsClient = createLyricsClient({ userAgent: 'Noctune/' + app.getVersion() + ' (https://github.com/PleaseSuffer/NoctunePlayer)' });

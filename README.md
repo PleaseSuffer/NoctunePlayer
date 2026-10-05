@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="resources/app.ico" width="120" alt="Noctune Music Player">
+<img src="resources/app.png" width="120" alt="Noctune Music Player">
 
 ### Современный музыкальный плеер на Electron
 
