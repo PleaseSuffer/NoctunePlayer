@@ -441,7 +441,8 @@
                         </div>
                         <div class="settings-section-title">Производительность</div>
                         <div class="settings-card">
-                            <div class="settings-row">
+                            <div class="settings-option-group">
+<div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Аппаратное ускорение</div>
                                     <div class="settings-row-desc">Использовать видеокарту для отрисовки интерфейса и эффектов. Изменение требует перезапуска.</div>
@@ -451,10 +452,11 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div id="hardware-acceleration-notice" class="performance-restart-row" hidden>
+                            <div data-settings-detail id="hardware-acceleration-notice" class="performance-restart-row" hidden>
                                 <span id="hardware-acceleration-status" class="settings-row-desc" role="status"></span>
                                 <button class="btn" id="hardware-acceleration-restart" hidden>Перезапустить</button>
                             </div>
+                            </div><!-- /settings-option-group -->
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Частота кадров эффектов</div>
@@ -467,9 +469,9 @@
                                         <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
                                     </button>
                                     <div class="viz-type-dropdown-menu" id="effects-fps-menu" role="listbox" aria-label="Частота кадров эффектов">
-                                        <button type="button" class="viz-type-menu-item" role="option" data-fps="30" aria-selected="false">30 FPS</button>
-                                        <button type="button" class="viz-type-menu-item" role="option" data-fps="60" aria-selected="true">60 FPS</button>
-                                        <button type="button" class="viz-type-menu-item" role="option" data-fps="0" aria-selected="false">Без ограничения</button>
+                                        <div class="viz-type-menu-item" role="option" tabindex="0" data-fps="30" aria-selected="false">30 FPS</div>
+                                        <div class="viz-type-menu-item" role="option" tabindex="0" data-fps="60" aria-selected="true">60 FPS</div>
+                                        <div class="viz-type-menu-item" role="option" tabindex="0" data-fps="0" aria-selected="false">Без ограничения</div>
                                     </div>
                                 </div>
                             </div>
@@ -480,7 +482,8 @@
                     <div class="settings-panel" id="panel-player">
                         <div class="settings-section-title">Воспроизведение</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
-                            <div class="settings-row">
+                            <div class="settings-option-group">
+<div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Плавное затухание между треками</div>
                                     <div class="settings-row-desc">Затухание в конце и нарастание в начале, без наложения треков</div>
@@ -490,7 +493,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="crossfade-duration-row" id="crossfade-duration-row">
+                            <div data-settings-detail class="crossfade-duration-row" id="crossfade-duration-row">
                                 <div style="flex:1;">
                                     <div class="settings-row-label" style="font-size:12px;">Затухание в конце</div>
                                 </div>
@@ -498,7 +501,7 @@
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-crossfade-out-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">3.0с</span>
                             </div>
-                            <div class="crossfade-duration-row" id="crossfade-fadein-row">
+                            <div data-settings-detail class="crossfade-duration-row" id="crossfade-fadein-row">
                                 <div style="flex:1;">
                                     <div class="settings-row-label" style="font-size:12px;">Нарастание в начале</div>
                                 </div>
@@ -506,7 +509,7 @@
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-crossfade-in-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">0.0с</span>
                             </div>
-                            <div class="crossfade-duration-row" id="crossfade-intensity-row">
+                            <div data-settings-detail class="crossfade-duration-row" id="crossfade-intensity-row">
                                 <div style="flex:1;">
                                     <label for="setting-crossfade-intensity" class="settings-row-label" style="font-size:12px;">Интенсивность</label>
                                 </div>
@@ -514,6 +517,7 @@
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-crossfade-intensity-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">1.0</span>
                             </div>
+                            </div><!-- /settings-option-group -->
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Нормализация громкости</div>
@@ -612,7 +616,8 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row">
+                            <div class="settings-option-group">
+<div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Автообновление плейлиста</div>
                                     <div class="settings-row-desc">Проверять новые файлы в папке</div>
@@ -622,7 +627,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div id="auto-refresh-interval-row" style="display:none;padding:4px 0 2px 0;align-items:center;gap:12px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                            <div data-settings-detail id="auto-refresh-interval-row" style="display:none;padding:4px 0 2px 0;align-items:center;gap:12px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                 <div style="flex:1;">
                                     <div class="settings-row-label" style="font-size:12px;">Интервал проверки</div>
                                 </div>
@@ -630,6 +635,7 @@
                                     style="flex:1;accent-color:var(--accent-color);">
                                 <span id="setting-auto-refresh-label" style="font-size:12px;font-weight:700;min-width:40px;text-align:right;">30с</span>
                             </div>
+                            </div><!-- /settings-option-group -->
                         </div>
 
                         <div class="settings-section-title">Поведение</div>
@@ -654,7 +660,8 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Запоминать последний трек</div>
                                     <div class="settings-row-desc">При запуске восстанавливать позицию</div>
@@ -665,7 +672,7 @@
                                 </label>
                             </div>
                             <!-- Подменю "Запоминать последний трек" -->
-                            <div id="remember-track-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                            <div data-settings-detail id="remember-track-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
                                 <div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Восстанавливать воспроизведение</div>
@@ -677,6 +684,7 @@
                                     </label>
                                 </div>
                             </div>
+                            </div><!-- /settings-option-group -->
                         </div>
                     </div>
 
@@ -790,7 +798,8 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row">
+                            <div class="settings-option-group">
+<div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Адаптивный цвет акцента</div>
                                     <div class="settings-row-desc">Подбирать акцент автоматически по фону</div>
@@ -800,7 +809,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" id="accent-manual-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
+                            <div data-settings-detail class="settings-row" id="accent-manual-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
                                 <div class="settings-row-label">Цвет акцента</div>
                                 <div class="accent-swatches" id="accent-swatches">
                                     <div class="accent-swatch" data-color="#4a90e2" style="background:#4a90e2;" title="Синий"></div>
@@ -818,7 +827,9 @@
                                         style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
                                 </div>
                             </div>
-                            <div class="settings-row">
+                            </div><!-- /settings-option-group -->
+                            <div class="settings-option-group">
+<div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Частицы (звёзды)</div>
                                     <div class="settings-row-desc">Анимированный фон</div>
@@ -828,7 +839,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" id="stars-interactive-row" style="border-bottom:none;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                            <div data-settings-detail class="settings-row" id="stars-interactive-row" style="border-bottom:none;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                 <div>
                                     <div class="settings-row-label">Интерактивное небо</div>
                                     <div class="settings-row-desc">Звёзды уплывают от курсора, будто в вязкой жидкости</div>
@@ -838,6 +849,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
+                            </div><!-- /settings-option-group -->
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Размытие фона (blur)</div>
@@ -848,7 +860,8 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Прозрачность фона</div>
                                     <div class="settings-row-desc">Полупрозрачность панелей — отдельно от размытия</div>
@@ -858,7 +871,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div id="glass-opacity-row" style="padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                            <div data-settings-detail id="glass-opacity-row" style="padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                 <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Уровень прозрачности</div>
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <input type="range" id="setting-glass-opacity-value" min="0.2" max="1" step="0.05" value="0.85"
@@ -866,11 +879,13 @@
                                     <span id="setting-glass-opacity-value-label" style="font-size:12px;font-weight:700;min-width:32px;">0.85</span>
                                 </div>
                             </div>
+                            </div><!-- /settings-option-group -->
                         </div>
 
                         <div class="settings-section-title">Фон</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Свой фон (изображение или видео)</div>
                                     <div class="settings-row-desc">Заменить фон приложения на картинку, GIF или видео</div>
@@ -881,7 +896,7 @@
                                 </label>
                             </div>
 
-                            <div id="bg-image-advanced-settings" style="display:none;flex-direction:column;gap:0;border-top:1px solid var(--border-color);padding-top:10px;">
+                            <div data-settings-detail id="bg-image-advanced-settings" style="display:none;flex-direction:column;gap:0;border-top:1px solid var(--border-color);padding-top:10px;">
 
                                 <!-- Выбор файла + превью -->
                                 <div class="settings-row" style="border-bottom:none;">
@@ -933,7 +948,8 @@
                                 </div>
 
                                 <!-- Пульсация под звук -->
-                                <div class="settings-row" style="border-bottom:none;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Пульсация под звук</div>
                                         <div class="settings-row-desc">Фон слегка увеличивается в такт звуку</div>
@@ -943,7 +959,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="bg-pulse-intensity-row" style="padding:0 0 10px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="bg-pulse-intensity-row" style="padding:0 0 10px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность пульсации</div>
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                         <input type="range" id="setting-bg-pulse-intensity" min="0.2" max="2.5" step="0.1" value="1"
@@ -958,9 +974,11 @@
                                         <span id="setting-bg-pulse-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- Размытие под звук -->
-                                <div class="settings-row" style="border-bottom:none;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Размытие под звук</div>
                                         <div class="settings-row-desc">Фон слегка размывается в такт звуку</div>
@@ -970,7 +988,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="bg-blur-intensity-row" style="display:none;padding:0 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="bg-blur-intensity-row" style="display:none;padding:0 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность размытия</div>
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                         <input type="range" id="setting-bg-blur-intensity" min="0.2" max="2.5" step="0.1" value="1"
@@ -985,9 +1003,11 @@
                                         <span id="setting-bg-blur-threshold-label" style="font-size:12px;font-weight:700;min-width:32px;">0.00</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- Тряска (наклон) под звук -->
-                                <div class="settings-row" style="border-bottom:none;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Тряска под звук</div>
                                         <div class="settings-row-desc">Фон слегка трясёт и наклоняет в такт звуку</div>
@@ -997,7 +1017,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="bg-tilt-intensity-row" style="display:none;padding:0 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="bg-tilt-intensity-row" style="display:none;padding:0 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность тряски</div>
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                         <input type="range" id="setting-bg-tilt-intensity" min="0.2" max="2.5" step="0.1" value="1"
@@ -1032,9 +1052,11 @@
                                         </label>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- Следование за курсором -->
-                                <div class="settings-row" style="border-bottom:none;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Следование за курсором</div>
                                         <div class="settings-row-desc">Фон плавно следует за курсором</div>
@@ -1045,7 +1067,7 @@
                                     </label>
                                 </div>
                                 <!-- Подменю «Следование за курсором» -->
-                                <div id="bg-cursor-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                                <div data-settings-detail id="bg-cursor-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
                                     <div class="settings-row" style="border-bottom:none;">
                                         <div class="settings-row-label">Степень слежения по X</div>
                                         <div style="display:flex;align-items:center;gap:10px;">
@@ -1072,7 +1094,8 @@
                                             <span class="slider-round"></span>
                                         </label>
                                     </div>
-                                    <div class="settings-row" style="border-bottom:none;">
+                                    <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                         <div>
                                             <div class="settings-row-label">Наклон за курсором</div>
                                             <div class="settings-row-desc">Фон наклоняется в сторону курсора</div>
@@ -1083,7 +1106,7 @@
                                         </label>
                                     </div>
                                     <!-- Подменю «Наклон за курсором» -->
-                                    <div id="bg-cursor-tilt-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                                    <div data-settings-detail id="bg-cursor-tilt-sub" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
                                         <div class="settings-row" style="border-bottom:none;">
                                             <div class="settings-row-label">Степень наклона</div>
                                             <div style="display:flex;align-items:center;gap:10px;">
@@ -1103,15 +1126,19 @@
                                             </label>
                                         </div>
                                     </div>
+                            </div><!-- /settings-option-group -->
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                             </div>
+                            </div><!-- /settings-option-group -->
 
                             <!-- Свечение под звук — намеренно ВНЕ #bg-image-advanced-settings:
                                  не требует своего фона, рисуется отдельным radial-gradient
                                  поверх обычного чёрного/белого фона плеера тоже (см. updateBgLayerVisibility в settings.js). -->
                             <div style="border-top:1px solid var(--border-color);padding-top:10px;margin-top:10px;">
-                                <div class="settings-row" style="border-bottom:none;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Свечение под звук</div>
                                         <div class="settings-row-desc">Мягкое зарево в такт звуку — работает и без своего фона</div>
@@ -1121,7 +1148,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="bg-glow-intensity-row" style="display:none;padding:0 0 10px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="bg-glow-intensity-row" style="display:none;padding:0 0 10px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Интенсивность свечения</div>
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
                                         <input type="range" id="setting-bg-glow-intensity" min="0.2" max="2.5" step="0.1" value="1"
@@ -1175,12 +1202,14 @@
                                             style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
                             </div>
                         </div>
 
                         <div class="settings-section-title">Waveform</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Показывать waveform трека</div>
                                     <div class="settings-row-desc">Форма волны за обложкой, синхронизирована с воспроизведением</div>
@@ -1190,7 +1219,7 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div id="waveform-settings-sub" style="display:none;padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                            <div data-settings-detail id="waveform-settings-sub" style="display:none;padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
 
                                 <div style="font-size:12px;color:var(--text-muted);margin:8px 0 6px;">Режим отображения</div>
                                 <div class="viz-type-dropdown-wrapper" id="waveform-mode-dropdown-wrapper" style="margin-bottom:6px;">
@@ -1241,6 +1270,7 @@
                                         style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
                                 </div>
                             </div>
+                            </div><!-- /settings-option-group -->
                         </div>
 
 
@@ -1248,7 +1278,8 @@
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
 
                             <!-- Включение — без нижней линии, за ним идёт блок -->
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Показывать визуализатор</div>
                                 </div>
@@ -1259,7 +1290,7 @@
                             </div>
 
                             <!-- Расширенные настройки — отделены линией сверху -->
-                            <div id="viz-advanced-settings" style="display:flex;flex-direction:column;gap:0;border-top:1px solid var(--border-color);padding-top:4px;">
+                            <div data-settings-detail id="viz-advanced-settings" style="display:flex;flex-direction:column;gap:0;border-top:1px solid var(--border-color);padding-top:4px;">
 
                             <!-- Тип -->
                             <div class="settings-row" style="border-bottom:none;padding-bottom:6px;">
@@ -1268,23 +1299,13 @@
                                     <div class="viz-type-dropdown-wrapper" id="viz-type-dropdown-wrapper">
                                         <button class="viz-type-dropdown-btn" id="viz-type-dropdown-btn">
                                             <span class="pd-icon"><i data-lucide="circle" style="width:14px;height:14px;"></i></span>
-                                            <span class="pd-label" id="viz-type-label">Круг сглаженный</span>
+                                            <span class="pd-label" id="viz-type-label">Круг</span>
                                             <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
                                         </button>
                                         <div class="viz-type-dropdown-menu" id="viz-type-dropdown-menu">
-                                            <div class="viz-type-menu-item active" data-viz="circle-smooth" data-icon="circle">
-                                                <i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Круг сглаженный
-                                            </div>
-                                            <div class="viz-type-menu-item" data-viz="circle-lines" data-icon="circle-dashed">
-                                                <i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Круг с линиями
-                                            </div>
-                                            <div class="viz-type-menu-item" data-viz="bars-bottom" data-icon="bar-chart-2">
-                                                <i data-lucide="bar-chart-2" style="width:14px;height:14px;color:var(--accent-color);"></i> Полосы снизу
-                                            </div>
-                                            <div class="viz-type-menu-item" data-viz="bars-center" data-icon="align-center">
-                                                <i data-lucide="align-center" style="width:14px;height:14px;color:var(--accent-color);"></i> Полосы по центру
-                                            </div>
-                                            <div class="viz-type-menu-item" data-viz="waveform" data-icon="radio">
+                                            <div class="viz-type-menu-item active" data-viz="circle" data-icon="circle"><i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Круг</div>
+    <div class="viz-type-menu-item" data-viz="bars" data-icon="bar-chart-2"><i data-lucide="bar-chart-2" style="width:14px;height:14px;color:var(--accent-color);"></i> Полосы</div>
+    <div class="viz-type-menu-item" data-viz="waveform" data-icon="radio">
                                                 <i data-lucide="radio" style="width:14px;height:14px;color:var(--accent-color);"></i> Осциллограф
                                             </div>
                                             <div class="viz-type-menu-item" data-viz="fireworks" data-icon="sparkles">
@@ -1307,8 +1328,20 @@
                                 </div>
                             </div>
 
-                            <!-- ── Настройки кругов ─────────────────────────────── -->
-                            <div class="viz-settings-block" id="viz-settings-circles">
+    <!-- ── Настройки кругов ─────────────────────────────── -->
+                            <div class="viz-settings-block" id="viz-settings-circles"><div class="settings-row" style="border-bottom:none;padding-bottom:6px;"><div style="width:100%;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Рисунок круга</div>
+    <div class="viz-type-dropdown-wrapper" data-viz-option id="viz-circle-mode">
+    <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+    <div class="viz-type-dropdown-menu" role="listbox" aria-label="Рисунок круга"><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-smooth" data-icon="circle"><i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Сглаженный контур</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-lines" data-icon="circle-dashed"><i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Радиальные линии</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-dots" data-icon="circle-dot"><i data-lucide="circle-dot" style="width:14px;height:14px;color:var(--accent-color);"></i> Точечное кольцо</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-double" data-icon="circle"><i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Двойной контур</div></div></div></div></div>
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div style="width:100%;">
+                                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Размер круга</div>
+                                        <div style="display:flex;align-items:center;gap:10px;">
+                                            <input type="range" id="setting-viz-circle-size" min="60" max="140" step="5" value="100" style="flex:1;accent-color:var(--accent-color);">
+                                            <span id="setting-viz-circle-size-label" style="font-size:12px;font-weight:700;min-width:40px;text-align:right;">100%</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="settings-row">
                                     <div>
                                         <div class="settings-row-label">Внутренний визуализатор</div>
@@ -1319,7 +1352,8 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div class="settings-row">
+                                <div class="settings-option-group">
+<div class="settings-row viz-gradient-animation">
                                     <div>
                                         <div class="settings-row-label">Вращение цветов градиента</div>
                                         <div class="settings-row-desc">Анимировать смену цветов</div>
@@ -1329,7 +1363,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="viz-rotate-speed-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="viz-rotate-speed-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Скорость вращения</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <input type="range" id="setting-viz-rotate-speed" min="0.1" max="5" step="0.1" value="1"
@@ -1337,10 +1371,14 @@
                                         <span id="setting-viz-rotate-speed-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
                             </div>
 
                             <!-- ── Настройки полос ──────────────────────────────── -->
-                            <div class="viz-settings-block" id="viz-settings-bars">
+                            <div class="viz-settings-block" id="viz-settings-bars"><div class="settings-row" style="border-bottom:none;padding-bottom:6px;"><div style="width:100%;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Расположение полос</div>
+    <div class="viz-type-dropdown-wrapper" data-viz-option id="viz-bars-position">
+    <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+    <div class="viz-type-dropdown-menu" role="listbox" aria-label="Расположение полос"><div class="viz-type-menu-item" role="option" tabindex="0" data-value="bars-top" data-icon="align-start-horizontal"><i data-lucide="align-start-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Сверху</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="bars-center" data-icon="align-center-horizontal"><i data-lucide="align-center-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> По центру</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="bars-bottom" data-icon="align-end-horizontal"><i data-lucide="align-end-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Снизу</div></div></div></div></div>
                                 <div class="settings-row">
                                     <div>
                                         <div class="settings-row-label">Линии пиков</div>
@@ -1351,7 +1389,8 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div class="settings-row">
+                                <div class="settings-option-group">
+<div class="settings-row viz-gradient-animation">
                                     <div>
                                         <div class="settings-row-label">Прокрутка градиента</div>
                                         <div class="settings-row-desc">Плавное переливание цветов</div>
@@ -1361,7 +1400,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="viz-scroll-speed-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="viz-scroll-speed-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Скорость прокрутки</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <input type="range" id="setting-viz-scroll-speed" min="0.1" max="5" step="0.1" value="1"
@@ -1369,6 +1408,7 @@
                                         <span id="setting-viz-scroll-speed-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
                             </div>
 
                             <!-- ── Настройки осциллографа ──────────────────────── -->
@@ -1403,7 +1443,8 @@
                                 </div>
 
                                 <!-- ── Expandable: Угасающий след ──────────── -->
-                                <div class="settings-row">
+                                <div class="settings-option-group">
+<div class="settings-row">
                                     <div>
                                         <div class="settings-row-label">Угасающий след</div>
                                         <div class="settings-row-desc">Призрачный шлейф из прошлых кадров</div>
@@ -1413,7 +1454,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="viz-wave-trail-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="viz-wave-trail-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Длительность следа</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <input type="range" id="setting-viz-wave-trail-amount" min="0.02" max="5.00" step="0.01" value="0.30"
@@ -1421,9 +1462,11 @@
                                         <span id="setting-viz-wave-trail-amount-label" style="font-size:12px;font-weight:700;min-width:32px;">0.30</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- ── Expandable: Прокрутка градиента ────── -->
-                                <div class="settings-row">
+                                <div class="settings-option-group">
+<div class="settings-row viz-gradient-animation">
                                     <div>
                                         <div class="settings-row-label">Прокрутка градиента</div>
                                         <div class="settings-row-desc">Плавное переливание цветов</div>
@@ -1433,7 +1476,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="viz-scroll-speed-wave-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="viz-scroll-speed-wave-row" style="display:none;padding:10px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Скорость прокрутки</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <input type="range" id="setting-viz-scroll-speed-wave" min="0.1" max="5" step="0.1" value="1"
@@ -1441,6 +1484,7 @@
                                         <span id="setting-viz-scroll-speed-wave-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- ── Expandable: Скрывать при тишине ─────── -->
                                 <div class="settings-row" style="border-bottom:none;">
@@ -1471,7 +1515,8 @@
                                 </div>
 
                                 <!-- ── Цвет салюта ─────────────────────────── -->
-                                <div class="settings-row" style="border-bottom:none;padding-bottom:6px;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding-bottom:6px;">
                                     <div style="width:100%;">
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет салюта</div>
                                         <div class="viz-type-dropdown-wrapper" id="fw-color-dropdown-wrapper">
@@ -1495,23 +1540,24 @@
                                     </div>
                                 </div>
 
-                                <div class="settings-row" id="fw-custom-color-row" style="display:none;border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail class="settings-row" id="fw-custom-color-row" style="display:none;border-bottom:none;flex-direction:column;align-items:flex-start;gap:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);">Свои цвета</div>
                                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                                        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
-                                            <input type="color" id="fw-custom-color1" value="#ffaa33" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                            Цвет 1
-                                        </div>
-                                        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
-                                            <input type="color" id="fw-custom-color2" value="#ff5e7d" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                            Цвет 2
-                                        </div>
-                                        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
-                                            <input type="color" id="fw-custom-color3" value="#4da6ff" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                            Цвет 3
-                                        </div>
+                                        <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+            <label for="fw-custom-color1" style="font-size:12px;color:var(--text-muted);">Цвет 1:</label>
+            <input type="color" id="fw-custom-color1" value="#ffaa33" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+        </div>
+                                        <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+            <label for="fw-custom-color2" style="font-size:12px;color:var(--text-muted);">Цвет 2:</label>
+            <input type="color" id="fw-custom-color2" value="#ff5e7d" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+        </div>
+                                        <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+            <label for="fw-custom-color3" style="font-size:12px;color:var(--text-muted);">Цвет 3:</label>
+            <input type="color" id="fw-custom-color3" value="#4da6ff" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+        </div>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- ── Частота запуска ─────────────────────── -->
                                 <div class="settings-row" style="border-bottom:none;padding-top:4px;">
@@ -1538,7 +1584,8 @@
                                 </div>
 
                                 <!-- ── Реакция на бас ───────────────────────── -->
-                                <div class="settings-row" style="border-bottom:none;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                     <div>
                                         <div class="settings-row-label">Реакция на бас</div>
                                         <div class="settings-row-desc">Доп. залпы на сильных ударах баса в треке</div>
@@ -1548,7 +1595,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div class="settings-row" id="fw-beat-burst-row" style="border-bottom:none;padding:6px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail class="settings-row" id="fw-beat-burst-row" style="border-bottom:none;padding:6px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="width:100%;">
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Количество залпов на ударе</div>
                                         <div style="display:flex;align-items:center;gap:10px;">
@@ -1558,6 +1605,7 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- ── Длина следа ──────────────────────────── -->
                                 <div class="settings-row" style="border-bottom:none;padding-top:4px;">
@@ -1572,8 +1620,19 @@
                                 </div>
 
                             </div><!-- /viz-settings-fireworks -->
+                            <div id="viz-settings-color"><div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding-bottom:6px;"><div style="width:100%;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет визуализатора</div>
+    <div class="viz-type-dropdown-wrapper" data-viz-option id="viz-color-mode">
+    <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+    <div class="viz-type-dropdown-menu" role="listbox" aria-label="Цвет визуализатора"><div class="viz-type-menu-item" role="option" tabindex="0" data-value="accent" data-icon="pipette"><i data-lucide="pipette" style="width:14px;height:14px;color:var(--accent-color);"></i> Из акцента</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="custom" data-icon="palette"><i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i> Свой цвет</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="gradient" data-icon="blend"><i data-lucide="blend" style="width:14px;height:14px;color:var(--accent-color);"></i> Градиент</div></div></div></div></div>
+    <div data-settings-detail id="viz-custom-color-row" hidden style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+        <label for="viz-custom-color" style="font-size:12px;color:var(--text-muted);">Цвет:</label>
+        <input type="color" id="viz-custom-color" value="#bb86fc" aria-label="Свой цвет визуализатора" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+    </div>
+                            </div><!-- /settings-option-group --></div>
                             <div class="viz-settings-block" id="viz-settings-gradient">
-                                <div class="settings-row">
+                                <div class="settings-option-group">
+<div class="settings-row">
                                     <div>
                                         <div class="settings-row-label">Адаптивные цвета градиента</div>
                                         <div class="settings-row-desc">Подбирать цвета градиента визуализатора по фону</div>
@@ -1583,7 +1642,7 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div class="settings-row" id="grad-manual-row" style="border-bottom:none;">
+                                <div data-settings-detail class="settings-row" id="grad-manual-row" style="border-bottom:none;">
                                     <div style="width:100%;">
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Пресеты градиента</div>
                                         <div class="grad-preset-list" id="viz-grad-presets" style="margin-bottom:12px;">
@@ -1598,31 +1657,34 @@
                                         </div>
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Цвета градиента</div>
                                         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
-                                                <input type="color" id="viz-grad-color1" value="#bb86fc" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                                Цвет 1
-                                            </div>
-                                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
-                                                <input type="color" id="viz-grad-color2" value="#4a90e2" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                                Цвет 2
-                                            </div>
-                                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);">
-                                                <input type="color" id="viz-grad-color3" value="#03dac6" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
-                                                Цвет 3
-                                            </div>
-                                            <button id="viz-grad-reset" class="btn" style="padding:5px 10px;font-size:11px;margin-left:4px;">↺ Сброс</button>
+                                            <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+            <label for="viz-grad-color1" style="font-size:12px;color:var(--text-muted);">Цвет 1:</label>
+            <input type="color" id="viz-grad-color1" value="#bb86fc" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+        </div>
+                                            <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+            <label for="viz-grad-color2" style="font-size:12px;color:var(--text-muted);">Цвет 2:</label>
+            <input type="color" id="viz-grad-color2" value="#4a90e2" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+        </div>
+                                            <div style="display:flex;align-items:center;gap:10px;padding-bottom:6px;">
+            <label for="viz-grad-color3" style="font-size:12px;color:var(--text-muted);">Цвет 3:</label>
+            <input type="color" id="viz-grad-color3" value="#03dac6" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;">
+        </div>
+                                            <button id="viz-grad-reset" class="btn" style="padding:5px 10px;font-size:12px;margin-left:4px;"><i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i> Сброс</button>
                                         </div>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
                             </div>
 
-                            </div><!-- /viz-advanced-settings -->
+                            </div>
+                            </div><!-- /settings-option-group --><!-- /viz-advanced-settings -->
                         </div><!-- /viz settings-card -->
 
                         <div class="settings-section-title">Конфетти</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
 
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Конфетти</div>
                                     <div class="settings-row-desc">Частицы, реагирующие на музыку</div>
@@ -1633,7 +1695,7 @@
                                 </label>
                             </div>
 
-                            <div id="confetti-settings-block" style="display:none;flex-direction:column;gap:0;">
+                            <div data-settings-detail id="confetti-settings-block" style="display:none;flex-direction:column;gap:0;">
 
                                 <!-- ── Режим появления ─────────────────── -->
                                 <div class="settings-row" style="border-bottom:none;padding-bottom:6px;">
@@ -1729,7 +1791,8 @@
                                 </div>
 
                                 <!-- ── Размер частиц ───────────────────── -->
-                                <div class="settings-row" style="border-bottom:none;padding-top:6px;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding-top:6px;">
                                     <div style="width:100%;">
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Размер частиц</div>
                                         <div style="display:flex;align-items:center;gap:10px;">
@@ -1740,13 +1803,14 @@
                                 </div>
 
                                 <!-- ── Количество линий (sprinkler only) ────── -->
-                                <div id="confetti-sprinkler-row" style="display:none;padding:6px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="confetti-sprinkler-row" style="display:none;padding:6px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Количество линий</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <input type="range" id="setting-confetti-sprinkler-lines" min="1" max="8" step="1" value="4" style="flex:1;accent-color:var(--accent-color);">
                                         <span id="setting-confetti-sprinkler-lines-label" style="font-size:12px;font-weight:700;min-width:32px;">4</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- ── Чувствительность ─────────────────── -->
                                 <div class="settings-row" style="border-bottom:none;padding-top:6px;">
@@ -1760,7 +1824,8 @@
                                 </div>
 
                                 <!-- ── Завихрение ──────────────────────── -->
-                                <div class="settings-row" style="border-bottom:none;padding-top:4px;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding-top:4px;">
                                     <div>
                                         <div class="settings-row-label">Завихрение</div>
                                         <div class="settings-row-desc">Синусоидальный снос частиц</div>
@@ -1770,13 +1835,14 @@
                                         <span class="slider-round"></span>
                                     </label>
                                 </div>
-                                <div id="confetti-swirl-row" style="display:none;padding:6px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="confetti-swirl-row" style="display:none;padding:6px 0 4px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Сила завихрения</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
                                         <input type="range" id="setting-confetti-swirl-str" min="0.2" max="4" step="0.1" value="1" style="flex:1;accent-color:var(--accent-color);">
                                         <span id="setting-confetti-swirl-str-label" style="font-size:12px;font-weight:700;min-width:32px;">1.0</span>
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <!-- ── Состояние при паузе ─────────────── -->
                                 <div class="settings-row" style="border-bottom:none;padding-top:6px;padding-bottom:4px;">
@@ -1790,13 +1856,15 @@
                                     </div>
                                 </div>
 
-                            </div><!-- /confetti-settings-block -->
+                            </div>
+                            </div><!-- /settings-option-group --><!-- /confetti-settings-block -->
                         </div><!-- /confetti card -->
 
                         <div id="lyrics-appearance-settings">
                             <div class="settings-section-title">Текст песни</div>
                             <div class="settings-card">
-                                <div class="settings-row">
+                                <div class="settings-option-group">
+<div class="settings-row">
                                     <div><div class="settings-row-label">Цвет текста</div><div class="settings-row-desc">Для окна текста и развёрнутого вида</div></div>
                                     <div class="viz-type-dropdown-wrapper" id="lyrics-color-dropdown" style="width:180px;flex-shrink:0;">
                                         <button type="button" class="viz-type-dropdown-btn" id="setting-lyrics-color-mode" aria-label="Цвет текста" aria-haspopup="listbox" aria-expanded="false" aria-controls="lyrics-color-menu">
@@ -1813,10 +1881,11 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="settings-row" id="lyrics-custom-color-row" style="display:none;">
+                                <div data-settings-detail class="settings-row" id="lyrics-custom-color-row" style="display:none;">
                                     <label for="setting-lyrics-color" class="settings-row-label">Свой цвет текста</label>
                                     <input type="color" id="setting-lyrics-color" value="#ffffff" aria-label="Свой цвет текста">
                                 </div>
+                            </div><!-- /settings-option-group -->
                                 <div class="settings-row"><div><div class="settings-row-label">Затемнение фона</div><div class="settings-row-desc">Только в развёрнутом виде</div></div><input type="range" id="setting-lyrics-dim" aria-label="Затемнение фона" min="0" max="80" step="5" value="0"><span id="setting-lyrics-dim-label" class="lyrics-setting-value">0%</span></div>
                                 <div class="settings-row"><div><div class="settings-row-label">Размытие фона</div><div class="settings-row-desc">Только в развёрнутом виде</div></div><input type="range" id="setting-lyrics-blur" aria-label="Размытие фона" min="0" max="12" step="1" value="0"><span id="setting-lyrics-blur-label" class="lyrics-setting-value">0 px</span></div>
                                 <div class="settings-row"><div class="settings-row-label">Размер текста</div><input type="range" id="setting-lyrics-size" aria-label="Размер текста" min="75" max="150" step="5" value="100"><span id="setting-lyrics-size-label" class="lyrics-setting-value">100%</span></div>
@@ -1902,7 +1971,8 @@
                                     </label>
                                 </div>
 
-                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding:6px 0;">
                                     <div>
                                         <div class="settings-row-label" style="font-size:12px;">Ручная настройка</div>
                                         <div class="settings-row-desc">Свой Application ID и URL для кнопки «Слушать»</div>
@@ -1913,7 +1983,7 @@
                                     </label>
                                 </div>
 
-                                <div id="discord-rpc-manual-row" style="display:none;margin-top:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="discord-rpc-manual-row" style="display:none;margin-top:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div class="integration-field-label">Application ID (Client ID)</div>
                                     <input type="text" id="discord-rpc-client-id" class="integration-text-input"
                                         value="1519344685871792128" placeholder="например, 1519344685871792128" style="margin-bottom:4px;">
@@ -1930,6 +2000,7 @@
                                         станцию в копии плеера у друга.
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
                             </div>
                         </div>
 
@@ -1991,11 +2062,12 @@
                                     <label class="toggle-switch"><input type="checkbox" id="setting-lastfm-covers" checked><span class="slider-round"></span></label>
                                 </div>
                                 <div id="lastfm-cover-cache-settings">
-                                    <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                    <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding:6px 0;">
                                         <div><div class="settings-row-label" style="font-size:12px;">Кэшировать обложки</div><div class="settings-row-desc">Повторно открывать обложки без скачивания, в том числе без интернета.</div></div>
                                         <label class="toggle-switch"><input type="checkbox" id="setting-lastfm-cover-cache" checked><span class="slider-round"></span></label>
                                     </div>
-                                    <div id="lastfm-cover-cache-options" style="border-left:2px solid var(--border-color);padding-left:16px;margin:8px 0;">
+                                    <div data-settings-detail id="lastfm-cover-cache-options" style="border-left:2px solid var(--border-color);padding-left:16px;margin:8px 0;">
                                         <div class="settings-row" style="border-bottom:none;">
                                             <div class="settings-row-label" style="font-size:12px;">Максимальный размер кэша</div>
                                             <input type="range" id="lastfm-cover-cache-limit" min="10" max="300" step="10" value="30" aria-label="Размер кэша обложек" style="width:110px;accent-color:var(--accent-color);">
@@ -2029,9 +2101,11 @@
                                         </div>
                                         <div class="settings-row-desc" id="lastfm-cover-cache-status" role="status"></div>
                                     </div>
+                            </div><!-- /settings-option-group -->
                                 </div>
 
-                                <div class="settings-row" style="border-bottom:none;padding:6px 0;">
+                                <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;padding:6px 0;">
                                     <div>
                                         <div class="settings-row-label" style="font-size:12px;">Ручная настройка</div>
                                         <div class="settings-row-desc">Свои API key и Shared secret вместо встроенных в приложение</div>
@@ -2042,7 +2116,7 @@
                                     </label>
                                 </div>
 
-                                <div id="lastfm-manual-row" style="display:none;margin-top:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
+                                <div data-settings-detail id="lastfm-manual-row" style="display:none;margin-top:8px;border-left:2px solid var(--border-color);padding-left:16px;margin-bottom:4px;">
                                     <div class="integration-field-label">API key</div>
                                     <input type="password" id="lastfm-manual-key" class="integration-text-input"
                                         placeholder="Ваш API key" autocomplete="off" style="margin-bottom:10px;">
@@ -2057,6 +2131,7 @@
                                         ключей потребуется авторизоваться заново.
                                     </div>
                                 </div>
+                            </div><!-- /settings-option-group -->
 
                                 <div class="settings-row-desc" style="margin-top:10px;">
                                     Скробблится только локальная музыка (у радиопотоков нет надёжной
@@ -2135,7 +2210,8 @@
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-option-group">
+<div class="settings-row" style="border-bottom:none;">
                                 <div>
                                     <div class="settings-row-label">Автоматическая проверка обновлений</div>
                                     <div class="settings-row-desc">Периодически проверять наличие новой версии в фоне</div>
@@ -2146,7 +2222,7 @@
                                 </label>
                             </div>
                             <!-- Подменю "Автоматическая проверка обновлений" -->
-                            <div id="update-interval-row-wrap" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
+                            <div data-settings-detail id="update-interval-row-wrap" style="padding:0 0 4px 16px;border-left:2px solid var(--border-color);margin:0 0 4px;">
                                 <div id="update-interval-row" style="padding:8px 0 10px 0;">
                                     <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Частота проверки</div>
                                     <div style="display:flex;align-items:center;gap:10px;">
@@ -2176,6 +2252,7 @@
                                     </label>
                                 </div>
                             </div>
+                            </div><!-- /settings-option-group -->
                         </div>
 
                         <div class="settings-section-title">Автор</div>

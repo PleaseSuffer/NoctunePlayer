@@ -430,8 +430,11 @@
             const VIZ_GROUPS = {
                 'circle-smooth': ['circles', 'gradient'],
                 'circle-lines':  ['circles', 'gradient'],
+                'circle-dots':   ['circles', 'gradient'],
+                'circle-double': ['circles', 'gradient'],
                 'bars-bottom':   ['bars',    'gradient'],
                 'bars-center':   ['bars',    'gradient'],
+                'bars-top':      ['bars',    'gradient'],
                 'waveform':      ['waveform','gradient'],
                 'fireworks':     ['fireworks'],
             };
@@ -441,22 +444,30 @@
                 document.getElementById('viz-settings-circles').classList.toggle('visible', groups.includes('circles'));
                 document.getElementById('viz-settings-bars').classList.toggle('visible', groups.includes('bars'));
                 document.getElementById('viz-settings-waveform').classList.toggle('visible', groups.includes('waveform'));
-                document.getElementById('viz-settings-gradient').classList.toggle('visible', groups.includes('gradient'));
+                document.getElementById('viz-settings-gradient').classList.toggle('visible', groups.includes('gradient') && window.vizColorMode === 'gradient');
+                document.getElementById('viz-settings-color').hidden = style === 'fireworks';
                 document.getElementById('viz-settings-fireworks').classList.toggle('visible', groups.includes('fireworks'));
             }
 
             function selectVizType(style) {
+                if (style === 'circle') style = appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth';
+                if (style === 'bars') style = appStorage.getItem('setting_viz_bars_position') || 'bars-bottom';
+                if (!VIZ_GROUPS[style]) style = 'circle-smooth';
+                if (style.startsWith('circle-')) appStorage.setItem('setting_viz_circle_mode', style);
+                if (style.startsWith('bars-')) appStorage.setItem('setting_viz_bars_position', style);
                 window.vizStyle = style;
                 appStorage.setItem('setting_viz_style', style);
-                const item = vizTypeMenu.querySelector(`[data-viz="${style}"]`);
+                const type = style.startsWith('circle-') ? 'circle' : style.startsWith('bars-') ? 'bars' : style;
+                const item = vizTypeMenu.querySelector(`[data-viz="${type}"]`);
                 if (item) {
                     vizTypeLabel.textContent = item.textContent.trim();
                     const iconName = item.dataset.icon;
                     vizTypeBtn.querySelector('.pd-icon').innerHTML = `<i data-lucide="${iconName}" style="width:14px;height:14px;"></i>`;
                 }
                 vizTypeMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
-                    el.classList.toggle('active', el.dataset.viz === style));
+                    el.classList.toggle('active', el.dataset.viz === type));
                 updateVizSettingsBlocks(style);
+                syncVizOptions();
                 lucide.createIcons();
             }
 
@@ -477,6 +488,92 @@
                 vizTypeMenu.classList.remove('open');
                 vizTypeBtn.classList.remove('open');
             });
+
+            // Keep legacy style identifiers in saved themes while exposing one type per family.
+            function syncVizOptions() {
+                for (const [id, value] of [['viz-circle-mode', appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth'], ['viz-bars-position', appStorage.getItem('setting_viz_bars_position') || 'bars-bottom'], ['viz-color-mode', window.vizColorMode || 'gradient']]) {
+                    const root = document.getElementById(id);
+                    root.querySelectorAll('[role="option"]').forEach(option => {
+                        const selected = option.dataset.value === value;
+                        option.classList.toggle('active', selected);
+                        option.setAttribute('aria-selected', String(selected));
+                        if (selected) {
+                            root.querySelector('.pd-label').textContent = option.textContent.trim();
+                            root.querySelector('.pd-icon').innerHTML = `<i data-lucide="${option.dataset.icon}" style="width:14px;height:14px;"></i>`;
+                        }
+                    });
+                }
+                const gradient = window.vizColorMode === 'gradient';
+                document.getElementById('viz-custom-color-row').hidden = window.vizColorMode !== 'custom';
+                document.querySelectorAll('.viz-gradient-animation').forEach(row => row.hidden = !gradient);
+                for (const id of ['viz-rotate-speed-row', 'viz-scroll-speed-row', 'viz-scroll-speed-wave-row']) {
+                    document.getElementById(id).hidden = !gradient;
+                }
+                updateVizSettingsBlocks(window.vizStyle || 'circle-smooth');
+                lucide.createIcons();
+            }
+            function selectVizColorMode(mode) {
+                window.vizColorMode = ['accent', 'custom', 'gradient'].includes(mode) ? mode : 'gradient';
+                appStorage.setItem('setting_viz_color_mode', window.vizColorMode);
+                syncVizOptions();
+            }
+            // Reuse the visualizer type selector's markup and styles.
+            document.querySelectorAll('[data-viz-option]').forEach(root => {
+                const button = root.querySelector('.viz-type-dropdown-btn');
+                const menu = root.querySelector('[role="listbox"]');
+                const options = [...menu.querySelectorAll('[role="option"]')];
+                function openOptions(open, focus = false) {
+                    menu.classList.toggle('open', open);
+                    button.classList.toggle('open', open);
+                    button.setAttribute('aria-expanded', String(open));
+                    if (open && focus) (options.find(option => option.classList.contains('active')) || options[0]).focus();
+                }
+                button.addEventListener('click', () => openOptions(!menu.classList.contains('open')));
+                options.forEach(option => option.addEventListener('click', () => {
+                    const value = option.dataset.value;
+                    if (root.id === 'viz-color-mode') selectVizColorMode(value);
+                    else selectVizType(value);
+                    openOptions(false); button.focus();
+                }));
+                document.addEventListener('click', event => { if (!root.contains(event.target)) openOptions(false); });
+                root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget)) openOptions(false); });
+                root.addEventListener('keydown', event => {
+                    if (['Enter', ' '].includes(event.key) && options.includes(document.activeElement)) {
+                        event.preventDefault();
+                        document.activeElement.click();
+                    }
+                    if (event.key === 'Escape') { openOptions(false); button.focus(); event.preventDefault(); }
+                    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                        event.preventDefault();
+                        if (!menu.classList.contains('open')) { openOptions(true, true); return; }
+                        const index = options.indexOf(document.activeElement);
+                        const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+                        options[next].focus();
+                    }
+                });
+            });
+            const vizCustomColor = document.getElementById('viz-custom-color');
+            function applyVizCustomColor(color) {
+                window.vizCustomColor = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#bb86fc';
+                vizCustomColor.value = window.vizCustomColor;
+                document.documentElement.style.setProperty('--viz-custom-color', window.vizCustomColor);
+                appStorage.setItem('setting_viz_custom_color', window.vizCustomColor);
+            }
+            vizCustomColor.addEventListener('input', () => applyVizCustomColor(vizCustomColor.value));
+            applyVizCustomColor(appStorage.getItem('setting_viz_custom_color'));
+            selectVizColorMode(appStorage.getItem('setting_viz_color_mode') || 'gradient');
+            const vizCircleSize = document.getElementById('setting-viz-circle-size');
+            const vizCircleSizeLabel = document.getElementById('setting-viz-circle-size-label');
+            function applyVizCircleSize(value) {
+                const parsed = parseFloat(value);
+                window.vizCircleSize = Number.isFinite(parsed) ? Math.max(0.6, Math.min(1.4, parsed)) : 1;
+                const percent = Math.round(window.vizCircleSize * 100);
+                vizCircleSize.value = percent;
+                vizCircleSizeLabel.textContent = `${percent}%`;
+                appStorage.setItem('setting_viz_circle_size', window.vizCircleSize);
+            }
+            vizCircleSize.addEventListener('input', () => applyVizCircleSize(Number(vizCircleSize.value) / 100));
+            applyVizCircleSize(appStorage.getItem('setting_viz_circle_size'));
 
             // ---- APPEARANCE: Fireworks (Салют) settings ----
             const fwColorBtn        = document.getElementById('fw-color-dropdown-btn');
@@ -2743,6 +2840,11 @@
                     },
                     si: settingStarsInteractive.checked,                             // stars interactive
                     vint: parseFloat(appStorage.getItem('setting_viz_intensity') || '1'), // viz intensity
+                    vcm: window.vizColorMode || 'gradient',
+                    vcc: window.vizCustomColor || '#bb86fc',
+                    vcir: appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth',
+                    vbar: appStorage.getItem('setting_viz_bars_position') || 'bars-bottom',
+                    vsz: window.vizCircleSize || 1,
                     vsty: appStorage.getItem('setting_viz_style') || 'circle-smooth', // viz type
                     vin: (appStorage.getItem('setting_viz_inner') ?? '1') === '1',   // inner circle
                     vpk: (appStorage.getItem('setting_viz_peaks') ?? '1') === '1',   // bar peaks
@@ -2920,6 +3022,11 @@
 
                 if (typeof payload.si === 'boolean') setCheckedAndFire(settingStarsInteractive, payload.si);
                 setValueAndFire(vizIntSlider, payload.vint);
+                if (['circle-smooth', 'circle-lines', 'circle-dots', 'circle-double'].includes(payload.vcir)) appStorage.setItem('setting_viz_circle_mode', payload.vcir);
+                if (['bars-bottom', 'bars-center', 'bars-top'].includes(payload.vbar)) appStorage.setItem('setting_viz_bars_position', payload.vbar);
+                applyVizCircleSize(payload.vsz);
+                applyVizCustomColor(payload.vcc || '#bb86fc');
+                selectVizColorMode(payload.vcm || 'gradient');
                 if (payload.vsty) selectVizType(payload.vsty);
                 if (typeof payload.vin === 'boolean') setCheckedAndFire(settingVizInner, payload.vin);
                 if (typeof payload.vpk === 'boolean') setCheckedAndFire(settingVizPeaks, payload.vpk);

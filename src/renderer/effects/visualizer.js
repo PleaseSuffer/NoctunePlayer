@@ -234,6 +234,10 @@
             const rotateColors = window.vizRotateColors !== false;
             const showInner = window.vizShowInner !== false;
 
+            // Resolve solid color once per frame so accent changes apply immediately.
+            const colorMode = window.vizColorMode || 'gradient';
+            const solidColor = colorMode === 'custom' ? (window.vizCustomColor || '#bb86fc') :
+                colorMode === 'accent' ? (getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#4a90e2') : null;
             // Get gradient colors
             const gc1 = window.vizGradColor1 || '#bb86fc';
             const gc2 = window.vizGradColor2 || '#4a90e2';
@@ -241,7 +245,8 @@
 
             const centerX = canvas.clientWidth / 2;
             const centerY = canvas.clientHeight / 2;
-            const staticRadius = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.25;
+            const circleSize = Number.isFinite(window.vizCircleSize) ? Math.max(0.6, Math.min(1.4, window.vizCircleSize)) : 1;
+            const staticRadius = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.25 * circleSize;
             const totalPoints = Math.floor(bufferLength * 0.55);
 
             // Накапливаемый таймер через deltaTime — не зависит от Date.now()
@@ -261,6 +266,7 @@
 
             // Build gradient
             function makeGradient(x0, y0, x1, y1) {
+                if (colorMode !== 'gradient') return solidColor;
                 const g = ctx.createLinearGradient(x0, y0, x1, y1);
                 g.addColorStop(0, gc1 + 'e6');
                 g.addColorStop(0.5, gc2 + 'e6');
@@ -303,7 +309,7 @@
             const mainGradient = makeGradient(gradX0, gradY0, gradX1, gradY1);
             const rotationOffset = Math.PI / 2;
 
-            if (style === 'circle-smooth' || style === 'circle-lines') {
+            if (style.startsWith('circle-')) {
                 // Inner glow
                 if (showInner) {
                     ctx.save();
@@ -353,7 +359,19 @@
                 }
                 ctx.closePath();
 
-                if (style === 'circle-lines') {
+                if (style === 'circle-dots') {
+                    ctx.restore();
+                    const dotCount = Math.min(totalPoints, 96);
+                    ctx.fillStyle = mainGradient;
+                    for (let i = 0; i < dotCount; i++) {
+                        const angle = i / dotCount * Math.PI * 2 + rotationOffset;
+                        const amp = window.freqFallStorage[Math.floor(i * totalPoints / dotCount)] || 0;
+                        const radius = staticRadius + amp;
+                        ctx.beginPath();
+                        ctx.arc(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius, 2.5 + amp * 0.015, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else if (style === 'circle-lines') {
                     // Draw radial lines from center circle to outer
                     ctx.restore();
                     const lineCount = Math.min(totalPoints, 128);
@@ -373,95 +391,65 @@
                     ctx.globalAlpha = 1;
                 } else {
                     ctx.stroke();
+                    if (style === 'circle-double') {
+                        ctx.beginPath();
+                        for (let i = 0; i < totalPoints; i++) {
+                            const angle = i / totalPoints * Math.PI * 2 + rotationOffset;
+                            const radius = Math.max(staticRadius * 0.35, staticRadius - (window.freqFallStorage[i] || 0) * 0.4);
+                            const x = centerX + Math.cos(angle) * radius;
+                            const y = centerY + Math.sin(angle) * radius;
+                            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                        }
+                        ctx.closePath();
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
                     ctx.restore();
                 }
 
-            } else if (style === 'bars-bottom') {
+            } else if (style === 'bars-bottom' || style === 'bars-center' || style === 'bars-top') {
+                const centered = style === 'bars-center';
+                const top = style === 'bars-top';
                 const barCount = Math.min(bufferLength, 80);
-                const barWidth = (canvas.clientWidth / barCount) * 0.8;
-                const gap = (canvas.clientWidth / barCount) * 0.2;
-                const maxBarH = canvas.clientHeight * 0.7;
                 const W = canvas.clientWidth, H = canvas.clientHeight;
-                if (window.barFall === undefined || window.barFall.length !== barCount) window.barFall = new Array(barCount).fill(0);
-                if (window.barPeaks === undefined || window.barPeaks.length !== barCount) window.barPeaks = new Array(barCount).fill(0);
-
-                const scrollGradBB = window.vizScrollGrad;
-
-                let bbGrad;
-                if (scrollGradBB) {
-                    bbGrad = makeScrollingBarGradient(H, H - maxBarH, [gc1, gc2, gc3]);
-                } else {
-                    const g = ctx.createLinearGradient(0, H, 0, H - maxBarH);
-                    g.addColorStop(0,   gc1 + 'dd');
-                    g.addColorStop(0.5, gc2 + 'dd');
-                    g.addColorStop(1,   gc3 + 'dd');
-                    bbGrad = g;
+                const barWidth = (W / barCount) * 0.8;
+                const maxBarH = H * (centered ? 0.35 : 0.7);
+                const baseline = centered ? H / 2 : top ? 0 : H;
+                if (window._barLayout !== style || !window.barFall || window.barFall.length !== barCount) {
+                    window.barFall = new Array(barCount).fill(0);
+                    window.barPeaks = new Array(barCount).fill(0);
+                    window._barLayout = style;
                 }
-
-                for (let i = 0; i < barCount; i++) {
-                    const skipBins = 3;
-                    const val = Math.pow(dataArray[skipBins + Math.floor(i * (bufferLength * 0.45 - skipBins) / barCount)] / 255, 0.7);
-                    const targetH = val * maxBarH * intensity;
-                    if (targetH > window.barFall[i]) window.barFall[i] = targetH;
-                    else { window.barFall[i] *= 0.92; if (window.barFall[i] < 0.5) window.barFall[i] = 0; }
-                    if (targetH > window.barPeaks[i]) window.barPeaks[i] = targetH;
-                    else { window.barPeaks[i] -= 1.2; if (window.barPeaks[i] < 0) window.barPeaks[i] = 0; }
-
-                    const x = i * (barWidth + gap);
-                    const h = window.barFall[i];
-                    ctx.fillStyle = bbGrad;
-                    ctx.globalAlpha = 0.85;
-                    ctx.beginPath();
-                    ctx.roundRect(x, H - h, barWidth, h, [3, 3, 0, 0]);
-                    ctx.fill();
-                    if (window.vizShowPeaks !== false) {
-                        ctx.globalAlpha = 0.9;
-                        ctx.fillStyle = gc3;
-                        ctx.fillRect(x, H - window.barPeaks[i] - 2, barWidth, 2);
+                const y0 = centered ? baseline - maxBarH : baseline;
+                const y1 = centered ? baseline + maxBarH : top ? maxBarH : H - maxBarH;
+                const colors = centered ? [gc3, gc2, gc1] : [gc1, gc2, gc3];
+                let barGradient = solidColor;
+                if (colorMode === 'gradient') {
+                    if (window.vizScrollGrad) barGradient = makeScrollingBarGradient(y0, y1, colors);
+                    else {
+                        barGradient = ctx.createLinearGradient(0, y0, 0, y1);
+                        colors.forEach((color, i) => barGradient.addColorStop(i / 2, color + 'dd'));
                     }
                 }
-                ctx.globalAlpha = 1;
-
-            } else if (style === 'bars-center') {
-                const barCount = Math.min(bufferLength, 80);
-                const barWidth = (canvas.clientWidth / barCount) * 0.8;
-                const gap = (canvas.clientWidth / barCount) * 0.2;
-                const maxBarH = canvas.clientHeight * 0.35;
-                const midY = canvas.clientHeight / 2;
-                const scrollGrad = window.vizScrollGrad;
-                if (window.barFall2 === undefined || window.barFall2.length !== barCount) window.barFall2 = new Array(barCount).fill(0);
-                if (window.barPeaks2 === undefined || window.barPeaks2.length !== barCount) window.barPeaks2 = new Array(barCount).fill(0);
-
-                let gradCenter;
-                if (scrollGrad) {
-                    gradCenter = makeScrollingBarGradient(midY - maxBarH, midY + maxBarH, [gc3, gc2, gc1]);
-                } else {
-                    gradCenter = ctx.createLinearGradient(0, midY - maxBarH, 0, midY + maxBarH);
-                    gradCenter.addColorStop(0,   gc3 + 'dd');
-                    gradCenter.addColorStop(0.5, gc2 + 'dd');
-                    gradCenter.addColorStop(1,   gc1 + 'dd');
-                }
-
                 for (let i = 0; i < barCount; i++) {
                     const skipBins = 3;
                     const val = Math.pow(dataArray[skipBins + Math.floor(i * (bufferLength * 0.45 - skipBins) / barCount)] / 255, 0.7);
                     const targetH = val * maxBarH * intensity;
-                    if (targetH > window.barFall2[i]) window.barFall2[i] = targetH;
-                    else { window.barFall2[i] *= 0.92; if (window.barFall2[i] < 0.5) window.barFall2[i] = 0; }
-                    if (targetH > window.barPeaks2[i]) window.barPeaks2[i] = targetH;
-                    else { window.barPeaks2[i] -= 1.2; if (window.barPeaks2[i] < 0) window.barPeaks2[i] = 0; }
-                    const x = i * (barWidth + gap);
-                    const h = window.barFall2[i];
-                    ctx.fillStyle = gradCenter;
+                    window.barFall[i] = targetH > window.barFall[i] ? targetH : window.barFall[i] * 0.92;
+                    if (window.barFall[i] < 0.5) window.barFall[i] = 0;
+                    window.barPeaks[i] = Math.max(targetH, window.barPeaks[i] - 1.2, 0);
+                    const x = i * W / barCount;
+                    const h = window.barFall[i];
+                    ctx.fillStyle = barGradient;
                     ctx.globalAlpha = 0.85;
                     ctx.beginPath();
-                    ctx.roundRect(x, midY - h, barWidth, h * 2, 2);
+                    ctx.roundRect(x, top ? 0 : baseline - h, barWidth, h * (centered ? 2 : 1), centered ? 2 : top ? [0, 0, 3, 3] : [3, 3, 0, 0]);
                     ctx.fill();
                     if (window.vizShowPeaks !== false) {
                         ctx.globalAlpha = 0.9;
-                        ctx.fillStyle = gc3;
-                        ctx.fillRect(x, midY - window.barPeaks2[i] - 2, barWidth, 2);
-                        ctx.fillRect(x, midY + window.barPeaks2[i],     barWidth, 2);
+                        ctx.fillStyle = colorMode === 'gradient' ? gc3 : solidColor;
+                        ctx.fillRect(x, top ? window.barPeaks[i] : baseline - window.barPeaks[i] - 2, barWidth, 2);
+                        if (centered) ctx.fillRect(x, baseline + window.barPeaks[i], barWidth, 2);
                     }
                 }
                 ctx.globalAlpha = 1;
@@ -518,7 +506,9 @@
 
                 const scrollGradW = window.vizScrollGradWave;
                 let wGrad;
-                if (scrollGradW) {
+                if (colorMode !== 'gradient') {
+                    wGrad = solidColor;
+                } else if (scrollGradW) {
                     const off = new OffscreenCanvas(W, 1);
                     const offCtx = off.getContext('2d');
                     const og = offCtx.createLinearGradient(0, 0, W, 0);

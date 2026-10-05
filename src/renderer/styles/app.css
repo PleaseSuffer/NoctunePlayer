@@ -260,6 +260,7 @@
             user-select: none;
             font-size: 13px;
         }
+        #system-integration-settings { display: flex; flex-direction: column; gap: 20px; }
         #system-integration-settings[hidden], #btn-register-file-handler[hidden] { display: none; }
         #system-integration-settings .btn {
             flex: 0 1 auto;
@@ -1437,7 +1438,6 @@
         .integration-card-body {
             margin-top: 14px;
             padding-top: 14px;
-            border-top: 1px solid var(--border-color);
         }
         .integration-soon-badge {
             font-size: 10px;
@@ -2382,9 +2382,13 @@
         .performance-restart-row .settings-row-desc { flex: 1; }
         .performance-restart-row .btn { flex-shrink: 0; }
         .performance-dropdown { width: 180px; max-width: 100%; flex-shrink: 0; }
-        .performance-dropdown .viz-type-dropdown-btn { text-align: left; }
-        .performance-dropdown .viz-type-dropdown-menu { background: var(--bg-color); }
-        .performance-dropdown .viz-type-menu-item { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; }
-        .performance-dropdown .viz-type-menu-item:hover { background: var(--track-hover); }
-        .performance-dropdown .viz-type-menu-item.active { background: var(--accent-color); color: #fff; }
-        .performance-dropdown button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+        #viz-advanced-settings [hidden] { display:none !important; }
+
+        /* Keep a setting and its dependent controls together. The next setting
+           draws the divider, so a final group never leaves a trailing line. */
+        .settings-option-group { padding-bottom: 8px; }
+        .settings-option-group > .settings-row { border-bottom: none; }
+        .settings-option-group > [data-settings-detail] { border-top: none !important; }
+        .settings-option-group:has(> .settings-row[hidden]) { display: none; }
+        .settings-option-group + :is(.settings-row, .settings-option-group) { border-top: 1px solid var(--border-color); }

@@ -27,6 +27,10 @@
     document.addEventListener('click', event => { if (!fpsWrapper.contains(event.target)) openFps(false); });
     fpsWrapper.addEventListener('focusout', event => { if (!fpsWrapper.contains(event.relatedTarget)) openFps(false); });
     fpsWrapper.addEventListener('keydown', event => {
+        if (['Enter', ' '].includes(event.key) && options.includes(document.activeElement)) {
+            event.preventDefault();
+            document.activeElement.click();
+        }
         if (event.key === 'Escape') { openFps(false); fps.focus(); event.preventDefault(); }
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
             event.preventDefault();
