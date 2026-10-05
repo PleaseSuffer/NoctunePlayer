@@ -260,6 +260,35 @@
             user-select: none;
             font-size: 13px;
         }
+        #system-integration-settings[hidden], #btn-register-file-handler[hidden] { display: none; }
+        #system-integration-settings .btn {
+            flex: 0 1 auto;
+            width: fit-content;
+            max-width: 100%;
+            min-height: 28px;
+            padding: 5px 9px;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        #playlist-drop-zone[data-drop-state] { position: relative; outline: 2px dashed var(--accent-color); outline-offset: -4px; }
+        #playlist-drop-zone[data-drop-state]::after {
+            content: attr(data-drop-message);
+            position: absolute;
+            inset: 4px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            border-radius: 10px;
+            background: var(--container-bg);
+            color: var(--text-color);
+            font-weight: 600;
+            text-align: center;
+            pointer-events: none;
+        }
+        #playlist-drop-zone[data-drop-state="reject"] { outline-color: #e74c3c; }
         .btn:hover { opacity: 0.9; }
         .btn:disabled { opacity: 0.55; cursor: not-allowed; }
         .btn:disabled:hover { opacity: 0.55; }

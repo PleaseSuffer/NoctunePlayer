@@ -7,6 +7,8 @@ src/
   main/
     index.js                       Главный процесс Electron: окна, трей, IPC, интеграции
     hardware-acceleration.js        Чтение настройки GPU до готовности Electron
+    open-audio-files.js             Пути из argv и очередь до готовности интерфейса
+    system-integration.js           Linux .desktop, MIME и настройки Windows
     cache/
       cover-cache-location.js      Выбор папки кэша обложек
       waveform-cache.js            Компактный дисковый кэш waveform
@@ -24,12 +26,15 @@ src/
       effects-performance.js      Общий планировщик эффектов и лимит FPS
       bootstrap.js                Восстановление состояния и запуск интерфейса
     playback/                      Аудиодвижок, управление воспроизведением, эквалайзер
-    library/                       Плейлисты и импорт/экспорт M3U
+    library/                       Плейлисты, открытие файлов из ОС и импорт/экспорт M3U
+                                   open-audio-files.js — действия Проводника и очередь
+                                   drag-drop.js — перетаскивание в музыкальный плейлист
     integrations/                  Тексты, обложки и поиск радиостанций
     effects/                       Фон, визуализатор, waveform, конфетти и фейерверки
     ui/
       settings.js                 Основные настройки и оформление
       performance-settings.js     Переключатель GPU, перезапуск и выбор FPS
+      system-integration.js       Кнопки регистрации и выбора плеера по умолчанию
       notifications.js            Уведомления
       hotkeys.js                  Горячие клавиши
     updates/                       Интерфейс обновления приложения
@@ -38,6 +43,7 @@ src/
     redirect.html                 Отдельная веб-страница для ссылок noctune://
 resources/                        Иконки Windows/Linux и ресурсы установщика
                                  app.ico, app.png, logo.bmp
+                                 installer.nsh — ассоциации и контекстное меню Windows
 docs/                             Структура проекта, политика и условия использования
 tests/
   main/                           Сервисы, кэши, обработка обложек и настройка GPU
@@ -48,6 +54,7 @@ tests/
   native-memory-renderer.js        Сценарий оптимизированного waveform
   native-memory-baseline.js        Сценарий исходного параллельного декодирования
   native-thumbnail-probe.cjs       Проверка загрузки миниатюр с CSS приложения
+  native-installer-policy-probe.cjs Проверка первой установки и обновления в NSIS
 package.json                      Версия, зависимости, команды и electron-builder
 package-lock.json                 Зафиксированные версии зависимостей
 README.md                         Возможности, установка и запуск

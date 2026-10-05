@@ -18,6 +18,7 @@ function context(overrides = {}) {
         navigator: {}, window: {}, localAudioElement: null, radioAudioElement: null,
         updatePlayIcons: () => {}, statusText: {}, selectPlaylist: async () => {},
         playTrack: (i, pos) => calls.push([i, pos]),
+        playQueuedAudioFile: async () => false,
         ...overrides,
     };
     c.stopTrack = () => { c.isPlaying = false; c._loadToken++; };
@@ -31,6 +32,12 @@ function context(overrides = {}) {
     assert.deepEqual(c.calls, [[1, 0]], 'natural completion advances once');
     c = context({ repeatMode: 1 }); await c.handleTrackEnded(); assert.deepEqual(c.calls, [[0, 0]]);
     c = context({ playNextIndex: 20 }); await c.handleTrackEnded(); assert.deepEqual(c.calls, [[1, 0]]); assert.equal(c.playNextIndex, -1);
+    let consumedQueue = 0;
+    c = context({ playQueuedAudioFile: async () => { consumedQueue++; return true; } });
+    c.document.getElementById = () => ({ checked: false });
+    await c.handleTrackEnded();
+    assert.equal(consumedQueue, 1, 'explicit queue takes priority over auto-next being disabled');
+    assert.deepEqual(c.calls, [], 'normal playlist progression does not also run');
     c = context({ getNextTrackIndex: () => -1 }); await c.handleTrackEnded(); assert.deepEqual(c.calls, []); assert.equal(c.currentIndex, -1);
     c = context(); c.document.getElementById = () => ({ checked: false }); await c.handleTrackEnded(); assert.deepEqual(c.calls, []);
     let release;

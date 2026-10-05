@@ -31,9 +31,8 @@
                             showNotification('Не удалось прочитать папку плейлиста для экспорта', 'error');
                             return;
                         }
-                    } else if (Array.isArray(pl.files)) {
-                        filePaths = pl.files.slice();
                     }
+                    filePaths = [...new Set([...filePaths, ...(Array.isArray(pl.files) ? pl.files : [])])];
                     items = filePaths.map((fp) => ({
                         isRadio: false,
                         name: noctune.fs.basename(fp).replace(/\.[^/.]+$/, ''),

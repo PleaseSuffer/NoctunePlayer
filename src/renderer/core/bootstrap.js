@@ -97,121 +97,131 @@
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            loadPlaylistsFromStorage();
-
             try {
-                const version = await noctune.getAppVersion();
+                loadPlaylistsFromStorage();
+
                 try {
-                    const tech = await noctune.getTechVersions();
-                    const ev = document.getElementById('about-electron-version');
-                    const sv = document.getElementById('about-store-version');
-                    const nv = document.getElementById('about-node-version');
-                    const lv = document.getElementById('about-lucide-version');
-                    if (ev) ev.textContent = 'v' + tech.electron;
-                    if (sv) sv.textContent = 'v' + tech.electronStore;
-                    if (nv) nv.textContent = 'v' + tech.node;
-                    if (lv) lv.textContent = 'v' + tech.lucide;
-                } catch(e) {}
-                document.getElementById('app-version').textContent = `v${version}`;
-            } catch (e) {
-                document.getElementById('app-version').textContent = 'v1.0.0 (dev)';
-            }
+                    const version = await noctune.getAppVersion();
+                    try {
+                        const tech = await noctune.getTechVersions();
+                        const ev = document.getElementById('about-electron-version');
+                        const sv = document.getElementById('about-store-version');
+                        const nv = document.getElementById('about-node-version');
+                        const lv = document.getElementById('about-lucide-version');
+                        if (ev) ev.textContent = 'v' + tech.electron;
+                        if (sv) sv.textContent = 'v' + tech.electronStore;
+                        if (nv) nv.textContent = 'v' + tech.node;
+                        if (lv) lv.textContent = 'v' + tech.lucide;
+                    } catch(e) {}
+                    document.getElementById('app-version').textContent = `v${version}`;
+                } catch (e) {
+                    document.getElementById('app-version').textContent = 'v1.0.0 (dev)';
+                }
 
-            const savedPath = await noctune.getSavedDirectory();
-            if (savedPath && userPlaylists.length === 0) {
-                const fallbackPl = {
-                    id: 'pl_default',
-                    name: "Основная папка",
-                    type: 'folder',
-                    path: savedPath,
-                    stations: []
-                };
-                userPlaylists.push(fallbackPl);
-                savePlaylistsToStorage();
-                renderPlaylistsDropdown();
-                selectPlaylist(fallbackPl.id);
-            } else if(userPlaylists.length > 0) {
-                // Restore last playlist and track
-                const rememberToggle = document.getElementById('setting-remember-track');
-                const shouldRemember = !rememberToggle || rememberToggle.checked;
-                const lastPlId = appStorage.getItem('player_last_playlist');
-                const lastTrackOrder = appStorage.getItem('player_last_track_order');
+                const savedPath = await noctune.getSavedDirectory();
+                if (savedPath && userPlaylists.length === 0) {
+                    const fallbackPl = {
+                        id: 'pl_default',
+                        name: "Основная папка",
+                        type: 'folder',
+                        path: savedPath,
+                        stations: []
+                    };
+                    userPlaylists.push(fallbackPl);
+                    savePlaylistsToStorage();
+                    renderPlaylistsDropdown();
+                    await selectPlaylist(fallbackPl.id);
+                } else if(userPlaylists.length > 0) {
+                    // Restore last playlist and track
+                    const rememberToggle = document.getElementById('setting-remember-track');
+                    const shouldRemember = !rememberToggle || rememberToggle.checked;
+                    const lastPlId = appStorage.getItem('player_last_playlist');
+                    const lastTrackOrder = appStorage.getItem('player_last_track_order');
                 
-                if (shouldRemember && lastPlId && userPlaylists.find(p => p.id === lastPlId)) {
-                    await selectPlaylist(lastPlId);
-                    if (lastTrackOrder !== null) {
-                        const idx = parseInt(lastTrackOrder);
-                        if (!isNaN(idx) && idx >= 0 && idx < playlistOrder.length) {
-                            const absoluteTrackId = playlistOrder[idx];
-                            const activeLi = playlistElem.querySelector(`li[data-id="${absoluteTrackId}"]`);
-                            if (activeLi) {
-                                activeLi.classList.add('active');
-                                activeLi.scrollIntoView({ block: 'nearest' });
-                                currentIndex = idx;
-                            }
+                    if (shouldRemember && lastPlId && userPlaylists.find(p => p.id === lastPlId)) {
+                        await selectPlaylist(lastPlId);
+                        if (lastTrackOrder !== null) {
+                            const idx = parseInt(lastTrackOrder);
+                            if (!isNaN(idx) && idx >= 0 && idx < playlistOrder.length) {
+                                const absoluteTrackId = playlistOrder[idx];
+                                const activeLi = playlistElem.querySelector(`li[data-id="${absoluteTrackId}"]`);
+                                if (activeLi) {
+                                    activeLi.classList.add('active');
+                                    activeLi.scrollIntoView({ block: 'nearest' });
+                                    currentIndex = idx;
+                                }
 
-                            const entry = fileEntries[absoluteTrackId];
+                                const entry = fileEntries[absoluteTrackId];
 
-                            // Восстанавливаем название и автора из fileEntries
-                            if (entry && entry.kind !== 'radio') {
-                                const displayName = entry.name.replace(/\.[^/.]+$/, '');
-                                const metaTitle   = entry.meta?.title  || displayName;
-                                const metaArtist  = entry.meta?.artist || '';
-                                trackTitle.textContent      = metaTitle;
-                                trackArtist.textContent     = metaArtist;
-                                miniTrackTitle.textContent  = metaArtist
-                                    ? `${metaArtist} — ${metaTitle}`
-                                    : metaTitle;
-                                triggerMiniMarquee?.();
-                                statusText.textContent = 'Пауза';
-                            }
-
-                            // Восстанавливаем позицию
-                            const savedPos = parseFloat(appStorage.getItem('player_last_track_position') || '0');
-                            if (savedPos > 0) {
-                                pausedAt = savedPos;
+                                // Восстанавливаем название и автора из fileEntries
                                 if (entry && entry.kind !== 'radio') {
-                                    const tmpAudio = new Audio();
-                                    tmpAudio.preload = 'metadata';
-                                    tmpAudio.addEventListener('loadedmetadata', () => {
-                                        const dur = tmpAudio.duration;
-                                        if (isFinite(dur) && savedPos < dur) {
-                                            currentTrackDuration = dur;
-                                            timeTotal.textContent  = formatTime(dur);
-                                            timeCurrent.textContent = formatTime(savedPos);
-                                            const pct = (savedPos / dur) * 100;
-                                            progressFill.style.width = `${pct}%`;
-                                            document.getElementById('mini-progress-fill').style.width = `${pct}%`;
-                                            // Если метаданные ещё не были загружены — обновим из тега
-                                            if (tmpAudio._meta) {
-                                                if (!entry.meta?.title) trackTitle.textContent = tmpAudio._meta.title || trackTitle.textContent;
-                                                if (!entry.meta?.artist) trackArtist.textContent = tmpAudio._meta.artist || trackArtist.textContent;
+                                    const displayName = entry.name.replace(/\.[^/.]+$/, '');
+                                    const metaTitle   = entry.meta?.title  || displayName;
+                                    const metaArtist  = entry.meta?.artist || '';
+                                    trackTitle.textContent      = metaTitle;
+                                    trackArtist.textContent     = metaArtist;
+                                    miniTrackTitle.textContent  = metaArtist
+                                        ? `${metaArtist} — ${metaTitle}`
+                                        : metaTitle;
+                                    triggerMiniMarquee?.();
+                                    statusText.textContent = 'Пауза';
+                                }
+
+                                // Восстанавливаем позицию
+                                const savedPos = parseFloat(appStorage.getItem('player_last_track_position') || '0');
+                                if (savedPos > 0) {
+                                    pausedAt = savedPos;
+                                    if (entry && entry.kind !== 'radio') {
+                                        const tmpAudio = new Audio();
+                                        tmpAudio.preload = 'metadata';
+                                        const restoreMetadataToken = _loadToken;
+                                        tmpAudio.addEventListener('loadedmetadata', () => {
+                                            if (restoreMetadataToken !== _loadToken) {
+                                                tmpAudio.src = '';
+                                                return;
                                             }
+                                            const dur = tmpAudio.duration;
+                                            if (isFinite(dur) && savedPos < dur) {
+                                                currentTrackDuration = dur;
+                                                timeTotal.textContent  = formatTime(dur);
+                                                timeCurrent.textContent = formatTime(savedPos);
+                                                const pct = (savedPos / dur) * 100;
+                                                progressFill.style.width = `${pct}%`;
+                                                document.getElementById('mini-progress-fill').style.width = `${pct}%`;
+                                                // Если метаданные ещё не были загружены — обновим из тега
+                                                if (tmpAudio._meta) {
+                                                    if (!entry.meta?.title) trackTitle.textContent = tmpAudio._meta.title || trackTitle.textContent;
+                                                    if (!entry.meta?.artist) trackArtist.textContent = tmpAudio._meta.artist || trackArtist.textContent;
+                                                }
+                                            }
+                                            tmpAudio.src = '';
+                                        }, { once: true });
+                                        tmpAudio.src = `file://${entry.path.replace(/\\/g, '/')}`;
+                                    }
+                                }
+
+                                // Авто-воспроизведение если было включено и настройка разрешает
+                                const restorePlayback = document.getElementById('setting-restore-playback');
+                                const wasPlaying = appStorage.getItem('player_was_playing') === '1';
+                                if (restorePlayback?.checked && wasPlaying && entry && entry.kind !== 'radio') {
+                                    // Небольшая задержка чтобы AudioContext успел инициализироваться
+                                    const restoreToken = _loadToken;
+                                    const restorePlaylist = currentPlaylistId;
+                                    setTimeout(() => {
+                                        if (restoreToken === _loadToken && restorePlaylist === currentPlaylistId && !isPlaying) {
+                                            playTrack(idx, savedPos > 0 ? savedPos : 0);
                                         }
-                                        tmpAudio.src = '';
-                                    }, { once: true });
-                                    tmpAudio.src = `file://${entry.path.replace(/\\/g, '/')}`;
+                                    }, 300);
                                 }
                             }
-
-                            // Авто-воспроизведение если было включено и настройка разрешает
-                            const restorePlayback = document.getElementById('setting-restore-playback');
-                            const wasPlaying = appStorage.getItem('player_was_playing') === '1';
-                            if (restorePlayback?.checked && wasPlaying && entry && entry.kind !== 'radio') {
-                                // Небольшая задержка чтобы AudioContext успел инициализироваться
-                                const restoreToken = _loadToken;
-                                const restorePlaylist = currentPlaylistId;
-                                setTimeout(() => {
-                                    if (restoreToken === _loadToken && restorePlaylist === currentPlaylistId && !isPlaying) {
-                                        playTrack(idx, savedPos > 0 ? savedPos : 0);
-                                    }
-                                }, 300);
-                            }
                         }
+                    } else {
+                        await selectPlaylist(userPlaylists[0].id);
                     }
-                } else {
-                    selectPlaylist(userPlaylists[0].id);
                 }
+            } finally {
+                // File-manager requests wait until restoration has finished.
+                noctune.audioFilesReady();
             }
         });
 

@@ -13,7 +13,7 @@
 // через ipcRenderer.
 // ══════════════════════════════════════════════════════════════════════════
 
-const { contextBridge, ipcRenderer, nativeImage } = require('electron');
+const { contextBridge, ipcRenderer, nativeImage, webUtils } = require('electron');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -23,7 +23,7 @@ const { resizeArtwork, encodeArtwork, createSerialQueue } = require('./artwork')
 const metadataQueue = createSerialQueue();
 let activeCoverRequest = 0;
 
-const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac']);
+const { AUDIO_EXTENSIONS } = require('../main/open-audio-files');
 
 // music-metadata — ESM-only пакет, поэтому подключаем через динамический
 // import (как electron-store в main/index.js). Кэшируем промис, чтобы не грузить
@@ -229,6 +229,12 @@ contextBridge.exposeInMainWorld('noctune', {
   // ── Версия приложения ──
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getTechVersions: () => ipcRenderer.invoke('get-tech-versions'),
+  systemIntegration: { apply: action => ipcRenderer.invoke('system-integration:apply', action) },
+  audioFilesReady: () => ipcRenderer.send('audio-files:ready'),
+  getDroppedFilePath: file => {
+    try { return webUtils.getPathForFile(file); } catch (_) { return ''; }
+  },
+  onOpenAudioFiles: cb => ipcRenderer.on('open-audio-files', (_event, files) => cb(files)),
 
   // ── Диалоги ──
   dialogOpenFiles: () => ipcRenderer.invoke('dialog:openFiles'),
@@ -302,7 +308,7 @@ contextBridge.exposeInMainWorld('noctune', {
     readDir: (dirPath) => fsp.readdir(dirPath),
     stat: async (p) => {
       const s = await fsp.stat(p);
-      return { size: s.size, mtimeMs: s.mtimeMs, isDirectory: s.isDirectory() };
+      return { size: s.size, mtimeMs: s.mtimeMs, isDirectory: s.isDirectory(), isFile: s.isFile() };
     },
     joinPath: (...parts) => path.join(...parts),
     basename: (p) => path.basename(p),

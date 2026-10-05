@@ -192,6 +192,7 @@
                     await loadMusicFromFiles(pl.files);
                 } else {
                     await loadMusicFromDirectory(pl.path);
+                    if (pl.files?.length) await addFilesToPlaylist(pl.files, pl.id);
                 }
             } else if (pl.type === 'radio') {
                 loadRadioStations(pl);
@@ -469,40 +470,41 @@
             }
         }
 
-        // Add individual files to current folder playlist
-        document.getElementById('btn-add-files').addEventListener('click', async () => {
-            const pl = userPlaylists.find(p => p.id === currentPlaylistId);
-            if (!pl || pl.type !== 'folder') return;
+        async function validatedAudioPaths(paths) {
+            if (!Array.isArray(paths)) return [];
+            const candidates = [...new Set(paths.filter(value => typeof value === 'string' && noctune.fs.isAudioExt(value)))];
+            const valid = await Promise.all(candidates.map(async filename => {
+                try { return (await noctune.fs.stat(filename)).isFile ? filename : null; }
+                catch (_) { return null; }
+            }));
+            return valid.filter(Boolean);
+        }
+
+        // Shared by the file dialog, Explorer commands and drag & drop.
+        async function addFilesToPlaylist(filePaths, playlistId = currentPlaylistId, { validated = false } = {}) {
+            const pl = userPlaylists.find(p => p.id === playlistId);
+            if (!pl || pl.type !== 'folder') return [];
             try {
-                let filePaths;
-                try {
-                    // main.js returns filePaths array directly (or null if canceled)
-                    const result = await noctune.dialogOpenFiles();
-                    if (!result || result.length === 0) return;
-                    filePaths = result;
-                } catch(ipcErr) {
-                    statusText.textContent = 'Ошибка открытия диалога файлов';
-                    console.warn('dialog:openFiles IPC error:', ipcErr);
-                    return;
+                if (!validated) filePaths = await validatedAudioPaths(filePaths);
+                if (!filePaths.length) {
+                    statusText.textContent = 'Нет доступных аудиофайлов MP3, WAV, OGG, M4A или FLAC';
+                    return [];
                 }
+                if (!userPlaylists.includes(pl)) return [];
+                pl.files = [...new Set([...(pl.files || []), ...filePaths])];
+                savePlaylistsToStorage();
+                if (currentPlaylistId !== playlistId) return filePaths;
 
                 const existingPaths = new Set(fileEntries.map(e => e.path));
                 const newPaths = filePaths.filter(p => !existingPaths.has(p));
                 if (newPaths.length === 0) {
                     statusText.textContent = 'Файлы уже в плейлисте';
-                    return;
+                    return [];
                 }
 
                 // Remove placeholder if present
                 const placeholder = playlistElem.querySelector('li[style*="italic"]');
                 if (placeholder) placeholder.remove();
-
-                // Save new paths to the playlist object
-                if (!pl.files) pl.files = [];
-                for (const p of newPaths) {
-                    if (!pl.files.includes(p)) pl.files.push(p);
-                }
-                savePlaylistsToStorage();
 
                 for (const fullPath of newPaths) {
                     const fileName = fullPath.split(/[/\\]/).pop();
@@ -519,12 +521,13 @@
                             <i data-lucide="music" style="width:16px;height:16px;"></i>
                         </div>
                         <div class="track-name-block">
-                            <div class="track-title-item" id="title-${trackIndex}">${fallbackName}</div>
+                            <div class="track-title-item" id="title-${trackIndex}"></div>
                             <div class="track-artist-item" id="artist-${trackIndex}">Загрузка...</div>
                         </div>
                         <div class="track-meta" id="meta-${trackIndex}">--:--</div>
                         <button class="actions-btn track-item-action" data-id="${trackIndex}"><i data-lucide="more-vertical"></i></button>
                     `;
+                    li.querySelector('.track-title-item').textContent = fallbackName;
                     li.addEventListener('click', (e) => {
                         if (e.target.closest('.actions-btn')) return;
                         playTrack(playlistOrder.indexOf(trackIndex));
@@ -544,17 +547,21 @@
 
                 lucide.createIcons();
                 statusText.textContent = `Загружено треков: ${fileEntries.length}`;
+                if (isShuffle) buildShuffleList();
 
                 // Process metadata for added files
+                const targetEntries = fileEntries;
                 const startIdx = fileEntries.length - newPaths.length;
                 const BATCH_SIZE = 5;
-                for (let i = startIdx; i < fileEntries.length; i += BATCH_SIZE) {
+                for (let i = startIdx; i < targetEntries.length; i += BATCH_SIZE) {
+                    if (fileEntries !== targetEntries) return newPaths;
                     const batch = fileEntries.slice(i, Math.min(i + BATCH_SIZE, fileEntries.length));
                     await Promise.all(batch.map(async (entry, bIdx) => {
                         const trackIndex = i + bIdx;
                         try {
                             const filePath = entry.path;
                             const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                            if (fileEntries !== targetEntries) return;
                             entry._fileSize = meta.fileSize;
                             const titleElem = document.getElementById(`title-${trackIndex}`);
                             const artistElem = document.getElementById(`artist-${trackIndex}`);
@@ -567,14 +574,29 @@
                             const metaElem = document.getElementById(`meta-${trackIndex}`);
                             if (metaElem) metaElem.textContent = duration > 0 ? `${formatTime(duration)} | ${kbps}kbps` : '--:--';
                         } catch(e) {
+                            if (fileEntries !== targetEntries) return;
                             const artistElem = document.getElementById(`artist-${i + bIdx}`);
                             if (artistElem) artistElem.textContent = 'Неизвестный исполнитель';
                         }
                     }));
                 }
+                return newPaths;
             } catch(e) {
                 console.error('Add files error:', e);
                 statusText.textContent = 'Ошибка добавления файлов';
+                return [];
+            }
+        }
+
+        document.getElementById('btn-add-files').addEventListener('click', async () => {
+            const playlistId = currentPlaylistId;
+            if (userPlaylists.find(pl => pl.id === playlistId)?.type !== 'folder') return;
+            try {
+                const files = await noctune.dialogOpenFiles();
+                if (files?.length) await addFilesToPlaylist(files, playlistId);
+            } catch (error) {
+                console.error('Open files dialog:', error);
+                statusText.textContent = 'Ошибка открытия диалога файлов';
             }
         });
 
@@ -690,15 +712,18 @@
         }
 
         async function processMetadataSequentially() {
+            const targetEntries = fileEntries;
             const BATCH_SIZE = 5;
-            for (let i = 0; i < fileEntries.length; i += BATCH_SIZE) {
-                const batch = fileEntries.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < targetEntries.length; i += BATCH_SIZE) {
+                if (fileEntries !== targetEntries) return;
+                const batch = targetEntries.slice(i, i + BATCH_SIZE);
                 await Promise.all(batch.map(async (entry, batchIdx) => {
                     const trackIndex = i + batchIdx;
                     try {
                         if (entry.kind === 'radio') return;
                         const filePath = entry.path;
                         const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                        if (fileEntries !== targetEntries) return;
                         entry._fileSize = meta.fileSize;
 
                         const titleElem = document.getElementById(`title-${trackIndex}`);
@@ -742,12 +767,13 @@
                         <i data-lucide="music" style="width:16px;height:16px;"></i>
                     </div>
                     <div class="track-name-block">
-                        <div class="track-title-item" id="title-${count}">${fallbackName}</div>
+                        <div class="track-title-item" id="title-${count}"></div>
                         <div class="track-artist-item" id="artist-${count}">Загрузка...</div>
                     </div>
                     <div class="track-meta" id="meta-${count}">--:--</div>
                     <button class="actions-btn track-item-action" data-id="${count}"><i data-lucide="more-vertical"></i></button>
                 `;
+                li.querySelector('.track-title-item').textContent = fallbackName;
                 const idx = count;
                 li.addEventListener('click', (e) => {
                     if (e.target.closest('.actions-btn')) return;

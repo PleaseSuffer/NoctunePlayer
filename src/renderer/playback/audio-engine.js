@@ -996,7 +996,7 @@
                     isPlaying,
                     trackTitle: title.length > 40 ? title.slice(0, 38) + '…' : title,
                     prevEnabled: hasPlaylist && currentIndex > 0,
-                    nextEnabled: hasPlaylist && currentIndex < playlistOrder.length - 1,
+                    nextEnabled: externalAudioQueue.length > 0 || (hasPlaylist && currentIndex < playlistOrder.length - 1),
                 });
             } catch(e) {}
             pushDiscordActivity();
@@ -1193,6 +1193,9 @@
                 if (nextOrder !== -1) { playTrack(nextOrder, 0); return; }
             }
 
+            if (await playQueuedAudioFile(endedToken)) return;
+            if (endedToken !== _loadToken) return;
+
             // Проверяем настройку автоперехода к следующему треку
             const settingAutoNext = document.getElementById('setting-autonext');
             const autoNext = !settingAutoNext || settingAutoNext.checked;
@@ -1330,6 +1333,8 @@
                 await selectPlaylist(activePlaylistId);
                 if (navigationToken !== _loadToken) return;
             }
+            if (await playQueuedAudioFile(navigationToken)) return;
+            if (navigationToken !== _loadToken) return;
             if (playlistOrder.length === 0) return;
             const nextIdx = getNextTrackIndex(true);
             if (nextIdx >= 0) {

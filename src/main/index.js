@@ -1,6 +1,8 @@
 const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
+const { createSystemIntegration } = require('./system-integration');
 const { KEY: HARDWARE_ACCELERATION_KEY, readHardwareAcceleration, hardwareAccelerationState } = require('./hardware-acceleration');
 const startupHardwareAcceleration = readHardwareAcceleration(path.join(app.getPath('userData'), 'config.json'));
 if (!startupHardwareAcceleration) app.disableHardwareAcceleration();
@@ -28,6 +30,23 @@ let splash = null; // Окно загрузки
 let tray = null;
 let isQuiting = false;
 let minimizeToTray = true; // Управляется из настроек рендерера
+
+const audioOpenQueue = createAudioOpenQueue((files, action) => {
+  if (!win || win.isDestroyed()) return;
+  win.webContents.send('open-audio-files', { files, action });
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}, { delay: 150 });
+function handleArgvForAudioFiles(argv, cwd = process.cwd()) {
+  const request = audioOpenRequestFromArgv(argv, { cwd, defaultApp: !!process.defaultApp });
+  if (request) audioOpenQueue.enqueue(request.files, request.action);
+}
+ipcMain.on('audio-files:ready', event => {
+  if (win && event.sender === win.webContents) audioOpenQueue.setReady(true);
+});
+const systemIntegration = createSystemIntegration({ app, shell, iconPath });
+ipcMain.handle('system-integration:apply', (_event, action) => systemIntegration.apply(action));
 
 let store;
 let storeInitialization;
@@ -561,6 +580,8 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
+  audioOpenQueue.setReady(false);
+  win.webContents.on('did-start-loading', () => audioOpenQueue.setReady(false));
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   
@@ -697,7 +718,7 @@ ipcMain.handle('updater:download', async () => {
 
 ipcMain.handle('updater:install', () => {
     isQuiting = true;
-    autoUpdater.quitAndInstall();
+    autoUpdater.quitAndInstall(true, true);
     return { ok: true };
 });
 
@@ -995,6 +1016,7 @@ if (!gotTheLock) {
       win.focus();
     }
     handleArgvForDeepLink(commandLine);
+    handleArgvForAudioFiles(commandLine, workingDirectory);
   });
 
   // macOS отдаёт кастомные ссылки через отдельное событие, а не argv
@@ -1041,6 +1063,7 @@ if (!gotTheLock) {
     });
     createWindow();
     handleArgvForDeepLink(process.argv);
+    handleArgvForAudioFiles(process.argv);
 
     tray = new Tray(iconPath);
 

@@ -15,7 +15,7 @@
     <div id="notification-stack"></div>
 
     <div class="player-container" id="main-player">
-        <div class="sidebar">
+        <div class="sidebar" id="playlist-drop-zone">
             <div class="pane-title">Плейлист</div>
             
             <div class="playlist-select-wrapper">
@@ -426,6 +426,17 @@
                                     <input type="checkbox" id="setting-open-links-external" checked>
                                     <span class="slider-round"></span>
                                 </label>
+                            </div>
+                        </div>
+                        <div id="system-integration-settings">
+                            <div class="settings-section-title">Системная интеграция</div>
+                            <div class="settings-card">
+                                <div class="settings-row-label">Открытие аудиофайлов · MP3, WAV, OGG, M4A, FLAC</div>
+                                <div class="settings-row-desc" id="system-integration-message" role="status" style="margin:8px 0 12px;"></div>
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                    <button class="btn" id="btn-register-file-handler">Добавить в «Открыть с помощью»</button>
+                                    <button class="btn" id="btn-default-file-handler">Выбрать по умолчанию</button>
+                                </div>
                             </div>
                         </div>
                         <div class="settings-section-title">Производительность</div>
@@ -2227,6 +2238,8 @@
     <script src="playback/playback-controls.js"></script>
     <script src="playback/equalizer.js"></script>
     <script src="library/playlists.js"></script>
+    <script src="library/open-audio-files.js"></script>
+    <script src="library/drag-drop.js"></script>
     <script src="effects/waveform.js"></script>
     <script src="playback/audio-engine.js"></script>
     <script src="integrations/lyrics.js"></script>
@@ -2236,6 +2249,7 @@
     <script src="core/bootstrap.js"></script>
     <script src="ui/settings.js"></script>
     <script src="ui/performance-settings.js"></script>
+    <script src="ui/system-integration.js"></script>
     <script src="library/playlist-io.js"></script>
     <script src="updates/updater.js"></script>
 </body>
