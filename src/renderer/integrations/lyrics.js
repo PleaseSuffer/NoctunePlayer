@@ -15,7 +15,12 @@
     const coverPlaceholder = document.getElementById('lyrics-cover-placeholder');
     const seek = document.getElementById('lyrics-seek');
     const playButton = document.getElementById('lyrics-play');
-    let expanded = false;
+    const shuffleButton = document.getElementById('lyrics-shuffle');
+    const repeatButton = document.getElementById('lyrics-repeat');
+    const lyricsVolume = document.getElementById('lyrics-volume');
+    let expanded = appStorage.getItem('setting_lyrics_expanded') === '1';
+    let lastRepeat = null;
+    let lastVolumeIcon = null;
     let autoFollow = appStorage.getItem('setting_lyrics_autoscroll') !== '0';
     let lastPlaying = null;
     const mainCover = document.getElementById('player-cover-img');
@@ -54,6 +59,8 @@
             setArtworkState('ready', 1);
         });
         element.addEventListener('error', () => {
+            if (!element.getAttribute('src')) return;
+            if (track?.radio) { remoteCover = ''; displayArtwork(''); }
             element.classList.toggle('loaded', false);
             if (element === cover) element.hidden = true;
             placeholder.hidden = false; setArtworkState('error');
@@ -68,15 +75,19 @@
         const element = document.getElementById('cover-' + index);
         const placeholder = document.getElementById('cover-ph-' + index);
         if (!element) return;
+        element.loading = 'lazy'; element.decoding = 'async';
         const saved = trackArtwork.get(entry.path);
-        const image = metadata?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked && saved?.identity === artworkIdentity(metadata) ? saved.image : '') || '';
+        const image = metadata?.coverThumbnailDataUrl || metadata?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked && saved?.identity === artworkIdentity(metadata) ? saved.image : '') || '';
         if (placeholder) placeholder.style.display = '';
         if (!image) { element.classList.toggle('loaded', false); element.removeAttribute('src'); return; }
         if (element.getAttribute('src') === image && element.classList.contains('loaded')) return;
         element.classList.toggle('loaded', false);
         const stillCurrent = () => fileEntries[index]?.path === entry.path && document.getElementById('cover-' + index) === element && element.getAttribute('src') === image;
         element.onload = () => { if (stillCurrent()) element.classList.toggle('loaded', true); };
-        element.onerror = () => { if (stillCurrent()) element.classList.toggle('loaded', false); };
+        element.onerror = () => {
+            if (!stillCurrent()) return;
+            element.classList.toggle('loaded', false); element.removeAttribute('src');
+        };
         element.src = image;
         if (element.complete && element.naturalWidth > 0) element.onload();
     };
@@ -182,7 +193,7 @@
     coverCacheToggle.checked = appStorage.getItem('setting_lastfm_cover_cache') !== '0';
     coverCacheSettings.style.display = coversToggle.checked ? 'block' : 'none';
     async function refreshArtwork() {
-        if (!track || track.radio || track.coverDataUrl || !window.lastfmEnabled || !coversToggle.checked) return;
+        if (!track || (track.radio && !track.title?.trim()) || track.coverDataUrl || !window.lastfmEnabled || !coversToggle.checked) return;
         const key = JSON.stringify([track.token, track.artist, track.title, track.album]);
         if (key === artworkKey) return;
         artworkKey = key;
@@ -190,13 +201,16 @@
         artworkRequestId = 'cover-' + requestSerial + '-' + Date.now();
         setArtworkState('searching');
         let result;
-        try { result = await noctune.lastfm.cover({ artist: track.artist, title: track.title, album: track.album, filePath: track.filePath, requestId: artworkRequestId }); } catch (_) { if (requestSerial === artworkSerial) setArtworkState('error'); return; }
+        try { result = await noctune.lastfm.cover({ artist: track.artist, title: track.title, album: track.album, filePath: track.filePath, transient: Boolean(track.radio), requestId: artworkRequestId }); } catch (_) { if (requestSerial === artworkSerial) setArtworkState('error'); return; }
         if (requestSerial !== artworkSerial || !window.lastfmEnabled || !coversToggle.checked) return;
         if (result.status === 'found') {
             setArtworkState('decoding', 1); remoteCover = result.dataUrl;
-            if (track.filePath) {
+            if (!track.radio && track.filePath) {
+                let thumbnail = null;
+                try { thumbnail = noctune.metadata?.thumbnail ? await noctune.metadata.thumbnail(remoteCover) : remoteCover; } catch (_) {}
+                if (requestSerial !== artworkSerial || !window.lastfmEnabled || !coversToggle.checked) return;
                 trackArtwork.delete(track.filePath);
-                trackArtwork.set(track.filePath, { identity: artworkIdentity(track), image: remoteCover });
+                trackArtwork.set(track.filePath, { identity: artworkIdentity(track), image: thumbnail || '' });
                 let bytes = [...trackArtwork.values()].reduce((sum, item) => sum + item.image.length, 0);
                 for (const [path, item] of trackArtwork) {
                     if (trackArtwork.size <= 100 && bytes <= 30 * 1024 * 1024) break;
@@ -208,7 +222,18 @@
         else setArtworkState(result.status === 'missing' ? 'missing' : result.status === 'disabled' ? 'idle' : 'error');
         updateCacheStats();
     }
+    function cancelRadioArtwork() {
+        if (noctune.lastfm?.cancelRadioCover) noctune.lastfm.cancelRadioCover().catch(() => {});
+    }
+    window.clearRadioArtwork = () => {
+        if (!track?.radio) return;
+        cancelRadioArtwork();
+        artworkSerial++; artworkKey = ''; remoteCover = ''; artworkRequestId = null;
+        track = null; setArtworkState('idle'); updateNowPlaying();
+    };
+    window.addEventListener?.('online', () => { if (track?.radio && !remoteCover) { artworkKey = ''; refreshArtwork(); } });
     window.refreshLyricsArtwork = () => {
+        if (track?.radio) cancelRadioArtwork();
         artworkSerial++; artworkKey = ''; remoteCover = ''; artworkRequestId = null; setArtworkState('idle');
         updateNowPlaying();
         updatePlaylistArtwork();
@@ -244,7 +269,7 @@
     function setExpanded(value) {
         expanded = value;
         modal.classList.toggle('lyrics-expanded', value);
-        document.body.classList.toggle('lyrics-expanded', value);
+        document.body.classList.toggle('lyrics-expanded', opened && value);
         viewToggle.setAttribute('aria-pressed', String(value));
         viewToggle.title = value ? 'Обычное окно' : 'Большой вид';
         viewToggle.setAttribute('aria-label', viewToggle.title);
@@ -255,13 +280,40 @@
         if (value) refreshArtwork();
     }
     function updateNowPlaying() {
-        document.getElementById('lyrics-song-title').textContent = track?.title || 'Музыка не выбрана';
+        const radio = Boolean(track?.radio);
+        document.getElementById('lyrics-seek-row').hidden = radio;
+        const station = document.getElementById('lyrics-radio-station');
+        station.hidden = !radio;
+        station.textContent = radio ? track.stationName || 'Радиостанция' : '';
+        document.getElementById('lyrics-song-title').textContent = track?.title || (radio ? 'Прямой эфир' : 'Музыка не выбрана');
         document.getElementById('lyrics-song-artist').textContent = track?.artist || '';
         const image = track?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked ? remoteCover : '') || '';
         displayArtwork(image);
         refreshArtwork();
     }
     function updatePlayback() {
+        shuffleButton.classList.toggle('active', isShuffle);
+        shuffleButton.setAttribute('aria-pressed', String(isShuffle));
+        if (lastRepeat !== repeatMode) {
+            lastRepeat = repeatMode;
+            const title = ['Повтор выключен', 'Повторять этот трек', 'Повторять плейлист'][repeatMode];
+            repeatButton.innerHTML = '<i data-lucide="' + ['repeat-off', 'repeat-1', 'repeat'][repeatMode] + '"></i>';
+            repeatButton.classList.toggle('active', repeatMode > 0);
+            repeatButton.title = title;
+            repeatButton.setAttribute('aria-label', title);
+            lucide.createIcons();
+        }
+        const volume = Number(volumeSlider.value);
+        if (document.activeElement !== lyricsVolume) lyricsVolume.value = volume;
+        const volumeLevel = isMuted ? 0 : Math.max(0, Math.min(1, volume));
+        document.getElementById('lyrics-volume-popover').style.setProperty('--volume-level', volumeLevel);
+        const volumeIcon = isMuted || volume <= 0 ? 'volume-x' : volume < 0.4 ? 'volume' : volume < 0.7 ? 'volume-1' : 'volume-2';
+        if (lastVolumeIcon !== volumeIcon) {
+            lastVolumeIcon = volumeIcon;
+            document.getElementById('lyrics-volume-icon').setAttribute('data-lucide', volumeIcon);
+            document.getElementById('lyrics-volume-button').setAttribute('aria-label', isMuted || volume <= 0 ? 'Включить звук' : 'Выключить звук');
+            lucide.createIcons();
+        }
         const duration = isRadioMode ? 0 : (currentTrackDuration || localAudioElement?.duration || 0);
         const position = localAudioElement?.getAttribute('src') && !isRadioMode ? localAudioElement.currentTime || 0 : 0;
         seek.disabled = !Number.isFinite(duration) || duration <= 0 || _trackLoading;
@@ -391,7 +443,11 @@
         if (!noText) document.querySelector('.lyrics-text-column').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: 'ease-out' });
         activeIndex = -1; requestAnimationFrame(sync);
     }
+    function cancelLyricsSearch() {
+        if (noctune.lyrics?.cancel) noctune.lyrics.cancel().catch(() => {});
+    }
     function clear() {
+        cancelLyricsSearch();
         serial++;
         rows = []; activeIndex = -1; follow = autoFollow;
         content.replaceChildren();
@@ -399,7 +455,7 @@
         retry.hidden = true; followButton.hidden = true;
         status.classList.toggle('lyrics-synced-hint', false);
 
-        trackLabel.textContent = track ? `${track.artist} — ${track.title}` : '';
+        trackLabel.textContent = track ? [track.artist, track.title].filter(Boolean).join(' — ') : '';
         updateNowPlaying();
     }
     async function load() {
@@ -413,11 +469,11 @@
         status.textContent = 'Ищем текст песни…';
         let result;
         try { result = await noctune.lyrics.get(track); } catch (_) { result = { status: 'error' }; }
-        if (requestSerial !== serial || !opened || !enabled) return;
+        if (requestSerial !== serial || !opened || !enabled || result.status === 'cancelled') return;
         const messages = {
             missing: 'Текст этой песни не найден.', instrumental: 'Инструментальная композиция — без текста.',
             invalid: 'Для поиска нужны название песни и исполнитель. Проверьте теги файла.',
-            error: 'Не удалось загрузить текст. Проверьте подключение к интернету.',
+            error: 'Текст временно недоступен.',
             'rate-limit': 'Сервис временно ограничил запросы. Попробуйте позже.',
         };
         if (result.status !== 'found') {
@@ -475,18 +531,24 @@
                 behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
         }
     }
-    function tick() { if (!opened) return; if (expanded) updatePlayback(); sync(); frame = requestAnimationFrame(tick); }
+    function tick() { if (!opened) return; updatePlayback(); sync(); frame = requestAnimationFrame(tick); }
     function close() {
+        cancelLyricsSearch();
         opened = false; serial++; cancelAnimationFrame(frame); frame = null;
-        modal.style.display = 'none'; setExpanded(false); previousFocus?.focus();
+        modal.style.display = 'none'; document.body.classList.toggle('lyrics-expanded', false); previousFocus?.focus();
     }
     openButtons.forEach(button => button.addEventListener('click', () => {
         if (!enabled) return;
         previousFocus = document.activeElement; opened = true;
-        setExpanded(false);
+        setExpanded(expanded);
         modal.style.display = 'flex'; closeButton.focus(); load(); tick();
     }));
-    viewToggle.addEventListener('click', () => { setExpanded(!expanded); if (expanded) updatePlayback(); });
+    viewToggle.addEventListener('click', () => { setExpanded(!expanded); appStorage.setItem('setting_lyrics_expanded', expanded ? '1' : '0'); updatePlayback(); });
+    shuffleButton.addEventListener('click', () => { toggleShuffle(); updatePlayback(); });
+    repeatButton.addEventListener('click', () => { toggleRepeat(); updatePlayback(); });
+    lyricsVolume.addEventListener('input', () => { updateVolumeThrottled(lyricsVolume.value); updatePlayback(); });
+    lyricsVolume.addEventListener('wheel', event => { handleVolumeWheel(event); updatePlayback(); }, { passive: false });
+    document.getElementById('lyrics-volume-button').addEventListener('click', () => { toggleMute(); updatePlayback(); });
     document.getElementById('lyrics-prev').addEventListener('click', () => playPrev());
     document.getElementById('lyrics-next').addEventListener('click', () => playNext());
     playButton.addEventListener('click', () => { togglePlayback(); updatePlayback(); });
@@ -507,7 +569,7 @@
     modal.addEventListener('keydown', event => {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
         if (event.key === 'Tab') {
-            const buttons = [...modal.querySelectorAll('button:not([hidden])')];
+            const buttons = [...modal.querySelectorAll('button:not([hidden]):not(:disabled), input:not([hidden]):not(:disabled)')];
             const first = buttons[0], last = buttons.at(-1);
             if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
             else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -528,14 +590,18 @@
         clear();
     });
     window.setLyricsTrack = (metadata, token) => {
-        if (track && metadata && track.token === token && !metadata.radio && track.title === metadata.title && track.artist === metadata.artist) {
+        if (track && metadata && track.token === token && Boolean(track.radio) === Boolean(metadata.radio) && track.stationName === metadata.stationName && track.title === metadata.title && track.artist === metadata.artist) {
             const gainedDuration = !track.duration && metadata.duration > 0;
             track.duration = metadata.duration || track.duration;
             if (gainedDuration && opened) load();
             return;
         }
+        if (track?.radio) cancelRadioArtwork();
         artworkSerial++; artworkKey = ''; remoteCover = ''; artworkRequestId = null; setArtworkState('idle');
+        const wasRadio = Boolean(track?.radio);
         track = metadata ? { ...metadata, token } : null;
+        if (track?.radio) setLyricsAvailability(true);
+        else if (wasRadio) setLyricsAvailability(false);
         if (opened) load(); else clear();
         if (metadata) updateCacheStats();
     };

@@ -13,7 +13,7 @@
         // сглаженные координаты, а сам transform пишет visualize(), складывая
         // смещение с пульсацией/размытием/свечением/тряской.
         function updateBgCursor() {
-            requestAnimationFrame(updateBgCursor);
+            window.requestEffectsFrame(updateBgCursor);
             if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
             // Сглаживание целевой позиции — всегда, чтобы при включении
             // эффекта не было рывка с произвольного значения.
@@ -49,10 +49,10 @@
             customBgVideoEl.style.filter = 'none';
             if (customBgGlowEl) customBgGlowEl.style.opacity = '0';
         }
-        requestAnimationFrame(updateBgCursor);
+        window.requestEffectsFrame(updateBgCursor);
 
         function visualize() {
-            requestAnimationFrame(visualize);
+            window.requestEffectsFrame(visualize);
             if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
             if (!analyzer) return;
 

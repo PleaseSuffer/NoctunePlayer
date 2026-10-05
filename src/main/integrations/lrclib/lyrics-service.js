@@ -20,14 +20,26 @@ function createLyricsClient({ fetchImpl = fetch, userAgent, now = Date.now, wait
     const pending = new Map();
     let retryAt = 0;
     const normalize = value => String(value || '').normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
-    async function request(endpoint, params) {
+    const retryDelays = [600, 1200, 2400, 4000];
+    async function pause(ms, signal) {
+        let abort;
+        const cancelled = new Promise((_, reject) => {
+            abort = () => reject(new Error('cancelled'));
+            signal.addEventListener('abort', abort, { once: true });
+            if (signal.aborted) abort();
+        });
+        try { await Promise.race([wait(ms), cancelled]); }
+        finally { signal.removeEventListener('abort', abort); }
+    }
+    async function request(endpoint, params, signal) {
         // Холодный поиск может занять дольше обычного. Сетевой сбой или
-        // временную ошибку сервера повторяем один раз в рамках того же запроса.
-        for (let attempt = 0; attempt < 2; attempt++) {
+        // временную ошибку сервера повторяем с увеличивающейся паузой.
+        for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+            if (signal.aborted) throw new Error('cancelled');
             if (retryAt > now()) throw new Error('rate-limit');
             try {
                 const response = await fetchImpl('https://lrclib.net/api/' + endpoint + '?' + new URLSearchParams(params), {
-                    headers: { 'User-Agent': userAgent, Accept: 'application/json' }, signal: AbortSignal.timeout(15000),
+                    headers: { 'User-Agent': userAgent, Accept: 'application/json' }, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
                 });
                 if (response.status === 404) return null;
                 if (response.status === 429) {
@@ -48,13 +60,14 @@ function createLyricsClient({ fetchImpl = fetch, userAgent, now = Date.now, wait
                 }
                 return JSON.parse(text);
             } catch (error) {
-                if (attempt === 1 || error.message === 'rate-limit' || error.retryable === false) throw error;
-                await wait(600);
+                if (signal.aborted || attempt === retryDelays.length || error.message === 'rate-limit' || error.retryable === false) throw error;
+                await pause(retryDelays[attempt], signal);
             }
         }
     }
 
     return {
+        cancel() { for (const entry of pending.values()) entry.controller.abort(); },
         async get(payload) {
             if (!payload || typeof payload !== 'object') return { status: 'invalid' };
             const artist = typeof payload.artist === 'string' ? payload.artist.trim().slice(0, 300) : '';
@@ -66,14 +79,16 @@ function createLyricsClient({ fetchImpl = fetch, userAgent, now = Date.now, wait
             const key = JSON.stringify([artist, title, album, knownDuration ? Math.round(duration) : 0]);
             const saved = cache.get(key);
             if (saved && saved.expires > now()) return saved.result;
-            if (pending.has(key)) return pending.get(key);
+            if (pending.has(key) && !pending.get(key).controller.signal.aborted) return pending.get(key).job;
             if (retryAt > now()) return { status: 'rate-limit' };
+            const controller = new AbortController();
+            const signal = controller.signal;
             const job = (async () => {
                 try {
                     let data = null;
-                    if (knownDuration) data = await request('get', { artist_name: artist, track_name: title, album_name: album, duration: String(Math.round(duration)) });
+                    if (knownDuration) data = await request('get', { artist_name: artist, track_name: title, album_name: album, duration: String(Math.round(duration)) }, signal);
                     if (!data) {
-                        const results = await request('search', { artist_name: artist, track_name: title });
+                        const results = await request('search', { artist_name: artist, track_name: title }, signal);
                         const matches = Array.isArray(results) ? results.filter(item =>
                             normalize(item.artistName) === normalize(artist) && normalize(item.trackName) === normalize(title) &&
                             (!knownDuration || Math.abs(Number(item.duration) - duration) <= 3)) : [];
@@ -81,6 +96,7 @@ function createLyricsClient({ fetchImpl = fetch, userAgent, now = Date.now, wait
                             (knownDuration ? Math.abs(a.duration - duration) - Math.abs(b.duration - duration) : 0));
                         data = matches[0] || null;
                     }
+                    if (signal.aborted) return { status: 'cancelled' };
                     const plain = typeof data?.plainLyrics === 'string' ? data.plainLyrics : '';
                     const lines = parseLrc(typeof data?.syncedLyrics === 'string' ? data.syncedLyrics : '');
                     const result = data?.instrumental ? { status: 'instrumental' } : plain || lines.length ? { status: 'found', plain, lines } : { status: 'missing' };
@@ -88,11 +104,13 @@ function createLyricsClient({ fetchImpl = fetch, userAgent, now = Date.now, wait
                     if (cache.size > 200) cache.delete(cache.keys().next().value);
                     return result;
                 } catch (error) {
+                    if (signal.aborted) return { status: 'cancelled' };
                     return { status: error.message === 'rate-limit' ? 'rate-limit' : 'error' };
                 }
             })();
-            pending.set(key, job);
-            try { return await job; } finally { pending.delete(key); }
+            const entry = { job, controller };
+            pending.set(key, entry);
+            try { return await job; } finally { if (pending.get(key) === entry) pending.delete(key); }
         },
     };
 }

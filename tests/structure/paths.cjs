@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const manifest = require('../../package.json');
 assert(fs.existsSync(path.join(root, manifest.main)), 'Electron entry point exists');
@@ -13,6 +14,7 @@ for (const match of html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"]+)"
 for (const relative of fs.readdirSync(path.join(root, 'src'), { recursive: true }).filter(name => name.endsWith('.js'))) {
     const filename = path.join(root, 'src', relative);
     const source = fs.readFileSync(filename, 'utf8');
+    assert.doesNotThrow(() => new vm.Script(source, { filename }), 'JavaScript syntax: ' + relative);
     for (const match of source.matchAll(/require\(['"](\.[^'"]+)['"]\)/g)) {
         assert.doesNotThrow(() => require.resolve(path.resolve(path.dirname(filename), match[1])), 'Local import resolves: ' + relative + ': ' + match[1]);
     }

@@ -1,0 +1,24 @@
+const assert = require('node:assert/strict');
+const { resizeArtwork, encodeArtwork, createSerialQueue } = require('../../src/preload/artwork');
+(async () => {
+    const resized = [];
+    const image = { isEmpty: () => false, getSize: () => ({ width: 3000, height: 2000 }), resize: options => { resized.push(options); return { toJPEG: quality => Buffer.from('jpeg-' + quality) }; } };
+    const nativeImage = { createFromBuffer: () => image };
+    assert(resizeArtwork({ data: Buffer.from('art') }, nativeImage, 96, 75).startsWith('data:image/jpeg;base64,'));
+    assert.equal(resized[0].width, 96); assert.equal(resized[0].height, 64);
+    encodeArtwork(image, 1024, 85); assert.equal(resized[1].width, 1024);
+    assert.equal(resizeArtwork({ data: Buffer.alloc(16 * 1024 * 1024 + 1) }, nativeImage, 96, 75), null);
+    assert.equal(resizeArtwork({ data: Buffer.from('broken') }, { createFromBuffer: () => { throw new Error('bad image'); } }, 96, 75), null);
+    assert.equal(encodeArtwork({ getSize: () => ({ width: 99999, height: 99999 }) }, 96, 75), null);
+    const queue = createSerialQueue();
+    let release;
+    const order = [];
+    const first = queue(() => new Promise(resolve => { order.push('first'); release = resolve; }));
+    const background = queue(() => order.push('background'));
+    const foreground = queue(() => order.push('foreground'), true);
+    release(); await Promise.all([first, background, foreground]);
+    assert.deepEqual(order, ['first', 'foreground', 'background']);
+    await assert.rejects(queue(() => { throw new Error('bad'); }));
+    assert.equal(await queue(() => 123), 123);
+    console.log('PASS: bounded thumbnails and active artwork, invalid image safety, serial extraction and foreground priority.');
+})().catch(error => { console.error(error); process.exitCode = 1; });

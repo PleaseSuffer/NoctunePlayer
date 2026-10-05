@@ -49,8 +49,9 @@ function context(overrides = {}) {
     c.localAudioElement.currentTime = 99; c.isMuted = true; c.applyTrackEndFade(); assert.equal(gainValues.at(-1), 0);
     c.isMuted = false; c.crossfadeEnabled = false; c.applyTrackEndFade(); assert.equal(gainValues.at(-1), 1);
     // Stop cancels pending loads, old ended events and progress updates together.
-    c = { _loadToken: 2, _navigationToken: 0, _trackLoading: true, _endFadeActive: true, progressInterval: 123, clearInterval() {}, audioBufferSource: null, localAudioElement: { pause() {}, removeAttribute() {} }, radioAudioElement: null, radioMetadataAbort: null, isPlaying: true };
-    vm.createContext(c); vm.runInContext(extract('stopTrack'), c); c.stopTrack(); assert.equal(c._loadToken, 3); assert.equal(c._trackLoading, false); assert.equal(c.progressInterval, null); assert.equal(c.isPlaying, false);
+    let releasedRadio = false, releasedAudioBuffers = 0;
+    c = { window: { clearRadioArtwork() { releasedRadio = true; } }, _loadToken: 2, _navigationToken: 0, _trackLoading: true, _endFadeActive: true, progressInterval: 123, clearInterval() {}, audioBufferSource: null, localAudioElement: { pause() {}, removeAttribute() {}, load() { releasedAudioBuffers++; } }, radioAudioElement: { pause() {}, removeAttribute() {}, load() { releasedAudioBuffers++; } }, radioMetadataAbort: null, isPlaying: true };
+    vm.createContext(c); vm.runInContext(extract('stopTrack'), c); c.stopTrack(); assert.equal(c._loadToken, 3); assert.equal(c._trackLoading, false); assert.equal(c.progressInterval, null); assert.equal(c.isPlaying, false); assert.equal(releasedRadio, true); assert.equal(releasedAudioBuffers, 2);
     for (const name of fs.readdirSync('src/renderer', { recursive: true }).filter(n => n.endsWith('.js'))) new vm.Script(fs.readFileSync('src/renderer/' + name, 'utf8'), { filename: name });
     console.log('PASS: completion deduplication, repeat, queue, playlist end, autonext off, stale async completion, fade envelope, seek, mute, disable, stop cancellation and renderer syntax.');
 })().catch(err => { console.error(err); process.exitCode = 1; });

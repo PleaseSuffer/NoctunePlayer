@@ -179,11 +179,20 @@
                     <div class="lyrics-cover" id="lyrics-cover-wrap"><img id="lyrics-cover-image" alt="Обложка текущей песни" hidden><div id="lyrics-cover-placeholder"><i data-lucide="music-2"></i></div></div>
                     <div id="lyrics-song-title"></div>
                     <div id="lyrics-song-artist"></div>
-                    <div class="lyrics-seek-row"><span id="lyrics-time-current">0:00</span><input type="range" id="lyrics-seek" aria-label="Позиция воспроизведения" min="0" max="100" step="0.1" value="0"><span id="lyrics-time-total">0:00</span></div>
+                    <div id="lyrics-radio-station" hidden></div>
+                    <div class="lyrics-seek-row" id="lyrics-seek-row"><span id="lyrics-time-current">0:00</span><input type="range" id="lyrics-seek" aria-label="Позиция воспроизведения" min="0" max="100" step="0.1" value="0"><span id="lyrics-time-total">0:00</span></div>
                     <div class="lyrics-playback">
+                        <button class="control-btn" id="lyrics-shuffle" title="Случайный порядок" aria-label="Случайный порядок" aria-pressed="false"><i data-lucide="shuffle"></i></button>
                         <button class="control-btn" id="lyrics-prev" aria-label="Предыдущая песня"><i data-lucide="skip-back"></i></button>
                         <button class="control-btn play-pause" id="lyrics-play" aria-label="Воспроизвести"><i data-lucide="play" id="lyrics-play-icon"></i></button>
                         <button class="control-btn" id="lyrics-next" aria-label="Следующая песня"><i data-lucide="skip-forward"></i></button>
+                        <button class="control-btn" id="lyrics-repeat" title="Повтор выключен" aria-label="Повтор выключен"><i data-lucide="repeat-off"></i></button>
+                        <div class="lyrics-volume-zone">
+                            <button class="control-btn" id="lyrics-volume-button" aria-label="Выключить звук"><i data-lucide="volume-2" id="lyrics-volume-icon"></i></button>
+                            <div class="lyrics-volume-popover" id="lyrics-volume-popover">
+                                <input type="range" id="lyrics-volume" min="0" max="1" step="0.01" value="0.8" aria-label="Громкость" aria-orientation="vertical">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="lyrics-text-column">
@@ -417,6 +426,41 @@
                                     <input type="checkbox" id="setting-open-links-external" checked>
                                     <span class="slider-round"></span>
                                 </label>
+                            </div>
+                        </div>
+                        <div class="settings-section-title">Производительность</div>
+                        <div class="settings-card">
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Аппаратное ускорение</div>
+                                    <div class="settings-row-desc">Использовать видеокарту для отрисовки интерфейса и эффектов. Изменение требует перезапуска.</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-hardware-acceleration" aria-label="Аппаратное ускорение" checked disabled>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div id="hardware-acceleration-notice" class="performance-restart-row" hidden>
+                                <span id="hardware-acceleration-status" class="settings-row-desc" role="status"></span>
+                                <button class="btn" id="hardware-acceleration-restart" hidden>Перезапустить</button>
+                            </div>
+                            <div class="settings-row">
+                                <div>
+                                    <div class="settings-row-label">Частота кадров эффектов</div>
+                                    <div class="settings-row-desc">Ограничивает частоту визуализатора и анимаций фона.</div>
+                                </div>
+                                <div class="viz-type-dropdown-wrapper performance-dropdown" id="effects-fps-dropdown">
+                                    <button type="button" id="setting-effects-fps" class="viz-type-dropdown-btn" aria-label="Частота кадров эффектов" aria-haspopup="listbox" aria-expanded="false" aria-controls="effects-fps-menu">
+                                        <span class="pd-icon"><i data-lucide="gauge" style="width:14px;height:14px;"></i></span>
+                                        <span class="pd-label" id="effects-fps-label">60 FPS</span>
+                                        <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
+                                    </button>
+                                    <div class="viz-type-dropdown-menu" id="effects-fps-menu" role="listbox" aria-label="Частота кадров эффектов">
+                                        <button type="button" class="viz-type-menu-item" role="option" data-fps="30" aria-selected="false">30 FPS</button>
+                                        <button type="button" class="viz-type-menu-item" role="option" data-fps="60" aria-selected="true">60 FPS</button>
+                                        <button type="button" class="viz-type-menu-item" role="option" data-fps="0" aria-selected="false">Без ограничения</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2175,6 +2219,7 @@
     </div>
 
     <script src="core/dom-refs-state.js"></script>
+    <script src="core/effects-performance.js"></script>
     <script src="ui/notifications.js"></script>
     <script src="effects/background-fx.js"></script>
     <script src="effects/confetti.js"></script>
@@ -2190,6 +2235,7 @@
     <script src="effects/visualizer.js"></script>
     <script src="core/bootstrap.js"></script>
     <script src="ui/settings.js"></script>
+    <script src="ui/performance-settings.js"></script>
     <script src="library/playlist-io.js"></script>
     <script src="updates/updater.js"></script>
 </body>

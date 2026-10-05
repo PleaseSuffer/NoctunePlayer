@@ -29,6 +29,8 @@ function imageMime(data) {
 }
 function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl = fetch, now = Date.now, wait = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
     const memory = new Map(), pending = new Map();
+    let radioController = null;
+    const cancelRadio = () => { radioController?.abort(); radioController = null; };
     let generation = 0, diskQueue = Promise.resolve();
     const diskTask = action => { const task = diskQueue.then(action); diskQueue = task.catch(() => {}); return task; };
     const enabled = () => settings().enabled;
@@ -79,16 +81,16 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
             }
         }
     }
-    async function metadata(params, active) {
+    async function metadata(params, active, signal) {
         return retry(async () => {
-            try { return await request(params); }
+            try { return await request(params, signal); }
             catch (error) { if ([6, 7].includes(error.code)) return null; throw error; }
         }, active);
     }
-    async function download(url, report, active) {
+    async function download(url, report, active, signal) {
         return retry(async () => {
             report({ phase: 'downloading', progress: 0 });
-            const response = await fetchImpl(url, { signal: AbortSignal.timeout(15000), redirect: 'error' });
+            const response = await fetchImpl(url, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000), redirect: 'error' });
             const total = Number(response.headers.get('content-length'));
             if (!response.ok) throw Object.assign(new Error('image-http'), { retryable: response.status >= 500 || response.status === 408 });
             if (total > MAX_IMAGE) throw Object.assign(new Error('size'), { retryable: false });
@@ -112,18 +114,22 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
         return { bytes: entries.reduce((sum, entry) => sum + entry.size, 0), count: entries.length, limitMB: limit() / 1024 / 1024, directory };
     }
     return {
+        cancelRadio,
         async get(payload, onProgress = () => {}) {
             if (!enabled()) return { status: 'disabled' };
-            const artist = typeof payload?.artist === 'string' ? payload.artist.trim().slice(0, 300) : '';
+            const transient = payload?.transient === true;
+            let artist = typeof payload?.artist === 'string' ? payload.artist.trim().slice(0, 300) : '';
             const title = typeof payload?.title === 'string' ? payload.title.trim().slice(0, 300) : '';
             const album = typeof payload?.album === 'string' ? payload.album.trim().slice(0, 300) : '';
-            if (!artist || artist === 'Неизвестный исполнитель' || (!album && !title)) return { status: 'invalid' };
+            if ((!artist && !(transient && title)) || artist === 'Неизвестный исполнитель' || (!album && !title)) return { status: 'invalid' };
+            const controller = transient ? new AbortController() : null;
+            if (transient) { cancelRadio(); radioController = controller; }
             const jobGeneration = generation;
-            const active = () => enabled() && jobGeneration === generation;
-            const directory = await cacheDirectory(payload);
+            const active = () => enabled() && jobGeneration === generation && !controller?.signal.aborted;
+            const directory = transient ? '' : await cacheDirectory(payload);
             const hash = createHash('sha256').update(JSON.stringify([artist.toLowerCase(), album.toLowerCase(), album ? '' : title.toLowerCase()])).digest('hex');
             const cacheKey = directory + ':' + hash;
-            const pendingKey = cacheKey + ':' + jobGeneration;
+            const pendingKey = transient ? controller : cacheKey + ':' + jobGeneration;
             if (pending.has(pendingKey)) {
                 const existing = pending.get(pendingKey);
                 existing.listeners.add(onProgress);
@@ -138,7 +144,8 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
             const job = (async () => {
                 try {
                     report({ phase: 'searching' });
-                    if (caching()) {
+                    if (!active()) return { status: 'disabled' };
+                    if (!transient && caching()) {
                         let record = memory.get(cacheKey);
                         if (!record) try {
                             const file = path.join(directory, hash + '.json');
@@ -152,25 +159,34 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
                             return enabled() && jobGeneration === generation ? record.result : { status: 'disabled' };
                         }
                     }
+                    if (transient && !artist) {
+                        const search = await metadata({ method: 'track.search', track: title, limit: '1' }, active, controller.signal);
+                        const matches = search?.results?.trackmatches?.track;
+                        const candidate = Array.isArray(matches) ? matches[0] : matches;
+                        artist = typeof candidate?.artist === 'string' ? candidate.artist.trim().slice(0, 300) : '';
+                        if (!active()) return { status: 'disabled' };
+                        if (!artist) return { status: 'missing' };
+                    }
                     let url = null;
-                    if (album) url = coverUrl((await metadata({ method: 'album.getInfo', artist, album, autocorrect: '1' }, active))?.album?.image);
-                    if (!url && title) url = coverUrl((await metadata({ method: 'track.getInfo', artist, track: title, autocorrect: '1' }, active))?.track?.album?.image);
+                    if (album) url = coverUrl((await metadata({ method: 'album.getInfo', artist, album, autocorrect: '1' }, active, controller?.signal))?.album?.image);
+                    if (!url && title) url = coverUrl((await metadata({ method: 'track.getInfo', artist, track: title, autocorrect: '1' }, active, controller?.signal))?.track?.album?.image);
                     let result = { status: 'missing' };
                     if (url) {
-                        result = await download(url, report, active);
+                        if (!active()) return { status: 'disabled' };
+                        result = await download(url, report, active, controller?.signal);
                     }
-                    if (!enabled() || jobGeneration !== generation) return { status: 'disabled' };
-                    await save(directory, hash, { version: 2, lookupTitle: title.toLowerCase(), expires: now() + (url ? 30 * 86400000 : 15 * 60000), result }, jobGeneration);
+                    if (!active()) return { status: 'disabled' };
+                    if (!transient) await save(directory, hash, { version: 2, lookupTitle: title.toLowerCase(), expires: now() + (url ? 30 * 86400000 : 15 * 60000), result }, jobGeneration);
                     report({ phase: result.status, progress: 1 });
                     return result;
                 } catch (_) { if (!active()) return { status: 'disabled' }; report({ phase: 'error' }); return { status: 'error' }; }
             })();
             entry.job = job; pending.set(pendingKey, entry);
-            try { return await job; } finally { pending.delete(pendingKey); }
+            try { return await job; } finally { pending.delete(pendingKey); if (controller && radioController === controller) radioController = null; }
         },
         stats,
         async configure(payload) {
-            generation++; memory.clear();
+            generation++; memory.clear(); cancelRadio();
             const directory = await cacheDirectory(payload);
             await diskTask(() => prune(directory));
             return stats(payload);

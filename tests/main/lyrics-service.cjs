@@ -50,6 +50,30 @@ const track = { artist: 'Artist', title: 'Song', album: 'Album', duration: 120 }
     assert.equal((await client.get(track)).status, 'error'); assert.equal(requests, 1, 'permanent errors are not retried');
     requests = 0;
     client = createLyricsClient({ userAgent: 'test', wait: async () => {}, fetchImpl: async () => { requests++; return response(503, {}); } });
-    assert.equal((await client.get(track)).status, 'error'); assert.equal(requests, 2, 'retry count is bounded');
+    assert.equal((await client.get(track)).status, 'error'); assert.equal(requests, 5, 'retry count is bounded');
+    requests = 0;
+    const extendedDelays = [];
+    client = createLyricsClient({ userAgent: 'test', wait: async ms => { extendedDelays.push(ms); }, fetchImpl: async () => {
+        requests++; return requests < 4 ? response(503, {}) : response(200, { plainLyrics: 'Recovered after multiple failures' });
+    } });
+    assert.equal((await client.get(track)).plain, 'Recovered after multiple failures');
+    assert.deepEqual(extendedDelays, [600, 1200, 2400]);
+    requests = 0;
+    client = createLyricsClient({ userAgent: 'test', wait: () => { client.cancel(); return new Promise(() => {}); }, fetchImpl: async () => { requests++; throw new Error('offline'); } });
+    assert.equal((await client.get(track)).status, 'cancelled', 'cancel interrupts the retry delay');
+    assert.equal(requests, 1, 'cancelled search does not send further requests');
+    let resolveOld;
+    requests = 0;
+    client = createLyricsClient({ userAgent: 'test', fetchImpl: async () => {
+        requests++;
+        if (requests === 1) return new Promise(resolve => { resolveOld = resolve; });
+        return response(200, { plainLyrics: 'New search' });
+    } });
+    const oldSearch = client.get(track);
+    client.cancel();
+    assert.equal((await client.get(track)).plain, 'New search', 'cancelled search does not block reopening the same song');
+    resolveOld(response(200, { plainLyrics: 'Old search' }));
+    assert.equal((await oldSearch).status, 'cancelled');
+    assert.equal((await client.get(track)).plain, 'New search', 'old response cannot replace the new cached result');
     console.log('PASS: LRC timestamps and offset, cache, concurrent deduplication, request headers, matching and version filter, instrumental, missing, rate limit, network error and metadata validation.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -314,19 +314,22 @@
         }
 
         async function startRadioMetadataReader(streamUrl, stationName) {
+            const metadataToken = _loadToken;
             try {
                 if (radioMetadataAbort) {
                     radioMetadataAbort.abort();
                 }
 
-                radioMetadataAbort = new AbortController();
+                const controller = new AbortController();
+                radioMetadataAbort = controller;
+                currentRadioTrack = '';
 
                 const response = await fetch(streamUrl, {
                     headers: {
                         'Icy-MetaData': '1'
                     },
                     mode: 'cors',
-                    signal: radioMetadataAbort.signal
+                    signal: controller.signal
                 });
 
                 const metaInt = parseInt(response.headers.get('icy-metaint'));
@@ -344,7 +347,7 @@
                 while (true) {
                     const { value, done } = await reader.read();
 
-                    if (done) break;
+                    if (done || controller.signal.aborted || metadataToken !== _loadToken || !isRadioMode) break;
 
                     let offset = 0;
 
@@ -371,15 +374,15 @@
 
                             const match = metaString.match(/StreamTitle='([^']*)'/);
 
-                            if (match && match[1]) {
+                            if (match) {
 
                                 const rawTitle = match[1].trim();
 
-                                if (rawTitle && rawTitle !== currentRadioTrack) {
+                                if (rawTitle !== currentRadioTrack) {
 
                                     currentRadioTrack = rawTitle;
 
-                                    let artist = 'Онлайн радио';
+                                    let artist = '';
                                     let title = rawTitle;
 
                                     if (rawTitle.includes(' - ')) {
@@ -388,11 +391,12 @@
                                         title = parts.slice(1).join(' - ').trim();
                                     }
 
+                                    if (window.setLyricsTrack) window.setLyricsTrack({ radio: true, stationName, artist, title }, metadataToken);
                                     trackTitle.textContent = title;
                                     trackArtist.textContent = artist;
 
                                     miniTrackTitle.textContent =
-                                        `${artist} — ${title}`;
+                                        [artist, title].filter(Boolean).join(' — ');
 
                                     triggerMiniMarquee();
 
@@ -476,6 +480,9 @@
         function stopTrack() {
             // Отменяем также асинхронные загрузки и обработчики старого трека.
             _loadToken++;
+            if (typeof noctune !== 'undefined') noctune.metadata?.cancelCover?.();
+            if (typeof cancelTrackWaveform === 'function') cancelTrackWaveform();
+            if (window.clearRadioArtwork) window.clearRadioArtwork();
             _navigationToken++;
             _trackLoading = false;
             _endFadeActive = false;
@@ -489,10 +496,12 @@
             if (localAudioElement) {
                 localAudioElement.pause();
                 localAudioElement.removeAttribute('src');
+                localAudioElement.load?.();
             }
             if (radioAudioElement) {
                 radioAudioElement.pause();
                 radioAudioElement.removeAttribute('src');
+                radioAudioElement.load?.();
             }
             if (radioMetadataAbort) {
                 radioMetadataAbort.abort();
@@ -604,7 +613,7 @@
             
             if (entry.kind === 'radio') {
                 isRadioMode = true;
-                if (window.setLyricsTrack) window.setLyricsTrack({ radio: true, artist: 'Радио', title: entry.name }, myToken);
+                if (window.setLyricsTrack) window.setLyricsTrack({ radio: true, stationName: entry.name, artist: '', title: '' }, myToken);
                 statusText.textContent = 'Подключение к потоку...';
                 trackTitle.textContent = entry.name;
                 trackArtist.textContent = "Интернет Радиостанция";
@@ -700,7 +709,7 @@
                 
                 try {
                     const filePath = entry.path;
-                    const meta = parsedMetadataCache[absoluteTrackId] || await (async () => {
+                    const cachedMeta = parsedMetadataCache[absoluteTrackId] || await (async () => {
                         // Быстрое чтение метаданных если кэш ещё не заполнен —
                         // единый вызов через music-metadata (preload) вместо
                         // ручного fs.open + самописного ID3-парсера.
@@ -716,6 +725,11 @@
                     // Проверяем, не был ли уже выбран другой трек
                     if (myToken !== _loadToken) return;
 
+                    const meta = { ...cachedMeta };
+                    if (meta.hasEmbeddedCover) {
+                        meta.coverDataUrl = await noctune.metadata.cover(filePath) || meta.coverThumbnailDataUrl;
+                        if (myToken !== _loadToken) return;
+                    }
                     if (window.setLyricsTrack) window.setLyricsTrack({ ...meta, filePath }, myToken);
                     trackTitle.textContent = meta.title;
                     trackArtist.textContent = meta.artist;

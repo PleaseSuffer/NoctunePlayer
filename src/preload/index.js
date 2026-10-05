@@ -13,11 +13,15 @@
 // через ipcRenderer.
 // ══════════════════════════════════════════════════════════════════════════
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, nativeImage } = require('electron');
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const { pathToFileURL } = require('url');
+
+const { resizeArtwork, encodeArtwork, createSerialQueue } = require('./artwork');
+const metadataQueue = createSerialQueue();
+let activeCoverRequest = 0;
 
 const AUDIO_EXTENSIONS = new Set(['mp3', 'wav', 'ogg', 'm4a', 'flac']);
 
@@ -42,6 +46,8 @@ async function parseAudioMetadata(filePath, fallbackName) {
     artist: '',
     album: '',
     coverDataUrl: null,
+    coverThumbnailDataUrl: null,
+    hasEmbeddedCover: false,
     duration: 0,
     kbps: 0,
     fileSize: 0,
@@ -64,11 +70,8 @@ async function parseAudioMetadata(filePath, fallbackName) {
       if (metadata.common.album) result.album = String(metadata.common.album).trim();
       if (Array.isArray(metadata.common.picture) && metadata.common.picture.length > 0) {
         const pic = metadata.common.picture[0];
-        try {
-          const base64 = Buffer.from(pic.data).toString('base64');
-          const mime = pic.format || 'image/jpeg';
-          result.coverDataUrl = `data:${mime};base64,${base64}`;
-        } catch (e) { /* повреждённая обложка — просто пропускаем */ }
+        result.hasEmbeddedCover = true;
+        result.coverThumbnailDataUrl = resizeArtwork(pic, nativeImage, 96, 75);
       }
       // ReplayGain: music-metadata отдаёт его в разных формах в зависимости
       // от версии/формата тега — число, строка "-6.5 dB" или объект
@@ -216,7 +219,7 @@ function parseM3U(text) {
 // Публичный API, доступный в рендерере как window.noctune
 // ══════════════════════════════════════════════════════════════════════════
 contextBridge.exposeInMainWorld('noctune', {
-  lyrics: { get: payload => ipcRenderer.invoke('lyrics:get', payload) },
+  lyrics: { get: payload => ipcRenderer.invoke('lyrics:get', payload), cancel: () => ipcRenderer.invoke('lyrics:cancel') },
   // Статичные значения окружения (нужны, например, для отчётов об ошибках,
   // где раньше использовался глобальный process.*, недоступный без
   // nodeIntegration)
@@ -268,6 +271,7 @@ contextBridge.exposeInMainWorld('noctune', {
     disconnect: () => ipcRenderer.invoke('lastfm-disconnect'),
     status: () => ipcRenderer.invoke('lastfm-status'),
     cover: payload => ipcRenderer.invoke('lastfm-cover', payload),
+    cancelRadioCover: () => ipcRenderer.invoke('lastfm-cover-radio-cancel'),
     clearCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-clear', payload),
     coverCacheStats: payload => ipcRenderer.invoke('lastfm-cover-cache-stats', payload),
     configureCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-configure', payload),
@@ -310,7 +314,37 @@ contextBridge.exposeInMainWorld('noctune', {
 
   // ── Метаданные аудио (music-metadata) ──
   metadata: {
-    parseFile: (filePath, fallbackName) => parseAudioMetadata(filePath, fallbackName),
+    parseFile: (filePath, fallbackName) => metadataQueue(() => parseAudioMetadata(filePath, fallbackName)),
+    cancelCover: () => { activeCoverRequest++; },
+    cover: filePath => {
+      const request = ++activeCoverRequest;
+      return metadataQueue(async () => {
+        if (request !== activeCoverRequest) return null;
+        try {
+          const mm = await loadMusicMetadata();
+          const metadata = await mm.parseFile(filePath, { duration: false, skipCovers: false });
+          if (request !== activeCoverRequest) return null;
+          return resizeArtwork(metadata.common?.picture?.[0], nativeImage, 1024, 85);
+        } catch (_) { return null; }
+      }, true);
+    },
+    thumbnail: dataUrl => metadataQueue(() => {
+      if (typeof dataUrl !== 'string' || dataUrl.length > 3 * 1024 * 1024 || !new RegExp('^data:image/(png|jpeg|webp);base64,').test(dataUrl)) return null;
+      const image = nativeImage.createFromDataURL(dataUrl);
+      if (image.isEmpty()) return null;
+      return encodeArtwork(image, 96, 75);
+    }, true),
+  },
+
+  performance: {
+    getHardwareAcceleration: () => ipcRenderer.invoke('performance:hardware-get'),
+    setHardwareAcceleration: enabled => ipcRenderer.invoke('performance:hardware-set', enabled),
+    restart: () => ipcRenderer.invoke('performance:restart'),
+  },
+
+  waveform: {
+    get: filePath => ipcRenderer.invoke('waveform:get', filePath),
+    set: payload => ipcRenderer.invoke('waveform:set', payload),
   },
 
   // ── .m3u плейлисты ──

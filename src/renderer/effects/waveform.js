@@ -4,14 +4,14 @@
         // Разово декодируем весь локальный файл через decodeAudioData —
         // ТОЛЬКО ради формы волны, никак не влияет на реальное воспроизведение
         // (оно идёт через отдельный <audio>/MediaElementSourceNode). Результат
-        // сжимается до WAVEFORM_BARS пиковых значений и кешируется по пути
+        // сжимается до WAVEFORM_BARS байт и сохраняется на диске по версии
         // файла (сырые, ненормализованные под "чувствительность" — та
         // применяется на отрисовке, чтобы её можно было крутить вживую без
         // повторного декодирования). Прогресс обновляется не через RAF, а
         // через CSS-transition поверх clip-path/transform — дёшево и
         // достаточно плавно при апдейте раз в 250мс (см. audio-engine.js).
         const WAVEFORM_BARS = 200;
-        window._waveformCache = new Map();      // filePath -> Float32Array(N) пиков 0..1 (сырые, до sensitivity)
+        window._waveformCache = new Map();      // filePath -> Uint8Array(N) пиков 0..255 (сырые, до sensitivity)
         window._waveformDecodeToken = 0;        // отмена устаревшего decode, если трек уже сменился
         window._waveformLastFraction = 0;       // последняя известная позиция 0..1 — нужна при смене режима/цвета без ре-декода
 
@@ -113,7 +113,8 @@
                 return;
             }
 
-            const peaks = applyWaveformSensitivity(rawPeaks, window.waveformSensitivity);
+            const normalized = Float32Array.from(rawPeaks, value => value / 255);
+            const peaks = applyWaveformSensitivity(normalized, window.waveformSensitivity);
             const color = getWaveformColor();
             const scrollMode = window.waveformMode === 'scroll';
             wrap.classList.toggle('mode-scroll', scrollMode);
@@ -193,86 +194,81 @@
             renderWaveform(window._waveformCache.get(filePath));
         }
 
-        async function loadTrackWaveform(filePath, ownerToken) {
+        let waveformJob = null, waveformBusy = false, waveformFetch = null;
+        function cancelTrackWaveform() {
+            window._waveformDecodeToken++;
+            waveformFetch?.abort();
+            if (waveformJob) waveformJob.resolve();
+            waveformJob = null;
+            window._waveformCurrentFilePath = null;
+            renderWaveform(null);
+        }
+        function loadTrackWaveform(filePath, ownerToken) {
+            cancelTrackWaveform();
             window._waveformCurrentFilePath = filePath;
             window._waveformLastFraction = 0;
-
-            if (!window.waveformEnabled) { renderWaveform(null); return; }
-
-            if (window._waveformCache.has(filePath)) {
-                renderWaveform(window._waveformCache.get(filePath));
-                return;
-            }
-
-            // Пока трек декодируется — ничего не показываем, а не старую форму.
-            renderWaveform(null);
-
-            const myToken = ++window._waveformDecodeToken;
+            if (!window.waveformEnabled) return Promise.resolve();
+            return new Promise(resolve => {
+                waveformJob = { filePath, ownerToken, token: window._waveformDecodeToken, resolve };
+                processWaveformJobs();
+            });
+        }
+        async function processWaveformJobs() {
+            if (waveformBusy) return;
+            waveformBusy = true;
             try {
-                const url = noctune.fs.toFileUrl(filePath);
-                const res = await fetch(url);
-                const arrayBuffer = await res.arrayBuffer();
-
-                // Отдельный OfflineAudioContext только для декодирования —
-                // не трогает основной audioCtx воспроизведения.
-                const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-                const decodeCtx = OfflineCtx ? new OfflineCtx(1, 1, 44100) : new (window.AudioContext)();
-                const audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
-
-                // Трек уже сменился, пока мы декодировали — результат никому не нужен.
-                if (myToken !== window._waveformDecodeToken) return;
-                if (typeof _loadToken !== 'undefined' && ownerToken !== _loadToken) return;
-
-                const channelData = audioBuffer.getChannelData(0);
-                // RMS (среднеквадратичное), а не пик-максимум, по каждому
-                // отрезку — пик-максимум на крупных отрезках почти всегда
-                // упирается в потолок (в любые 1-2 секунды почти наверняка
-                // попадёт транзиент), из-за чего все столбики выходят
-                // одинаково высокими. RMS отражает реальную энергию отрезка —
-                // ровно то, что даёт плавный, изрезанный по громкости контур
-                // как у референсных плееров (AIMP и т.п.), а не частокол пиков.
-                const peaks = new Float32Array(WAVEFORM_BARS);
-                const samplesPerBar = Math.max(1, Math.floor(channelData.length / WAVEFORM_BARS));
-                for (let i = 0; i < WAVEFORM_BARS; i++) {
-                    let sumSquares = 0;
-                    const start = i * samplesPerBar;
-                    const end = Math.min(channelData.length, start + samplesPerBar);
-                    const count = end - start;
-                    for (let j = start; j < end; j++) {
-                        const v = channelData[j];
-                        sumSquares += v * v;
+                while (waveformJob) {
+                    const job = waveformJob; waveformJob = null;
+                    const current = () => job.token === window._waveformDecodeToken && window.waveformEnabled && (typeof _loadToken === 'undefined' || job.ownerToken === _loadToken);
+                    let decodeCtx = null, arrayBuffer = null, audioBuffer = null;
+                    try {
+                        const cached = await noctune.waveform.get(job.filePath);
+                        if (!current()) continue;
+                        if (cached?.peaks?.length === WAVEFORM_BARS) {
+                            const compact = Uint8Array.from(cached.peaks);
+                            rememberWaveform(job.filePath, compact); renderWaveform(compact); continue;
+                        }
+                        waveformFetch = new AbortController();
+                        const response = await fetch(noctune.fs.toFileUrl(job.filePath), { signal: waveformFetch.signal });
+                        if (!response.ok || !current()) continue;
+                        arrayBuffer = await response.arrayBuffer();
+                        if (!current()) continue;
+                        // Only one decoder at a time; 8 kHz is sufficient for a 200-bar envelope.
+                        const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+                        if (!OfflineCtx) continue;
+                        decodeCtx = new OfflineCtx(1, 1, 8000);
+                        audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer);
+                        arrayBuffer = null;
+                        if (!current()) continue;
+                        const compact = compactWaveform(audioBuffer.getChannelData(0));
+                        audioBuffer = null; decodeCtx = null;
+                        if (!current()) continue;
+                        rememberWaveform(job.filePath, compact); renderWaveform(compact);
+                        if (cached?.key) await noctune.waveform.set({ filePath: job.filePath, key: cached.key, peaks: Array.from(compact) });
+                    } catch (_) {
+                        // A failed waveform must never interfere with audio playback.
+                    } finally {
+                        arrayBuffer = null; audioBuffer = null;
+                        if (decodeCtx?.close) await decodeCtx.close().catch(() => {});
+                        decodeCtx = null; waveformFetch = null; job.resolve();
                     }
-                    peaks[i] = count > 0 ? Math.sqrt(sumSquares / count) : 0;
                 }
-                // Лёгкое сглаживание соседних столбиков (3-точечное среднее) —
-                // убирает остаточную "рубленость" между соседними отрезками.
-                const smoothed = new Float32Array(WAVEFORM_BARS);
-                for (let i = 0; i < WAVEFORM_BARS; i++) {
-                    const prev = peaks[Math.max(0, i - 1)];
-                    const next = peaks[Math.min(WAVEFORM_BARS - 1, i + 1)];
-                    smoothed[i] = (prev + peaks[i] * 2 + next) / 4;
-                }
-                for (let i = 0; i < WAVEFORM_BARS; i++) peaks[i] = smoothed[i];
-                // Нормализуем к максимуму трека — иначе тихо сведённые записи
-                // дают почти плоскую линию вместо читаемой формы. Это
-                // отдельно от "чувствительности" (та применяется поверх, на
-                // отрисовке) — тут только выравниваем общий масштаб трека.
-                let peakMax = 0;
-                for (let i = 0; i < peaks.length; i++) if (peaks[i] > peakMax) peakMax = peaks[i];
-                if (peakMax > 0.001) {
-                    for (let i = 0; i < peaks.length; i++) peaks[i] = peaks[i] / peakMax;
-                }
-
-                window._waveformCache.set(filePath, peaks);
-                // Кеш не бесконечный — не даём расти безгранично за долгую сессию.
-                if (window._waveformCache.size > 60) {
-                    const firstKey = window._waveformCache.keys().next().value;
-                    window._waveformCache.delete(firstKey);
-                }
-
-                if (typeof _loadToken === 'undefined' || ownerToken === _loadToken) renderWaveform(peaks);
-            } catch (e) {
-                // Файл не удалось раскодировать (повреждён/необычный формат) —
-                // просто не показываем waveform для этого трека, не роняем воспроизведение.
+            } finally { waveformBusy = false; }
+        }
+        function rememberWaveform(filePath, compact) {
+            window._waveformCache.delete(filePath); window._waveformCache.set(filePath, compact);
+            if (window._waveformCache.size > 60) window._waveformCache.delete(window._waveformCache.keys().next().value);
+        }
+        function compactWaveform(channelData) {
+            const rms = new Float32Array(WAVEFORM_BARS);
+            for (let i = 0; i < WAVEFORM_BARS; i++) {
+                const start = Math.floor(i * channelData.length / WAVEFORM_BARS);
+                const end = Math.floor((i + 1) * channelData.length / WAVEFORM_BARS);
+                let sum = 0;
+                for (let j = start; j < end; j++) sum += channelData[j] * channelData[j];
+                rms[i] = end > start ? Math.sqrt(sum / (end - start)) : 0;
             }
+            const smoothed = Float32Array.from(rms, (value, i) => (rms[Math.max(0, i - 1)] + value * 2 + rms[Math.min(WAVEFORM_BARS - 1, i + 1)]) / 4);
+            const max = Math.max(...smoothed);
+            return Uint8Array.from(smoothed, value => Math.round((max > 0.001 ? value / max : value) * 255));
         }

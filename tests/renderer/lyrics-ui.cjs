@@ -18,6 +18,7 @@ class Element {
     scrollTo({ top }) { this.scrollTop = top; }
 }
 const ids = ['lyrics-modal', 'btn-lyrics', 'mini-btn-lyrics', 'lyrics-close', 'setting-lyrics-enabled', 'lyrics-status', 'lyrics-content', 'lyrics-track', 'lyrics-retry', 'lyrics-follow', 'lyrics-view-toggle', 'setting-lyrics-autoscroll', 'lyrics-settings-body', 'lyrics-cover-image', 'lyrics-cover-placeholder', 'lyrics-seek', 'lyrics-play', 'lyrics-song-title', 'lyrics-song-artist', 'lyrics-time-current', 'lyrics-time-total', 'lyrics-prev', 'lyrics-next', 'lyrics-appearance-settings', 'setting-lyrics-color-mode', 'setting-lyrics-color', 'setting-lyrics-dim', 'setting-lyrics-blur', 'setting-lyrics-size', 'setting-lyrics-inactive', 'setting-lyrics-shadow', 'lyrics-custom-color-row', 'setting-lyrics-dim-label', 'setting-lyrics-blur-label', 'setting-lyrics-size-label', 'setting-lyrics-inactive-label', 'lyrics-color-dropdown', 'lyrics-color-menu', 'lyrics-color-label', 'lyrics-color-icon', 'setting-lastfm-covers', 'setting-lastfm-cover-cache', 'lastfm-cover-cache-settings', 'lastfm-cover-cache-clear', 'lastfm-cover-cache-status'];
+ids.push('lyrics-radio-station', 'lyrics-seek-row', 'lyrics-volume-popover', 'lyrics-shuffle', 'lyrics-repeat', 'lyrics-volume', 'lyrics-volume-button', 'lyrics-volume-icon');
 const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
 for (const id of ['player-cover-img', 'player-cover-placeholder', 'player-cover-wrap', 'lyrics-cover-wrap', 'cover-download-status', 'lastfm-cover-cache-options', 'lastfm-cover-cache-limit', 'lastfm-cover-cache-limit-label', 'cover-cache-location-button', 'cover-cache-location-menu', 'cover-cache-location-dropdown', 'cover-cache-location-label', 'lastfm-cover-cache-usage', 'lastfm-cover-cache-path', 'settings-fab']) elements[id] = new Element();
 for (const id of ['cover-cache-custom-row', 'cover-cache-custom-path', 'cover-cache-choose-folder', 'cover-cache-open-folder', 'cover-cache-location-hint']) elements[id] = new Element();
@@ -25,28 +26,39 @@ elements['cover-cache-location-menu'].children = ['app', 'music', 'custom'].map(
 const layout = { '.lyrics-now-playing': new Element(), '.lyrics-text-column': new Element() };
 elements['lyrics-color-menu'].children = ['adaptive', 'accent', 'custom', 'light', 'dark'].map(mode => { const item = new Element(); item.setAttribute('data-mode', mode); return item; });
 const requests = [];
+let lyricsCancels = 0;
+const windowListeners = {};
+const storage = new Map();
 let coverProgress;
 const context = {
     document: { addEventListener() {}, querySelector: selector => layout[selector], getElementById: id => elements[id], createElement: () => new Element(), activeElement: new Element(), body: new Element() },
-    appStorage: { getItem: () => null, setItem() {} }, window: { matchMedia: () => ({ matches: false }) },
-    noctune: { lastfm: { onCoverProgress: callback => { coverProgress = callback; } }, lyrics: { get: payload => new Promise(resolve => requests.push({ payload, resolve })) } },
+    appStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, window: { matchMedia: () => ({ matches: false }), addEventListener: (name, callback) => { windowListeners[name] = callback; } },
+    noctune: { lastfm: { onCoverProgress: callback => { coverProgress = callback; } }, lyrics: { cancel: async () => { lyricsCancels++; }, get: payload => new Promise(resolve => requests.push({ payload, resolve })) } },
     requestAnimationFrame: () => 1, cancelAnimationFrame() {}, isRadioMode: false, localAudioElement: null,
+    isShuffle: false, repeatMode: 0, isMuted: false, volumeSlider: { value: '0.8' },
+    toggleShuffle() { context.isShuffle = !context.isShuffle; }, toggleRepeat() { context.repeatMode = (context.repeatMode + 1) % 3; }, toggleMute() { context.isMuted = !context.isMuted; },
     currentTrackDuration: 0, isPlaying: false, _trackLoading: false, formatTime: () => '0:00', lucide: { createIcons() {} },
 };
 vm.createContext(context); vm.runInContext(fs.readFileSync('src/renderer/integrations/lyrics.js', 'utf8'), context);
+// radio-search.js loads after lyrics.js: its handlers must not be read during initialization.
+context.updateVolumeThrottled = value => { context.volumeSlider.value = value; };
+context.handleVolumeWheel = event => { event.preventDefault(); context.volumeSlider.value = Number(context.volumeSlider.value) + (event.deltaY < 0 ? 0.01 : -0.01); };
 const flush = () => new Promise(resolve => setImmediate(resolve));
 (async () => {
     context.window.setLyricsTrack({ artist: 'Artist', title: 'A' }, 1);
     assert.equal(requests.length, 0, 'closed dialog does not fetch');
     elements['btn-lyrics'].listeners.click(); assert.equal(requests.length, 1);
+    assert.equal(elements['lyrics-status'].textContent, 'Ищем текст песни…');
     assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), false);
     elements['lyrics-view-toggle'].listeners.click();
     assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), true);
     assert.equal(context.document.body.classList.contains('lyrics-expanded'), true);
+    assert.equal(storage.get('setting_lyrics_expanded'), '1');
     assert.equal(requests.length, 1, 'view changes do not refetch lyrics');
     elements['lyrics-view-toggle'].listeners.click();
     assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), false);
     assert.equal(context.document.body.classList.contains('lyrics-expanded'), false);
+    assert.equal(storage.get('setting_lyrics_expanded'), '0');
     context.window.setLyricsTrack({ artist: 'Artist', title: 'B' }, 2); assert.equal(requests.length, 2);
     requests[0].resolve({ status: 'found', plain: 'Old text', lines: [] }); await flush();
     assert.equal(elements['lyrics-content'].children.length, 0, 'old response ignored');
@@ -66,8 +78,23 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     elements['setting-lyrics-enabled'].checked = true; elements['setting-lyrics-enabled'].listeners.change();
     elements['mini-btn-lyrics'].listeners.click();
     assert.equal(elements['lyrics-modal'].style.display, 'flex');
-    assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), false, 'opening always uses ordinary dialog');
+    assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), true, 'opening restores expanded dialog');
     assert.equal(requests.length, 4, 'mini-player opens the same lyrics dialog');
+    elements['lyrics-shuffle'].listeners.click();
+    assert.equal(context.isShuffle, true);
+    assert.equal(elements['lyrics-shuffle'].getAttribute('aria-pressed'), 'true');
+    for (const mode of [1, 2, 0]) { elements['lyrics-repeat'].listeners.click(); assert.equal(context.repeatMode, mode); }
+    elements['lyrics-volume'].value = '0.35'; elements['lyrics-volume'].listeners.input();
+    assert.equal(context.volumeSlider.value, '0.35');
+    assert.equal(elements['lyrics-volume-popover'].style['--volume-level'], 0.35);
+    let prevented = false;
+    elements['lyrics-volume'].listeners.wheel({ deltaY: -1, preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(context.volumeSlider.value, 0.36);
+    elements['lyrics-volume-button'].listeners.click();
+    assert.equal(context.isMuted, true);
+    assert.equal(elements['lyrics-volume-popover'].style['--volume-level'], 0);
+    assert.equal(elements['lyrics-volume-icon'].getAttribute('data-lucide'), 'volume-x');
     const controls = [];
     context.playPrev = () => controls.push('prev');
     context.playNext = () => controls.push('next');
@@ -75,7 +102,6 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     context.startSourceAt = position => controls.push(position);
     context.currentTrackDuration = 100;
     context.localAudioElement = { currentTime: 10, duration: 100, getAttribute: () => 'track.mp3' };
-    elements['lyrics-view-toggle'].listeners.click();
     elements['lyrics-prev'].listeners.click(); elements['lyrics-next'].listeners.click(); elements['lyrics-play'].listeners.click();
     elements['lyrics-seek'].value = 50; elements['lyrics-seek'].listeners.input();
     assert.deepEqual(controls, ['prev', 'next', 'play', 50]);
@@ -143,14 +169,19 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     assert.equal(elements['player-cover-wrap'].style['--cover-progress'], .5);
     coverProgress({ requestId: artworkRequests[0].payload.requestId, phase: 'downloading', progress: .1 });
     assert.equal(elements['player-cover-wrap'].style['--cover-progress'], .5, 'stale progress ignored');
+    const cancellationsBeforeClose = lyricsCancels;
     elements['lyrics-close'].listeners.click();
+    assert.equal(lyricsCancels, cancellationsBeforeClose + 1, 'closing cancels automatic lyrics retries');
+    context.noctune.metadata = { thumbnail: async () => 'data:image/jpeg;base64,smallThumbnail' };
     artworkRequests[1].resolve({ status: 'found', dataUrl: 'data:image/png;base64,newRemote' }); await flush();
     assert.equal(elements['lyrics-cover-image'].src, 'data:image/png;base64,newRemote');
     assert.equal(elements['player-cover-img'].src, 'data:image/png;base64,newRemote', 'remote artwork applies to main screen');
-    assert.equal(elements['cover-0'].src, 'data:image/png;base64,newRemote', 'download updates playlist thumbnail');
-    assert.equal(elements['cover-3'].src, 'data:image/png;base64,newRemote', 'duplicate entries for the file update together');
+    assert.equal(elements['cover-0'].src, 'data:image/jpeg;base64,smallThumbnail', 'download updates playlist thumbnail');
+    assert.equal(elements['cover-3'].src, 'data:image/jpeg;base64,smallThumbnail', 'duplicate entries for the file update together');
     assert.equal(elements['cover-1'].getAttribute('src'), null, 'same title in a different folder does not receive wrong artwork');
     assert.equal(elements['cover-2'].src, 'data:image/png;base64,embedded', 'embedded artwork retains priority');
+    elements['cover-3'].onerror();
+    assert.equal(elements['cover-3'].getAttribute('src'), null, 'failed thumbnail restores placeholder');
     elements['cover-0'].onload(); assert.equal(elements['cover-0'].classList.contains('loaded'), true);
     const oldThumbnailLoad = elements['cover-0'].onload;
     context.fileEntries[0] = { path: 'D:/other/replacement.mp3', kind: 'file' };
@@ -159,7 +190,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     context.fileEntries[0] = { path: 'D:/music/F.mp3', kind: 'file' };
     elements['cover-0'] = new Element();
     context.window.updateTrackArtwork(0, context.parsedMetadataCache[0], 'D:/music/F.mp3');
-    assert.equal(elements['cover-0'].src, 'data:image/png;base64,newRemote', 'playlist rebuild restores artwork by file path');
+    assert.equal(elements['cover-0'].src, 'data:image/jpeg;base64,smallThumbnail', 'playlist rebuild restores artwork by file path');
     elements['player-cover-img'].listeners.load();
     assert.equal(elements['player-cover-img'].classList.contains('loaded'), true);
     assert.equal(elements['player-cover-wrap'].getAttribute('data-artwork-state'), 'ready');
@@ -194,6 +225,59 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     context.noctune.lastfm.openCoverCacheFolder = async () => ({ ok: false });
     await elements['cover-cache-open-folder'].listeners.click();
     assert.equal(elements['lastfm-cover-cache-status'].textContent, 'Не удалось открыть папку обложек.');
+    elements['btn-lyrics'].listeners.click();
+    assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), true, 'close preserves expanded preference');
+    elements['lyrics-view-toggle'].listeners.click();
+    elements['lyrics-close'].listeners.click();
+    elements['btn-lyrics'].listeners.click();
+    assert.equal(elements['lyrics-modal'].classList.contains('lyrics-expanded'), false, 'collapsed preference also persists');
+    const requestCount = requests.length;
+    context.isRadioMode = true;
+    context.window.setLyricsTrack({ radio: true, stationName: 'Test FM', title: '', artist: '' }, 7);
+    assert.equal(elements['lyrics-seek-row'].hidden, true);
+    assert.equal(elements['lyrics-radio-station'].textContent, 'Test FM');
+    context.window.setLyricsTrack({ radio: true, stationName: 'Test FM', artist: 'Radio Artist', title: 'Radio Song' }, 7);
+    assert.equal(elements['lyrics-song-title'].textContent, 'Radio Song');
+    assert.equal(elements['lyrics-song-artist'].textContent, 'Radio Artist');
+    assert.equal(requests.length, requestCount, 'radio metadata does not fetch lyrics');
+    const radioArt = [];
+    let radioCancels = 0;
+    context.noctune.lastfm.cover = payload => new Promise(resolve => radioArt.push({ payload, resolve }));
+    context.noctune.lastfm.cancelRadioCover = async () => { radioCancels++; };
+    elements['setting-lastfm-covers'].checked = true;
+    elements['setting-lastfm-covers'].listeners.change();
+    assert.equal(radioArt.length, 1);
+    assert.equal(radioArt[0].payload.transient, true);
+    context.window.setLyricsTrack({ radio: true, stationName: 'Test FM', artist: 'Radio Artist', title: 'Radio Song' }, 7);
+    assert.equal(radioArt.length, 1, 'duplicate radio metadata does not refetch');
+    context.window.setLyricsTrack({ radio: true, stationName: 'Test FM', artist: 'New Artist', title: 'New Song' }, 7);
+    radioArt[0].resolve({ status: 'found', dataUrl: 'data:image/png;base64,oldradio' }); await flush();
+    assert.equal(elements['lyrics-cover-image'].getAttribute('src'), null, 'old radio song response is ignored');
+    radioArt[1].resolve({ status: 'found', dataUrl: 'data:image/png;base64,radio' }); await flush();
+    assert.equal(elements['lyrics-cover-image'].src, 'data:image/png;base64,radio');
+    assert.equal(elements['player-cover-img'].src, 'data:image/png;base64,radio');
+    context.window.setLyricsTrack({ radio: true, stationName: 'Another FM', artist: 'New Artist', title: 'New Song' }, 9);
+    assert.equal(elements['lyrics-cover-image'].getAttribute('src'), null, 'station change releases previous image');
+    radioArt[2].resolve({ status: 'error' }); await flush();
+    windowListeners.online();
+    assert.equal(radioArt.length, 4, 'connectivity restoration retries current radio track');
+    elements['setting-lastfm-covers'].checked = false; elements['setting-lastfm-covers'].listeners.change();
+    radioArt[3].resolve({ status: 'found', dataUrl: 'data:image/png;base64,disabledradio' }); await flush();
+    assert.equal(elements['lyrics-cover-image'].getAttribute('src'), null, 'disabling auto-covers ignores pending response');
+    elements['setting-lastfm-covers'].checked = true; elements['setting-lastfm-covers'].listeners.change();
+    context.window.clearRadioArtwork();
+    radioArt[4].resolve({ status: 'found', dataUrl: 'data:image/png;base64,stoppedradio' }); await flush();
+    assert.equal(elements['lyrics-cover-image'].getAttribute('src'), null, 'stop releases image and ignores pending response');
+    assert(radioCancels >= 4);
+    context.window.setLyricsTrack({ radio: true, stationName: 'Another FM', artist: '', title: '' }, 10);
+    assert.equal(radioArt.length, 5, 'station without track metadata does not search for a cover');
+    context.window.lastfmEnabled = false;
+    context.window.setLyricsTrack({ radio: true, stationName: 'Another FM', artist: 'Artist', title: 'Song' }, 10);
+    assert.equal(radioArt.length, 5, 'disabled Last.fm prevents lookup');
+    context.isRadioMode = false;
+    context.window.setLyricsTrack({ artist: 'Local Artist', title: 'Local Song' }, 8);
+    assert.equal(elements['lyrics-seek-row'].hidden, false, 'local tracks restore progress');
+    assert.equal(elements['lyrics-radio-station'].hidden, true);
     const html = fs.readFileSync('src/renderer/index.html', 'utf8');
     assert.equal(html.includes('cover-download-status'), false, 'cover status text is removed');
     assert(html.includes('data-lucide="trash-2"') && html.includes('data-lucide="folder-open"'));

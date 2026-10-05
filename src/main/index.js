@@ -1,6 +1,9 @@
 const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const { KEY: HARDWARE_ACCELERATION_KEY, readHardwareAcceleration, hardwareAccelerationState } = require('./hardware-acceleration');
+const startupHardwareAcceleration = readHardwareAcceleration(path.join(app.getPath('userData'), 'config.json'));
+if (!startupHardwareAcceleration) app.disableHardwareAcceleration();
 
 const iconPath = path.join(
   __dirname, '..', '..', 'resources',
@@ -10,6 +13,11 @@ const iconPath = path.join(
 const { createLyricsClient } = require('./integrations/lrclib/lyrics-service');
 const lyricsClient = createLyricsClient({ userAgent: 'Noctune/' + app.getVersion() + ' (https://github.com/PleaseSuffer/NoctunePlayer)' });
 ipcMain.handle('lyrics:get', (_event, payload) => lyricsClient.get(payload));
+const { createWaveformCache } = require('./cache/waveform-cache');
+const waveformCache = createWaveformCache({ directory: () => path.join(app.getPath('userData'), 'waveforms') });
+ipcMain.handle('waveform:get', (_event, filePath) => waveformCache.get(filePath));
+ipcMain.handle('waveform:set', (_event, payload) => waveformCache.set(payload?.filePath, payload?.key, payload?.peaks));
+ipcMain.handle('lyrics:cancel', () => { lyricsClient.cancel(); return { ok: true }; });
 
 
 app.commandLine.appendSwitch('hardware-media-key-handling');
@@ -22,6 +30,7 @@ let isQuiting = false;
 let minimizeToTray = true; // Управляется из настроек рендерера
 
 let store;
+let storeInitialization;
 
 // ── Интеграция: Discord Rich Presence ──────────────────────────────────────
 // Подключение к локальному Discord-клиенту живёт в main-процессе (а не в
@@ -75,9 +84,30 @@ function handleArgvForDeepLink(argv) {
 }
 
 async function initStore() {
-  const { default: Store } = await import('electron-store');
-  store = new Store();
+  if (!storeInitialization) {
+    storeInitialization = import('electron-store').then(({ default: Store }) => {
+      store = new Store();
+      return store;
+    });
+  }
+  return storeInitialization;
 }
+
+ipcMain.handle('performance:hardware-get', async () => {
+  await initStore();
+  return hardwareAccelerationState(store.get(HARDWARE_ACCELERATION_KEY) !== '0', startupHardwareAcceleration);
+});
+ipcMain.handle('performance:hardware-set', async (_event, enabled) => {
+  if (typeof enabled !== 'boolean') throw new TypeError('Expected boolean');
+  await initStore();
+  store.set(HARDWARE_ACCELERATION_KEY, enabled ? '1' : '0');
+  return hardwareAccelerationState(enabled, startupHardwareAcceleration);
+});
+ipcMain.handle('performance:restart', () => {
+  isQuiting = true;
+  app.relaunch();
+  app.quit();
+});
 
 function scheduleDiscordReconnect() {
   if (discordRPCReconnectTimer || !discordRPCEnabled || !discordRPCClientId) return;
@@ -196,7 +226,7 @@ function lastfmSign(params) {
   return require('crypto').createHash('md5').update(base, 'utf8').digest('hex');
 }
 
-function lastfmRequest(params, httpMethod = 'GET') {
+function lastfmRequest(params, httpMethod = 'GET', signal) {
   return new Promise((resolve, reject) => {
     const https = require('https');
     const querystring = require('querystring');
@@ -207,6 +237,7 @@ function lastfmRequest(params, httpMethod = 'GET') {
     const body = querystring.stringify(fullParams);
 
     const options = {
+      signal,
       hostname: 'ws.audioscrobbler.com',
       path: '/2.0/' + (httpMethod === 'GET' ? ('?' + body) : ''),
       method: httpMethod,
@@ -899,13 +930,14 @@ const coverCacheDirectory = createCoverCacheDirectoryResolver({
     userData: () => app.getPath('userData'),
 });
 const lastfmCoverClient = createLastfmCoverClient({
-    request: lastfmRequest,
+    request: (params, signal) => lastfmRequest(params, 'GET', signal),
     settings: () => ({ enabled: store?.get('setting_lastfm_enabled') === '1' && store?.get('setting_lastfm_covers') !== '0', cache: store?.get('setting_lastfm_cover_cache') !== '0', limitMB: store?.get('setting_lastfm_cover_cache_limit') || 30 }),
     cacheDirectory: coverCacheDirectory,
 });
 ipcMain.handle('lastfm-cover', (event, payload) => lastfmCoverClient.get(payload, progress => {
     if (!event.sender.isDestroyed() && typeof payload?.requestId === 'string') event.sender.send('lastfm-cover-progress', { ...progress, requestId: payload.requestId });
 }));
+ipcMain.handle('lastfm-cover-radio-cancel', () => { lastfmCoverClient.cancelRadio(); return { ok: true }; });
 ipcMain.handle('lastfm-cover-cache-stats', async (_event, payload) => {
     try { return { ok: true, ...await lastfmCoverClient.stats(payload) }; } catch (_) { return { ok: false }; }
 });
