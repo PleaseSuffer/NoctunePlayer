@@ -959,6 +959,12 @@ ipcMain.handle('lastfm-cover', (event, payload) => lastfmCoverClient.get(payload
     if (!event.sender.isDestroyed() && typeof payload?.requestId === 'string') event.sender.send('lastfm-cover-progress', { ...progress, requestId: payload.requestId });
 }));
 ipcMain.handle('lastfm-cover-radio-cancel', () => { lastfmCoverClient.cancelRadio(); return { ok: true }; });
+ipcMain.handle('lastfm-cover-cache-track-status', async (_event, payload) => {
+    try { return await lastfmCoverClient.cached(payload); } catch (_) { return { ok: false }; }
+});
+ipcMain.handle('lastfm-cover-cache-track-remove', async (_event, payload) => {
+    try { return await lastfmCoverClient.remove(payload); } catch (_) { return { ok: false }; }
+});
 ipcMain.handle('lastfm-cover-cache-stats', async (_event, payload) => {
     try { return { ok: true, ...await lastfmCoverClient.stats(payload) }; } catch (_) { return { ok: false }; }
 });

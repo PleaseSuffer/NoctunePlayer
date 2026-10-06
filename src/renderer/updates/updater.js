@@ -23,6 +23,25 @@
             let _scheduleTimer = null;
             let _pendingVersion = null;   // предложена, но ещё не скачана/отклонена — не дублируем toast
             let _downloadedVersion = null;
+            let _manualCheck = false;
+            let _lastErrorToast = null;
+
+            function showUpdateError(error) {
+                const details = String(error && error.message || error || 'Неизвестная ошибка');
+                const missingMetadata = /Cannot find latest[^\s/]*\.ya?ml\b/i.test(details);
+                const message = missingMetadata
+                    ? 'Автообновление для этой платформы пока недоступно.'
+                    : 'Не удалось выполнить обновление. Попробуйте позже.';
+                statusMsg.textContent = message;
+                statusMsg.style.color = '#ff6b6b';
+                // Фоновая проверка не отвлекает toast'ом. При ручной проверке
+                // подробности доступны через существующую кнопку копирования.
+                // Одна ошибка может прийти и событием, и результатом IPC.
+                if (_manualCheck && _lastErrorToast !== details) {
+                    _lastErrorToast = details;
+                    showNotification(message, 'error', 'Обновление недоступно', details);
+                }
+            }
 
             // Постоянная кнопка рядом с "Проверить" — раньше скачать/установить
             // можно было только из toast'а, а если его закрыли ("Позже"/крестик)
@@ -97,15 +116,19 @@
                 btnCheck.disabled = true;
                 statusMsg.textContent = 'Проверка наличия обновлений...';
                 statusMsg.style.color = '';
+                _manualCheck = true;
+                _lastErrorToast = null;
                 try {
                     const res = await noctune.updater.check(false);
                     if (res && res.ok === false) {
-                        statusMsg.textContent = `Ошибка: ${res.error || 'не удалось проверить обновления'}`;
-                        statusMsg.style.color = '#ff6b6b';
+                        showUpdateError(res.error);
                     }
                     // Результат (найдено/не найдено/скачано) придёт отдельно
                     // через события updater:* ниже.
+                } catch (error) {
+                    showUpdateError(error);
                 } finally {
+                    _manualCheck = false;
                     if (icon) icon.classList.remove('lucide-spin');
                     btnCheck.disabled = false;
                 }
@@ -124,8 +147,7 @@
             });
 
             noctune.updater.onError((message) => {
-                statusMsg.textContent = `Ошибка проверки обновлений: ${message}`;
-                statusMsg.style.color = '#ff6b6b';
+                showUpdateError(message);
             });
 
             noctune.updater.onAvailable((info) => {

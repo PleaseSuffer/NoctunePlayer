@@ -279,6 +279,8 @@ contextBridge.exposeInMainWorld('noctune', {
     cover: payload => ipcRenderer.invoke('lastfm-cover', payload),
     cancelRadioCover: () => ipcRenderer.invoke('lastfm-cover-radio-cancel'),
     clearCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-clear', payload),
+    trackCoverCacheStatus: payload => ipcRenderer.invoke('lastfm-cover-cache-track-status', payload),
+    removeTrackCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-track-remove', payload),
     coverCacheStats: payload => ipcRenderer.invoke('lastfm-cover-cache-stats', payload),
     configureCoverCache: payload => ipcRenderer.invoke('lastfm-cover-cache-configure', payload),
     chooseCoverCacheFolder: () => ipcRenderer.invoke('lastfm-cover-cache-choose-folder'),

@@ -69,6 +69,66 @@
     let artworkSerial = 0, artworkKey = '', remoteCover = '';
     const trackArtwork = new Map();
     const artworkIdentity = metadata => JSON.stringify([metadata?.artist, metadata?.title, metadata?.album || '']);
+    const coverIdentity = metadata => {
+        const value = key => String(metadata?.[key] || '').trim().slice(0, 300).toLowerCase();
+        const filePath = String(metadata?.filePath || '').replace(/\\/g, '/');
+        const directory = cacheLocation === 'music' ? filePath.slice(0, filePath.lastIndexOf('/')) : '';
+        return JSON.stringify([directory, value('artist'), value('album'), value('album') ? '' : value('title')]);
+    };
+    function rememberArtwork(filePath, metadata, image) {
+        trackArtwork.delete(filePath);
+        trackArtwork.set(filePath, { identity: artworkIdentity(metadata), image });
+        let bytes = [...trackArtwork.values()].reduce((sum, item) => sum + item.image.length, 0);
+        for (const [path, item] of trackArtwork) {
+            if (trackArtwork.size <= 100 && bytes <= 30 * 1024 * 1024) break;
+            trackArtwork.delete(path); bytes -= item.image.length;
+        }
+    }
+    window.getTrackCoverCacheInfo = async (index, entry) => {
+        const metadata = parsedMetadataCache[index] || await noctune.metadata.parseFile(entry.path, entry.name);
+        const payload = { artist: metadata.artist, title: metadata.title, album: metadata.album, filePath: entry.path };
+        const result = await noctune.lastfm.trackCoverCacheStatus(payload);
+        if (!result.ok) throw new Error('Не удалось проверить кэш обложки');
+        return { payload, cached: result.cached };
+    };
+    let coverActionSerial = 0;
+    window.changeTrackCover = async (payload, remove) => {
+        const actionSerial = ++coverActionSerial;
+        const identity = coverIdentity(payload);
+        if (!track?.radio && coverIdentity(track) === identity) artworkSerial++;
+        const cleared = await noctune.lastfm.removeTrackCoverCache(payload);
+        if (!cleared.ok) throw new Error('Не удалось удалить кэш обложки');
+        for (const [path, saved] of trackArtwork) {
+            const [artist, title, album] = JSON.parse(saved.identity);
+            if (coverIdentity({ artist, title, album, filePath: path }) === identity) trackArtwork.delete(path);
+        }
+        if (!track?.radio && coverIdentity(track) === identity) {
+            artworkSerial++; remoteCover = ''; artworkRequestId = null;
+            // Удалённая обложка не загружается снова до смены трека
+            // или явного действия «Обновить обложку».
+            artworkKey = JSON.stringify([track.token, track.artist, track.title, track.album]);
+            setArtworkState('idle'); updateNowPlaying();
+        }
+        updatePlaylistArtwork(); updateCacheStats();
+        if (remove) return;
+        const result = await noctune.lastfm.cover(payload);
+        if (actionSerial !== coverActionSerial) return;
+        if (result.status !== 'found') {
+            const message = result.status === 'disabled' ? 'Включите загрузку обложек Last.fm в настройках.'
+                : result.status === 'missing' || result.status === 'invalid' ? 'Обложка не найдена.' : 'Не удалось обновить обложку.';
+            showNotification(message, 'info', 'Обложка трека');
+            return;
+        }
+        const thumbnail = noctune.metadata?.thumbnail ? await noctune.metadata.thumbnail(result.dataUrl) : result.dataUrl;
+        if (actionSerial !== coverActionSerial) return;
+        if (fileEntries.some(entry => entry.path === payload.filePath)) rememberArtwork(payload.filePath, payload, thumbnail || '');
+        if (!track?.radio && coverIdentity(track) === identity) {
+            artworkSerial++; remoteCover = result.dataUrl;
+            artworkKey = JSON.stringify([track.token, track.artist, track.title, track.album]);
+            updateNowPlaying();
+        }
+        updatePlaylistArtwork(); updateCacheStats();
+    };
     window.updateTrackArtwork = (index, metadata, expectedPath) => {
         const entry = typeof fileEntries !== 'undefined' ? fileEntries[index] : null;
         if (!entry || entry.kind === 'radio' || (expectedPath && entry.path !== expectedPath)) return;
@@ -209,13 +269,7 @@
                 let thumbnail = null;
                 try { thumbnail = noctune.metadata?.thumbnail ? await noctune.metadata.thumbnail(remoteCover) : remoteCover; } catch (_) {}
                 if (requestSerial !== artworkSerial || !window.lastfmEnabled || !coversToggle.checked) return;
-                trackArtwork.delete(track.filePath);
-                trackArtwork.set(track.filePath, { identity: artworkIdentity(track), image: thumbnail || '' });
-                let bytes = [...trackArtwork.values()].reduce((sum, item) => sum + item.image.length, 0);
-                for (const [path, item] of trackArtwork) {
-                    if (trackArtwork.size <= 100 && bytes <= 30 * 1024 * 1024) break;
-                    trackArtwork.delete(path); bytes -= item.image.length;
-                }
+                rememberArtwork(track.filePath, track, thumbnail || '');
             }
             updatePlaylistArtwork(); updateNowPlaying();
         }

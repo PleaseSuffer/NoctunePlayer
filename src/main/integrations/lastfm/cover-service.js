@@ -5,6 +5,12 @@ const { createHash } = require('node:crypto');
 const MAX_IMAGE = 2 * 1024 * 1024;
 const MAX_CACHE = 30 * 1024 * 1024;
 const CACHE_FILE = /^[a-f0-9]{64}\.json$/;
+function coverHash(payload) {
+    const value = name => typeof payload?.[name] === 'string' ? payload[name].trim().slice(0, 300).toLowerCase() : '';
+    const artist = value('artist'), album = value('album'), title = value('title');
+    if (!artist || artist === 'неизвестный исполнитель' || (!album && !title)) return null;
+    return createHash('sha256').update(JSON.stringify([artist, album, album ? '' : title])).digest('hex');
+}
 function coverUrl(images) {
     const sizes = ['mega', 'extralarge', 'large', 'medium', 'small'];
     if (!Array.isArray(images)) return null;
@@ -61,11 +67,11 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
             await fs.unlink(entry.file); bytes -= entry.size; count--;
         }
     }
-    async function save(directory, hash, record, jobGeneration) {
-        if (!caching() || jobGeneration !== generation) return;
+    async function save(directory, hash, record, jobGeneration, active) {
+        if (!caching() || jobGeneration !== generation || !active()) return;
         remember(directory + ':' + hash, record);
         await diskTask(async () => {
-            if (!caching() || jobGeneration !== generation) return;
+            if (!caching() || jobGeneration !== generation || !active()) return;
             await fs.mkdir(directory, { recursive: true });
             await fs.writeFile(path.join(directory, hash + '.json'), JSON.stringify(record));
             await prune(directory);
@@ -115,6 +121,34 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
     }
     return {
         cancelRadio,
+        async cached(payload) {
+            const hash = coverHash(payload);
+            if (!hash || payload?.transient) return { ok: true, cached: false };
+            const directory = await cacheDirectory(payload);
+            await diskQueue;
+            let record = memory.get(directory + ':' + hash);
+            if (!record) try {
+                const file = path.join(directory, hash + '.json');
+                const stat = await fs.lstat(file);
+                if (stat.isFile() && stat.size <= 3 * 1024 * 1024) record = JSON.parse(await fs.readFile(file, 'utf8'));
+            } catch (_) {}
+            return { ok: true, cached: Boolean(record?.expires > now() && record?.result?.status === 'found' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(record.result.dataUrl || '')) };
+        },
+        async remove(payload) {
+            const hash = coverHash(payload);
+            if (!hash || payload?.transient) return { ok: false };
+            const directory = await cacheDirectory(payload);
+            // Не позволяем незавершённому запросу восстановить удалённый кэш.
+            const cacheKey = directory + ':' + hash;
+            for (const [key, entry] of pending) {
+                if (entry.cacheKey === cacheKey) { entry.cancelled = true; pending.delete(key); }
+            }
+            memory.delete(cacheKey);
+            await diskTask(() => fs.unlink(path.join(directory, hash + '.json')).catch(error => {
+                if (error.code !== 'ENOENT') throw error;
+            }));
+            return { ok: true };
+        },
         async get(payload, onProgress = () => {}) {
             if (!enabled()) return { status: 'disabled' };
             const transient = payload?.transient === true;
@@ -125,9 +159,10 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
             const controller = transient ? new AbortController() : null;
             if (transient) { cancelRadio(); radioController = controller; }
             const jobGeneration = generation;
-            const active = () => enabled() && jobGeneration === generation && !controller?.signal.aborted;
+            const active = () => enabled() && jobGeneration === generation && !controller?.signal.aborted && !entry.cancelled;
             const directory = transient ? '' : await cacheDirectory(payload);
-            const hash = createHash('sha256').update(JSON.stringify([artist.toLowerCase(), album.toLowerCase(), album ? '' : title.toLowerCase()])).digest('hex');
+            const hash = transient ? null : coverHash(payload);
+            if (!transient && !hash) return { status: 'invalid' };
             const cacheKey = directory + ':' + hash;
             const pendingKey = transient ? controller : cacheKey + ':' + jobGeneration;
             if (pending.has(pendingKey)) {
@@ -136,7 +171,7 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
                 if (existing.last) try { onProgress(existing.last); } catch (_) {}
                 return existing.job;
             }
-            const entry = { listeners: new Set([onProgress]), last: null, job: null };
+            const entry = { listeners: new Set([onProgress]), last: null, job: null, cacheKey, cancelled: false };
             const report = state => {
                 entry.last = state;
                 for (const callback of entry.listeners) try { callback(state); } catch (_) {}
@@ -176,13 +211,13 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
                         result = await download(url, report, active, controller?.signal);
                     }
                     if (!active()) return { status: 'disabled' };
-                    if (!transient) await save(directory, hash, { version: 2, lookupTitle: title.toLowerCase(), expires: now() + (url ? 30 * 86400000 : 15 * 60000), result }, jobGeneration);
+                    if (!transient) await save(directory, hash, { version: 2, lookupTitle: title.toLowerCase(), expires: now() + (url ? 30 * 86400000 : 15 * 60000), result }, jobGeneration, active);
                     report({ phase: result.status, progress: 1 });
                     return result;
                 } catch (_) { if (!active()) return { status: 'disabled' }; report({ phase: 'error' }); return { status: 'error' }; }
             })();
             entry.job = job; pending.set(pendingKey, entry);
-            try { return await job; } finally { pending.delete(pendingKey); if (controller && radioController === controller) radioController = null; }
+            try { return await job; } finally { if (pending.get(pendingKey) === entry) pending.delete(pendingKey); if (controller && radioController === controller) radioController = null; }
         },
         stats,
         async configure(payload) {

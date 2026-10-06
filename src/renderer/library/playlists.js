@@ -1,3 +1,37 @@
+        let trackCoverMenuSerial = 0;
+        let trackCoverMenuInfo = null;
+        async function updateTrackCoverMenu(index) {
+            const serial = ++trackCoverMenuSerial;
+            const button = document.getElementById('menu-track-cover');
+            const entry = fileEntries[index];
+            trackCoverMenuInfo = null;
+            button.style.display = entry && entry.kind !== 'radio' ? 'flex' : 'none';
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Обновить обложку';
+            if (!entry || entry.kind === 'radio') return;
+            try {
+                const info = await window.getTrackCoverCacheInfo(index, entry);
+                if (serial !== trackCoverMenuSerial || fileEntries[index] !== entry) return;
+                trackCoverMenuInfo = info;
+                button.querySelector('span').textContent = info.cached ? 'Удалить кэш обложки' : 'Обновить обложку';
+                button.disabled = false;
+            } catch (_) {
+                if (serial === trackCoverMenuSerial) button.querySelector('span').textContent = 'Обложка недоступна';
+            }
+        }
+
+        document.getElementById('menu-track-cover').addEventListener('click', async () => {
+            const info = trackCoverMenuInfo;
+            if (!info) return;
+            trackCoverMenuInfo = null;
+            try {
+                await window.changeTrackCover(info.payload, info.cached);
+                if (info.cached) showNotification('Кэш обложки удалён.', 'info', 'Обложка трека');
+            } catch (error) {
+                showNotification('Не удалось изменить обложку.', 'error', 'Обложка трека', String(error && error.message || error));
+            }
+        });
+
         function savePlaylistsToStorage() {
             appStorage.setItem('noctune_playlists', JSON.stringify(userPlaylists));
         }
@@ -279,6 +313,7 @@
                 b.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
+                    updateTrackCoverMenu(selectedTrackIndexInMenu);
                     document.getElementById('menu-edit-radio').style.display = 'flex';
                     document.getElementById('menu-check-radio').style.display = 'flex';
                     document.getElementById('menu-play-next').style.display = 'none';
@@ -410,6 +445,7 @@
                     li.querySelector('.track-item-action').addEventListener('click', (e) => {
                         e.stopPropagation();
                         selectedTrackIndexInMenu = trackIndex;
+                        updateTrackCoverMenu(selectedTrackIndexInMenu);
                         document.getElementById('menu-edit-radio').style.display = 'none';
                         document.getElementById('menu-check-radio').style.display = 'none';
                         document.getElementById('menu-play-next').style.display = 'flex';
@@ -535,6 +571,7 @@
                     li.querySelector('.track-item-action').addEventListener('click', (e) => {
                         e.stopPropagation();
                         selectedTrackIndexInMenu = trackIndex;
+                        updateTrackCoverMenu(selectedTrackIndexInMenu);
                         document.getElementById('menu-edit-radio').style.display = 'none';
                         document.getElementById('menu-check-radio').style.display = 'none';
                         document.getElementById('menu-play-next').style.display = 'flex';
@@ -686,6 +723,7 @@
                         selectedTrackIndexInMenu = parseInt(
                             e.currentTarget.getAttribute('data-id')
                         );
+                        updateTrackCoverMenu(selectedTrackIndexInMenu);
 
                         document.getElementById('menu-edit-radio').style.display = 'none';
                         document.getElementById('menu-check-radio').style.display = 'none';
@@ -789,6 +827,7 @@
                 b.addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
+                    updateTrackCoverMenu(selectedTrackIndexInMenu);
                     document.getElementById('menu-edit-radio').style.display = 'none';
                     document.getElementById('menu-check-radio').style.display = 'none';
                     document.getElementById('menu-play-next').style.display = 'flex';
