@@ -19,18 +19,24 @@ class Element {
 }
 const ids = ['lyrics-modal', 'btn-lyrics', 'mini-btn-lyrics', 'lyrics-close', 'setting-lyrics-enabled', 'lyrics-status', 'lyrics-content', 'lyrics-track', 'lyrics-retry', 'lyrics-follow', 'lyrics-view-toggle', 'setting-lyrics-autoscroll', 'lyrics-settings-body', 'lyrics-cover-image', 'lyrics-cover-placeholder', 'lyrics-seek', 'lyrics-play', 'lyrics-song-title', 'lyrics-song-artist', 'lyrics-time-current', 'lyrics-time-total', 'lyrics-prev', 'lyrics-next', 'lyrics-appearance-settings', 'setting-lyrics-color-mode', 'setting-lyrics-color', 'setting-lyrics-dim', 'setting-lyrics-blur', 'setting-lyrics-size', 'setting-lyrics-inactive', 'setting-lyrics-shadow', 'lyrics-custom-color-row', 'setting-lyrics-dim-label', 'setting-lyrics-blur-label', 'setting-lyrics-size-label', 'setting-lyrics-inactive-label', 'lyrics-color-dropdown', 'lyrics-color-menu', 'lyrics-color-label', 'lyrics-color-icon', 'setting-lastfm-covers', 'setting-lastfm-cover-cache', 'lastfm-cover-cache-settings', 'lastfm-cover-cache-clear', 'lastfm-cover-cache-status'];
 ids.push('lyrics-radio-station', 'lyrics-seek-row', 'lyrics-volume-popover', 'lyrics-shuffle', 'lyrics-repeat', 'lyrics-volume', 'lyrics-volume-button', 'lyrics-volume-icon');
+ids.push('setting-lyrics-scrollbar', 'lyrics-scrollbar-dropdown', 'lyrics-scrollbar-menu', 'lyrics-scrollbar-label', 'lyrics-scrollbar-icon');
 const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
 for (const id of ['player-cover-img', 'player-cover-placeholder', 'player-cover-wrap', 'lyrics-cover-wrap', 'cover-download-status', 'lastfm-cover-cache-options', 'lastfm-cover-cache-limit', 'lastfm-cover-cache-limit-label', 'cover-cache-location-button', 'cover-cache-location-menu', 'cover-cache-location-dropdown', 'cover-cache-location-label', 'lastfm-cover-cache-usage', 'lastfm-cover-cache-path', 'settings-fab']) elements[id] = new Element();
 for (const id of ['cover-cache-custom-row', 'cover-cache-custom-path', 'cover-cache-choose-folder', 'cover-cache-open-folder', 'cover-cache-location-hint']) elements[id] = new Element();
 elements['cover-cache-location-menu'].children = ['app', 'music', 'custom'].map(location => { const item = new Element(); item.setAttribute('data-location', location); return item; });
 const layout = { '.lyrics-now-playing': new Element(), '.lyrics-text-column': new Element() };
 elements['lyrics-color-menu'].children = ['adaptive', 'accent', 'custom', 'light', 'dark'].map(mode => { const item = new Element(); item.setAttribute('data-mode', mode); return item; });
+elements['lyrics-scrollbar-menu'].children = ['auto', 'always'].map(mode => { const item = new Element(); item.setAttribute('data-mode', mode); return item; });
 const requests = [];
 let lyricsCancels = 0;
 const windowListeners = {};
 const storage = new Map();
 let coverProgress;
+let timerSerial = 0;
+const idleTimers = new Map();
 const context = {
+    setTimeout: (callback, delay) => { const id = ++timerSerial; idleTimers.set(id, { callback, delay }); return id; },
+    clearTimeout: id => idleTimers.delete(id),
     document: { addEventListener() {}, querySelector: selector => layout[selector], getElementById: id => elements[id], createElement: () => new Element(), activeElement: new Element(), body: new Element() },
     appStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, window: { matchMedia: () => ({ matches: false }), addEventListener: (name, callback) => { windowListeners[name] = callback; } },
     noctune: { lastfm: { onCoverProgress: callback => { coverProgress = callback; } }, lyrics: { cancel: async () => { lyricsCancels++; }, get: payload => new Promise(resolve => requests.push({ payload, resolve })) } },
@@ -207,7 +213,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     elements['cover-cache-location-menu'].children[1].listeners.click(); await flush();
     assert.equal(elements['cover-cache-location-label'].textContent, 'В папке с музыкой');
     const savedSettings = [];
-    context.appStorage.setItem = (key, value) => savedSettings.push([key, value]);
+    context.appStorage.setItem = (key, value) => { savedSettings.push([key, value]); storage.set(key, value); };
     context.noctune.lastfm.chooseCoverCacheFolder = async () => ({ canceled: true });
     await elements['cover-cache-location-menu'].children[2].listeners.click();
     assert.equal(elements['cover-cache-location-label'].textContent, 'В папке с музыкой', 'cancel keeps previous location');
@@ -300,6 +306,69 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     assert.equal(elements['player-cover-img'].src, 'data:image/png;base64,manualCover');
     assert.equal(elements['cover-0'].src, 'data:image/jpeg;base64,smallThumbnail');
     assert.equal(coverRemovals.length, 2);
+    const lyricsContent = elements['lyrics-content'];
+    assert.equal(context.window.getLyricsAppearance().scrollbar, 'auto', 'missing scrollbar preference defaults to automatic');
+    elements['setting-lyrics-scrollbar'].listeners.click();
+    assert.equal(elements['lyrics-scrollbar-menu'].classList.contains('open'), true);
+    elements['lyrics-scrollbar-menu'].children[0].listeners.click();
+    assert.equal(elements['lyrics-scrollbar-menu'].classList.contains('open'), false);
+    assert.equal(lyricsContent.getAttribute('data-scrollbar'), 'auto');
+    assert.equal(elements['lyrics-scrollbar-label'].textContent, 'Автоматически');
+    assert.equal(JSON.parse(storage.get('setting_lyrics_appearance')).scrollbar, 'auto', 'scrollbar mode persists with appearance settings');
+    elements['btn-lyrics'].listeners.click();
+    lyricsContent.listeners.scroll();
+    assert.equal(lyricsContent.classList.contains('lyrics-scrollbar-active'), true);
+    assert.equal(idleTimers.size, 1);
+    lyricsContent.listeners.scroll();
+    assert.equal(idleTimers.size, 1, 'continued scrolling resets the idle timer');
+    const idle = [...idleTimers.values()][0];
+    assert.equal(idle.delay, 1200);
+    idle.callback();
+    assert.equal(lyricsContent.classList.contains('lyrics-scrollbar-active'), false, 'idle scrollbar fades out');
+    lyricsContent.listeners.scroll();
+    elements['lyrics-close'].listeners.click();
+    assert.equal(idleTimers.size, 0, 'closing the view cancels the idle timer');
+    assert.equal(lyricsContent.classList.contains('lyrics-scrollbar-active'), false);
+    context.window.applyLyricsAppearanceTheme({ scrollbar: 'always' });
+    lyricsContent.listeners.scroll();
+    assert.equal(idleTimers.size, 0, 'always mode does not schedule hiding');
+    context.window.applyLyricsAppearanceTheme({ scrollbar: 'auto' });
+    assert.equal(context.window.getLyricsAppearance().scrollbar, 'auto', 'theme imports restore scrollbar mode');
+    context.window.applyLyricsAppearanceTheme({ scrollbar: 'invalid' });
+    assert.equal(context.window.getLyricsAppearance().scrollbar, 'auto', 'invalid modes use the automatic default');
+    context.localAudioElement.currentTime = 0;
+    context.isPlaying = true;
+    context.noctune.lyrics.get = async () => ({ status: 'found', lines: [
+        { time: 0, text: '' }, { time: 12, text: 'First line' }, { time: 16, text: 'Second line' },
+    ] });
+    context.window.setLyricsTrack({ artist: 'Artist', title: 'Intro', coverDataUrl: 'data:image/png;base64,embedded' }, 12);
+    elements['btn-lyrics'].listeners.click();
+    await flush();
+    const intro = lyricsContent.children[0];
+    const firstLine = lyricsContent.children[1];
+    assert.equal(intro.className, 'lyrics-intro');
+    assert.equal(intro.classList.contains('active'), true, 'intro is the first row before the first lyric timestamp');
+    assert.equal(intro.classList.contains('playing'), true);
+    assert.equal(intro.getAttribute('aria-label'), 'Музыкальное вступление');
+    assert.equal(intro.children.length, 1, 'intro contains only the wave');
+    assert.equal(intro.children[0].children.length, 4, 'intro uses four wave bars');
+    assert.equal(firstLine.textContent, 'First line', 'leading empty timestamps are replaced by the intro');
+    assert.equal(firstLine.getAttribute('aria-current'), null);
+    context.localAudioElement.currentTime = 12;
+    elements['lyrics-follow'].listeners.click();
+    assert.equal(intro.classList.contains('active'), false, 'intro fades away at the first lyric timestamp');
+    assert.equal(firstLine.getAttribute('aria-current'), 'true');
+    context.localAudioElement.currentTime = 2;
+    context.isPlaying = false;
+    elements['lyrics-follow'].listeners.click();
+    assert.equal(intro.classList.contains('active'), true, 'seeking back restores intro');
+    assert.equal(intro.classList.contains('playing'), false, 'paused playback freezes the wave');
+    context.noctune.lyrics.get = async () => ({ status: 'found', lines: [{ time: 0, text: 'Immediate lyrics' }] });
+    context.window.setLyricsTrack({ artist: 'Artist', title: 'Immediate', coverDataUrl: 'data:image/png;base64,embedded' }, 13);
+    assert.equal(lyricsContent.children.length, 0, 'switching tracks removes the previous intro');
+    await flush();
+    assert.equal(lyricsContent.children.length, 1);
+    assert.equal(lyricsContent.children[0].className, 'lyrics-line', 'lyrics starting at zero need no intro');
     const html = fs.readFileSync('src/renderer/index.html', 'utf8');
     assert.equal(html.includes('cover-download-status'), false, 'cover status text is removed');
     assert(html.includes('data-lucide="trash-2"') && html.includes('data-lucide="folder-open"'));

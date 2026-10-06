@@ -1891,7 +1891,21 @@
                                 <div class="settings-row"><div><div class="settings-row-label">Размытие фона</div><div class="settings-row-desc">Только в развёрнутом виде</div></div><input type="range" id="setting-lyrics-blur" aria-label="Размытие фона" min="0" max="12" step="1" value="0"><span id="setting-lyrics-blur-label" class="lyrics-setting-value">0 px</span></div>
                                 <div class="settings-row"><div class="settings-row-label">Размер текста</div><input type="range" id="setting-lyrics-size" aria-label="Размер текста" min="75" max="150" step="5" value="100"><span id="setting-lyrics-size-label" class="lyrics-setting-value">100%</span></div>
                                 <div class="settings-row"><div><div class="settings-row-label">Яркость остальных строк</div><div class="settings-row-desc">Текущая строка всегда выделена</div></div><input type="range" id="setting-lyrics-inactive" aria-label="Яркость остальных строк" min="15" max="80" step="5" value="35"><span id="setting-lyrics-inactive-label" class="lyrics-setting-value">35%</span></div>
-                                <div class="settings-row" style="border-bottom:none;"><div><div class="settings-row-label">Тень текста</div><div class="settings-row-desc">Помогает читать текст на изображениях</div></div><label class="toggle-switch"><input type="checkbox" id="setting-lyrics-shadow" checked><span class="slider-round"></span></label></div>
+                                <div class="settings-row"><div><div class="settings-row-label">Тень текста</div><div class="settings-row-desc">Помогает читать текст на изображениях</div></div><label class="toggle-switch"><input type="checkbox" id="setting-lyrics-shadow" checked><span class="slider-round"></span></label></div>
+                                <div class="settings-row" style="border-bottom:none;">
+                                    <div><div class="settings-row-label">Полоса прокрутки</div><div class="settings-row-desc">В автоматическом режиме плавно скрывается после прокрутки</div></div>
+                                    <div class="viz-type-dropdown-wrapper" id="lyrics-scrollbar-dropdown" style="width:180px;flex-shrink:0;">
+                                        <button type="button" class="viz-type-dropdown-btn" id="setting-lyrics-scrollbar" aria-label="Полоса прокрутки текста" aria-haspopup="listbox" aria-expanded="false" aria-controls="lyrics-scrollbar-menu">
+                                            <span class="pd-icon" id="lyrics-scrollbar-icon"><i data-lucide="wand-2" style="width:14px;height:14px;"></i></span>
+                                            <span class="pd-label" id="lyrics-scrollbar-label">Автоматически</span>
+                                            <span class="pd-chevron"><i data-lucide="chevron-down" style="width:13px;height:13px;"></i></span>
+                                        </button>
+                                        <div class="viz-type-dropdown-menu" id="lyrics-scrollbar-menu" role="listbox" aria-label="Полоса прокрутки текста">
+                                            <button type="button" class="viz-type-menu-item lyrics-scrollbar-option" data-mode="auto" role="option"><i data-lucide="wand-2" style="width:14px;height:14px;color:var(--accent-color);"></i>Автоматически</button>
+                                            <button type="button" class="viz-type-menu-item lyrics-scrollbar-option" data-mode="always" role="option"><i data-lucide="scroll-text" style="width:14px;height:14px;color:var(--accent-color);"></i>Всегда</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

@@ -26,6 +26,14 @@
             let _manualCheck = false;
             let _lastErrorToast = null;
 
+            function showUpdaterUnavailable(info) {
+                statusMsg.textContent = info?.reason === 'development'
+                    ? 'Автообновление недоступно при запуске из исходников.'
+                    : 'Автообновление недоступно для этого способа установки.';
+                statusMsg.style.color = '';
+                setActionButton('hidden');
+            }
+
             function showUpdateError(error) {
                 const details = String(error && error.message || error || 'Неизвестная ошибка');
                 const missingMetadata = /Cannot find latest[^\s/]*\.ya?ml\b/i.test(details);
@@ -122,6 +130,8 @@
                     const res = await noctune.updater.check(false);
                     if (res && res.ok === false) {
                         showUpdateError(res.error);
+                    } else if (res?.status === 'unavailable') {
+                        showUpdaterUnavailable(res);
                     }
                     // Результат (найдено/не найдено/скачано) придёт отдельно
                     // через события updater:* ниже.
@@ -145,6 +155,8 @@
                 statusMsg.style.color = '#2ecc71';
                 setActionButton('hidden');
             });
+
+            noctune.updater.onUnavailable(showUpdaterUnavailable);
 
             noctune.updater.onError((message) => {
                 showUpdateError(message);

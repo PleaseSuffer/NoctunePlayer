@@ -329,7 +329,7 @@
         viewToggle.setAttribute('aria-label', viewToggle.title);
         viewToggle.innerHTML = '<i data-lucide="' + (value ? 'shrink' : 'expand') + '"></i>';
         lucide.createIcons();
-        activeIndex = -1;
+        activeIndex = null;
         requestAnimationFrame(sync);
         if (value) refreshArtwork();
     }
@@ -387,6 +387,7 @@
         dim: document.getElementById('setting-lyrics-dim'), blur: document.getElementById('setting-lyrics-blur'),
         size: document.getElementById('setting-lyrics-size'), inactive: document.getElementById('setting-lyrics-inactive'),
         shadow: document.getElementById('setting-lyrics-shadow'),
+        scrollbar: document.getElementById('setting-lyrics-scrollbar'),
     };
     const colorDropdown = document.getElementById('lyrics-color-dropdown');
     const colorMenu = document.getElementById('lyrics-color-menu');
@@ -423,7 +424,50 @@
             colorOptions[next].focus();
         } else if (event.key === 'Tab') setColorMenuOpen(false);
     });
-    const appearanceDefaults = { mode: 'adaptive', color: '#ffffff', dim: 0, blur: 0, size: 100, inactive: 35, shadow: true };
+    const scrollbarDropdown = document.getElementById('lyrics-scrollbar-dropdown');
+    const scrollbarMenu = document.getElementById('lyrics-scrollbar-menu');
+    const scrollbarOptions = [...scrollbarMenu.querySelectorAll('.lyrics-scrollbar-option')];
+    function setScrollbarMenuOpen(open) {
+        scrollbarMenu.classList.toggle('open', open);
+        appearanceControls.scrollbar.classList.toggle('open', open);
+        appearanceControls.scrollbar.setAttribute('aria-expanded', String(open));
+    }
+    appearanceControls.scrollbar.addEventListener('click', () => setScrollbarMenuOpen(!scrollbarMenu.classList.contains('open')));
+    scrollbarOptions.forEach(option => option.addEventListener('click', () => {
+        applyAppearance({ scrollbar: option.getAttribute('data-mode') }, true);
+        setScrollbarMenuOpen(false);
+        appearanceControls.scrollbar.focus();
+    }));
+    document.addEventListener('click', event => { if (!scrollbarDropdown.contains(event.target)) setScrollbarMenuOpen(false); });
+    appearanceControls.scrollbar.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault(); setScrollbarMenuOpen(true);
+            (scrollbarOptions.find(option => option.getAttribute('data-mode') === appearance.scrollbar) || scrollbarOptions[0]).focus();
+        }
+    });
+    scrollbarMenu.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.preventDefault(); event.stopPropagation(); setScrollbarMenuOpen(false); appearanceControls.scrollbar.focus();
+        } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            event.preventDefault();
+            const current = scrollbarOptions.indexOf(document.activeElement);
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? scrollbarOptions.length - 1 : (current + (event.key === 'ArrowUp' ? -1 : 1) + scrollbarOptions.length) % scrollbarOptions.length;
+            scrollbarOptions[next].focus();
+        } else if (event.key === 'Tab') setScrollbarMenuOpen(false);
+    });
+    let scrollbarIdleTimer = null;
+    function resetScrollbarActivity() {
+        if (scrollbarIdleTimer !== null) clearTimeout(scrollbarIdleTimer);
+        scrollbarIdleTimer = null;
+        content.classList.toggle('lyrics-scrollbar-active', false);
+    }
+    content.addEventListener('scroll', () => {
+        if (appearance.scrollbar !== 'auto' || !opened) return;
+        if (scrollbarIdleTimer !== null) clearTimeout(scrollbarIdleTimer);
+        content.classList.toggle('lyrics-scrollbar-active', true);
+        scrollbarIdleTimer = setTimeout(resetScrollbarActivity, 1200);
+    }, { passive: true });
+    const appearanceDefaults = { mode: 'adaptive', color: '#ffffff', dim: 0, blur: 0, size: 100, inactive: 35, shadow: true, scrollbar: 'auto' };
     const modes = ['adaptive', 'accent', 'custom', 'light', 'dark'];
     const clampAppearance = (value, min, max, fallback) => Number.isFinite(Number(value)) ? Math.max(min, Math.min(max, Number(value))) : fallback;
     let appearance = { ...appearanceDefaults };
@@ -436,6 +480,7 @@
             dim: clampAppearance(next.dim, 0, 80, 0), blur: clampAppearance(next.blur, 0, 12, 0),
             size: clampAppearance(next.size, 75, 150, 100), inactive: clampAppearance(next.inactive, 15, 80, 35),
             shadow: typeof next.shadow === 'boolean' ? next.shadow : true,
+            scrollbar: ['always', 'auto'].includes(next.scrollbar) ? next.scrollbar : appearanceDefaults.scrollbar,
         };
         for (const [key, control] of Object.entries(appearanceControls)) {
             if (key === 'shadow') control.checked = appearance[key]; else control.value = appearance[key];
@@ -448,6 +493,15 @@
             option.classList.toggle('active', selected);
             option.setAttribute('aria-selected', String(selected));
         });
+        document.getElementById('lyrics-scrollbar-label').textContent = appearance.scrollbar === 'auto' ? 'Автоматически' : 'Всегда';
+        document.getElementById('lyrics-scrollbar-icon').innerHTML = '<i data-lucide="' + (appearance.scrollbar === 'auto' ? 'wand-2' : 'scroll-text') + '" style="width:14px;height:14px;"></i>';
+        scrollbarOptions.forEach(option => {
+            const selected = option.getAttribute('data-mode') === appearance.scrollbar;
+            option.classList.toggle('active', selected);
+            option.setAttribute('aria-selected', String(selected));
+        });
+        content.setAttribute('data-scrollbar', appearance.scrollbar);
+        resetScrollbarActivity();
         lucide.createIcons();
         document.getElementById('lyrics-custom-color-row').style.display = appearance.mode === 'custom' ? 'flex' : 'none';
         for (const [key, unit] of Object.entries({ dim: '%', blur: ' px', size: '%', inactive: '%' })) {
@@ -462,18 +516,19 @@
         modal.style.setProperty('--lyrics-inactive', appearance.inactive / 100);
         modal.style.setProperty('--lyrics-shadow', appearance.shadow ? '0 2px 12px rgba(0,0,0,0.6)' : 'none');
         if (save) appStorage.setItem('setting_lyrics_appearance', JSON.stringify(appearance));
-        activeIndex = -1;
+        activeIndex = null;
         requestAnimationFrame(sync);
     }
     window.getLyricsAppearance = () => ({ ...appearance });
     window.applyLyricsAppearanceTheme = values => applyAppearance(values, true);
     for (const [key, control] of Object.entries(appearanceControls)) {
-        control.addEventListener(key === 'mode' || key === 'shadow' ? 'change' : 'input', () => {
+        control.addEventListener(['mode', 'shadow', 'scrollbar'].includes(key) ? 'change' : 'input', () => {
             applyAppearance({ [key]: key === 'shadow' ? control.checked : control.value }, true);
         });
     }
     let enabled = appStorage.getItem('setting_lyrics_enabled') !== '0';
-    let track = null, serial = 0, rows = [], activeIndex = -1, follow = true, frame = null;
+    let track = null, serial = 0, rows = [], activeIndex = null, follow = true, frame = null;
+    let intro = null;
     let opened = false, previousFocus = null;
     let savedAppearance = {};
     try { savedAppearance = JSON.parse(appStorage.getItem('setting_lyrics_appearance') || '{}'); } catch (_) {}
@@ -495,7 +550,7 @@
         left.getAnimations().forEach(animation => animation.cancel());
         left.animate([{ transform: 'translate(' + (before.left - after.left) + 'px,' + (before.top - after.top) + 'px)' }, { transform: 'translate(0,0)' }], { duration: 380, easing: 'cubic-bezier(.22,1,.36,1)' });
         if (!noText) document.querySelector('.lyrics-text-column').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: 'ease-out' });
-        activeIndex = -1; requestAnimationFrame(sync);
+        activeIndex = null; requestAnimationFrame(sync);
     }
     function cancelLyricsSearch() {
         if (noctune.lyrics?.cancel) noctune.lyrics.cancel().catch(() => {});
@@ -503,7 +558,7 @@
     function clear() {
         cancelLyricsSearch();
         serial++;
-        rows = []; activeIndex = -1; follow = autoFollow;
+        rows = []; intro = null; activeIndex = null; follow = autoFollow;
         content.replaceChildren();
         content.scrollTop = 0;
         retry.hidden = true; followButton.hidden = true;
@@ -540,7 +595,21 @@
         if (result.lines.length) {
             status.textContent = 'Синхронизированный текст · нажмите строку для перемотки';
             status.classList.toggle('lyrics-synced-hint', true);
-            rows = result.lines.map(line => {
+            const firstTextIndex = result.lines.findIndex(line => line.text?.trim());
+            const lines = firstTextIndex > 0 ? result.lines.slice(firstTextIndex) : result.lines;
+            if (firstTextIndex >= 0 && lines[0].time > 0) {
+                intro = document.createElement('div');
+                intro.className = 'lyrics-intro';
+                intro.setAttribute('role', 'img');
+                intro.setAttribute('aria-label', 'Музыкальное вступление');
+                const wave = document.createElement('span');
+                wave.className = 'lyrics-intro-wave';
+                wave.setAttribute('aria-hidden', 'true');
+                for (let i = 0; i < 4; i++) wave.appendChild(document.createElement('span'));
+                intro.appendChild(wave);
+                content.appendChild(intro);
+            }
+            rows = lines.map(line => {
                 const element = document.createElement('button');
                 element.type = 'button'; element.className = 'lyrics-line';
                 element.textContent = line.text || '♪';
@@ -551,7 +620,7 @@
                     if (isPlaying) startSourceAt(position, false);
                     else { pausedAt = position; localAudioElement.currentTime = position; updateSMTCPosition(position); }
                     follow = true;
-                    activeIndex = -1;
+                    activeIndex = null;
                     sync();
                 });
                 content.appendChild(element);
@@ -567,10 +636,18 @@
         }
     }
     function sync() {
-        if (!opened || !rows.length || isRadioMode || !localAudioElement?.getAttribute('src')) return;
+        if (!opened || !rows.length || isRadioMode || !localAudioElement?.getAttribute('src')) {
+            if (intro) intro.classList.toggle('playing', false);
+            return;
+        }
         const position = localAudioElement.currentTime || 0;
         let index = -1;
         for (let i = 0; i < rows.length && rows[i].time <= position; i++) index = i;
+        if (intro) {
+            intro.classList.toggle('active', index === -1);
+            intro.classList.toggle('playing', index === -1 && isPlaying && !_trackLoading);
+            intro.setAttribute('aria-hidden', String(index !== -1));
+        }
         if (index === activeIndex) return;
         activeIndex = index;
         rows.forEach((row, i) => {
@@ -578,8 +655,8 @@
             if (i === index) row.element.setAttribute('aria-current', 'true');
             else row.element.removeAttribute('aria-current');
         });
-        if (follow && index >= 0) {
-            const row = rows[index].element;
+        if (follow && (index >= 0 || intro)) {
+            const row = index >= 0 ? rows[index].element : intro;
             const top = row.getBoundingClientRect().top - content.getBoundingClientRect().top + content.scrollTop;
             content.scrollTo({ top: Math.max(0, top - content.clientHeight / 2 + row.offsetHeight / 2),
                 behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
@@ -587,6 +664,8 @@
     }
     function tick() { if (!opened) return; updatePlayback(); sync(); frame = requestAnimationFrame(tick); }
     function close() {
+        resetScrollbarActivity();
+        if (intro) intro.classList.toggle('playing', false);
         cancelLyricsSearch();
         opened = false; serial++; cancelAnimationFrame(frame); frame = null;
         modal.style.display = 'none'; document.body.classList.toggle('lyrics-expanded', false); previousFocus?.focus();
@@ -611,12 +690,12 @@
         const position = Number(seek.value) / 100 * (currentTrackDuration || localAudioElement.duration);
         if (isPlaying) startSourceAt(position, false);
         else { pausedAt = position; localAudioElement.currentTime = position; updateSMTCPosition(position); }
-        activeIndex = -1; sync();
+        activeIndex = null; sync();
     });
     autoScrollToggle.addEventListener('change', () => {
         autoFollow = autoScrollToggle.checked; follow = autoFollow;
         appStorage.setItem('setting_lyrics_autoscroll', autoFollow ? '1' : '0');
-        activeIndex = -1; sync();
+        activeIndex = null; sync();
     });
     closeButton.addEventListener('click', close);
     modal.addEventListener('click', event => { if (event.target === modal) close(); });
@@ -633,7 +712,7 @@
     content.addEventListener('wheel', stopFollowing, { passive: true });
     content.addEventListener('touchstart', stopFollowing, { passive: true });
     content.addEventListener('pointerdown', stopFollowing);
-    followButton.addEventListener('click', () => { follow = true; activeIndex = -1; sync(); });
+    followButton.addEventListener('click', () => { follow = true; activeIndex = null; sync(); });
     retry.addEventListener('click', load);
     toggle.addEventListener('change', () => {
         enabled = toggle.checked; appStorage.setItem('setting_lyrics_enabled', enabled ? '1' : '0');

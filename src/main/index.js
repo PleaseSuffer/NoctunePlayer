@@ -696,7 +696,14 @@ ipcMain.handle('updater:check', async (_e, silent) => {
     }
 
     try {
-        await autoUpdater.checkForUpdates();
+        const result = await autoUpdater.checkForUpdates();
+        // При запуске из исходников или неподдерживаемой сборки updater
+        // возвращает null без событий завершения проверки.
+        if (result === null) {
+            const reason = app.isPackaged ? 'installation' : 'development';
+            sendToRenderer('updater:unavailable', { reason });
+            return { ok: true, status: 'unavailable', reason };
+        }
         return { ok: true };
     } catch (e) {
         if (!silent) sendToRenderer('updater:error', String(e && e.message || e));
@@ -835,9 +842,12 @@ ipcMain.on('store:delete', (_e, key) => {
     try { if (store) store.delete(key); } catch (e) {}
 });
 
-ipcMain.handle('get-app-version', () => {
-    return app.getVersion();
-});
+function getDisplayVersion() {
+    const version = app.getVersion();
+    return app.isPackaged ? version : `${version}-dev`;
+}
+
+ipcMain.handle('get-app-version', getDisplayVersion);
 
 ipcMain.handle('get-tech-versions', async () => {
     let storeVersion = '—';
@@ -887,7 +897,7 @@ function performTrayUpdateCheck() {
         if (Notification.isSupported()) {
             new Notification({
                 title: 'Noctune Player',
-                body: `У вас установлена актуальная версия (v${app.getVersion()}).`,
+                body: `У вас установлена актуальная версия (v${getDisplayVersion()}).`,
                 icon: iconPath
             }).show();
         }
@@ -1113,7 +1123,7 @@ if (!gotTheLock) {
         {
           label: 'О приложении',
           submenu: [
-            { label: 'Noctune Player v' + app.getVersion(), enabled: false },
+            { label: 'Noctune Player v' + getDisplayVersion(), enabled: false },
             { label: 'Проверить обновления', click: () => performTrayUpdateCheck() },
             { label: 'GitHub', click: () => shell.openExternal('https://github.com/PleaseSuffer/NoctunePlayer') },
           ]

@@ -369,6 +369,7 @@ contextBridge.exposeInMainWorld('noctune', {
     onChecking: (cb) => ipcRenderer.on('updater:checking', () => cb()),
     onAvailable: (cb) => ipcRenderer.on('updater:available', (_e, info) => cb(info)),
     onNotAvailable: (cb) => ipcRenderer.on('updater:not-available', (_e, info) => cb(info)),
+    onUnavailable: (cb) => ipcRenderer.on('updater:unavailable', (_e, info) => cb(info)),
     onProgress: (cb) => ipcRenderer.on('updater:progress', (_e, progress) => cb(progress)),
     onDownloaded: (cb) => ipcRenderer.on('updater:downloaded', (_e, info) => cb(info)),
     onError: (cb) => ipcRenderer.on('updater:error', (_e, message) => cb(message)),

@@ -4,6 +4,13 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const { createLastfmCoverClient, coverUrl } = require('../../src/main/integrations/lastfm/cover-service');
+async function waitFor(predicate) {
+    const deadline = Date.now() + 5000;
+    while (!predicate()) {
+        assert(Date.now() < deadline, 'cover lookup did not reach the expected state');
+        await new Promise(resolve => setTimeout(resolve, 5));
+    }
+}
 (async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-cover-test-'));
     const musicDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-cover-music-test-'));
@@ -66,7 +73,7 @@ const { createLastfmCoverClient, coverUrl } = require('../../src/main/integratio
         let release;
         client = createLastfmCoverClient({ ...options, request: () => new Promise(resolve => { release = resolve; }) });
         state.cache = false;
-        const pending = client.get(track); await new Promise(resolve => setImmediate(resolve)); await client.clear(); release({ album: { image: [image] } });
+        const pending = client.get(track); await waitFor(() => release); await client.clear(); release({ album: { image: [image] } });
         assert.equal((await pending).status, 'disabled', 'clearing invalidates in-flight requests');
         assert.equal((await fs.readdir(directory)).length, 0);
         assert.equal(coverUrl([{ size: 'mega', '#text': 'https://example.com/private' }]), null);
@@ -127,12 +134,12 @@ const { createLastfmCoverClient, coverUrl } = require('../../src/main/integratio
         const lookups = [];
         client = createLastfmCoverClient({ ...options, request: () => new Promise(resolve => lookups.push(resolve)) });
         const stale = client.get(track);
-        await new Promise(resolve => setImmediate(resolve));
+        await waitFor(() => lookups.length === 1);
         const unrelated = client.get(otherAlbum);
-        await new Promise(resolve => setImmediate(resolve));
+        await waitFor(() => lookups.length === 2);
         await client.remove(track);
         const fresh = client.get(track);
-        await new Promise(resolve => setImmediate(resolve));
+        await waitFor(() => lookups.length === 3);
         lookups[0]({ album: { image: [image] } });
         assert.equal((await stale).status, 'disabled', 'removal cancels the old cover lookup');
         assert.equal((await client.cached(track)).cached, false, 'old request cannot restore deleted cover');
