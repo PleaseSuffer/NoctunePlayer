@@ -180,7 +180,7 @@
                     <div id="lyrics-song-title"></div>
                     <div id="lyrics-song-artist"></div>
                     <div id="lyrics-radio-station" hidden></div>
-                    <div class="lyrics-seek-row" id="lyrics-seek-row"><span id="lyrics-time-current">0:00</span><input type="range" id="lyrics-seek" aria-label="Позиция воспроизведения" min="0" max="100" step="0.1" value="0"><span id="lyrics-time-total">0:00</span></div>
+                    <div class="lyrics-seek-row" id="lyrics-seek-row"><span id="lyrics-time-current">0:00</span><div class="lyrics-seek-control"><input type="range" id="lyrics-seek" aria-label="Позиция воспроизведения" min="0" max="100" step="0.1" value="0"></div><span id="lyrics-time-total">0:00</span></div>
                     <div class="lyrics-playback">
                         <button class="control-btn" id="lyrics-shuffle" title="Случайный порядок" aria-label="Случайный порядок" aria-pressed="false"><i data-lucide="shuffle"></i></button>
                         <button class="control-btn" id="lyrics-prev" aria-label="Предыдущая песня"><i data-lucide="skip-back"></i></button>
@@ -2156,6 +2156,7 @@
                                         <div class="viz-type-dropdown-menu" id="lyrics-scrollbar-menu" role="listbox" aria-label="Полоса прокрутки текста">
                                             <button type="button" class="viz-type-menu-item lyrics-scrollbar-option" data-mode="auto" role="option"><i data-lucide="wand-2" style="width:14px;height:14px;color:var(--accent-color);"></i>Автоматически</button>
                                             <button type="button" class="viz-type-menu-item lyrics-scrollbar-option" data-mode="always" role="option"><i data-lucide="scroll-text" style="width:14px;height:14px;color:var(--accent-color);"></i>Всегда</button>
+                                            <button type="button" class="viz-type-menu-item lyrics-scrollbar-option" data-mode="hidden" role="option"><i data-lucide="eye-off" style="width:14px;height:14px;color:var(--accent-color);"></i>Скрыта</button>
                                         </div>
                                     </div>
                                 </div>
@@ -2596,6 +2597,7 @@
     <script src="library/open-audio-files.js"></script>
     <script src="library/drag-drop.js"></script>
     <script src="effects/waveform.js"></script>
+    <script src="playback/seek-controls.js"></script>
     <script src="playback/audio-engine.js"></script>
     <script src="integrations/lyrics.js"></script>
     <script src="ui/hotkeys.js"></script>

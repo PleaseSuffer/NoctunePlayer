@@ -371,7 +371,8 @@
         const duration = isRadioMode ? 0 : (currentTrackDuration || localAudioElement?.duration || 0);
         const position = localAudioElement?.getAttribute('src') && !isRadioMode ? localAudioElement.currentTime || 0 : 0;
         seek.disabled = !Number.isFinite(duration) || duration <= 0 || _trackLoading;
-        if (document.activeElement !== seek) seek.value = seek.disabled ? 0 : position / duration * 100;
+        seek.value = seek.disabled ? 0 : position / duration * 100;
+        seek.parentElement?.style.setProperty('--seek-progress', seek.value + '%');
         document.getElementById('lyrics-time-current').textContent = formatTime(position);
         document.getElementById('lyrics-time-total').textContent = formatTime(Number.isFinite(duration) ? duration : 0);
         if (lastPlaying !== isPlaying) {
@@ -462,7 +463,8 @@
         content.classList.toggle('lyrics-scrollbar-active', false);
     }
     content.addEventListener('scroll', () => {
-        if (appearance.scrollbar !== 'auto' || !opened) return;
+        // Smooth auto-follow emits scroll events too; only manual scrolling reveals the bar.
+        if (appearance.scrollbar !== 'auto' || !opened || (follow && rows.length)) return;
         if (scrollbarIdleTimer !== null) clearTimeout(scrollbarIdleTimer);
         content.classList.toggle('lyrics-scrollbar-active', true);
         scrollbarIdleTimer = setTimeout(resetScrollbarActivity, 1200);
@@ -480,7 +482,7 @@
             dim: clampAppearance(next.dim, 0, 80, 0), blur: clampAppearance(next.blur, 0, 12, 0),
             size: clampAppearance(next.size, 75, 150, 100), inactive: clampAppearance(next.inactive, 15, 80, 35),
             shadow: typeof next.shadow === 'boolean' ? next.shadow : true,
-            scrollbar: ['always', 'auto'].includes(next.scrollbar) ? next.scrollbar : appearanceDefaults.scrollbar,
+            scrollbar: ['always', 'auto', 'hidden'].includes(next.scrollbar) ? next.scrollbar : appearanceDefaults.scrollbar,
         };
         for (const [key, control] of Object.entries(appearanceControls)) {
             if (key === 'shadow') control.checked = appearance[key]; else control.value = appearance[key];
@@ -493,8 +495,9 @@
             option.classList.toggle('active', selected);
             option.setAttribute('aria-selected', String(selected));
         });
-        document.getElementById('lyrics-scrollbar-label').textContent = appearance.scrollbar === 'auto' ? 'Автоматически' : 'Всегда';
-        document.getElementById('lyrics-scrollbar-icon').innerHTML = '<i data-lucide="' + (appearance.scrollbar === 'auto' ? 'wand-2' : 'scroll-text') + '" style="width:14px;height:14px;"></i>';
+        const scrollbarMode = { auto: { label: 'Автоматически', icon: 'wand-2' }, always: { label: 'Всегда', icon: 'scroll-text' }, hidden: { label: 'Скрыта', icon: 'eye-off' } }[appearance.scrollbar];
+        document.getElementById('lyrics-scrollbar-label').textContent = scrollbarMode.label;
+        document.getElementById('lyrics-scrollbar-icon').innerHTML = '<i data-lucide="' + scrollbarMode.icon + '" style="width:14px;height:14px;"></i>';
         scrollbarOptions.forEach(option => {
             const selected = option.getAttribute('data-mode') === appearance.scrollbar;
             option.classList.toggle('active', selected);
@@ -556,6 +559,7 @@
         if (noctune.lyrics?.cancel) noctune.lyrics.cancel().catch(() => {});
     }
     function clear() {
+        resetScrollbarActivity();
         cancelLyricsSearch();
         serial++;
         rows = []; intro = null; activeIndex = null; follow = autoFollow;
@@ -636,6 +640,7 @@
         }
     }
     function sync() {
+        if (follow && rows.length) resetScrollbarActivity();
         if (!opened || !rows.length || isRadioMode || !localAudioElement?.getAttribute('src')) {
             if (intro) intro.classList.toggle('playing', false);
             return;
@@ -685,11 +690,7 @@
     document.getElementById('lyrics-prev').addEventListener('click', () => playPrev());
     document.getElementById('lyrics-next').addEventListener('click', () => playNext());
     playButton.addEventListener('click', () => { togglePlayback(); updatePlayback(); });
-    seek.addEventListener('input', () => {
-        if (seek.disabled || !localAudioElement?.getAttribute('src') || isRadioMode) return;
-        const position = Number(seek.value) / 100 * (currentTrackDuration || localAudioElement.duration);
-        if (isPlaying) startSourceAt(position, false);
-        else { pausedAt = position; localAudioElement.currentTime = position; updateSMTCPosition(position); }
+    window.attachPlaybackSeek(seek, () => {
         activeIndex = null; sync();
     });
     autoScrollToggle.addEventListener('change', () => {
@@ -712,6 +713,10 @@
     content.addEventListener('wheel', stopFollowing, { passive: true });
     content.addEventListener('touchstart', stopFollowing, { passive: true });
     content.addEventListener('pointerdown', stopFollowing);
+    content.addEventListener('keydown', event => {
+        if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(event.key)
+            || (event.key === ' ' && event.target === content)) stopFollowing();
+    });
     followButton.addEventListener('click', () => { follow = true; activeIndex = null; sync(); });
     retry.addEventListener('click', load);
     toggle.addEventListener('change', () => {

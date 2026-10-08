@@ -882,30 +882,8 @@
             }
         }
 
-        // 1. Клик по полосе прогресса мини-плеера
-        miniProgressTrack.addEventListener('click', (e) => {
-            const duration = currentTrackDuration || (localAudioElement ? localAudioElement.duration : 0);
-            if (isRadioMode || !duration || !isFinite(duration)) return;
-            const rect = miniProgressTrack.getBoundingClientRect();
-            const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-            const percentage = clickX / rect.width;
-            const targetTime = percentage * duration;
-            
-            if (isPlaying) { 
-                startSourceAt(targetTime, false); 
-            } else {
-                pausedAt = targetTime;
-                if (localAudioElement) localAudioElement.currentTime = targetTime;
-                progressFill.style.width = `${percentage * 100}%`;
-                
-                const miniProgressFill = document.getElementById('mini-progress-fill');
-                if (miniProgressFill) miniProgressFill.style.width = `${percentage * 100}%`;
-                
-                timeCurrent.textContent = formatTime(targetTime);
-            }
-            
-            updateMiniTooltip(e);
-        });
+        window.attachPlaybackSeek(progressWrapper);
+        window.attachPlaybackSeek(miniProgressTrack);
 
         // 2. Движение мыши — перемещаем тултип и меняем в нем время
         miniProgressTrack.addEventListener('mousemove', (e) => {

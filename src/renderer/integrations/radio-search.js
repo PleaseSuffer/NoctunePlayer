@@ -158,25 +158,6 @@
         volumeSlider.addEventListener('wheel', handleVolumeWheel, { passive: false });
         miniVolumeSlider.addEventListener('wheel', handleVolumeWheel, { passive: false });
 
-        progressWrapper.addEventListener('click', (e) => {
-            if (isRadioMode) return;
-            const duration = currentTrackDuration || (localAudioElement ? localAudioElement.duration : 0);
-            if (!duration || !isFinite(duration)) return;
-            const rect = progressWrapper.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const percentage = clickX / rect.width;
-            const targetTime = percentage * duration;
-            
-            if (isPlaying) { startSourceAt(targetTime, false); } 
-            else {
-                pausedAt = targetTime;
-                if (localAudioElement) localAudioElement.currentTime = targetTime;
-                progressFill.style.width = `${percentage * 100}%`;
-                timeCurrent.textContent = formatTime(targetTime);
-            }
-            if (typeof updateWaveformProgress === 'function') updateWaveformProgress(percentage);
-        });
-
         // Мягкий «гейт» по громкости: ниже порога эффект полностью выключен (0),
         // выше — линейно растягивается обратно до полного размаха в точке 1,
         // без скачка в момент пересечения порога.

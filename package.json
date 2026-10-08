@@ -3,7 +3,7 @@
   "displayName": "Noctune",
   "productName": "Noctune",
   "desktopName": "com.noctune.player.desktop",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "main": "src/main/index.js",
   "devDependencies": {
     "electron": "^42.2.0",
@@ -39,8 +39,21 @@
       "icon": "resources/app.png",
       "category": "AudioVideo;Audio;Player",
       "syncDesktopName": true,
-      "executableArgs": ["%F"],
-      "mimeTypes": ["audio/mpeg", "audio/wav", "audio/x-wav", "audio/vnd.wave", "audio/ogg", "application/ogg", "audio/mp4", "audio/x-m4a", "audio/flac", "audio/x-flac"]
+      "executableArgs": [
+        "%F"
+      ],
+      "mimeTypes": [
+        "audio/mpeg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/vnd.wave",
+        "audio/ogg",
+        "application/ogg",
+        "audio/mp4",
+        "audio/x-m4a",
+        "audio/flac",
+        "audio/x-flac"
+      ]
     },
     "win": {
       "target": "nsis",
