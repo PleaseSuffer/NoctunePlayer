@@ -54,11 +54,12 @@
         function visualize() {
             window.requestEffectsFrame(visualize);
             if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
-            if (!analyzer) return;
+            if (!analyzer) { window.imageEffects?.audio(null, 44100, false); return; }
 
             const bufferLength = analyzer.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             analyzer.getByteFrequencyData(dataArray);
+            window.imageEffects?.audio(dataArray, analyzer.context.sampleRate || 44100, isPlaying);
 
             // ── Bass-reactive confetti level ──────────────────────────────
             if (window.confettiEnabled) {
@@ -307,9 +308,26 @@
             }
 
             const mainGradient = makeGradient(gradX0, gradY0, gradX1, gradY1);
-            const rotationOffset = Math.PI / 2;
+            const circleRotation = Number.isFinite(window.vizCircleRotation) ? window.vizCircleRotation : 0;
+            const rotationOffset = Math.PI / 2 + circleRotation * Math.PI / 180;
+            const circleMirror = window.vizCircleMirror === true;
+            function circleBin(i) {
+                // Fold the spectrum around the rotating diameter.
+                return circleMirror ? Math.min(totalPoints - 1, Math.round(Math.min(i, totalPoints - i) * 2)) : i;
+            }
+            function circleFall(position) {
+                const index = Math.floor(position);
+                const mix = position - index;
+                return (window.freqFallStorage[index] || 0) * (1 - mix) +
+                    (window.freqFallStorage[(index + 1) % totalPoints] || 0) * mix;
+            }
 
             if (style.startsWith('circle-')) {
+                if (window._circleMirror !== circleMirror) {
+                    window.freqFallStorage = [];
+                    window.innerDelayBuffer = [];
+                    window._circleMirror = circleMirror;
+                }
                 // Inner glow
                 if (showInner) {
                     ctx.save();
@@ -319,7 +337,7 @@
                     if (window.innerDelayBuffer === undefined) window.innerDelayBuffer = [];
                     for (let i = 0; i < totalPoints; i++) {
                         const angle = ((i / totalPoints) * Math.PI * 2) + rotationOffset;
-                        let amp = dataArray[i] * 0.52 * intensity;
+                        let amp = dataArray[circleBin(i)] * 0.52 * intensity;
                         if (window.innerDelayBuffer[i] === undefined) window.innerDelayBuffer[i] = 0;
                         if (amp >= window.innerDelayBuffer[i]) window.innerDelayBuffer[i] = amp;
                         else { window.innerDelayBuffer[i] = (window.innerDelayBuffer[i] * 0.985) - 0.08; if (window.innerDelayBuffer[i] < 0) window.innerDelayBuffer[i] = 0; }
@@ -347,8 +365,8 @@
                 if (window.freqFallStorage === undefined) window.freqFallStorage = [];
                 for (let i = 0; i < totalPoints; i++) {
                     const angle = ((i / totalPoints) * Math.PI * 2) + rotationOffset;
-                    let windowing = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (totalPoints - 1)));
-                    let amp = dataArray[i] * 0.62 * windowing * intensity;
+                    let windowing = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (circleMirror ? totalPoints : totalPoints - 1)));
+                    let amp = dataArray[circleBin(i)] * 0.62 * windowing * intensity;
                     if (window.freqFallStorage[i] === undefined) window.freqFallStorage[i] = 0;
                     if (amp >= window.freqFallStorage[i]) window.freqFallStorage[i] = amp;
                     else { window.freqFallStorage[i] *= 0.95; if (window.freqFallStorage[i] < 0.5) window.freqFallStorage[i] = 0; }
@@ -365,7 +383,7 @@
                     ctx.fillStyle = mainGradient;
                     for (let i = 0; i < dotCount; i++) {
                         const angle = i / dotCount * Math.PI * 2 + rotationOffset;
-                        const amp = window.freqFallStorage[Math.floor(i * totalPoints / dotCount)] || 0;
+                        const amp = circleFall(i * totalPoints / dotCount);
                         const radius = staticRadius + amp;
                         ctx.beginPath();
                         ctx.arc(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius, 2.5 + amp * 0.015, 0, Math.PI * 2);
@@ -377,7 +395,7 @@
                     const lineCount = Math.min(totalPoints, 128);
                     for (let i = 0; i < lineCount; i++) {
                         const angle = ((i / lineCount) * Math.PI * 2) + rotationOffset;
-                        const amp = (window.freqFallStorage[Math.floor(i * totalPoints / lineCount)] || 0);
+                        const amp = circleFall(i * totalPoints / lineCount);
                         const rInner = staticRadius * 0.7;
                         const rOuter = staticRadius + amp;
                         ctx.beginPath();
@@ -407,25 +425,87 @@
                     ctx.restore();
                 }
 
-            } else if (style === 'bars-bottom' || style === 'bars-center' || style === 'bars-top') {
-                const centered = style === 'bars-center';
-                const top = style === 'bars-top';
+            } else if (style === 'orbits') {
+                // Each ring samples its own frequency band, using the analyser's actual sample rate.
+                const sampleRate = analyzer.context?.sampleRate || 44100;
+                const bands = [[20, 250], [250, 2000], [2000, 12000]];
+                const count = 96;
+                const orbitMode = ['lines', 'dots', 'dashes'].includes(window.vizOrbitMode) ? window.vizOrbitMode : 'lines';
+                const spacing = Number.isFinite(window.vizOrbitSpacing) ? Math.max(10, Math.min(60, window.vizOrbitSpacing)) / 100 : 0.3;
+                if (!window._orbitFall || window._orbitFall.length !== count * 3 || window._orbitMirror !== circleMirror) {
+                    window._orbitFall = new Float32Array(count * 3);
+                    window._orbitMirror = circleMirror;
+                }
+                ctx.save();
+                ctx.strokeStyle = mainGradient;
+                ctx.fillStyle = mainGradient;
+                ctx.lineJoin = 'round';
+                for (let band = 0; band < bands.length; band++) {
+                    const first = Math.max(0, Math.min(bufferLength - 1, Math.ceil(bands[band][0] * bufferLength / (sampleRate / 2))));
+                    const last = Math.max(first, Math.min(bufferLength - 1, Math.ceil(bands[band][1] * bufferLength / (sampleRate / 2)) - 1));
+                    const radius = staticRadius * (0.55 + band * spacing);
+                    ctx.beginPath();
+                    for (let i = 0; i < count; i++) {
+                        const phase = circleMirror ? Math.min(i, count - i) * 2 / count : i / count;
+                        const bin = first + Math.round(phase * (last - first));
+                        const target = dataArray[bin] / 255 * staticRadius * 0.2 * intensity;
+                        const index = band * count + i;
+                        const previous = window._orbitFall[index];
+                        const amp = target > previous ? previous + (target - previous) * 0.45 : previous * 0.94;
+                        window._orbitFall[index] = amp;
+                        const angle = i / count * Math.PI * 2 + rotationOffset;
+                        const x = centerX + Math.cos(angle) * (radius + amp);
+                        const y = centerY + Math.sin(angle) * (radius + amp);
+                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    if (showInner) {
+                        ctx.globalAlpha = 0.2;
+                        ctx.fill();
+                    }
+                    ctx.globalAlpha = 0.9 - band * 0.15;
+                    ctx.lineWidth = 3 - band * 0.5;
+                    if (orbitMode === 'dots') {
+                        for (let i = 0; i < count; i++) {
+                            const angle = i / count * Math.PI * 2 + rotationOffset;
+                            const r = radius + window._orbitFall[band * count + i];
+                            ctx.beginPath();
+                            ctx.arc(centerX + Math.cos(angle) * r, centerY + Math.sin(angle) * r, 2.5 - band * 0.3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    } else {
+                        ctx.setLineDash(orbitMode === 'dashes' ? [8, 7] : []);
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+                ctx.globalAlpha = 1;
+
+            } else if (style === 'bars-bottom' || style === 'bars-center' || style === 'bars-top' || style.startsWith('ribbon-')) {
+                const ribbon = style.startsWith('ribbon-');
+                const centered = style === 'bars-center' || style === 'ribbon-center';
+                const top = style === 'bars-top' || style === 'ribbon-top';
+                const reflected = ribbon || centered || window.vizBarsReflect === true;
+                const mirrored = (ribbon ? window.vizRibbonMirror : window.vizBarsMirror) === true;
                 const barCount = Math.min(bufferLength, 80);
                 const W = canvas.clientWidth, H = canvas.clientHeight;
                 const barWidth = (W / barCount) * 0.8;
-                const maxBarH = H * (centered ? 0.35 : 0.7);
-                const baseline = centered ? H / 2 : top ? 0 : H;
-                if (window._barLayout !== style || !window.barFall || window.barFall.length !== barCount) {
+                const maxBarH = H * (reflected ? 0.35 : 0.7);
+                const savedOffset = ribbon ? window.vizRibbonOffset : window.vizBarsOffset;
+                const offset = Number.isFinite(savedOffset) ? Math.max(-100, Math.min(100, savedOffset)) : 0;
+                const baseline = Math.max(0, Math.min(H, (centered ? H / 2 : top ? 0 : H) + offset * H / 200));
+                if (window._barLayout !== `${style}:${reflected}:${mirrored}` || !window.barFall || window.barFall.length !== barCount) {
                     window.barFall = new Array(barCount).fill(0);
                     window.barPeaks = new Array(barCount).fill(0);
-                    window._barLayout = style;
+                    window._barLayout = `${style}:${reflected}:${mirrored}`;
                 }
-                const y0 = centered ? baseline - maxBarH : baseline;
-                const y1 = centered ? baseline + maxBarH : top ? maxBarH : H - maxBarH;
-                const colors = centered ? [gc3, gc2, gc1] : [gc1, gc2, gc3];
+                const y0 = reflected ? baseline - maxBarH : baseline;
+                const y1 = reflected ? baseline + maxBarH : top ? baseline + maxBarH : baseline - maxBarH;
+                const colors = reflected ? [gc3, gc2, gc1] : [gc1, gc2, gc3];
                 let barGradient = solidColor;
                 if (colorMode === 'gradient') {
-                    if (window.vizScrollGrad) barGradient = makeScrollingBarGradient(y0, y1, colors);
+                    if (ribbon ? window.vizRibbonScrollGrad : window.vizScrollGrad) barGradient = makeScrollingBarGradient(y0, y1, colors);
                     else {
                         barGradient = ctx.createLinearGradient(0, y0, 0, y1);
                         colors.forEach((color, i) => barGradient.addColorStop(i / 2, color + 'dd'));
@@ -433,24 +513,58 @@
                 }
                 for (let i = 0; i < barCount; i++) {
                     const skipBins = 3;
-                    const val = Math.pow(dataArray[skipBins + Math.floor(i * (bufferLength * 0.45 - skipBins) / barCount)] / 255, 0.7);
+                    const spectrumPosition = mirrored ? Math.abs(2 * i - (barCount - 1)) / (barCount - 1) : i / barCount;
+                    const val = Math.pow(dataArray[skipBins + Math.floor(spectrumPosition * (bufferLength * 0.45 - skipBins))] / 255, 0.7);
                     const targetH = val * maxBarH * intensity;
                     window.barFall[i] = targetH > window.barFall[i] ? targetH : window.barFall[i] * 0.92;
                     if (window.barFall[i] < 0.5) window.barFall[i] = 0;
                     window.barPeaks[i] = Math.max(targetH, window.barPeaks[i] - 1.2, 0);
-                    const x = i * W / barCount;
+                    if (ribbon) continue;
+                    const x = (i + (mirrored ? 0.1 : 0)) * W / barCount;
                     const h = window.barFall[i];
                     ctx.fillStyle = barGradient;
                     ctx.globalAlpha = 0.85;
                     ctx.beginPath();
-                    ctx.roundRect(x, top ? 0 : baseline - h, barWidth, h * (centered ? 2 : 1), centered ? 2 : top ? [0, 0, 3, 3] : [3, 3, 0, 0]);
+                    ctx.roundRect(x, top && !reflected ? baseline : baseline - h, barWidth, h * (reflected ? 2 : 1), reflected ? 2 : top ? [0, 0, 3, 3] : [3, 3, 0, 0]);
                     ctx.fill();
                     if (window.vizShowPeaks !== false) {
                         ctx.globalAlpha = 0.9;
                         ctx.fillStyle = colorMode === 'gradient' ? gc3 : solidColor;
-                        ctx.fillRect(x, top ? window.barPeaks[i] : baseline - window.barPeaks[i] - 2, barWidth, 2);
-                        if (centered) ctx.fillRect(x, baseline + window.barPeaks[i], barWidth, 2);
+                        ctx.fillRect(x, top && !reflected ? baseline + window.barPeaks[i] : baseline - window.barPeaks[i] - 2, barWidth, 2);
+                        if (reflected) ctx.fillRect(x, baseline + window.barPeaks[i], barWidth, 2);
                     }
+                }
+                if (ribbon) {
+                    // Trace both sides of the same smoothed spectrum, then close the filled ribbon.
+                    const step = W / (barCount - 1);
+                    function traceRibbon(sign, reverse) {
+                        const first = reverse ? barCount - 1 : 0;
+                        const last = reverse ? 0 : barCount - 1;
+                        const direction = reverse ? -1 : 1;
+                        let x = first * step;
+                        let y = baseline + sign * window.barFall[first];
+                        if (reverse) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+                        for (let i = first + direction; reverse ? i >= last : i <= last; i += direction) {
+                            const nextX = i * step;
+                            const nextY = baseline + sign * window.barFall[i];
+                            ctx.quadraticCurveTo(x, y, (x + nextX) / 2, (y + nextY) / 2);
+                            x = nextX;
+                            y = nextY;
+                        }
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.beginPath();
+                    traceRibbon(-1, false);
+                    traceRibbon(1, true);
+                    ctx.closePath();
+                    ctx.fillStyle = barGradient;
+                    ctx.globalAlpha = 0.45;
+                    ctx.fill();
+                    ctx.strokeStyle = barGradient;
+                    ctx.lineWidth = 2;
+                    ctx.lineJoin = 'round';
+                    ctx.globalAlpha = 0.9;
+                    ctx.stroke();
                 }
                 ctx.globalAlpha = 1;
 

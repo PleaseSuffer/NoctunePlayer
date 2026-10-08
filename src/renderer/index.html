@@ -1207,6 +1207,154 @@
                             </div>
                         </div>
 
+                        <div id="image-effects-settings" hidden>
+                            <div class="settings-section-title">Визуальные эффекты</div>
+                            <div class="settings-card">
+                                <div class="settings-row">
+                                    <div><div class="settings-row-label">Эффекты изображения под звук</div><div class="settings-row-desc">Подсветка деталей и мягкие музыкальные акценты</div></div>
+                                    <label class="toggle-switch"><input type="checkbox" id="image-effects-enabled"><span class="slider-round"></span></label>
+                                </div>
+                                <div id="image-effects-controls" hidden>
+                                    <div class="settings-option-group">
+                                    <div class="settings-row">
+                                        <div><div class="settings-row-label">Свечение контуров</div><div class="settings-row-desc">Подсветка выраженных границ изображения</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="image-effects-contours"><span class="slider-round"></span></label>
+                                    </div>
+                                    <div data-settings-detail id="image-effects-contours-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-contoursThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-contoursThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div id="image-effects-contours-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
+                                            <div class="viz-type-dropdown-wrapper" id="image-effects-contours-color">
+                                                <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="image-effects-contours-color-label image-effects-contours-color-value"><span class="pd-icon"><i data-lucide="palette" style="width:14px;height:14px;"></i></span><span class="pd-label" id="image-effects-contours-color-value">От акцента</span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+                                                <div class="viz-type-dropdown-menu" role="listbox" aria-labelledby="image-effects-contours-color-label">
+                                                <div class="viz-type-menu-item active" role="option" tabindex="-1" aria-selected="true" data-mode="accent"><i data-lucide="paintbrush" style="width:14px;height:14px;color:var(--accent-color);"></i> От акцента</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="custom"><i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i> Свой цвет</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="gradient"><i data-lucide="rainbow" style="width:14px;height:14px;color:var(--accent-color);"></i> Градиент темы</div>
+                                                </div>
+                                            </div>
+                                        </div></div>
+                                        <div class="settings-row" id="image-effects-contours-custom-color" data-image-color-custom hidden><label class="settings-row-label" for="image-effects-contours-color-picker">Свой цвет</label><input type="color" id="image-effects-contours-color-picker" value="#4a90e2" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;"></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Яркость свечения</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-contoursGain" min=".2" max="3" step=".1" value="1.4" aria-label="Яркость свечения" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-contoursGain-label" style="font-size:12px;min-width:48px;">1.4×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Доля средних и высоких частот</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-contoursResponse" min="0" max="100" step="1" value="40" aria-label="Доля средних и высоких частот" title="0% — басы, 100% — средние и высокие; ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-contoursResponse-label" style="font-size:12px;min-width:48px;">40%</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Затухание</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-contoursDecay" min="60" max="800" step="10" value="180" aria-label="Затухание" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-contoursDecay-label" style="font-size:12px;min-width:48px;">180 мс</span></div></div></div>
+                                    </div>
+                                    </div>
+                                    <div class="settings-option-group">
+                                    <div class="settings-row">
+                                        <div><div class="settings-row-label">Световые волны</div><div class="settings-row-desc">Волны света проходят по контурам на ударах</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="image-effects-waves"><span class="slider-round"></span></label>
+                                    </div>
+                                    <div data-settings-detail id="image-effects-waves-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div id="image-effects-waves-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
+                                            <div class="viz-type-dropdown-wrapper" id="image-effects-waves-color">
+                                                <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="image-effects-waves-color-label image-effects-waves-color-value"><span class="pd-icon"><i data-lucide="palette" style="width:14px;height:14px;"></i></span><span class="pd-label" id="image-effects-waves-color-value">От акцента</span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+                                                <div class="viz-type-dropdown-menu" role="listbox" aria-labelledby="image-effects-waves-color-label">
+                                                <div class="viz-type-menu-item active" role="option" tabindex="-1" aria-selected="true" data-mode="accent"><i data-lucide="paintbrush" style="width:14px;height:14px;color:var(--accent-color);"></i> От акцента</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="custom"><i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i> Свой цвет</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="gradient"><i data-lucide="rainbow" style="width:14px;height:14px;color:var(--accent-color);"></i> Градиент темы</div>
+                                                </div>
+                                            </div>
+                                        </div></div>
+                                        <div class="settings-row" id="image-effects-waves-custom-color" data-image-color-custom hidden><label class="settings-row-label" for="image-effects-waves-color-picker">Свой цвет</label><input type="color" id="image-effects-waves-color-picker" value="#4a90e2" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;"></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Одновременные волны</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesLimit" min="1" max="8" step="1" value="4" aria-label="Одновременные волны" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesLimit-label" style="font-size:12px;min-width:48px;">4</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Яркость волны</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesGain" min=".2" max="3" step=".1" value="1.3" aria-label="Яркость волны" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesGain-label" style="font-size:12px;min-width:48px;">1.3×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Чувствительность к ударам</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesSensitivity" min=".5" max="3" step=".1" value="1.5" aria-label="Чувствительность к ударам" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesSensitivity-label" style="font-size:12px;min-width:48px;">1.5×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Скорость волны</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesSpeed" min=".15" max="1.2" step=".05" value=".45" aria-label="Скорость волны" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesSpeed-label" style="font-size:12px;min-width:48px;">.45</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Ширина волны</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesWidth" min=".02" max=".2" step=".01" value=".07" aria-label="Ширина волны" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesWidth-label" style="font-size:12px;min-width:48px;">.07</span></div></div></div>
+                                    </div>
+                                    </div>
+                                    <div class="settings-option-group">
+                                    <div class="settings-row">
+                                        <div><div class="settings-row-label">Свечение ярких участков</div><div class="settings-row-desc">Светлые детали мягко пульсируют</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="image-effects-highlights"><span class="slider-round"></span></label>
+                                    </div>
+                                    <div data-settings-detail id="image-effects-highlights-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-highlightsThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-highlightsThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div id="image-effects-highlights-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
+                                            <div class="viz-type-dropdown-wrapper" id="image-effects-highlights-color">
+                                                <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="image-effects-highlights-color-label image-effects-highlights-color-value"><span class="pd-icon"><i data-lucide="palette" style="width:14px;height:14px;"></i></span><span class="pd-label" id="image-effects-highlights-color-value">От акцента</span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+                                                <div class="viz-type-dropdown-menu" role="listbox" aria-labelledby="image-effects-highlights-color-label">
+                                                <div class="viz-type-menu-item active" role="option" tabindex="-1" aria-selected="true" data-mode="accent"><i data-lucide="paintbrush" style="width:14px;height:14px;color:var(--accent-color);"></i> От акцента</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="custom"><i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i> Свой цвет</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="gradient"><i data-lucide="rainbow" style="width:14px;height:14px;color:var(--accent-color);"></i> Градиент темы</div>
+                                                </div>
+                                            </div>
+                                        </div></div>
+                                        <div class="settings-row" id="image-effects-highlights-custom-color" data-image-color-custom hidden><label class="settings-row-label" for="image-effects-highlights-color-picker">Свой цвет</label><input type="color" id="image-effects-highlights-color-picker" value="#4a90e2" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;"></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Яркость вспышек</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-highlightsGain" min=".2" max="3" step=".1" value="1.4" aria-label="Яркость вспышек" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-highlightsGain-label" style="font-size:12px;min-width:48px;">1.4×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Доля средних и высоких частот</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-highlightsResponse" min="0" max="100" step="1" value="75" aria-label="Доля средних и высоких частот" title="0% — басы, 100% — средние и высокие; ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-highlightsResponse-label" style="font-size:12px;min-width:48px;">75%</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Затухание</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-highlightsDecay" min="60" max="800" step="10" value="140" aria-label="Затухание" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-highlightsDecay-label" style="font-size:12px;min-width:48px;">140 мс</span></div></div></div>
+                                    </div>
+                                    </div>
+                                    <div class="settings-option-group">
+                                    <div class="settings-row">
+                                        <div><div class="settings-row-label">Искры вдоль контуров</div><div class="settings-row-desc">Небольшие частицы появляются на музыкальных акцентах</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="image-effects-sparks"><span class="slider-round"></span></label>
+                                    </div>
+                                    <div data-settings-detail id="image-effects-sparks-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div id="image-effects-sparks-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
+                                            <div class="viz-type-dropdown-wrapper" id="image-effects-sparks-color">
+                                                <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="image-effects-sparks-color-label image-effects-sparks-color-value"><span class="pd-icon"><i data-lucide="palette" style="width:14px;height:14px;"></i></span><span class="pd-label" id="image-effects-sparks-color-value">От акцента</span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+                                                <div class="viz-type-dropdown-menu" role="listbox" aria-labelledby="image-effects-sparks-color-label">
+                                                <div class="viz-type-menu-item active" role="option" tabindex="-1" aria-selected="true" data-mode="accent"><i data-lucide="paintbrush" style="width:14px;height:14px;color:var(--accent-color);"></i> От акцента</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="custom"><i data-lucide="palette" style="width:14px;height:14px;color:var(--accent-color);"></i> Свой цвет</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="-1" aria-selected="false" data-mode="gradient"><i data-lucide="rainbow" style="width:14px;height:14px;color:var(--accent-color);"></i> Градиент темы</div>
+                                                </div>
+                                            </div>
+                                        </div></div>
+                                        <div class="settings-row" id="image-effects-sparks-custom-color" data-image-color-custom hidden><label class="settings-row-label" for="image-effects-sparks-color-picker">Свой цвет</label><input type="color" id="image-effects-sparks-color-picker" value="#4a90e2" style="width:32px;height:28px;border:none;background:none;cursor:pointer;border-radius:4px;"></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Одновременные искры</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksLimit" min="20" max="240" step="1" value="160" aria-label="Одновременные искры" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksLimit-label" style="font-size:12px;min-width:48px;">160</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Чувствительность к ударам</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksSensitivity" min=".5" max="3" step=".1" value="1.5" aria-label="Чувствительность к ударам" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksSensitivity-label" style="font-size:12px;min-width:48px;">1.5×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Искр на удар</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksCount" min="2" max="40" step="1" value="14" aria-label="Искр на удар" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksCount-label" style="font-size:12px;min-width:48px;">14</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Размер искр</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksSize" min="6" max="40" step="1" value="20" aria-label="Размер искр" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksSize-label" style="font-size:12px;min-width:48px;">20 px</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Время жизни</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksLifetime" min=".3" max="2.5" step=".1" value="1" aria-label="Время жизни" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksLifetime-label" style="font-size:12px;min-width:48px;">1 с</span></div></div></div>
+                                    </div>
+                                    </div>
+                                    <div class="settings-option-group">
+                                    <div class="settings-row">
+                                        <div><div class="settings-row-label">Рябь изображения</div><div class="settings-row-desc">Мягкая волна искажения на музыкальных акцентах</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="image-effects-ripple"><span class="slider-round"></span></label>
+                                    </div>
+                                    <div data-settings-detail id="image-effects-ripple-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Одновременная рябь</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleLimit" min="1" max="8" step="1" value="4" aria-label="Одновременная рябь" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleLimit-label" style="font-size:12px;min-width:48px;">4</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Сила искажения</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleGain" min=".2" max="3" step=".1" value="1.2" aria-label="Сила искажения" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleGain-label" style="font-size:12px;min-width:48px;">1.2×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Чувствительность к ударам</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleSensitivity" min=".5" max="3" step=".1" value="1.5" aria-label="Чувствительность к ударам" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleSensitivity-label" style="font-size:12px;min-width:48px;">1.5×</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Скорость ряби</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleSpeed" min=".15" max="1.2" step=".05" value=".45" aria-label="Скорость ряби" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleSpeed-label" style="font-size:12px;min-width:48px;">.45</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Ширина ряби</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleWidth" min=".02" max=".2" step=".01" value=".08" aria-label="Ширина ряби" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleWidth-label" style="font-size:12px;min-width:48px;">.08</span></div></div></div>
+                                    </div>
+                                    </div>
+                                    <div class="settings-option-group">
+                                    <div class="settings-row">
+                                        <div><div class="settings-row-label">Разделение цветовых каналов</div><div class="settings-row-desc">Раздвоение каналов реагирует на бас, вокал и высокие частоты</div></div>
+                                        <label class="toggle-switch"><input type="checkbox" id="image-effects-chromatic"><span class="slider-round"></span></label>
+                                    </div>
+                                    <div data-settings-detail id="image-effects-chromatic-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Смещение каналов</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticDistance" min="2" max="40" step="1" value="14" aria-label="Смещение каналов" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticDistance-label" style="font-size:12px;min-width:48px;">14 px</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Доля средних и высоких частот</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticResponse" min="0" max="100" step="1" value="65" aria-label="Доля средних и высоких частот" title="0% — басы, 100% — средние и высокие; ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticResponse-label" style="font-size:12px;min-width:48px;">65%</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Затухание</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticDecay" min="60" max="800" step="10" value="160" aria-label="Затухание" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticDecay-label" style="font-size:12px;min-width:48px;">160 мс</span></div></div></div>
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Направление смещения</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticAngle" min="-180" max="180" step="1" value="0" aria-label="Направление смещения" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticAngle-label" style="font-size:12px;min-width:48px;">0°</span></div></div></div>
+                                    </div>
+                                    </div>
+                                    <div class="settings-row">
+                                        <div style="width:100%;"><div class="settings-row-label">Интенсивность</div>
+                                            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+                                                <input type="range" id="image-effects-strength" min="0.2" max="2" step="0.1" value="1" aria-label="Интенсивность эффектов изображения" style="flex:1;accent-color:var(--accent-color);">
+                                                <span id="image-effects-strength-label" style="font-size:12px;min-width:32px;">1.0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div><div class="settings-row-label">Маска изображения</div><div class="settings-row-desc">Выберите, какие детали будут подсвечиваться</div></div>
+                                    <button type="button" class="btn" id="image-effects-edit-mask">Настроить…</button>
+                                </div>
+                                <div class="settings-row-desc" id="image-effects-status" role="status"></div>
+                            </div>
+                        </div>
+
                         <div class="settings-section-title">Waveform</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
                             <div class="settings-option-group">
@@ -1309,6 +1457,8 @@
     <div class="viz-type-menu-item" data-viz="waveform" data-icon="radio">
                                                 <i data-lucide="radio" style="width:14px;height:14px;color:var(--accent-color);"></i> Осциллограф
                                             </div>
+                                            <div class="viz-type-menu-item" data-viz="orbits" data-icon="orbit"><i data-lucide="orbit" style="width:14px;height:14px;color:var(--accent-color);"></i> Орбиты</div>
+                                            <div class="viz-type-menu-item" data-viz="ribbon" data-icon="audio-lines"><i data-lucide="audio-lines" style="width:14px;height:14px;color:var(--accent-color);"></i> Зеркальная лента</div>
                                             <div class="viz-type-menu-item" data-viz="fireworks" data-icon="sparkles">
                                                 <i data-lucide="sparkles" style="width:14px;height:14px;color:var(--accent-color);"></i> Салют
                                             </div>
@@ -1334,6 +1484,29 @@
     <div class="viz-type-dropdown-wrapper" data-viz-option id="viz-circle-mode">
     <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
     <div class="viz-type-dropdown-menu" role="listbox" aria-label="Рисунок круга"><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-smooth" data-icon="circle"><i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Сглаженный контур</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-lines" data-icon="circle-dashed"><i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Радиальные линии</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-dots" data-icon="circle-dot"><i data-lucide="circle-dot" style="width:14px;height:14px;color:var(--accent-color);"></i> Точечное кольцо</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="circle-double" data-icon="circle"><i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Двойной контур</div></div></div></div></div>
+                                <div class="settings-row" id="viz-orbit-mode-row" hidden>
+                                    <div style="width:100%;">
+                                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Рисунок орбит</div>
+                                        <div class="viz-type-dropdown-wrapper" data-viz-option id="viz-orbit-mode">
+                                            <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+                                            <div class="viz-type-dropdown-menu" role="listbox" aria-label="Рисунок орбит">
+                                                <div class="viz-type-menu-item" role="option" tabindex="0" data-value="lines" data-icon="circle"><i data-lucide="circle" style="width:14px;height:14px;color:var(--accent-color);"></i> Сплошные линии</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="0" data-value="dots" data-icon="circle-dot"><i data-lucide="circle-dot" style="width:14px;height:14px;color:var(--accent-color);"></i> Точки</div>
+                                                <div class="viz-type-menu-item" role="option" tabindex="0" data-value="dashes" data-icon="circle-dashed"><i data-lucide="circle-dashed" style="width:14px;height:14px;color:var(--accent-color);"></i> Пунктир</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row" id="viz-orbit-spacing-row" hidden>
+                                    <div style="width:100%;">
+                                        <div class="settings-row-label">Расстояние между орбитами</div>
+                                        <div class="settings-row-desc">Интервал относительно размера круга</div>
+                                        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+                                            <input type="range" id="setting-viz-orbit-spacing" title="Нажмите правой кнопкой мыши, чтобы сбросить значение" aria-label="Расстояние между орбитами" min="10" max="60" step="1" value="30" style="flex:1;accent-color:var(--accent-color);">
+                                            <span id="setting-viz-orbit-spacing-label" style="font-size:12px;font-weight:700;min-width:44px;text-align:right;">30%</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="settings-row" style="border-bottom:none;">
                                     <div style="width:100%;">
                                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Размер круга</div>
@@ -1342,6 +1515,26 @@
                                             <span id="setting-viz-circle-size-label" style="font-size:12px;font-weight:700;min-width:40px;text-align:right;">100%</span>
                                         </div>
                                     </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div style="width:100%;">
+                                        <div class="settings-row-label">Поворот круга</div>
+                                        <div class="settings-row-desc">Поворачивает рисунок и ось симметрии</div>
+                                        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+                                            <input type="range" id="setting-viz-circle-rotation" title="Нажмите правой кнопкой мыши, чтобы сбросить значение" aria-label="Поворот круга" min="-180" max="180" step="1" value="0" style="flex:1;accent-color:var(--accent-color);">
+                                            <span id="setting-viz-circle-rotation-label" style="font-size:12px;font-weight:700;min-width:44px;text-align:right;">0°</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div>
+                                        <div class="settings-row-label">Симметрия круга</div>
+                                        <div class="settings-row-desc">Одинаковый спектр в левой и правой половинах</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-circle-mirror" aria-label="Симметрия круга">
+                                        <span class="slider-round"></span>
+                                    </label>
                                 </div>
                                 <div class="settings-row">
                                     <div>
@@ -1381,6 +1574,36 @@
     <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
     <div class="viz-type-dropdown-menu" role="listbox" aria-label="Расположение полос"><div class="viz-type-menu-item" role="option" tabindex="0" data-value="bars-top" data-icon="align-start-horizontal"><i data-lucide="align-start-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Сверху</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="bars-center" data-icon="align-center-horizontal"><i data-lucide="align-center-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> По центру</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="bars-bottom" data-icon="align-end-horizontal"><i data-lucide="align-end-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Снизу</div></div></div></div></div>
                                 <div class="settings-row">
+                                    <div style="width:100%;">
+                                        <div class="settings-row-label">Смещение основания</div>
+                                        <div class="settings-row-desc">Вверх или вниз от выбранного расположения: 100% — половина высоты окна</div>
+                                        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+                                            <input type="range" id="setting-viz-bars-offset" title="Нажмите правой кнопкой мыши, чтобы сбросить значение" aria-label="Смещение основания" min="-100" max="100" step="1" value="0" style="flex:1;accent-color:var(--accent-color);">
+                                            <span id="setting-viz-bars-offset-label" style="font-size:12px;font-weight:700;min-width:44px;text-align:right;">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div>
+                                        <div class="settings-row-label">Отражение от основания</div>
+                                        <div class="settings-row-desc">Полосы растут в обе стороны; сместите основание от края. По центру отражение включено всегда</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-bars-reflect" aria-label="Отражение от основания">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row">
+                                    <div>
+                                        <div class="settings-row-label">Симметрия полос</div>
+                                        <div class="settings-row-desc">Одинаковый спектр слева и справа от центра</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-bars-mirror" aria-label="Симметрия полос">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row">
                                     <div>
                                         <div class="settings-row-label">Линии пиков</div>
                                         <div class="settings-row-desc">Показывать линию максимума над полосой</div>
@@ -1410,6 +1633,36 @@
                                     </div>
                                 </div>
                             </div><!-- /settings-option-group -->
+                            </div>
+
+                            <div class="viz-settings-block" id="viz-settings-ribbon"><div class="settings-row" style="border-bottom:none;padding-bottom:6px;"><div style="width:100%;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Расположение ленты</div>
+    <div class="viz-type-dropdown-wrapper" data-viz-option id="viz-ribbon-position">
+    <button type="button" class="viz-type-dropdown-btn" aria-haspopup="listbox" aria-expanded="false"><span class="pd-icon"></span><span class="pd-label"></span><span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span></button>
+    <div class="viz-type-dropdown-menu" role="listbox" aria-label="Расположение ленты"><div class="viz-type-menu-item" role="option" tabindex="0" data-value="ribbon-top" data-icon="align-start-horizontal"><i data-lucide="align-start-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Сверху</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="ribbon-center" data-icon="align-center-horizontal"><i data-lucide="align-center-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> По центру</div><div class="viz-type-menu-item" role="option" tabindex="0" data-value="ribbon-bottom" data-icon="align-end-horizontal"><i data-lucide="align-end-horizontal" style="width:14px;height:14px;color:var(--accent-color);"></i> Снизу</div></div></div></div></div>
+                                <div class="settings-row">
+                                    <div style="width:100%;">
+                                        <div class="settings-row-label">Смещение основания</div>
+                                        <div class="settings-row-desc">Вверх или вниз от выбранного расположения: 100% — половина высоты окна</div>
+                                        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+                                            <input type="range" id="setting-viz-ribbon-offset" title="Нажмите правой кнопкой мыши, чтобы сбросить значение" aria-label="Смещение основания" min="-100" max="100" step="1" value="0" style="flex:1;accent-color:var(--accent-color);">
+                                            <span id="setting-viz-ribbon-offset-label" style="font-size:12px;font-weight:700;min-width:44px;text-align:right;">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <div>
+                                        <div class="settings-row-label">Симметрия ленты</div>
+                                        <div class="settings-row-desc">Одинаковый спектр слева и справа от центра</div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="setting-viz-ribbon-mirror" aria-label="Симметрия ленты">
+                                        <span class="slider-round"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row">
+                                    <div><div class="settings-row-label">Прокрутка градиента</div><div class="settings-row-desc">Плавное переливание цветов ленты</div></div>
+                                    <label class="toggle-switch"><input type="checkbox" id="setting-viz-ribbon-scroll-grad" aria-label="Прокрутка градиента ленты"><span class="slider-round"></span></label>
+                                </div>
                             </div>
 
                             <!-- ── Настройки осциллографа ──────────────────────── -->
@@ -2321,10 +2574,20 @@
         <div class="settings-toc" id="settings-toc"></div>
     </div>
 
+    <dialog id="image-mask-dialog" class="image-mask-dialog" aria-labelledby="image-mask-title">
+        <div class="modal-header"><h3 id="image-mask-title">Маска изображения</h3><button type="button" class="actions-btn" id="image-mask-close" aria-label="Закрыть"><i data-lucide="x"></i></button></div>
+        <canvas id="image-mask-preview" aria-label="Предпросмотр: бирюзовые контуры и золотистые яркие участки"></canvas>
+        <div class="settings-row-desc">Бирюзовый — контуры, золотистый — яркие участки. Чем выше чувствительность, тем больше деталей.</div>
+        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Чувствительность маски</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-mask-sensitivity" min="1" max="100" value="50" aria-label="Чувствительность маски" title="ПКМ — вернуть 50%" style="flex:1;accent-color:var(--accent-color);"><span id="image-mask-sensitivity-label" style="font-size:12px;min-width:40px;">50%</span></div></div></div>
+        <div class="settings-row-desc" id="image-mask-status" role="status"></div>
+    </dialog>
+
     <script src="core/dom-refs-state.js"></script>
     <script src="core/effects-performance.js"></script>
     <script src="ui/notifications.js"></script>
     <script src="effects/background-fx.js"></script>
+    <script src="effects/image-audio-response.js"></script>
+    <script src="effects/image-effects.js"></script>
     <script src="effects/confetti.js"></script>
     <script src="effects/fireworks.js"></script>
     <script src="playback/playback-controls.js"></script>

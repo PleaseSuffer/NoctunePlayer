@@ -125,6 +125,8 @@
                 updateSettingsTocActive();
             }
 
+            document.addEventListener('settings-sections-changed', buildSettingsToc);
+
             function updateSettingsTocActive() {
                 if (!settingsToc || !settingsContent) return;
                 const items = settingsToc.querySelectorAll('.settings-toc-item');
@@ -435,6 +437,10 @@
                 'bars-bottom':   ['bars',    'gradient'],
                 'bars-center':   ['bars',    'gradient'],
                 'bars-top':      ['bars',    'gradient'],
+                'orbits':        ['circles', 'gradient'],
+                'ribbon-top':    ['ribbon', 'gradient'],
+                'ribbon-center': ['ribbon', 'gradient'],
+                'ribbon-bottom': ['ribbon', 'gradient'],
                 'waveform':      ['waveform','gradient'],
                 'fireworks':     ['fireworks'],
             };
@@ -443,21 +449,34 @@
                 const groups = VIZ_GROUPS[style] || [];
                 document.getElementById('viz-settings-circles').classList.toggle('visible', groups.includes('circles'));
                 document.getElementById('viz-settings-bars').classList.toggle('visible', groups.includes('bars'));
+                document.getElementById('viz-settings-ribbon').classList.toggle('visible', groups.includes('ribbon'));
+                document.getElementById('viz-circle-mode').closest('.settings-row').hidden = style === 'orbits';
+                document.getElementById('viz-orbit-mode-row').hidden = style !== 'orbits';
+                document.getElementById('viz-orbit-spacing-row').hidden = style !== 'orbits';
+                const innerRow = document.getElementById('setting-viz-inner').closest('.settings-row');
+                innerRow.querySelector('.settings-row-label').textContent = style === 'orbits' ? 'Заполнение орбит' : 'Внутренний визуализатор';
+                innerRow.querySelector('.settings-row-desc').textContent = style === 'orbits' ? 'Мягкое заполнение внутри колец' : 'Размытое свечение внутри круга';
+                document.getElementById('setting-viz-ribbon-scroll-grad').closest('.settings-row').hidden = window.vizColorMode !== 'gradient';
                 document.getElementById('viz-settings-waveform').classList.toggle('visible', groups.includes('waveform'));
                 document.getElementById('viz-settings-gradient').classList.toggle('visible', groups.includes('gradient') && window.vizColorMode === 'gradient');
                 document.getElementById('viz-settings-color').hidden = style === 'fireworks';
                 document.getElementById('viz-settings-fireworks').classList.toggle('visible', groups.includes('fireworks'));
+                const reflection = document.getElementById('setting-viz-bars-reflect');
+                reflection.disabled = style === 'bars-center';
+                reflection.checked = style === 'bars-center' || window.vizBarsReflect === true;
             }
 
             function selectVizType(style) {
                 if (style === 'circle') style = appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth';
                 if (style === 'bars') style = appStorage.getItem('setting_viz_bars_position') || 'bars-bottom';
+                if (style === 'ribbon') style = appStorage.getItem('setting_viz_ribbon_position') || 'ribbon-center';
                 if (!VIZ_GROUPS[style]) style = 'circle-smooth';
                 if (style.startsWith('circle-')) appStorage.setItem('setting_viz_circle_mode', style);
                 if (style.startsWith('bars-')) appStorage.setItem('setting_viz_bars_position', style);
+                if (style.startsWith('ribbon-')) appStorage.setItem('setting_viz_ribbon_position', style);
                 window.vizStyle = style;
                 appStorage.setItem('setting_viz_style', style);
-                const type = style.startsWith('circle-') ? 'circle' : style.startsWith('bars-') ? 'bars' : style;
+                const type = style.startsWith('circle-') ? 'circle' : style.startsWith('bars-') ? 'bars' : style.startsWith('ribbon-') ? 'ribbon' : style;
                 const item = vizTypeMenu.querySelector(`[data-viz="${type}"]`);
                 if (item) {
                     vizTypeLabel.textContent = item.textContent.trim();
@@ -491,7 +510,7 @@
 
             // Keep legacy style identifiers in saved themes while exposing one type per family.
             function syncVizOptions() {
-                for (const [id, value] of [['viz-circle-mode', appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth'], ['viz-bars-position', appStorage.getItem('setting_viz_bars_position') || 'bars-bottom'], ['viz-color-mode', window.vizColorMode || 'gradient']]) {
+                for (const [id, value] of [['viz-circle-mode', appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth'], ['viz-orbit-mode', window.vizOrbitMode || 'lines'], ['viz-bars-position', appStorage.getItem('setting_viz_bars_position') || 'bars-bottom'], ['viz-ribbon-position', appStorage.getItem('setting_viz_ribbon_position') || 'ribbon-center'], ['viz-color-mode', window.vizColorMode || 'gradient']]) {
                     const root = document.getElementById(id);
                     root.querySelectorAll('[role="option"]').forEach(option => {
                         const selected = option.dataset.value === value;
@@ -517,6 +536,12 @@
                 appStorage.setItem('setting_viz_color_mode', window.vizColorMode);
                 syncVizOptions();
             }
+            function selectVizOrbitMode(mode) {
+                window.vizOrbitMode = ['lines', 'dots', 'dashes'].includes(mode) ? mode : 'lines';
+                appStorage.setItem('setting_viz_orbit_mode', window.vizOrbitMode);
+                syncVizOptions();
+            }
+            window.vizOrbitMode = ['lines', 'dots', 'dashes'].includes(appStorage.getItem('setting_viz_orbit_mode')) ? appStorage.getItem('setting_viz_orbit_mode') : 'lines';
             // Reuse the visualizer type selector's markup and styles.
             document.querySelectorAll('[data-viz-option]').forEach(root => {
                 const button = root.querySelector('.viz-type-dropdown-btn');
@@ -532,6 +557,7 @@
                 options.forEach(option => option.addEventListener('click', () => {
                     const value = option.dataset.value;
                     if (root.id === 'viz-color-mode') selectVizColorMode(value);
+                    else if (root.id === 'viz-orbit-mode') selectVizOrbitMode(value);
                     else selectVizType(value);
                     openOptions(false); button.focus();
                 }));
@@ -574,6 +600,57 @@
             }
             vizCircleSize.addEventListener('input', () => applyVizCircleSize(Number(vizCircleSize.value) / 100));
             applyVizCircleSize(appStorage.getItem('setting_viz_circle_size'));
+
+            // Geometry controls use the existing slider/toggle styles and theme persistence.
+            const vizGeometryControls = [
+                ['circle-rotation', 'vizCircleRotation', -180, 180, '°'],
+                ['bars-offset', 'vizBarsOffset', -100, 100, '%'],
+                ['circle-mirror', 'vizCircleMirror'],
+                ['bars-reflect', 'vizBarsReflect'],
+                ['bars-mirror', 'vizBarsMirror'],
+                ['ribbon-offset', 'vizRibbonOffset', -100, 100, '%'],
+                ['ribbon-mirror', 'vizRibbonMirror'],
+                ['ribbon-scroll-grad', 'vizRibbonScrollGrad'],
+                ['orbit-spacing', 'vizOrbitSpacing', 10, 60, '%', 30],
+            ];
+            function applyVizGeometry(values = {}) {
+                for (const [id, property, min, max, unit, defaultValue = 0] of vizGeometryControls) {
+                    const control = document.getElementById(`setting-viz-${id}`);
+                    const key = `setting_viz_${id.replaceAll('-', '_')}`;
+                    const value = values[property];
+                    if (min === undefined) {
+                        window[property] = value === true || value === '1';
+                        control.checked = window[property] || (property === 'vizBarsReflect' && window.vizStyle === 'bars-center');
+                        appStorage.setItem(key, window[property] ? '1' : '0');
+                    } else {
+                        let parsed = value === undefined || value === null ? defaultValue : Number(value);
+                        // Preserve the angle of themes saved with the former 0–360° range.
+                        if (property === 'vizCircleRotation' && parsed > 180 && parsed <= 360) parsed -= 360;
+                        window[property] = Number.isFinite(parsed) ? Math.round(Math.max(min, Math.min(max, parsed))) : defaultValue;
+                        control.value = window[property];
+                        document.getElementById(`setting-viz-${id}-label`).textContent = `${window[property]}${unit}`;
+                        appStorage.setItem(key, window[property]);
+                    }
+                }
+            }
+            applyVizGeometry(Object.fromEntries(vizGeometryControls.map(([id, property]) =>
+                [property, appStorage.getItem(`setting_viz_${id.replaceAll('-', '_')}`)])));
+            for (const [id, property, min] of vizGeometryControls) {
+                const control = document.getElementById(`setting-viz-${id}`);
+                control.addEventListener(min === undefined ? 'change' : 'input', () => {
+                    const values = Object.fromEntries(vizGeometryControls.map(([, key]) => [key, window[key]]));
+                    values[property] = min === undefined ? control.checked : control.value;
+                    applyVizGeometry(values);
+                });
+                if (min !== undefined) {
+                    control.addEventListener('contextmenu', event => {
+                        event.preventDefault();
+                        const values = Object.fromEntries(vizGeometryControls.map(([, key]) => [key, window[key]]));
+                        values[property] = vizGeometryControls.find(([key]) => key === id)[5] ?? 0;
+                        applyVizGeometry(values);
+                    });
+                }
+            }
 
             // ---- APPEARANCE: Fireworks (Салют) settings ----
             const fwColorBtn        = document.getElementById('fw-color-dropdown-btn');
@@ -1516,6 +1593,7 @@
                 // того, чтобы пропасть вместе с выключенным тумблером.
                 customBgImageEl.style.visibility = enabled ? '' : 'hidden';
                 customBgVideoEl.style.visibility = enabled ? '' : 'hidden';
+                window.imageEffects?.refreshVisibility();
             }
             settingBgEnabled.addEventListener('change', () => {
                 applyBgImageEnabled(settingBgEnabled.checked);
@@ -1582,6 +1660,8 @@
             }
 
             function saveRecentBackgrounds(list) {
+                const removed = getRecentBackgrounds().filter(item => !list.some(next => next.path === item.path));
+                for (const item of removed) window.imageEffects?.remove(item.path);
                 try { appStorage.setItem(BG_RECENT_KEY, JSON.stringify(list)); } catch (e) {}
             }
 
@@ -1771,12 +1851,15 @@
                     // Новый фон уже подставлен «под капотом» — теперь плавно
                     // убираем сверху снимок старого, открывая его.
                     if (prevSnapshot) playBgCrossfade(prevSnapshot, prevFit);
+                    window.imageEffects?.select(filePath);
                 } catch (e) {
                     console.error('Не удалось установить фон:', e);
                 }
             }
 
             function clearBgImage() {
+                window.imageEffects?.remove(window.bgImagePath);
+                window.imageEffects?.select(null);
                 const prevSnapshot = window.bgImagePath ? snapshotCurrentBgFrame() : null;
                 const prevFit = window.bgImageFit || 'cover';
 
@@ -1819,6 +1902,7 @@
             function applyBgFitToElements(fit) {
                 customBgImageEl.style.backgroundSize = BG_FIT_CSS[fit] || 'cover';
                 customBgVideoEl.style.objectFit = BG_FIT_OBJECT[fit] || 'cover';
+                window.imageEffects?.layout();
             }
 
             function selectBgFit(fit) {
@@ -2844,7 +2928,10 @@
                     vcc: window.vizCustomColor || '#bb86fc',
                     vcir: appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth',
                     vbar: appStorage.getItem('setting_viz_bars_position') || 'bars-bottom',
+                    vrib: appStorage.getItem('setting_viz_ribbon_position') || 'ribbon-center',
+                    vorb: window.vizOrbitMode || 'lines',
                     vsz: window.vizCircleSize || 1,
+                    vgeo: Object.fromEntries(vizGeometryControls.map(([, property]) => [property, window[property]])),
                     vsty: appStorage.getItem('setting_viz_style') || 'circle-smooth', // viz type
                     vin: (appStorage.getItem('setting_viz_inner') ?? '1') === '1',   // inner circle
                     vpk: (appStorage.getItem('setting_viz_peaks') ?? '1') === '1',   // bar peaks
@@ -2886,6 +2973,7 @@
                         sv: window.waveformSensitivity || 1,
                     },
                     lyr: window.getLyricsAppearance ? window.getLyricsAppearance() : undefined,
+                    imageEffects: window.imageEffects?.appearance(),
                     bg: null,
                 };
 
@@ -3020,11 +3108,15 @@
                     showNotification('Настройки фона применены — само изображение/видео тема не переносит, выберите его вручную', 'info');
                 }
 
+                window.imageEffects?.applyAppearance(payload.imageEffects);
                 if (typeof payload.si === 'boolean') setCheckedAndFire(settingStarsInteractive, payload.si);
                 setValueAndFire(vizIntSlider, payload.vint);
                 if (['circle-smooth', 'circle-lines', 'circle-dots', 'circle-double'].includes(payload.vcir)) appStorage.setItem('setting_viz_circle_mode', payload.vcir);
                 if (['bars-bottom', 'bars-center', 'bars-top'].includes(payload.vbar)) appStorage.setItem('setting_viz_bars_position', payload.vbar);
+                if (['ribbon-top', 'ribbon-center', 'ribbon-bottom'].includes(payload.vrib)) appStorage.setItem('setting_viz_ribbon_position', payload.vrib);
                 applyVizCircleSize(payload.vsz);
+                applyVizGeometry(payload.vgeo || {});
+                selectVizOrbitMode(payload.vorb || 'lines');
                 applyVizCustomColor(payload.vcc || '#bb86fc');
                 selectVizColorMode(payload.vcm || 'gradient');
                 if (payload.vsty) selectVizType(payload.vsty);

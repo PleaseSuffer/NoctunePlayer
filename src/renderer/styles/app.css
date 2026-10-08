@@ -2422,3 +2422,11 @@
         .settings-option-group > [data-settings-detail] { border-top: none !important; }
         .settings-option-group:has(> .settings-row[hidden]) { display: none; }
         .settings-option-group + :is(.settings-row, .settings-option-group) { border-top: 1px solid var(--border-color); }
+
+        #image-effects-settings { display: flex; flex-direction: column; gap: 20px; }
+        #image-effects-settings [data-settings-detail][hidden], #image-effects-settings [data-image-color-custom][hidden] { display: none; }
+        #image-effects-settings[hidden], #image-effects-controls[hidden] { display: none; }
+        .image-effect-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .image-mask-dialog { width: min(680px, calc(100vw - 48px)); max-height: 85vh; overflow: auto; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; background: var(--container-bg); color: var(--text-color); }
+        .image-mask-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+        #image-mask-preview { display: block; width: 100%; height: auto; max-height: 45vh; object-fit: contain; margin-bottom: 12px; border-radius: 8px; background: var(--track-hover); }

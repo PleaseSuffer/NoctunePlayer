@@ -51,6 +51,18 @@ ipcMain.handle('system-integration:apply', (_event, action) => systemIntegration
 let store;
 let storeInitialization;
 
+const { createBackgroundMaskCache } = require('./cache/background-mask-cache');
+const backgroundMaskCache = createBackgroundMaskCache({
+  directory: () => path.join(app.getPath('userData'), 'background-masks'),
+  retainedPaths: () => {
+    try { return JSON.parse(store?.get('setting_bg_recent_list') || '[]').filter(item => !item.isVideo).map(item => item.path); }
+    catch (_) { return []; }
+  },
+});
+ipcMain.handle('background-mask:get', (_event, file) => backgroundMaskCache.get(file));
+ipcMain.handle('background-mask:set', (_event, payload) => backgroundMaskCache.set(payload));
+ipcMain.handle('background-mask:remove', (_event, file) => backgroundMaskCache.remove(file));
+
 // ── Интеграция: Discord Rich Presence ──────────────────────────────────────
 // Подключение к локальному Discord-клиенту живёт в main-процессе (а не в
 // рендерере), чтобы переживать перезагрузку страницы и быть единой точкой
@@ -104,8 +116,9 @@ function handleArgvForDeepLink(argv) {
 
 async function initStore() {
   if (!storeInitialization) {
-    storeInitialization = import('electron-store').then(({ default: Store }) => {
+    storeInitialization = import('electron-store').then(async ({ default: Store }) => {
       store = new Store();
+      await backgroundMaskCache.prune();
       return store;
     });
   }
@@ -835,11 +848,11 @@ ipcMain.on('store:get-all-sync', (event) => {
 });
 
 ipcMain.on('store:set', (_e, key, value) => {
-    try { if (store) store.set(key, value); } catch (e) {}
+    try { if (store) store.set(key, value); if (key === 'setting_bg_recent_list') backgroundMaskCache.prune(); } catch (e) {}
 });
 
 ipcMain.on('store:delete', (_e, key) => {
-    try { if (store) store.delete(key); } catch (e) {}
+    try { if (store) store.delete(key); if (key === 'setting_bg_recent_list') backgroundMaskCache.prune(); } catch (e) {}
 });
 
 function getDisplayVersion() {

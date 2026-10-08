@@ -294,6 +294,12 @@ contextBridge.exposeInMainWorld('noctune', {
     scrobble: (payload) => ipcRenderer.invoke('lastfm-scrobble', payload),
   },
 
+  backgroundMasks: {
+    get: file => ipcRenderer.invoke('background-mask:get', file),
+    set: payload => ipcRenderer.invoke('background-mask:set', payload),
+    remove: file => ipcRenderer.invoke('background-mask:remove', file),
+  },
+
   // ── Радио ──
   checkRadioStation: (url) => checkRadioStreamReachable(url),
 
