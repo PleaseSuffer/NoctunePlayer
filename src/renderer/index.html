@@ -410,6 +410,16 @@
                             </div>
                             <div class="settings-row">
                                 <div>
+                                    <div class="settings-row-label">Не выключать экран и не переходить в сон</div>
+                                    <div class="settings-row-desc">Предотвращать автоматическое выключение экрана и переход в сон, пока Noctune запущен, в том числе в трее</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setting-keep-awake">
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="settings-row">
+                                <div>
                                     <div class="settings-row-label">Уведомления об ошибках</div>
                                     <div class="settings-row-desc">Показывать системные уведомления</div>
                                 </div>
@@ -1221,6 +1231,7 @@
                                         <label class="toggle-switch"><input type="checkbox" id="image-effects-contours"><span class="slider-round"></span></label>
                                     </div>
                                     <div data-settings-detail id="image-effects-contours-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Интенсивность</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-contoursStrength" min="0" max="2" step="0.1" value="1" aria-label="Интенсивность эффекта" title="ПКМ — вернуть 1×" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-contoursStrength-label" style="font-size:12px;min-width:48px;">1×</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-contoursThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-contoursThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div id="image-effects-contours-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
                                             <div class="viz-type-dropdown-wrapper" id="image-effects-contours-color">
@@ -1244,6 +1255,7 @@
                                         <label class="toggle-switch"><input type="checkbox" id="image-effects-waves"><span class="slider-round"></span></label>
                                     </div>
                                     <div data-settings-detail id="image-effects-waves-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Интенсивность</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesStrength" min="0" max="2" step="0.1" value="1" aria-label="Интенсивность эффекта" title="ПКМ — вернуть 1×" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesStrength-label" style="font-size:12px;min-width:48px;">1×</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-wavesThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-wavesThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div id="image-effects-waves-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
                                             <div class="viz-type-dropdown-wrapper" id="image-effects-waves-color">
@@ -1269,6 +1281,7 @@
                                         <label class="toggle-switch"><input type="checkbox" id="image-effects-highlights"><span class="slider-round"></span></label>
                                     </div>
                                     <div data-settings-detail id="image-effects-highlights-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Интенсивность</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-highlightsStrength" min="0" max="2" step="0.1" value="1" aria-label="Интенсивность эффекта" title="ПКМ — вернуть 1×" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-highlightsStrength-label" style="font-size:12px;min-width:48px;">1×</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-highlightsThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-highlightsThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div id="image-effects-highlights-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
                                             <div class="viz-type-dropdown-wrapper" id="image-effects-highlights-color">
@@ -1292,6 +1305,7 @@
                                         <label class="toggle-switch"><input type="checkbox" id="image-effects-sparks"><span class="slider-round"></span></label>
                                     </div>
                                     <div data-settings-detail id="image-effects-sparks-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Интенсивность</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksStrength" min="0" max="2" step="0.1" value="1" aria-label="Интенсивность эффекта" title="ПКМ — вернуть 1×" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksStrength-label" style="font-size:12px;min-width:48px;">1×</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-sparksThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-sparksThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div id="image-effects-sparks-color-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Цвет</div>
                                             <div class="viz-type-dropdown-wrapper" id="image-effects-sparks-color">
@@ -1317,6 +1331,7 @@
                                         <label class="toggle-switch"><input type="checkbox" id="image-effects-ripple"><span class="slider-round"></span></label>
                                     </div>
                                     <div data-settings-detail id="image-effects-ripple-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Интенсивность</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleStrength" min="0" max="2" step="0.1" value="1" aria-label="Интенсивность эффекта" title="ПКМ — вернуть 1×" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleStrength-label" style="font-size:12px;min-width:48px;">1×</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Одновременная рябь</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleLimit" min="1" max="8" step="1" value="4" aria-label="Одновременная рябь" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleLimit-label" style="font-size:12px;min-width:48px;">4</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Сила искажения</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-rippleGain" min=".2" max="3" step=".1" value="1.2" aria-label="Сила искажения" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-rippleGain-label" style="font-size:12px;min-width:48px;">1.2×</span></div></div></div>
@@ -1331,6 +1346,7 @@
                                         <label class="toggle-switch"><input type="checkbox" id="image-effects-chromatic"><span class="slider-round"></span></label>
                                     </div>
                                     <div data-settings-detail id="image-effects-chromatic-details" hidden style="padding-left:16px;border-left:2px solid var(--border-color);">
+                                        <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Интенсивность</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticStrength" min="0" max="2" step="0.1" value="1" aria-label="Интенсивность эффекта" title="ПКМ — вернуть 1×" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticStrength-label" style="font-size:12px;min-width:48px;">1×</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Игнорировать тихие моменты</div><div class="settings-row-desc">Выше порог — эффект реагирует только на более громкие фрагменты. 0 — без ограничения.</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticThreshold" min="0" max="0.5" step="0.02" value="0" aria-label="Игнорировать тихие моменты" title="ПКМ — вернуть 0" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticThreshold-label" style="font-size:12px;min-width:48px;">0.00</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Смещение каналов</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticDistance" min="2" max="40" step="1" value="14" aria-label="Смещение каналов" title="ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticDistance-label" style="font-size:12px;min-width:48px;">14 px</span></div></div></div>
                                         <div class="settings-row"><div style="width:100%;"><div class="settings-row-label">Доля средних и высоких частот</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><input type="range" id="image-effects-chromaticResponse" min="0" max="100" step="1" value="65" aria-label="Доля средних и высоких частот" title="0% — басы, 100% — средние и высокие; ПКМ — значение по умолчанию" style="flex:1;accent-color:var(--accent-color);"><span id="image-effects-chromaticResponse-label" style="font-size:12px;min-width:48px;">65%</span></div></div></div>
@@ -1339,9 +1355,9 @@
                                     </div>
                                     </div>
                                     <div class="settings-row">
-                                        <div style="width:100%;"><div class="settings-row-label">Интенсивность</div>
+                                        <div style="width:100%;"><div class="settings-row-label">Глобальная интенсивность</div><div class="settings-row-desc">Масштабирует интенсивность всех эффектов с учётом их индивидуальных настроек</div>
                                             <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
-                                                <input type="range" id="image-effects-strength" min="0.2" max="2" step="0.1" value="1" aria-label="Интенсивность эффектов изображения" style="flex:1;accent-color:var(--accent-color);">
+                                                <input type="range" id="image-effects-strength" min="0.2" max="2" step="0.1" value="1" aria-label="Глобальная интенсивность эффектов изображения" style="flex:1;accent-color:var(--accent-color);">
                                                 <span id="image-effects-strength-label" style="font-size:12px;min-width:32px;">1.0</span>
                                             </div>
                                         </div>
@@ -1403,6 +1419,12 @@
                                         <span class="pd-chevron"><i data-lucide="chevron-down" style="width:14px;height:14px;"></i></span>
                                     </button>
                                     <div class="viz-type-dropdown-menu" id="waveform-color-dropdown-menu">
+                                        <div class="viz-type-menu-item" data-waveform-color-mode="accent">
+                                            <i data-lucide="pipette" style="width:14px;height:14px;color:var(--accent-color);"></i> От акцента
+                                        </div>
+                                        <div class="viz-type-menu-item" data-waveform-color-mode="theme">
+                                            <i data-lucide="sun-moon" style="width:14px;height:14px;color:var(--accent-color);"></i> От темы
+                                        </div>
                                         <div class="viz-type-menu-item" data-waveform-color-mode="adaptive">
                                             <i data-lucide="wand-2" style="width:14px;height:14px;color:var(--accent-color);"></i> Адаптивный
                                         </div>

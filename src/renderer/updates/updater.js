@@ -26,6 +26,24 @@
             let _manualCheck = false;
             let _lastErrorToast = null;
 
+            function skippedVersions() {
+                try {
+                    const versions = JSON.parse(appStorage.getItem('setting_skipped_update_versions') || '[]');
+                    return Array.isArray(versions) ? versions.filter(version => typeof version === 'string') : [];
+                } catch {
+                    return [];
+                }
+            }
+
+            function skipVersion(version) {
+                if (version === '?') return;
+                appStorage.setItem('setting_skipped_update_versions', JSON.stringify([...new Set([...skippedVersions(), version])]));
+                _pendingVersion = null;
+                statusMsg.textContent = `Версия v${version} пропущена. Её можно установить через ручную проверку обновлений.`;
+                statusMsg.style.color = '';
+                setActionButton('hidden');
+            }
+
             function showUpdaterUnavailable(info) {
                 statusMsg.textContent = info?.reason === 'development'
                     ? 'Автообновление недоступно при запуске из исходников.'
@@ -164,8 +182,21 @@
 
             noctune.updater.onAvailable((info) => {
                 const version = (info && info.version) || '?';
+                const manual = info?.silent === false || _manualCheck;
+                if (!manual && (info?.skipped || skippedVersions().includes(version))) {
+                    statusMsg.textContent = 'Новых обновлений нет.';
+                    statusMsg.style.color = '';
+                    setActionButton('hidden');
+                    return;
+                }
                 statusMsg.innerHTML = `Доступна новая версия <span style="color:var(--accent-color);font-weight:bold;">v${version}</span>.`;
                 statusMsg.style.color = '';
+
+                if (_downloadedVersion === version) {
+                    statusMsg.textContent = `Версия v${version} скачана и готова к установке.`;
+                    setActionButton('install', () => { noctune.updater.install(); });
+                    return;
+                }
 
                 if (autoDownloadToggle.checked) {
                     // Настройка "скачивать автоматически" — без подтверждения,
@@ -189,7 +220,7 @@
                 // трей), но теперь это не единственный способ скачать: кнопка
                 // выше остаётся, даже если toast закрыли или он потерялся среди
                 // остальных уведомлений.
-                if (_pendingVersion === version || _downloadedVersion === version) return;
+                if (!manual && (_pendingVersion === version || _downloadedVersion === version)) return;
                 _pendingVersion = version;
 
                 showNotification(
@@ -208,7 +239,8 @@
                                     showNotification(`Скачивается версия v${version}...`, 'info', 'Загрузка обновления');
                                 }
                             },
-                            { label: 'Позже', onClick: () => {} }
+                            { label: 'Позже', onClick: () => {} },
+                            { label: 'Пропустить версию', onClick: () => skipVersion(version) }
                         ]
                     }
                 );
@@ -244,7 +276,8 @@
                                 primary: true,
                                 onClick: () => { noctune.updater.install(); }
                             },
-                            { label: 'Позже', onClick: () => {} }
+                            { label: 'Позже', onClick: () => {} },
+                            { label: 'Пропустить версию', onClick: () => skipVersion(version) }
                         ]
                     }
                 );

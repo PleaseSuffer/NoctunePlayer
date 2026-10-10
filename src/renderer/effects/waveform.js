@@ -29,7 +29,7 @@
             // экране). Без фона акценту неоткуда быть "адаптивным" — вместо
             // произвольного цвета берём нейтральный, однозначно читаемый на
             // фоне текущей темы.
-            if (waveformHasBackground()) {
+            if (window.waveformColorMode === 'accent' || (window.waveformColorMode !== 'theme' && waveformHasBackground())) {
                 return getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
             }
             const isDark = document.body.getAttribute('data-theme') === 'dark';

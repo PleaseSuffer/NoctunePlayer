@@ -11,6 +11,7 @@ let checkResult = null;
 let checkError = null;
 const sent = [];
 const context = {
+    updateChecks: new Set(),
     app: { isPackaged: false },
     store: { get: () => '0' },
     Notification: { isSupported: () => false },

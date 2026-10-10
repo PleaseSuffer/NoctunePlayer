@@ -401,6 +401,13 @@
                 noctune.setMinimizeToTray(settingMinimizeToTray.checked);
             });
 
+            // ---- GENERAL: Keep screen and system awake ----
+            const settingKeepAwake = document.getElementById('setting-keep-awake');
+            settingKeepAwake.checked = appStorage.getItem('setting_keep_awake') === '1';
+            settingKeepAwake.addEventListener('change', () => {
+                appStorage.setItem('setting_keep_awake', settingKeepAwake.checked ? '1' : '0');
+            });
+
             // ---- PLAYER: Autonext playlist ----
             const settingAutoNextPlaylist = document.getElementById('setting-autonext-playlist');
             settingAutoNextPlaylist.addEventListener('change', () => {
@@ -2113,6 +2120,8 @@
             };
             const WAVEFORM_COLOR_MODES = {
                 adaptive: { label: 'Адаптивный', icon: 'wand-2',  desc: 'Текущий акцент; без своего фона — нейтральный цвет от темы' },
+                accent:   { label: 'От акцента', icon: 'pipette', desc: 'Следует текущему акцентному цвету приложения, в том числе без своего фона' },
+                theme:    { label: 'От темы',    icon: 'sun-moon', desc: 'Светлый в тёмной теме и тёмный в светлой, независимо от акцента и фона' },
                 custom:   { label: 'Свой цвет',  icon: 'palette', desc: 'Один и тот же цвет независимо от темы, акцента и фона' },
             };
 
@@ -2166,6 +2175,7 @@
             });
 
             function selectWaveformColorMode(mode) {
+                if (!Object.hasOwn(WAVEFORM_COLOR_MODES, mode)) mode = 'custom';
                 window.waveformColorMode = mode;
                 const def = WAVEFORM_COLOR_MODES[mode] || WAVEFORM_COLOR_MODES.custom;
                 waveformColorModeLabel.textContent = def.label;
@@ -3562,6 +3572,7 @@
                 if (savedAutoNextPl !== null) { const el = document.getElementById('setting-autonext-playlist'); if(el) el.checked = savedAutoNextPl === '1'; }
                 const savedMTT = appStorage.getItem('setting_minimize_to_tray');
                 if (savedMTT !== null) { const el = document.getElementById('setting-minimize-to-tray'); if(el) el.checked = savedMTT === '1'; }
+                settingKeepAwake.checked = appStorage.getItem('setting_keep_awake') === '1';
 
                 // Open links in external browser
                 const savedOLE = appStorage.getItem('setting_open_links_external');

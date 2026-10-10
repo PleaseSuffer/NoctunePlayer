@@ -30,12 +30,12 @@ app.whenReady().then(async () => {
         ipcMain.handle('mask:remove', (_e,file) => cache.remove(file));
         const page = path.join(root,'index.html');
         await fs.writeFile(page, `<html><head><base href="${pathToFileURL(path.join(renderer,'index.html')).href}"><style>${css} body{display:block;padding:12px;} #custom-bg-image{position:relative;height:360px;width:640px;} #image-effects-settings{width:640px;} .settings-row{padding:8px 0;}</style></head><body data-theme="dark"><div id="custom-bg-image"></div><button id="settings-fab"></button><div id="settings-overlay"><button id="settings-close-btn"></button><div class="settings-content"><div class="settings-panel active"><div class="settings-section-title">Фон</div>${controls}<div class="settings-section-title">Waveform</div></div></div><div id="settings-toc"></div></div>${dialog}</body></html>`);
-        win = new BrowserWindow({ show:true, width:900,height:950, webPreferences:{ preload, sandbox:false, backgroundThrottling:false } });
+        win = new BrowserWindow({ show:process.argv.includes('--preview'), width:900,height:950, webPreferences:{ preload, sandbox:false, backgroundThrottling:false } });
         win.webContents.on('console-message', event => { if (['error','warning'].includes(event.level)) console.error(event.message); });
         await win.loadFile(page);
         const png = await win.webContents.executeJavaScript(`(() => { const canvas=document.createElement('canvas');canvas.width=640;canvas.height=360;const c=canvas.getContext('2d');c.fillStyle='#13283d';c.fillRect(0,0,640,360);c.fillStyle='#e9edf5';c.beginPath();c.arc(490,70,36,0,Math.PI*2);c.fill();for(let i=0;i<8;i++){c.fillStyle=i%2?'#253754':'#3c536d';c.fillRect(i*80,150+i%3*20,65,210);c.fillStyle='#ffeeaa';for(let y=170;y<330;y+=35)c.fillRect(i*80+18,y,14,18);}return canvas.toDataURL('image/png').split(',')[1];})()`);
         const image=path.join(root,'фон с пробелом.png'); await fs.writeFile(image,Buffer.from(png,'base64')); retained=[image];
-        await win.webContents.executeJavaScript(`window.appStorage={data:{},getItem(k){return this.data[k]??null},setItem(k,v){this.data[k]=String(v)}};window.requestEffectsFrame=callback=>requestAnimationFrame(callback);window.bgImageEnabled=true;window.bgImageIsVideo=false;window.bgImageFit='cover';window.isPlaying=true;window.gpuDraws=0;const originalGetContext=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,options){if(type==='webgl')return ${process.argv.includes('--fallback')?'null':"originalGetContext.call(this,type,{...options,preserveDrawingBuffer:true})"};return originalGetContext.call(this,type,options)};const originalDraw=WebGLRenderingContext.prototype.drawArrays;WebGLRenderingContext.prototype.drawArrays=function(...args){window.gpuDraws++;return originalDraw.apply(this,args)};${settingsNavigation};${audioCode};${code}`);
+        await win.webContents.executeJavaScript(`window.appStorage={data:{},getItem(k){return this.data[k]??null},setItem(k,v){this.data[k]=String(v)}};window.requestEffectsFrame=callback=>setTimeout(()=>callback(performance.now()),16);window.bgImageEnabled=true;window.bgImageIsVideo=false;window.bgImageFit='cover';window.isPlaying=true;window.gpuDraws=0;const originalGetContext=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,options){if(type==='webgl')return ${process.argv.includes('--fallback')?'null':"originalGetContext.call(this,type,{...options,preserveDrawingBuffer:true})"};return originalGetContext.call(this,type,options)};const originalDraw=WebGLRenderingContext.prototype.drawArrays;WebGLRenderingContext.prototype.drawArrays=function(...args){window.gpuDraws++;return originalDraw.apply(this,args)};${settingsNavigation};${audioCode};${code}`);
         async function evaluate(code) { return win.webContents.executeJavaScript(code); }
         async function waitFor(condition) {
             const until=Date.now()+10000;
@@ -48,7 +48,7 @@ app.whenReady().then(async () => {
         assert.ok(await evaluate("document.querySelector('#image-effects-settings > .settings-card').getBoundingClientRect().top-document.querySelector('#image-effects-settings > .settings-section-title').getBoundingClientRect().bottom>=20"),'section title has the common 20px gap');
         assert.equal(writes,0,'disabled effects do not prepare masks');
         await evaluate("imageEffects.applyAppearance({enabled:true,contours:true,waves:true,highlights:true,sparks:true,ripple:true,chromatic:true,strength:1});imageEffects.audio(new Uint8Array(256).fill(200),44100,true)");
-        await waitFor("document.getElementById('image-effects-status').textContent==='' || document.getElementById('image-effects-status').textContent.includes('Упрощённая')");
+        await waitFor('window.imageProbe?.sharp');
         assert.equal(writes,1,'first image analysis persists exactly one base mask');
         await waitFor("window.gpuDraws>0 || document.getElementById('image-effects-status').textContent.includes('Упрощённая')");
         const gpu = await evaluate('window.gpuDraws>0');
@@ -75,11 +75,17 @@ app.whenReady().then(async () => {
         const plain=await evaluate('window.snapshotEffect()');
         const signatures=[];
         for(const effect of ['contours','waves','highlights','sparks','ripple','chromatic']) {
+            await evaluate('imageEffects.applyAppearance('+JSON.stringify({...none,[effect]:true,parameters:{[effect+'Strength']:0}})+');imageEffects.select(window.fixture)');
+            await waitFor("document.getElementById('image-effects-status').textContent==='' || document.getElementById('image-effects-status').textContent.includes('Упрощённая')");
+            await evaluate('imageEffects.audio(new Uint8Array(256).fill(255),44100,true)');
+            await new Promise(resolve=>setTimeout(resolve,170));
+            const zeroIntensity=await evaluate('window.snapshotEffect()');
             await evaluate('imageEffects.applyAppearance('+JSON.stringify({...none,[effect]:true})+');imageEffects.select(window.fixture)');
             await waitFor("document.getElementById('image-effects-status').textContent==='' || document.getElementById('image-effects-status').textContent.includes('Упрощённая')");
             await evaluate('imageEffects.audio(new Uint8Array(256).fill(255),44100,true)');
             await new Promise(resolve=>setTimeout(resolve,170));
             const signature=await evaluate('window.snapshotEffect()');
+            assert.ok(signature!==zeroIntensity,effect+' individual intensity changes actual pixels');
             assert.ok(signature!==plain,effect+' visibly changes the rendered image; '+JSON.stringify(await evaluate('window.imageProbe')));
             signatures.push(signature);
         }
@@ -110,6 +116,32 @@ app.whenReady().then(async () => {
             return {persisted, reset:imageEffects.appearance().parameters.chromaticDistance, shown:!document.getElementById('image-effects-chromatic-details').hidden, hidden:document.getElementById('image-effects-waves-details').hidden};
         })()`);
         assert.deepEqual(parameterControls,{persisted:30,reset:14,shown:true,hidden:true});
+        const intensityControls = await evaluate(`(() => {
+            imageEffects.applyAppearance({enabled:true,strength:1.5});
+            const effects=['contours','waves','highlights','sparks','ripple','chromatic'];
+            const defaults=effects.map(key=>imageEffects.appearance().parameters[key+'Strength']);
+            const values=effects.map((key,i)=>{
+                const control=document.getElementById('image-effects-'+key+'Strength');
+                control.value=(i+1)*.2;control.dispatchEvent(new Event('input'));
+                return imageEffects.appearance().parameters[key+'Strength'];
+            });
+            const saved=imageEffects.appearance();
+            imageEffects.applyAppearance({});imageEffects.applyAppearance(saved);
+            const restored=effects.map(key=>imageEffects.appearance().parameters[key+'Strength']);
+            const persisted=JSON.parse(appStorage.getItem('setting_image_effects'));
+            const control=document.getElementById('image-effects-wavesStrength');
+            control.dispatchEvent(new MouseEvent('contextmenu',{cancelable:true,button:2}));
+            const reset=imageEffects.appearance().parameters.wavesStrength;
+            imageEffects.applyAppearance({parameters:{contoursStrength:-5,wavesStrength:10,sparksStrength:0}});
+            return {defaults,values,restored,persisted:effects.map(key=>persisted.parameters[key+'Strength']),global:saved.strength,reset,clamped:[imageEffects.appearance().parameters.contoursStrength,imageEffects.appearance().parameters.wavesStrength,imageEffects.appearance().parameters.sparksStrength]};
+        })()`);
+        assert.deepEqual(intensityControls.defaults, [1,1,1,1,1,1], 'old settings keep the original effect strength');
+        assert.deepEqual(intensityControls.values, [.2,.4,.6,.8,1,1.2]);
+        assert.deepEqual(intensityControls.restored, intensityControls.values);
+        assert.deepEqual(intensityControls.persisted, intensityControls.values);
+        assert.equal(intensityControls.global, 1.5);
+        assert.equal(intensityControls.reset, 1);
+        assert.deepEqual(intensityControls.clamped, [0,2,0]);
         // Absolute loudness gates suppress quiet audio even when it has strong normalized transients.
         await evaluate('imageEffects.applyAppearance({enabled:true,contours:true,waves:true,highlights:true,sparks:true,ripple:true,chromatic:true,parameters:{contoursThreshold:.3,wavesThreshold:.3,highlightsThreshold:.3,sparksThreshold:.3,rippleThreshold:.3,chromaticThreshold:.3}});imageEffects.select(window.fixture)');
         await waitFor("document.getElementById('image-effects-status').textContent==='' || document.getElementById('image-effects-status').textContent.includes('Упрощённая')");

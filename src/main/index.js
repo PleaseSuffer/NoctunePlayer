@@ -1,8 +1,11 @@
-const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
 const { createSystemIntegration } = require('./system-integration');
+const { KEY: KEEP_AWAKE_KEY, createKeepAwake } = require('./keep-awake');
+const keepAwake = createKeepAwake(powerSaveBlocker);
+app.on('will-quit', () => keepAwake.setEnabled(false));
 const { KEY: HARDWARE_ACCELERATION_KEY, readHardwareAcceleration, hardwareAccelerationState } = require('./hardware-acceleration');
 const startupHardwareAcceleration = readHardwareAcceleration(path.join(app.getPath('userData'), 'config.json'));
 if (!startupHardwareAcceleration) app.disableHardwareAcceleration();
@@ -119,6 +122,7 @@ async function initStore() {
     storeInitialization = import('electron-store').then(async ({ default: Store }) => {
       store = new Store();
       await backgroundMaskCache.prune();
+      keepAwake.setEnabled(store.get(KEEP_AWAKE_KEY) === '1');
       return store;
     });
   }
@@ -662,6 +666,20 @@ ipcMain.on('setting-minimize-to-tray-changed', (_e, value) => {
 // рендереру через события updater:*, рендерер решает, показывать ли toast.
 autoUpdater.autoDownload = false;      // по умолчанию — только по клику в toast
 autoUpdater.autoInstallOnAppQuit = false;
+const updateChecks = new Set();
+
+function isSilentUpdateCheck() {
+    return updateChecks.size > 0 && [...updateChecks].every(check => check.silent);
+}
+
+function isUpdateVersionSkipped(version) {
+    try {
+        const versions = JSON.parse(store?.get('setting_skipped_update_versions') || '[]');
+        return Array.isArray(versions) && versions.includes(version);
+    } catch {
+        return false;
+    }
+}
 
 function sendToRenderer(channel, ...args) {
     if (win && !win.isDestroyed() && win.webContents) {
@@ -671,7 +689,8 @@ function sendToRenderer(channel, ...args) {
 
 autoUpdater.on('checking-for-update', () => sendToRenderer('updater:checking'));
 autoUpdater.on('update-available', (info) => sendToRenderer('updater:available', {
-    version: info.version, releaseDate: info.releaseDate, releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : null
+    version: info.version, releaseDate: info.releaseDate, releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : null,
+    silent: isSilentUpdateCheck(), skipped: isSilentUpdateCheck() && isUpdateVersionSkipped(info.version)
 }));
 autoUpdater.on('update-not-available', (info) => sendToRenderer('updater:not-available', { version: info && info.version }));
 autoUpdater.on('download-progress', (progress) => sendToRenderer('updater:progress', {
@@ -681,10 +700,11 @@ autoUpdater.on('update-downloaded', (info) => sendToRenderer('updater:downloaded
 autoUpdater.on('error', (err) => sendToRenderer('updater:error', String(err && err.message || err)));
 
 ipcMain.handle('updater:check', async (_e, silent) => {
-    // Настройка "автоматически скачивать" читается из хранилища перед
-    // каждой проверкой — пользователь мог поменять её только что.
-    const autoDl = store && store.get('setting_auto_download_updates');
-    autoUpdater.autoDownload = autoDl === '1';
+    const check = { silent: !!silent };
+    updateChecks.add(check);
+    // Renderer запускает автозагрузку после проверки списка пропущенных
+    // версий. Встроенная автозагрузка начала бы скачивание до этой проверки.
+    autoUpdater.autoDownload = false;
 
     // Системный toast при найденном обновлении — только для фоновой (silent)
     // проверки и только если включено в настройках. При проверке по клику
@@ -697,6 +717,7 @@ ipcMain.handle('updater:check', async (_e, silent) => {
     const notifyOnFind = silent && Notification.isSupported() && store && store.get('setting_update_notify') !== '0';
     if (notifyOnFind) {
         onSilentAvailable = (info) => {
+            if (isUpdateVersionSkipped(info.version)) return;
             const notif = new Notification({
                 title: 'Доступно обновление!',
                 body: `Версия ${info.version} доступна. Нажмите, чтобы открыть Noctune и скачать.`,
@@ -723,6 +744,7 @@ ipcMain.handle('updater:check', async (_e, silent) => {
         return { ok: false, error: String(e && e.message || e) };
     } finally {
         if (onSilentAvailable) autoUpdater.removeListener('update-available', onSilentAvailable);
+        updateChecks.delete(check);
     }
 });
 
@@ -848,11 +870,19 @@ ipcMain.on('store:get-all-sync', (event) => {
 });
 
 ipcMain.on('store:set', (_e, key, value) => {
-    try { if (store) store.set(key, value); if (key === 'setting_bg_recent_list') backgroundMaskCache.prune(); } catch (e) {}
+    try {
+        if (store) store.set(key, value);
+        if (key === KEEP_AWAKE_KEY) keepAwake.setEnabled(value === '1');
+        if (key === 'setting_bg_recent_list') backgroundMaskCache.prune();
+    } catch (e) {}
 });
 
 ipcMain.on('store:delete', (_e, key) => {
-    try { if (store) store.delete(key); if (key === 'setting_bg_recent_list') backgroundMaskCache.prune(); } catch (e) {}
+    try {
+        if (store) store.delete(key);
+        if (key === KEEP_AWAKE_KEY) keepAwake.setEnabled(false);
+        if (key === 'setting_bg_recent_list') backgroundMaskCache.prune();
+    } catch (e) {}
 });
 
 function getDisplayVersion() {
@@ -886,6 +916,9 @@ ipcMain.handle('get-tech-versions', async () => {
 // electron-updater; те же события updater:* заодно долетают и до окна
 // (если оно открыто), так что в приложении тоже появится toast.
 function performTrayUpdateCheck() {
+    const check = { silent: false };
+    updateChecks.add(check);
+    autoUpdater.autoDownload = false;
     if (Notification.isSupported()) {
         new Notification({
             title: 'Noctune Player',
@@ -926,6 +959,7 @@ function performTrayUpdateCheck() {
         }
     };
     function cleanup() {
+        updateChecks.delete(check);
         autoUpdater.removeListener('update-available', onAvailable);
         autoUpdater.removeListener('update-not-available', onNotAvailable);
         autoUpdater.removeListener('error', onError);
@@ -1080,12 +1114,10 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    // AUMID должен буквально совпадать с build.appId из package.json — именно
-    // с этим значением NSIS-инсталлятор регистрирует ярлык в Пуске. При
-    // несовпадении Windows не находит зарегистрированную идентичность
-    // приложения и откатывается на generic "Electron" — как имя, так и иконку
-    // (проявляется в toast-уведомлениях и группировке в таскбаре).
-    app.setAppUserModelId('com.noctune.player');
+    // Установленная версия использует build.appId из package.json, как ярлык
+    // NSIS. Запуск через npm start получает отдельный AUMID, чтобы ярлык
+    // Electron в Windows не подменял имя и иконку установленного Noctune.
+    app.setAppUserModelId(app.isPackaged ? 'com.noctune.player' : 'com.noctune.player.dev');
     initStore().then(() => {
       console.log('Store инициализирован');
       lastfmLoadSession();

@@ -3,7 +3,7 @@
   "displayName": "Noctune",
   "productName": "Noctune",
   "desktopName": "com.noctune.player.desktop",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "main": "src/main/index.js",
   "devDependencies": {
     "electron": "^42.2.0",

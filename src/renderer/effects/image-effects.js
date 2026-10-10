@@ -2,6 +2,12 @@
     const defaults = { enabled: false, contours: true, waves: false, highlights: false, sparks: false, ripple: false, chromatic: false, strength: 1 };
     // [minimum, maximum, default, step, label, unit]
     const parameters = {
+        contoursStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
+        wavesStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
+        highlightsStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
+        sparksStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
+        rippleStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
+        chromaticStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
         contoursThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
         contoursGain: [.2, 3, 1.4, .1, 'Яркость свечения', '×'],
         contoursResponse: [0, 100, 40, 1, 'Доля средних и высоких частот', '%'],
@@ -457,7 +463,7 @@
                         let displacement=0;
                         for(const pulse of pulses.ripple.items) {
                             const ring=Math.exp(-Math.pow((distance-pulse.radius)/config.parameters.rippleWidth,2));
-                            displacement+=Math.sin(distance*45-pulse.age*14)*ring*.016*pulse.amplitude*config.parameters.rippleGain*config.strength;
+                            displacement+=Math.sin(distance*45-pulse.age*14)*ring*.016*pulse.amplitude*config.parameters.rippleGain*config.parameters.rippleStrength*config.strength;
                         }
                         displacement=Math.max(-.045,Math.min(.045,displacement))*overlay.width;
                         ctx.drawImage(image,0,sy,image.width,step,x+shift+displacement,screenY+shiftY,w,h/strips+1);
@@ -468,7 +474,7 @@
         }
         function layer(image, alpha) { ctx.globalAlpha = Math.min(1, alpha * config.strength); ctx.drawImage(image,x,y,w,h); }
         if (config.contours) { layer(fallbackLayers.edge,energy * .5); layer(fallbackLayers.halo,energy); }
-        if (config.highlights) layer(fallbackLayers.lights,reactive.highlights * config.parameters.highlightsGain * .9);
+        if (config.highlights) layer(fallbackLayers.lights,reactive.highlights * config.parameters.highlightsGain * config.parameters.highlightsStrength * .9);
         if (config.waves && moving && pulses.waves.items.length) {
             ctx.save();
             // Draw a travelling annular portion of the contour mask on a temporary surface.
@@ -479,7 +485,7 @@
                 c.lineWidth=wave.height*config.parameters.wavesWidth*2; c.strokeStyle='#fff'; c.stroke();
             }
             c.globalAlpha=1; c.globalCompositeOperation='source-in'; c.drawImage(fallbackLayers.waves,x,y,w,h);
-            ctx.globalAlpha=Math.min(1,config.strength*config.parameters.wavesGain); ctx.drawImage(wave,0,0); ctx.restore();
+            ctx.globalAlpha=Math.min(1,config.strength*config.parameters.wavesGain*config.parameters.wavesStrength); ctx.drawImage(wave,0,0); ctx.restore();
         }
         ctx.globalAlpha = 1;
     }
@@ -499,7 +505,7 @@
             const seconds = target > reactive[key] ? .025 : config.parameters[key + 'Decay'] / 1000;
             reactive[key] += (target-reactive[key]) * (1-Math.exp(-dt/seconds));
         }
-        const energy = reactive.contours * config.parameters.contoursGain;
+        const energy = reactive.contours * config.parameters.contoursGain * config.parameters.contoursStrength;
         const onset = bands[0].transient*.45 + bands[1].transient*.35 + bands[2].transient*.2;
         const loudness = bands[0].level*.45 + bands[1].level*.35 + bands[2].level*.2;
         const moving = !reducedMotion.matches;
@@ -508,7 +514,7 @@
             if (config[key] && moving && playing && onset * window.imageAudioGate(loudness, config.parameters[key+'Threshold']) > .65/config.parameters[key+'Sensitivity'] && pool.cooldown === 0) {
                 pool.cooldown = .24;
                 if (key !== 'sparks') pool.spawn(config.parameters[key+'Limit']);
-                else if (points.length) for (let i=0;i<Math.round(config.parameters.sparksCount*config.strength) && particles.length<config.parameters.sparksLimit;i++) {
+                else if (points.length) for (let i=0;i<Math.round(config.parameters.sparksCount*config.strength*config.parameters.sparksStrength) && particles.length<config.parameters.sparksLimit;i++) {
                     const p=points[Math.floor(Math.random()*points.length)];
                     particles.push({ x:p[0], y:p[1], vx:(Math.random()-.5)*.08, vy:-.03-Math.random()*.05, life:config.parameters.sparksLifetime, duration:config.parameters.sparksLifetime });
                 }
@@ -518,7 +524,7 @@
         dirty = false;
         const fit = fitScale();
         const angle = config.parameters.chromaticAngle * Math.PI / 180;
-        const distance = config.chromatic && moving ? config.parameters.chromaticDistance * reactive.chromatic * config.strength : 0;
+        const distance = config.chromatic && moving ? config.parameters.chromaticDistance * reactive.chromatic * config.strength * config.parameters.chromaticStrength : 0;
         // Distances are CSS pixels, independent of the rendering resolution.
         const channelShift = [Math.cos(angle)*distance/Math.max(1,host.clientWidth)*fit[0], Math.sin(angle)*distance/Math.max(1,host.clientHeight)*fit[1]];
         const palette = getPalette();
@@ -527,8 +533,8 @@
             gl.viewport(0,0,gpuCanvas.width,gpuCanvas.height); gl.useProgram(program);
             const uniform = name => uniforms[name];
             gl.uniform2fv(uniform('channelShift'),channelShift);
-            gl.uniform4f(uniform('wave'),config.parameters.wavesSpeed,config.parameters.wavesWidth,config.parameters.wavesGain,0);
-            gl.uniform4f(uniform('ripple'),0,config.parameters.rippleWidth,config.parameters.rippleGain,0);
+            gl.uniform4f(uniform('wave'),config.parameters.wavesSpeed,config.parameters.wavesWidth,config.parameters.wavesGain*config.parameters.wavesStrength,0);
+            gl.uniform4f(uniform('ripple'),0,config.parameters.rippleWidth,config.parameters.rippleGain*config.parameters.rippleStrength,0);
             waveUniforms.fill(0); rippleUniforms.fill(0);
             pulses.waves.items.forEach((pulse,i)=>waveUniforms.set([pulse.radius,pulse.amplitude,0,0],i*4));
             pulses.ripple.items.forEach((pulse,i)=>rippleUniforms.set([pulse.radius,pulse.age,pulse.amplitude,0],i*4));
@@ -539,7 +545,7 @@
             gl.uniform3f(uniform('gradientModes'),+(palette.contours.length>1),+(palette.waves.length>1),+(palette.highlights.length>1));
             gl.uniform2fv(uniform('fit'),fit);
             gl.uniform4f(uniform('effects'),+config.contours,+(config.waves&&moving),+config.highlights,+(config.ripple&&moving));
-            for (const [name,value] of Object.entries({ strength:config.strength,energy,lightEnergy:reactive.highlights*config.parameters.highlightsGain,aspect:overlay.width/overlay.height })) gl.uniform1f(uniform(name),value);
+            for (const [name,value] of Object.entries({ strength:config.strength,energy,lightEnergy:reactive.highlights*config.parameters.highlightsGain*config.parameters.highlightsStrength,aspect:overlay.width/overlay.height })) gl.uniform1f(uniform(name),value);
             gl.drawArrays(gl.TRIANGLES,0,6); gpuCanvas.hidden=false;
         } else { gpuCanvas.hidden=true; paintFallback(fit,palette,energy,moving,channelShift); }
         const sparkKey = JSON.stringify(palette.sparks);
@@ -548,7 +554,8 @@
         for (const p of particles) {
             p.life-=dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
             const x=((p.x-.5)/fit[0]+.5)*overlay.width, y=((p.y-.5)/fit[1]+.5)*overlay.height;
-            ctx.globalAlpha=Math.min(1,Math.max(0,p.life/p.duration)*.85*config.strength); const size=config.parameters.sparksSize*(.4+.6*p.life/p.duration)*Math.sqrt(config.strength)*overlay.width/Math.max(1,host.clientWidth); ctx.drawImage(sparkSpriteFor(palette.sparks,p.x),x-size/2,y-size/2,size,size);
+            const sparkStrength = config.strength * config.parameters.sparksStrength;
+            ctx.globalAlpha=Math.min(1,Math.max(0,p.life/p.duration)*.85*sparkStrength); const size=config.parameters.sparksSize*(.4+.6*p.life/p.duration)*Math.sqrt(sparkStrength)*overlay.width/Math.max(1,host.clientWidth); ctx.drawImage(sparkSpriteFor(palette.sparks,p.x),x-size/2,y-size/2,size,size);
         }
         particles=particles.filter(p=>p.life>0); ctx.globalAlpha=1;
     }

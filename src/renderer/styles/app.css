@@ -1795,11 +1795,12 @@
         }
         .notification-toast-actions {
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             margin-top: 8px;
         }
         .notification-toast-action {
-            flex: 1;
+            flex: 1 1 100px;
             padding: 6px 10px;
             font-size: 12px;
             font-weight: 600;
