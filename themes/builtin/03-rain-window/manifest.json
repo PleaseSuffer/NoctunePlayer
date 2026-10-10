@@ -1,0 +1,35 @@
+{
+  "id": "03-rain-window",
+  "name": "Ноктилия • Дождь у окна",
+  "description": "Капли на стекле преломляют свет ночного города. Тихая линия спектра за окном. Дыхание, волосы и моргание.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "width": 1920,
+  "height": 1080,
+  "preview": "preview",
+  "palette": {
+    "accent": "#b699ef",
+    "background": "#0b0d1b",
+    "gradient": [
+      "#9ae1e9",
+      "#b699ef",
+      "#ddb7ca"
+    ]
+  },
+  "capabilities": {
+    "visualizer": "line",
+    "motion": true
+  },
+  "assets": {
+    "outside": "assets/outside.png",
+    "inside": "assets/inside.png",
+    "character": "assets/character.png",
+    "blink": "assets/blink.png",
+    "preview": "assets/preview.png"
+  },
+  "script": "scene.js",
+  "parameters": {
+    "frequencyMix": 0.6,
+    "glowIntensity": 1
+  }
+}

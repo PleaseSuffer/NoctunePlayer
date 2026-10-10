@@ -1,0 +1,35 @@
+{
+  "id": "02-night-hill",
+  "name": "Ноктилия • Ночной холм",
+  "description": "Столбики спектра за горами, изогнутые следы падающих звёзд, дыхание, движение волос и моргание.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "width": 1920,
+  "height": 1080,
+  "preview": "preview",
+  "palette": {
+    "accent": "#b699ef",
+    "background": "#0b0d1b",
+    "gradient": [
+      "#73bdd5",
+      "#aa87e0",
+      "#edbfa0"
+    ]
+  },
+  "capabilities": {
+    "visualizer": "bars",
+    "motion": true
+  },
+  "assets": {
+    "sky": "assets/sky.png",
+    "land": "assets/land.png",
+    "character": "assets/character.png",
+    "blink": "assets/blink.png",
+    "preview": "assets/preview.png"
+  },
+  "script": "scene.js",
+  "parameters": {
+    "frequencyMix": 0.6,
+    "glowIntensity": 1
+  }
+}

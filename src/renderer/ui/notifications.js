@@ -22,11 +22,12 @@
             const iconName  = icons[type]  || 'info';
             const titleText = title || titles[type] || 'Уведомление';
 
-            // Кнопка копирования стека — только для ошибок с доступным стеком
-            const copyBtnHtml = (stackTrace && type === 'error') ? `
-                <button class="notification-toast-copy-stack" title="Скопировать полный stack trace">
+            const copyText = options.copyText || (type === 'error' ? stackTrace : null);
+            const copyLabel = options.copyText ? 'Скопировать ошибку' : 'Скопировать stack trace';
+            const copyBtnHtml = copyText ? `
+                <button class="notification-toast-copy-stack" title="${copyLabel}">
                     <i data-lucide="clipboard" style="width:11px;height:11px;"></i>
-                    Скопировать stack trace
+                    ${copyLabel}
                 </button>` : '';
 
             // Опциональные кнопки-действия (например, "Скачать"/"Установить" у
@@ -55,7 +56,7 @@
                 </div>
                 <div class="notification-toast-body">
                     <div class="notification-toast-title">${titleText}</div>
-                    <div class="notification-toast-msg">${msg}</div>
+                    <div class="notification-toast-msg"></div>
                     ${copyBtnHtml}
                     ${actionsHtml}
                 </div>
@@ -64,6 +65,7 @@
                 </button>
                 ${cornerActionHtml}
             `;
+            toast.querySelector('.notification-toast-msg').textContent = msg;
 
             const closeBtn = toast.querySelector('.notification-toast-close');
             closeBtn.addEventListener('click', () => dismissToast(toast));
@@ -88,21 +90,21 @@
 
             // Обработчик копирования stack trace
             const copyBtn = toast.querySelector('.notification-toast-copy-stack');
-            if (copyBtn && stackTrace) {
+            if (copyBtn && copyText) {
                 copyBtn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(stackTrace).then(() => {
+                    navigator.clipboard.writeText(copyText).then(() => {
                         copyBtn.classList.add('copied');
                         copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> Скопировано';
                         lucide.createIcons({ nodes: [copyBtn] });
                         setTimeout(() => {
                             copyBtn.classList.remove('copied');
-                            copyBtn.innerHTML = '<i data-lucide="clipboard" style="width:11px;height:11px;"></i> Скопировать stack trace';
+                            copyBtn.innerHTML = '<i data-lucide="clipboard" style="width:11px;height:11px;"></i> ' + copyLabel;
                             lucide.createIcons({ nodes: [copyBtn] });
                         }, 2000);
                     }).catch(() => {
                         // Fallback для старых браузеров
                         const ta = document.createElement('textarea');
-                        ta.value = stackTrace;
+                        ta.value = copyText;
                         ta.style.position = 'fixed';
                         ta.style.opacity = '0';
                         document.body.appendChild(ta);
@@ -114,7 +116,7 @@
                         lucide.createIcons({ nodes: [copyBtn] });
                         setTimeout(() => {
                             copyBtn.classList.remove('copied');
-                            copyBtn.innerHTML = '<i data-lucide="clipboard" style="width:11px;height:11px;"></i> Скопировать stack trace';
+                            copyBtn.innerHTML = '<i data-lucide="clipboard" style="width:11px;height:11px;"></i> ' + copyLabel;
                             lucide.createIcons({ nodes: [copyBtn] });
                         }, 2000);
                     });

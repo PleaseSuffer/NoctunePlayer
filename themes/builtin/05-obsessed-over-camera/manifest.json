@@ -1,0 +1,33 @@
+{
+  "id": "05-obsessed-over-camera",
+  "name": "Ноктилия • Одержимость",
+  "description": "Взгляд без моргания, свечение глаз и контура под бит. Дыхание и движение волос на тёмном фоне.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "width": 1672,
+  "height": 941,
+  "preview": "preview",
+  "palette": {
+    "accent": "#b699ef",
+    "background": "#0b0d1b",
+    "gradient": [
+      "#6865ad",
+      "#b78ced",
+      "#dfaece"
+    ]
+  },
+  "capabilities": {
+    "visualizer": "character",
+    "motion": true
+  },
+  "assets": {
+    "background": "assets/background.png",
+    "character": "assets/character.png",
+    "preview": "assets/preview.png"
+  },
+  "script": "scene.js",
+  "parameters": {
+    "frequencyMix": 0.75,
+    "glowIntensity": 1
+  }
+}

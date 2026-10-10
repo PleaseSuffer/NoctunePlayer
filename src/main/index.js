@@ -29,6 +29,28 @@ app.commandLine.appendSwitch('hardware-media-key-handling');
 app.commandLine.appendSwitch('enable-features', 'MediaSessionService');
 
 let win = null;
+const { createSceneThemeStore } = require('./scene-themes');
+const sceneThemeRoot = path.join(__dirname, '../../themes');
+const sceneThemeStore = createSceneThemeStore({
+  directory: () => app.isPackaged ? path.join(app.getPath('userData'), 'themes/user') : path.join(sceneThemeRoot, 'user'),
+  builtinDirectory: path.join(sceneThemeRoot, 'builtin'),
+  userThemesDirectory: path.join(sceneThemeRoot, 'user'),
+  legacyDirectory: path.join(app.getPath('userData'), 'scene-themes'),
+  sdkFile: path.join(__dirname, '../renderer/effects/scene-sdk.js'),
+  presetsDirectory: path.join(sceneThemeRoot, 'backgrounds'),
+});
+function sceneSender(event) {
+  if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Недоступно для этого окна');
+}
+ipcMain.handle('scene-themes:list', event => { sceneSender(event); return sceneThemeStore.list(); });
+ipcMain.handle('scene-themes:read', (event, id) => { sceneSender(event); return sceneThemeStore.read(id); });
+ipcMain.handle('scene-themes:remove', (event, id) => { sceneSender(event); return sceneThemeStore.remove(id); });
+ipcMain.handle('scene-themes:import', async event => {
+  sceneSender(event);
+  const result = await dialog.showOpenDialog(win, { title: 'Импортировать интерактивную тему', properties: ['openFile'], filters: [{ name: 'Noctune Scene', extensions: ['noctheme'] }] });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return sceneThemeStore.importFile(result.filePaths[0]);
+});
 let splash = null; // Окно загрузки
 let tray = null;
 let isQuiting = false;
@@ -598,7 +620,15 @@ function createWindow() {
 
   Menu.setApplicationMenu(null);
   audioOpenQueue.setReady(false);
-  win.webContents.on('did-start-loading', () => audioOpenQueue.setReady(false));
+  // CSP blocks fetch/assets; frame navigation needs a separate Electron guard.
+  win.webContents.on('will-frame-navigate', event => {
+    if ((!event.isMainFrame && event.url !== 'about:srcdoc') ||
+        (event.isMainFrame && event.initiator && event.initiator !== win.webContents.mainFrame)) event.preventDefault();
+  });
+  win.webContents.on('did-start-navigation', event => {
+    // Scene iframe loads must not suspend Explorer audio-open requests.
+    if (event.isMainFrame && !event.isSameDocument) audioOpenQueue.setReady(false);
+  });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   

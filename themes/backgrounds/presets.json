@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Рассвет",
+    "file": "01-dawn-balcony.png"
+  },
+  {
+    "name": "Ночной холм",
+    "file": "02-night-hill.png"
+  },
+  {
+    "name": "Дождь",
+    "file": "03-rain-window.png"
+  },
+  {
+    "name": "Одержимость",
+    "file": "05-obsessed-over-camera.png"
+  },
+  {
+    "name": "Мост",
+    "file": "01-bridge-highway.png"
+  },
+  {
+    "name": "Утренний свет",
+    "file": "05-balcony-sunrise.png"
+  },
+  {
+    "name": "Приглашение",
+    "file": "02-crosswalk-invitation.png"
+  },
+  {
+    "name": "Одержимость v2",
+    "file": "04-obsession-wall.png"
+  }
+]

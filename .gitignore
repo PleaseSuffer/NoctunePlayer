@@ -5,3 +5,4 @@ backup/
 .vscode
 TODO.md
 refs/
+tests/.artifacts/

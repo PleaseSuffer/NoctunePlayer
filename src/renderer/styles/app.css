@@ -2441,3 +2441,46 @@
         .image-mask-dialog { margin: auto; width: min(680px, calc(100vw - 48px)); max-height: 85vh; overflow: auto; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; background: var(--container-bg); color: var(--text-color); }
         .image-mask-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
         #image-mask-preview { display: block; width: 100%; height: auto; max-height: 45vh; object-fit: contain; margin-bottom: 12px; border-radius: 8px; background: var(--track-hover); }
+/* Interactive scene backgrounds share the player's frame budget, but own their effects. */
+.scene-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 0; pointer-events: none; }
+body.scene-active #custom-bg-layer,
+body.scene-active #star-canvas,
+body.scene-active #stars-canvas,
+body.scene-active #visualizer,
+body.scene-active #visualizer-canvas,
+body.scene-active #confetti-canvas,
+body.scene-active #image-effects-canvas { visibility: hidden !important; }
+body.scene-active .ordinary-stars-options,
+body.scene-active .ordinary-adaptive-accent { display: none !important; }
+.scene-color-controlled { pointer-events: none; opacity: .55; }
+#bg-recent-list .bg-recent-item { width: 100% !important; height: auto !important; aspect-ratio: 16 / 9; }
+body.scene-active #bg-image-advanced-settings,
+body.scene-active .ordinary-background-glow,
+body.scene-active #image-effects-settings { display: none !important; }
+.appearance-section { display: flex; flex-direction: column; gap: 20px; }
+.appearance-section[hidden], #scene-theme-options[hidden] { display: none !important; }
+.scene-import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.scene-import-actions .btn { padding: 7px 14px; font-size: 12px; }
+.scene-collections { padding: 12px 16px; }
+.scene-collections > section { margin: 14px 0; }
+.scene-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px; margin-top: 10px; }
+.scene-gallery-item { position: relative; min-width: 0; }
+.scene-tile { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border-color); padding: 3px; width: 100%; background: var(--track-hover); color: var(--text-muted); border-radius: 7px; cursor: pointer; }
+.scene-tile.active { border-color: var(--accent-color); color: var(--accent-color); box-shadow: 0 0 0 1px var(--accent-color); }
+.scene-tile img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 4px; }
+.scene-tile span { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; padding-bottom: 3px; }
+.scene-add-tile { background: transparent; border-style: dashed; aspect-ratio: 16 / 11; align-items: center; justify-content: center; }
+.scene-add-tile .scene-add-icon { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; padding: 0; }
+.scene-add-tile > svg { width: 26px; height: 26px; }
+.scene-add-tile:hover { color: var(--accent-color); border-color: var(--accent-color); }
+#scene-builtins-list, #scene-imported-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#scene-builtins-list .scene-tile, #scene-imported-list .scene-tile { aspect-ratio: 16 / 11; box-sizing: border-box; }
+#scene-builtins-list .scene-tile img, #scene-imported-list .scene-tile img { min-height: 0; flex: 1; }
+#scene-visualizer-details { border-left: 2px solid var(--border-color); padding-left: 16px; margin-bottom: 4px; }
+#scene-visualizer-details[hidden] { display: none; }
+.scene-remove { position: absolute; top: -5px; right: -5px; width: 21px; height: 21px; border: 1px solid var(--border-color); border-radius: 50%; color: var(--text-color); background: var(--bg-color); cursor: pointer; }
+.scene-option { display: flex; align-items: center; gap: 10px; font-size: 12px; margin: 12px 0; color: var(--text-muted); }
+.scene-option input { accent-color: var(--accent-color); }
+.scene-option[hidden] { display: none !important; }
+.scene-option input[type="range"] { flex: 1; }
+#bg-recent-list { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); width: 100%; }

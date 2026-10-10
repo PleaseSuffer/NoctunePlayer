@@ -57,6 +57,20 @@ async function evaluate(expression) {
         await delay(100);
     }
     assert.equal(await evaluate('noctune.getAppVersion()'), expectedVersion);
+    const scenes = await evaluate(`(async () => {
+        const gallery = await noctune.sceneThemes.list();
+        const builtins = gallery.themes.filter(theme => theme.builtin);
+        const loaded = [];
+        for (const theme of builtins) {
+            const pkg = await noctune.sceneThemes.read(theme.id);
+            loaded.push({ id: theme.id, assets: Object.keys(pkg.assets).length, script: !!pkg.script, sdk: !!pkg.sdk });
+        }
+        return { loaded, presets: gallery.presets.length };
+    })()`);
+    assert.deepEqual(scenes.loaded.map(theme => theme.id).sort(), ['builtin-night-hill', 'builtin-obsessed-over-camera', 'builtin-rain-window']);
+    assert(scenes.loaded.every(theme => theme.assets >= 3 && theme.script && theme.sdk), 'packaged scenes include their layers, scripts and SDK');
+    assert.equal(scenes.presets, 8);
+    console.log('PASS: installed build loads all three builtin scenes and eight backgrounds through its real preload.');
     saved = await evaluate(`({values:Object.fromEntries(['setting_keep_awake','setting_waveform_color_mode','setting_image_effects'].map(key=>[key,appStorage.getItem(key)])),effects:window.imageEffects.appearance(),settingsOpen:document.getElementById('settings-overlay').classList.contains('open')})`);
     await evaluate(`document.getElementById('settings-fab').click()`);
     assert.equal(await evaluate(`document.getElementById('settings-overlay').classList.contains('open')`), true);

@@ -1277,6 +1277,7 @@
             // ---- APPEARANCE: Show/hide visualizer ----
             const settingViz = document.getElementById('setting-show-visualizer');
             function applyVizVisibility(show) {
+                window.vizEnabled = show;
                 canvas.style.opacity = show ? '1' : '0';
                 const adv = document.getElementById('viz-advanced-settings');
                 setSettingsBlockVisible(adv, show, 'flex');
@@ -1603,6 +1604,10 @@
                 window.imageEffects?.refreshVisibility();
             }
             settingBgEnabled.addEventListener('change', () => {
+                if (settingBgEnabled.checked) {
+                    appStorage.setItem('setting_scene_enabled', '0');
+                    window.sceneThemes?.deactivate(false);
+                }
                 applyBgImageEnabled(settingBgEnabled.checked);
                 appStorage.setItem('setting_bg_image_enabled', settingBgEnabled.checked ? '1' : '0');
             });
@@ -1655,9 +1660,9 @@
                 });
             }
 
-            // ── Недавние фоны (до 5, с превью; можно установить или удалить) ──
+            // ── Недавние фоны (до 10, с превью; можно установить или удалить) ──
             const BG_RECENT_KEY = 'setting_bg_recent_list';
-            const BG_RECENT_MAX = 5;
+            const BG_RECENT_MAX = 10;
 
             function getRecentBackgrounds() {
                 try {
@@ -1744,7 +1749,7 @@
                                 return;
                             }
                         } catch (e) {}
-                        applyBgImagePath(item.path, true);
+                        window.backgroundSettings.select(item.path);
                     });
 
                     bgRecentList.appendChild(cell);
@@ -1798,6 +1803,10 @@
 
             function applyBgImagePath(filePath, persist) {
                 if (!filePath) return;
+                if (persist) {
+                    appStorage.setItem('setting_scene_enabled', '0');
+                    window.sceneThemes?.deactivate(false);
+                }
                 try {
                     const fileUrl = noctune.fs.toFileUrl(filePath);
                     const isVideo = isVideoBgFile(filePath);
@@ -2854,7 +2863,9 @@
             }
 
             async function applyAdaptivePalette() {
+                if (window.sceneThemes?.active || appStorage.getItem('setting_scene_enabled') === '1') return;
                 const palette = await computeAdaptivePalette();
+                if (window.sceneThemes?.active || appStorage.getItem('setting_scene_enabled') === '1') return;
                 if (!palette || !palette.length) {
                     showNotification('Не удалось определить цвета фона для адаптивной палитры', 'warning');
                     return;
@@ -2984,6 +2995,8 @@
                     },
                     lyr: window.getLyricsAppearance ? window.getLyricsAppearance() : undefined,
                     imageEffects: window.imageEffects?.appearance(),
+                    sceneParameters: window.sceneThemes?.appearance(),
+                    sceneVisualizer: appStorage.getItem('setting_scene_visualizer_enabled') !== '0',
                     bg: null,
                 };
 
@@ -3062,6 +3075,8 @@
             }
 
             async function applyThemePayload(payload) {
+                window.sceneThemes?.applyAppearance(payload.sceneParameters);
+                if (typeof payload.sceneVisualizer === 'boolean') setCheckedAndFire(document.getElementById('scene-option-scene_visualizer_enabled'), payload.sceneVisualizer);
                 if (payload.lyr && window.applyLyricsAppearanceTheme) window.applyLyricsAppearanceTheme(payload.lyr);
                 if (typeof payload.d === 'boolean') setCheckedAndFire(settingDark, payload.d);
                 if (payload.a) setAccentColor(payload.a);
@@ -3248,6 +3263,7 @@
 
             // ---- Restore saved settings on load ----
             function refreshSettingsUI() {
+                queueMicrotask(() => { if (window.sceneThemes?.active) window.sceneThemes.applyPalette(); });
                 // Dark theme
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
 
@@ -3898,9 +3914,9 @@
                 const savedBgPath = appStorage.getItem('setting_bg_image_path');
                 if (savedBgPath) {
                     noctune.fs.exists(savedBgPath).then((exists) => {
-                        if (exists) {
+                        if (exists && !window.sceneThemes?.active) {
                             applyBgImagePath(savedBgPath, false);
-                        } else {
+                        } else if (!exists) {
                             appStorage.removeItem('setting_bg_image_path');
                         }
                     }).catch(() => {});
@@ -4021,4 +4037,17 @@
             // Открыто наружу для renderer/library/playlist-io.js — после импорта .m3u
             // нужно перерисовать список плейлистов прямо в открытых настройках.
             window.renderPlEditor = renderPlEditor;
+            window.backgroundSettings = {
+                enable(enabled) { settingBgEnabled.checked = enabled; applyBgImageEnabled(enabled); },
+                select(path) { applyBgImagePath(path, true); this.enable(true); appStorage.setItem('setting_bg_image_enabled', '1'); },
+                palette(palette) {
+                    if (document.body.style.getPropertyValue('--accent-color') === palette.accent && window.vizGradColor1 === palette.gradient[0] && window.vizGradColor2 === palette.gradient[1] && window.vizGradColor3 === palette.gradient[2]) return;
+                    for (const element of [document.documentElement, document.body]) {
+                        if (element.style.getPropertyValue('--accent-color') !== palette.accent) element.style.setProperty('--accent-color', palette.accent);
+                    }
+                    [window.vizGradColor1, window.vizGradColor2, window.vizGradColor3] = palette.gradient;
+                    refreshAccentFg();
+                    if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
+                },
+            };
         })();

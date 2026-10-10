@@ -75,7 +75,7 @@
     const ctx = overlay.getContext('2d');
     const hasEffects = () => ['contours','waves','highlights','sparks','ripple','chromatic'].some(key => config[key]);
     const sensitivity = () => Math.max(1, Math.min(100, Number(tuning[file]) || 50));
-    const available = () => !!file && staticImage && window.bgImageEnabled && !window.bgImageIsVideo;
+    const available = () => !!file && staticImage && window.bgImageEnabled && !window.bgImageIsVideo && !window.sceneThemes?.active;
     function refreshVisibility() {
         const wasHidden = section.hidden;
         section.hidden = !available();

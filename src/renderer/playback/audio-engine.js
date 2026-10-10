@@ -209,6 +209,13 @@
 
             analyzer = audioCtx.createAnalyser();
             analyzer.fftSize = 512; 
+            // High-resolution scene analysis is independent of the legacy effects.
+            window.sceneAnalyzer = audioCtx.createAnalyser();
+            window.sceneAnalyzer.fftSize = 8192;
+            window.sceneAnalyzer.smoothingTimeConstant = .35;
+            window.sceneAnalyzer.minDecibels = -90;
+            window.sceneAnalyzer.maxDecibels = -10;
+            lastNode.connect(window.sceneAnalyzer);
             
             lastNode.connect(analyzer);
 

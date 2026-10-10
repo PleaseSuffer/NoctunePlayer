@@ -14,7 +14,7 @@
         // смещение с пульсацией/размытием/свечением/тряской.
         function updateBgCursor() {
             window.requestEffectsFrame(updateBgCursor);
-            if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
+            if (window._rafSuspended || window.sceneThemes?.active) return; // scene owns background motion
             // Сглаживание целевой позиции — всегда, чтобы при включении
             // эффекта не было рывка с произвольного значения.
             const tx = window._bgCursorTargetX || 0;
@@ -54,11 +54,18 @@
         function visualize() {
             window.requestEffectsFrame(visualize);
             if (window._rafSuspended) return; // окно свёрнуто в трей — не тратим CPU впустую
-            if (!analyzer) { window.imageEffects?.audio(null, 44100, false); return; }
+            if (!analyzer) { window.imageEffects?.audio(null, 44100, false); window.sceneThemes?.audio(null, 44100, false); return; }
 
             const bufferLength = analyzer.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             analyzer.getByteFrequencyData(dataArray);
+            if (window.sceneThemes?.active && window.sceneAnalyzer) {
+                const sceneAnalyzer = window.sceneAnalyzer;
+                if (!window._sceneSpectrum || window._sceneSpectrum.length !== sceneAnalyzer.frequencyBinCount) window._sceneSpectrum = new Uint8Array(sceneAnalyzer.frequencyBinCount);
+                sceneAnalyzer.getByteFrequencyData(window._sceneSpectrum);
+                window.sceneThemes.audio(window._sceneSpectrum, sceneAnalyzer.context.sampleRate || 44100, isPlaying);
+            } else window.sceneThemes?.audio(null, analyzer.context.sampleRate || 44100, false);
+            if (window.sceneThemes?.active) return;
             window.imageEffects?.audio(dataArray, analyzer.context.sampleRate || 44100, isPlaying);
 
             // ── Bass-reactive confetti level ──────────────────────────────

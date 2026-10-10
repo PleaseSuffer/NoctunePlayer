@@ -300,6 +300,13 @@ contextBridge.exposeInMainWorld('noctune', {
     remove: file => ipcRenderer.invoke('background-mask:remove', file),
   },
 
+  sceneThemes: {
+    list: () => ipcRenderer.invoke('scene-themes:list'),
+    read: id => ipcRenderer.invoke('scene-themes:read', id),
+    import: () => ipcRenderer.invoke('scene-themes:import'),
+    remove: id => ipcRenderer.invoke('scene-themes:remove', id),
+  },
+
   // ── Радио ──
   checkRadioStation: (url) => checkRadioStreamReachable(url),
 

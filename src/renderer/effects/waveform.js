@@ -16,7 +16,7 @@
         window._waveformLastFraction = 0;       // последняя известная позиция 0..1 — нужна при смене режима/цвета без ре-декода
 
         function waveformHasBackground() {
-            return !!(window.bgImageEnabled && window.bgImagePath);
+            return !!(window.sceneThemes?.active || (window.bgImageEnabled && window.bgImagePath));
         }
 
         function getWaveformColor() {

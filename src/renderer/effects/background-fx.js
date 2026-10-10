@@ -142,7 +142,7 @@
         for (let i = 0; i < 60; i++) stars.push(new Star());
 
         function animateStars() {
-            if (window._rafSuspended) { window.requestEffectsFrame(animateStars); return; }
+            if (window._rafSuspended || window.sceneThemes?.active) { window.requestEffectsFrame(animateStars); return; }
             starCtx.clearRect(0, 0, starCanvas.clientWidth, starCanvas.clientHeight);
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             const color = isDark ? '255, 255, 255' : '100, 100, 100';
