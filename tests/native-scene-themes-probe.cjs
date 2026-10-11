@@ -5,6 +5,12 @@ const assert = require('node:assert/strict');
 const { packDirectory } = require('../src/main/scene-themes');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'tests/.artifacts/scene-themes/previews');
+if (!process.argv.includes('--full-app')) {
+    const profileRoot = path.join(root, 'tests/.artifacts/scene-themes/renderer');
+    const profileFs = require('node:fs');
+    profileFs.mkdirSync(profileRoot, { recursive: true });
+    app.setPath('userData', profileFs.mkdtempSync(path.join(profileRoot, 'profile-')));
+}
 let fullAppWindow;
 if (process.argv.includes('--full-app')) {
     const userData = path.join(root, 'tests/.artifacts/scene-themes/probe-user-data');

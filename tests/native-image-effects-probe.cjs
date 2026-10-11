@@ -5,6 +5,10 @@ const os = require('node:os');
 const assert = require('node:assert/strict');
 const { pathToFileURL } = require('node:url');
 const { createBackgroundMaskCache } = require('../src/main/cache/background-mask-cache');
+const profileRoot = path.join(__dirname, '.artifacts/image-effects');
+const profileFs = require('node:fs');
+profileFs.mkdirSync(profileRoot, { recursive: true });
+app.setPath('userData', profileFs.mkdtempSync(path.join(profileRoot, 'profile-')));
 app.whenReady().then(async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-image-probe-'));
     let win;

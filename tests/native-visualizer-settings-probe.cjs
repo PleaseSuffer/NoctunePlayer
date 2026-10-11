@@ -2,6 +2,9 @@ const { app, BrowserWindow } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const profileRoot = path.join(__dirname, '.artifacts/visualizer-settings');
+fs.mkdirSync(profileRoot, { recursive: true });
+app.setPath('userData', fs.mkdtempSync(path.join(profileRoot, 'profile-')));
 app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: process.argv.includes('--preview'), width: 900, height: 850, webPreferences:{backgroundThrottling:false} });
     try {

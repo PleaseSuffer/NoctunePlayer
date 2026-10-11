@@ -22,7 +22,7 @@ function makeWav(filePath) {
     fs.closeSync(fd);
 }
 app.whenReady().then(async () => {
-    let win, baselineWindow, preloadWindow;
+    let win, preloadWindow;
     try {
         const files = ['A.wav', 'B.wav', 'C.wav'].map(name => path.join(root, name)); files.forEach(makeWav);
         const png = fs.readFileSync(path.join(__dirname, '../resources/app.png'));
@@ -39,21 +39,16 @@ app.whenReady().then(async () => {
         const results = await win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'native-memory-renderer.js'), 'utf8'));
         assert.equal(results.maxConcurrent, 1); assert.equal(results.sampleRate, 8000); assert.equal(results.peakBytes, 200); assert.equal(results.cacheAvoidedDecode, true);
         assert(fs.readdirSync(cacheDirectory).some(name => fs.statSync(path.join(cacheDirectory, name)).size === 200));
-        baselineWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: true, contextIsolation: false, sandbox: false } });
-        await baselineWindow.loadFile(page);
-        await baselineWindow.webContents.executeJavaScript('window.probeFiles = ' + JSON.stringify(files));
-        const baseline = await baselineWindow.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'native-memory-baseline.js'), 'utf8'));
         preloadWindow = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true, sandbox: false, preload: path.join(__dirname, '../src/preload/index.js') } });
         await preloadWindow.loadFile(page);
         const preloadResult = await preloadWindow.webContents.executeJavaScript('Promise.all([noctune.metadata.parseFile(' + JSON.stringify(files[0]) + ', "A.wav"), noctune.metadata.thumbnail(' + JSON.stringify(large.toDataURL()) + ')])');
         assert.equal(preloadResult[0].duration, 240);
         assert.equal(preloadResult[0].coverDataUrl, null);
         assert.equal(nativeImage.createFromDataURL(preloadResult[1]).getSize().width, 96);
-        console.log(JSON.stringify({ preload: 'PASS', status: 'PASS', thumbnailWidth: 96, activeArtworkWidth: 1024, optimized: results, baseline }));
+        console.log(JSON.stringify({ preload: 'PASS', status: 'PASS', thumbnailWidth: 96, activeArtworkWidth: 1024, waveform: results }));
     } catch (error) { console.error(error); process.exitCode = 1; }
     finally {
         if (win && !win.isDestroyed()) win.destroy();
-        if (baselineWindow && !baselineWindow.isDestroyed()) baselineWindow.destroy();
         if (preloadWindow && !preloadWindow.isDestroyed()) preloadWindow.destroy();
         const relative = path.relative(os.tmpdir(), root);
         if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) try { fs.rmSync(root, { recursive: true, force: true }); } catch (_) {}
