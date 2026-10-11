@@ -135,7 +135,7 @@ app.whenReady().then(async () => {
     const win = new BrowserWindow({ show: false, frame: false, enableLargerThanScreen: true, width: 1920, height: 1080, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false, offscreen: true } });
     win.webContents.setFrameRate(30);
     const errors = [];
-    win.webContents.on('console-message', event => { if (event.level === 'error' && !event.message.includes('Content Security Policy')) errors.push(event.message); });
+    win.webContents.on('console-message', event => { if (event.level === 'error' && !event.message.includes('Content Security Policy')) { errors.push(event.message); console.error(event.message); } });
     try {
         const source = await fs.readFile(path.join(root, 'src/renderer/index.html'), 'utf8');
         const css = await fs.readFile(path.join(root, 'src/renderer/styles/app.css'), 'utf8');
@@ -160,7 +160,7 @@ app.whenReady().then(async () => {
             window.showNotification = message => { (window.__notifications ||= []).push(message); };
             window.lucide = {createIcons(){}};
             window.backgroundSettings = {enable(v){window.bgImageEnabled=v;document.getElementById('setting-bg-image-enabled').checked=v},select(p){sceneThemes.deactivate();window.bgImagePath=p;this.enable(true)},palette(p){document.body.style.setProperty('--accent-color',p.accent);document.documentElement.style.setProperty('--accent-color',p.accent);window.vizGradColor1=p.gradient[0]}};
-            window.noctune = {fs:{toFileUrl:p=>'file:///'+p.replaceAll('\\\\','/')},sceneThemes:{read:async id=>__packages.find(p=>p.id===id).pkg,list:async()=>({themes:__packages.map(p=>p.metadata),presets:${JSON.stringify(presets)}}),import:async()=>null,remove:async()=>true}};
+            window.noctune = {fs:{toFileUrl:p=>'file:///'+p.replaceAll('\\\\','/')},sceneThemes:{read:async id=>__packages.find(p=>p.id===id).pkg,list:async()=>({themes:__packages.map(p=>p.metadata),presets:${JSON.stringify(presets)}}),import:async()=>null,remove:async()=>true,onImported(){},ready(){}}};
             void 0;
         `);
         await win.webContents.executeJavaScript(await fs.readFile(path.join(root, 'src/renderer/effects/scene-host.js'), 'utf8'));
@@ -176,9 +176,19 @@ app.whenReady().then(async () => {
             assert.equal(result.id, def.id); assert.equal(result.sandbox, 'allow-scripts'); assert.ok(result.effectTabHidden); assert.equal(result.accent, def.metadata.palette.accent);
             const frame = win.webContents.mainFrame.frames.find(f => f.url === 'about:srcdoc');
             assert.ok(frame);
+            assert.equal((await win.webContents.executeJavaScript('sceneThemes.performance')).runtime, 'worker');
+            await fs.writeFile(path.join(out, def.pkg.manifest.id + '-worker.png'), (await win.webContents.capturePage()).toPNG());
             const isolation = await frame.executeJavaScript(`({node:typeof require,preload:typeof noctune,parentBlocked:(()=>{try{void parent.document.body;return false}catch(e){return true}})(),canvas:document.querySelector('canvas').width})`);
             const viewport = await win.webContents.executeJavaScript(`Math.round(innerWidth*Math.min(devicePixelRatio,1.5))`);
             assert.equal(isolation.node, 'undefined'); assert.equal(isolation.preload, 'undefined'); assert.ok(isolation.parentBlocked); assert.equal(isolation.canvas, viewport);
+            // Reference PNG exports use a separate canvas; the live scene now owns its SDK in a Worker.
+            await frame.executeJavaScript(`(async()=>{
+                if(typeof NoctuneScene!=='undefined')return;
+                const payload=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(document.getElementById('scene-data').textContent),c=>c.charCodeAt(0))));
+                for(const text of [payload.sdk,payload.script])await new Promise((resolve,reject)=>{
+                    const script=document.createElement('script');script.src='data:text/javascript;base64,'+btoa(unescape(encodeURIComponent(text)));script.onload=resolve;script.onerror=reject;document.head.append(script);
+                });
+            })()`);
             if(process.argv.includes('--update-previews') || process.argv.includes('--update-backgrounds')) {
                 const preview = await frame.executeJavaScript(`(async()=>{
                     const payload=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(document.getElementById('scene-data').textContent),c=>c.charCodeAt(0))));

@@ -66,6 +66,19 @@
 !macroend
 
 !macro customInstall
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme" "" "Тема Noctune"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme\DefaultIcon" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme\shell\open" "" "Добавить тему в Noctune"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme\shell\open\command" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" $\"%1$\"'
+  WriteRegNone SHELL_CONTEXT "Software\Classes\.noctheme\OpenWithProgids" "Noctune.Theme"
+  WriteRegStr SHELL_CONTEXT "Software\Noctune\Capabilities\FileAssociations" ".noctheme" "Noctune.Theme"
+  ReadRegStr $R9 HKCR ".noctheme" ""
+  ${If} $R9 == ""
+    WriteRegStr SHELL_CONTEXT "Software\Classes\.noctheme" "" "Noctune.Theme"
+  ${EndIf}
+  WriteRegStr SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctheme\shell\Noctune" "" "Добавить тему в Noctune"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctheme\shell\Noctune" "Icon" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
+  WriteRegStr SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctheme\shell\Noctune\command" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" $\"%1$\"'
   !insertmacro NoctuneCommand "01play" "Воспроизвести" "play"
   !insertmacro NoctuneCommand "02new" "Открыть в новом плейлисте" "new-playlist"
   !insertmacro NoctuneCommand "03add" "Добавить в плейлист" "add-playlist"
@@ -83,6 +96,15 @@
 !macroend
 
 !macro customUnInstall
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\Noctune.Theme"
+  DeleteRegValue SHELL_CONTEXT "Software\Classes\.noctheme\OpenWithProgids" "Noctune.Theme"
+  DeleteRegKey /ifempty SHELL_CONTEXT "Software\Classes\.noctheme\OpenWithProgids"
+  ReadRegStr $R9 SHELL_CONTEXT "Software\Classes\.noctheme" ""
+  ${If} $R9 == "Noctune.Theme"
+    DeleteRegValue SHELL_CONTEXT "Software\Classes\.noctheme" ""
+  ${EndIf}
+  DeleteRegKey /ifempty SHELL_CONTEXT "Software\Classes\.noctheme"
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctheme\shell\Noctune"
   DeleteRegKey SHELL_CONTEXT "Software\Classes\Noctune.Commands"
   !insertmacro NoctuneUnregisterAudio "mp3"
   !insertmacro NoctuneUnregisterAudio "wav"

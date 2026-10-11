@@ -484,7 +484,22 @@
             }, 250);
         }
 
+        function reportPlaybackActive(playing) {
+            if (typeof noctune !== 'undefined') noctune.setPlaybackActive?.(playing);
+        }
+
+        function trackPlaybackActivity(audio) {
+            const report = playing => {
+                if (audio === (isRadioMode ? radioAudioElement : localAudioElement)) reportPlaybackActive(playing);
+            };
+            audio.addEventListener('playing', () => report(true));
+            for (const event of ['pause', 'ended', 'emptied', 'error', 'waiting']) {
+                audio.addEventListener(event, () => report(false));
+            }
+        }
+
         function stopTrack() {
+            reportPlaybackActive(false);
             // Отменяем также асинхронные загрузки и обработчики старого трека.
             _loadToken++;
             if (typeof noctune !== 'undefined') noctune.metadata?.cancelCover?.();
@@ -652,6 +667,7 @@
                 try {
                     if (!radioAudioElement) {
                         radioAudioElement = new Audio();
+                        trackPlaybackActivity(radioAudioElement);
                         radioAudioElement.crossOrigin = "anonymous";
                         // Громкость самого элемента всегда оставляем на 1 (unity) — поток
                         // идёт через тот же Web Audio граф (window.volumeNode), что и
@@ -774,6 +790,7 @@
                     }
 
                     localAudioElement = new Audio();
+                    trackPlaybackActivity(localAudioElement);
                     localAudioElement.preload = 'auto';
                     localAudioElement.crossOrigin = "anonymous";
                     // Must be in the DOM for Chromium to register an active media session

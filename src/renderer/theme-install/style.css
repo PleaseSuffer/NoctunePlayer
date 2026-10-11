@@ -1,0 +1,25 @@
+:root { color-scheme: dark; font-family: "Segoe UI", sans-serif; color: #eeeef5; background: #15151b; }
+* { box-sizing: border-box; }
+body { margin: 0; height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; min-height: 0; overflow-y: auto; padding: 26px 28px 18px; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+.brand { font-size: 20px; font-weight: 700; letter-spacing: -.5px; }
+.badge { font-size: 11px; color: #b6abd9; background: #24202f; border: 1px solid #393044; border-radius: 20px; padding: 6px 10px; }
+#preview { width: 100%; height: 240px; object-fit: contain; background: #101015; border: 1px solid #33313f; border-radius: 12px; }
+.eyebrow { color: #a89acc; font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; margin: 22px 0 7px; }
+h1 { font-size: 25px; line-height: 1.25; margin: 0 0 12px; overflow-wrap: anywhere; }
+#description { color: #b6b5c3; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+dl { display: grid; grid-template-columns: 105px minmax(0, 1fr); font-size: 12px; line-height: 1.6; gap: 7px 14px; border-top: 1px solid #2c2b35; padding-top: 16px; margin: 18px 0; }
+dt { color: #838291; } dd { margin: 0; overflow-wrap: anywhere; }
+.note { color: #8c8b9a; line-height: 1.6; font-size: 12px; margin-bottom: 0; }
+footer { padding: 15px 28px 22px; border-top: 1px solid #2c2b35; background: #19191f; }
+#status { color: #f0a1ab; font-size: 12px; margin: 0 0 12px; overflow-wrap: anywhere; }
+#status:empty { display: none; }
+.actions { display: flex; justify-content: flex-end; gap: 10px; }
+button { font: inherit; font-size: 13px; padding: 11px 22px; border: 1px solid #393844; border-radius: 8px; background: #25252e; color: #e9e8f0; cursor: pointer; }
+button:hover { background: #30303c; } button:focus-visible { outline: 2px solid #c9b5ff; outline-offset: 3px; }
+button.primary { background: #ac91ee; border-color: #ac91ee; color: #171220; font-weight: 600; }
+button.primary:hover { background: #bda6f6; } button:disabled { opacity: .45; cursor: default; }
+button.installed, button.installed:disabled, button.installed:hover { background: transparent; border-color: #63c58a; color: #63c58a; opacity: 1; }
+button.update, button.update:hover { background: transparent; border-color: #e4c260; color: #e4c260; }
+[hidden] { display: none !important; }

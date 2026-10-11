@@ -2462,6 +2462,7 @@ body.scene-active #image-effects-settings { display: none !important; }
 .scene-import-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .scene-import-actions .btn { padding: 7px 14px; font-size: 12px; }
 .scene-collections { padding: 12px 16px; }
+.background-collections { padding-left: 0; padding-right: 0; }
 .scene-collections > section { margin: 14px 0; }
 .scene-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(95px, 1fr)); gap: 8px; margin-top: 10px; }
 .scene-gallery-item { position: relative; min-width: 0; }

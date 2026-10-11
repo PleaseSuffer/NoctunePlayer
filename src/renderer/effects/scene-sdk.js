@@ -4,6 +4,7 @@
     const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, n));
     const ease = (old, next, dt, speed) => old + (next - old) * (1 - Math.exp(-dt * speed));
     const rainTailLength = () => 24 + Math.random() ** 1.6 * 280;
+    const createCanvas = () => typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
     class SceneAPI {
         constructor(canvas, manifest, images) {
             this.canvas = canvas; this.ctx = canvas.getContext('2d', { alpha: false });
@@ -118,7 +119,7 @@
             const breath = this.motion ? Math.sin(this.time * 1.45) * .0035 : 0;
             const anchor = options.anchor ?? H, hairY = options.hairY || [0, 380];
             let animated = this.characters.get(id);
-            if (!animated) { animated = document.createElement('canvas'); animated.width = W; animated.height = H; this.characters.set(id, animated); }
+            if (!animated) { animated = createCanvas(); animated.width = W; animated.height = H; this.characters.set(id, animated); }
             const texture = animated.getContext('2d');
             texture.clearRect(0, 0, W, H); texture.drawImage(image, 0, 0, W, H);
             // Deform in a 1:1 intermediate texture; scale the complete sprite once to avoid alpha seams.
@@ -134,7 +135,7 @@
             if (options.contour) {
                 let glow = this.glows.get(id);
                 if (!glow) {
-                    glow = document.createElement('canvas'); glow.width = W; glow.height = H;
+                    glow = createCanvas(); glow.width = W; glow.height = H;
                     const g = glow.getContext('2d');
                     g.shadowBlur = 28; g.shadowColor = this.palette.accent; g.drawImage(image, 0, 0, W, H);
                     g.shadowBlur = 0; g.globalCompositeOperation = 'destination-out'; g.drawImage(image, 0, 0, W, H);

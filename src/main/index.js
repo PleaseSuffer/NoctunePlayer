@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, po
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
+const { themeFilesFromArgv, createThemeOpenQueue } = require('./open-theme-files');
 const { createSystemIntegration } = require('./system-integration');
 const { KEY: KEEP_AWAKE_KEY, createKeepAwake } = require('./keep-awake');
 const keepAwake = createKeepAwake(powerSaveBlocker);
@@ -39,6 +40,8 @@ const sceneThemeStore = createSceneThemeStore({
   sdkFile: path.join(__dirname, '../renderer/effects/scene-sdk.js'),
   presetsDirectory: path.join(sceneThemeRoot, 'backgrounds'),
 });
+const { createThemeInstaller } = require('./theme-installer');
+const themeInstaller = createThemeInstaller({ BrowserWindow, ipcMain, store: sceneThemeStore, icon: iconPath });
 function sceneSender(event) {
   if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Недоступно для этого окна');
 }
@@ -49,7 +52,7 @@ ipcMain.handle('scene-themes:import', async event => {
   sceneSender(event);
   const result = await dialog.showOpenDialog(win, { title: 'Импортировать интерактивную тему', properties: ['openFile'], filters: [{ name: 'Noctune Scene', extensions: ['noctheme'] }] });
   if (result.canceled || !result.filePaths[0]) return null;
-  return sceneThemeStore.importFile(result.filePaths[0]);
+  return themeInstaller.open(result.filePaths[0]);
 });
 let splash = null; // Окно загрузки
 let tray = null;
@@ -63,12 +66,23 @@ const audioOpenQueue = createAudioOpenQueue((files, action) => {
   win.show();
   win.focus();
 }, { delay: 150 });
-function handleArgvForAudioFiles(argv, cwd = process.cwd()) {
+const themeOpenQueue = createThemeOpenQueue(file => themeInstaller.open(file), result => {
+  if (!win || win.isDestroyed()) return;
+  win.webContents.send('scene-themes:imported', result);
+});
+ipcMain.on('scene-themes:ready', event => {
+  if (win && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame) themeOpenQueue.setReady(true);
+});
+function handleArgvForFiles(argv, cwd = process.cwd()) {
+  themeOpenQueue.enqueue(themeFilesFromArgv(argv, { cwd, defaultApp: !!process.defaultApp }));
   const request = audioOpenRequestFromArgv(argv, { cwd, defaultApp: !!process.defaultApp });
   if (request) audioOpenQueue.enqueue(request.files, request.action);
 }
 ipcMain.on('audio-files:ready', event => {
   if (win && event.sender === win.webContents) audioOpenQueue.setReady(true);
+});
+ipcMain.on('playback:active', (event, playing) => {
+  if (win && event.sender === win.webContents) keepAwake.setPlaying(playing);
 });
 const systemIntegration = createSystemIntegration({ app, shell, iconPath });
 ipcMain.handle('system-integration:apply', (_event, action) => systemIntegration.apply(action));
@@ -620,6 +634,9 @@ function createWindow() {
 
   Menu.setApplicationMenu(null);
   audioOpenQueue.setReady(false);
+  themeOpenQueue.setReady(false);
+  win.webContents.on('render-process-gone', () => keepAwake.setPlaying(false));
+  win.on('closed', () => keepAwake.setPlaying(false));
   // CSP blocks fetch/assets; frame navigation needs a separate Electron guard.
   win.webContents.on('will-frame-navigate', event => {
     if ((!event.isMainFrame && event.url !== 'about:srcdoc') ||
@@ -627,7 +644,11 @@ function createWindow() {
   });
   win.webContents.on('did-start-navigation', event => {
     // Scene iframe loads must not suspend Explorer audio-open requests.
-    if (event.isMainFrame && !event.isSameDocument) audioOpenQueue.setReady(false);
+    if (event.isMainFrame && !event.isSameDocument) {
+      audioOpenQueue.setReady(false);
+      themeOpenQueue.setReady(false);
+      keepAwake.setPlaying(false);
+    }
   });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
@@ -1103,13 +1124,13 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
-    if (win) {
+    if (win && !themeFilesFromArgv(commandLine, { cwd: workingDirectory, defaultApp: !!process.defaultApp }).length) {
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();
     }
     handleArgvForDeepLink(commandLine);
-    handleArgvForAudioFiles(commandLine, workingDirectory);
+    handleArgvForFiles(commandLine, workingDirectory);
   });
 
   // macOS отдаёт кастомные ссылки через отдельное событие, а не argv
@@ -1154,7 +1175,7 @@ if (!gotTheLock) {
     });
     createWindow();
     handleArgvForDeepLink(process.argv);
-    handleArgvForAudioFiles(process.argv);
+    handleArgvForFiles(process.argv);
 
     tray = new Tray(iconPath);
 

@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { compareThemeVersions } = require('./theme-versions');
 const MAX_BYTES = 64 * 1024 * 1024;
 const BUILTINS = { 'builtin-rain-window': '03-rain-window', 'builtin-night-hill': '02-night-hill', 'builtin-obsessed-over-camera': '05-obsessed-over-camera' };
 const fail = message => { throw new Error(message); };
@@ -69,8 +70,9 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
         if (!/^import-[a-f0-9]{24}$/.test(id)) fail('Неизвестная тема');
         return path.join(directory(), id + '.noctheme');
     };
-    const metadata = (p, id, builtin, removable = false) => ({ ...p.manifest, id, builtin, removable, preview: p.assets[p.manifest.preview] });
+    const metadata = (p, id, builtin, removable = false) => ({ ...p.manifest, packageId: p.manifest.id, id, builtin, removable, preview: p.assets[p.manifest.preview] });
     let migration;
+    let installationTask = Promise.resolve();
     async function migrateLegacy() {
         await fs.mkdir(directory(), { recursive: true });
         if (legacyDirectory && path.resolve(legacyDirectory) !== path.resolve(directory())) {
@@ -108,12 +110,28 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
                 try { themes.push(metadata(await (entry.isDirectory ? packDirectory(entry.file) : readPackage(entry.file)), id, false, entry.removable)); }
                 catch (_) { /* One broken file must not prevent the gallery from loading. */ }
             }
+            const overrides = new Map();
+            for (const builtin of themes.filter(theme => theme.builtin)) {
+                const newest = themes.filter(theme => !theme.builtin && theme.packageId === builtin.packageId)
+                    .reduce((best, theme) => compareThemeVersions(theme.version, best.version) > 0 ? theme : best, builtin);
+                if (newest !== builtin) overrides.set(builtin.packageId, { ...newest, id: builtin.id, builtin: true, removable: false });
+            }
+            const visibleThemes = themes.filter(theme => theme.builtin || !overrides.has(theme.packageId))
+                .map(theme => theme.builtin ? overrides.get(theme.packageId) || theme : theme);
             const presets = JSON.parse(await fs.readFile(path.join(presetsDirectory, 'presets.json'), 'utf8')).map(p => ({ ...p, path: path.join(presetsDirectory, p.file) }));
-            return { themes, presets };
+            return { themes: visibleThemes, presets };
         },
         async read(id) {
             let theme;
-            if (Object.hasOwn(BUILTINS, id)) theme = await packDirectory(path.join(builtinDirectory, BUILTINS[id]));
+            if (Object.hasOwn(BUILTINS, id)) {
+                theme = await packDirectory(path.join(builtinDirectory, BUILTINS[id]));
+                for (const entry of (await userEntries()).values()) {
+                    try {
+                        const candidate = await (entry.isDirectory ? packDirectory(entry.file) : readPackage(entry.file));
+                        if (candidate.manifest.id === theme.manifest.id && compareThemeVersions(candidate.manifest.version, theme.manifest.version) > 0) theme = candidate;
+                    } catch (_) { /* Ignore damaged overrides as in the gallery. */ }
+                }
+            }
             else {
                 const entry = (await userEntries()).get(id);
                 if (!entry) fail('Неизвестная тема');
@@ -121,13 +139,31 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
             }
             return { ...theme, sdk: await fs.readFile(sdkFile, 'utf8') };
         },
-        async importFile(file) {
+        async importFile(file) { return this.importPackage(await readPackage(file)); },
+        async installationStatus(value) {
+            const incoming = validatePackage(value);
+            const matches = (await this.list()).themes.filter(theme => theme.packageId === incoming.manifest.id);
+            if (!matches.length) return { state: 'install' };
+            const current = matches.reduce((best, theme) => compareThemeVersions(theme.version, best.version) > 0 ? theme : best);
+            return { state: compareThemeVersions(incoming.manifest.version, current.version) > 0 ? 'update' : 'installed', installedVersion: current.version, current };
+        },
+        async installPackage(value) {
+            const task = installationTask.then(async () => {
+                const status = await this.installationStatus(value);
+                if (status.state === 'installed') return { ...status.current, unchanged: true };
+                const installed = await this.importPackage(value, status.current?.removable ? status.current.id : null);
+                return { ...installed, ...(status.current?.builtin ? { id: status.current.id, builtin: true, removable: false } : {}), action: status.state === 'update' ? 'update' : 'install' };
+            });
+            installationTask = task.catch(() => {});
+            return task;
+        },
+        async importPackage(value, replaceId = null) {
             await (migration ||= migrateLegacy().catch(error => { migration = null; throw error; }));
-            const theme = await readPackage(file);
+            const theme = validatePackage(value);
             const content = JSON.stringify(theme);
-            const id = 'import-' + crypto.createHash('sha256').update(content).digest('hex').slice(0, 24);
+            const id = replaceId || 'import-' + crypto.createHash('sha256').update(content).digest('hex').slice(0, 24);
             await fs.mkdir(directory(), { recursive: true });
-            const target = importedPath(id), temp = target + '.tmp';
+            const target = importedPath(id), temp = target + '.' + crypto.randomUUID() + '.tmp';
             await fs.writeFile(temp, content, { flag: 'w' });
             await fs.rename(temp, target);
             return metadata(theme, id, false, true);

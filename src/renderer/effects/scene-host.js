@@ -2,6 +2,16 @@
     'use strict';
     let current = null, candidate = null, dormant = null, epoch = 0, last = 0, time = 0, queued = false;
     let spectrum = new Uint8Array(0), sampleRate = 44100, playing = false;
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    let config;
+    function refreshConfig() {
+        config = {
+            motion: appStorage.getItem('setting_scene_motion') !== '0',
+            visualizer: appStorage.getItem('setting_scene_visualizer_enabled') !== '0',
+            intensity: Math.max(.1, Math.min(3, Number(appStorage.getItem('setting_scene_intensity')) || 1)),
+        };
+        for (const entry of [current, candidate]) if (entry) { entry.settings = preferences(entry.metadata); entry.dirty = true; }
+    }
     const listeners = new Set();
     function preferences(metadata) {
         let stored; try { stored=JSON.parse(appStorage.getItem('setting_scene_preferences') || '{}')[metadata.id]; } catch (_) {}
@@ -13,6 +23,68 @@
     const bootstrap = function () {
         const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(document.getElementById('scene-data').textContent), c => c.charCodeAt(0))));
         const reply = (type, extra = {}) => parent.postMessage({ sceneChannel: payload.channel, type, ...extra }, '*');
+        const workerBootstrap = function () {
+            let api, scene;
+            const draw = frame => {
+                const start = performance.now(); api.begin(frame); scene.render(api, frame);
+                postMessage({ type: 'frame', runtime: 'worker', renderMs: performance.now() - start });
+            };
+            self.onmessage = async ({ data }) => {
+                try {
+                    if (data.type === 'init') {
+                        const images = Object.create(null);
+                        await Promise.all(Object.entries(data.assets).map(async ([id, source]) => {
+                            const bytes = Uint8Array.from(atob(source.split(',')[1]), c => c.charCodeAt(0));
+                            images[id] = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+                        }));
+                        scene = window.__noctuneScene;
+                        if (!scene) throw new Error('Отсутствует NoctuneScene.define');
+                        api = NoctuneScene.create(data.canvas, data.manifest, images);
+                        if (scene.init) await scene.init(api);
+                        draw(data.initialFrame); postMessage({ type: 'ready', runtime: 'worker' });
+                    } else if (data.type === 'frame') draw(data.frame);
+                } catch (error) { postMessage({ type: 'error', message: String(error.message).slice(0, 240) }); }
+            };
+        };
+        async function startWorker() {
+            const canvas = document.querySelector('canvas');
+            if (!canvas.transferControlToOffscreen || typeof Worker !== 'function') return false;
+            const source = 'globalThis.window=globalThis;\n' + payload.sdk + '\n' + payload.script + '\n(' + workerBootstrap.toString() + ')();';
+            const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+            let worker;
+            try {
+                worker = new Worker(url);
+                await new Promise((resolve, reject) => {
+                    let ready = false;
+                    const timeout = setTimeout(() => reject(new Error('Worker startup timeout')), 8000);
+                    worker.onerror = event => {
+                        event.preventDefault(); // Startup incompatibility falls back without bubbling to the scene error handler.
+                        if (!ready) { clearTimeout(timeout); reject(new Error(event.message)); }
+                        else reply('error', { message: String(event.message).slice(0, 240) });
+                    };
+                    worker.onmessage = ({ data }) => {
+                        if (data.type === 'error' && !ready) { clearTimeout(timeout); reject(new Error(data.message)); return; }
+                        if (data.type === 'ready') { ready = true; clearTimeout(timeout); resolve(); }
+                        // Ready must precede first-frame promotion in the host.
+                        if (ready) reply(data.type, data);
+                    };
+                    const offscreen = canvas.transferControlToOffscreen();
+                    worker.postMessage({ type: 'init', canvas: offscreen, manifest: payload.manifest, assets: payload.assets, initialFrame: payload.initialFrame }, [offscreen]);
+                });
+                window.addEventListener('message', event => {
+                    if (event.source !== parent || event.data?.sceneChannel !== payload.channel || event.data.type !== 'frame') return;
+                    const frame = event.data.frame, buffer = frame.audio.spectrum.buffer;
+                    worker.postMessage({ type: 'frame', frame }, buffer ? [buffer] : []);
+                });
+                window.addEventListener('pagehide', () => worker.terminate(), { once: true });
+                reply('ready', { runtime: 'worker' }); reply('frame', { runtime: 'worker' });
+                return true;
+            } catch (_) {
+                worker?.terminate();
+                canvas.replaceWith(document.createElement('canvas'));
+                return false;
+            } finally { URL.revokeObjectURL(url); }
+        }
         const runScript = text => new Promise((resolve, reject) => {
             const script = document.createElement('script'); script.src = 'data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(text)));
             script.onload = resolve; script.onerror = () => reject(new Error('Не удалось загрузить скрипт')); document.head.append(script);
@@ -20,6 +92,8 @@
         window.addEventListener('error', e => reply('error', { message: String(e.message).slice(0, 240) }));
         window.addEventListener('unhandledrejection', e => reply('error', { message: String(e.reason?.message || e.reason || 'Ошибка скрипта темы').slice(0, 240) }));
         (async () => {
+            reply('stage', { stage: 'запуск отдельного потока отрисовки' });
+            if (await startWorker()) return;
             const images = Object.create(null);
             reply('stage', { stage: 'загрузка PNG-слоёв' });
             await Promise.all(Object.entries(payload.assets).map(async ([id, src]) => {
@@ -39,18 +113,18 @@
             if (scene.init) await scene.init(api);
             window.addEventListener('message', e => {
                 if (e.source !== parent || e.data?.sceneChannel !== payload.channel || e.data.type !== 'frame') return;
-                try { api.begin(e.data.frame); scene.render(api, e.data.frame); reply('frame'); }
+                try { const start = performance.now(); api.begin(e.data.frame); scene.render(api, e.data.frame); reply('frame', { runtime: 'iframe', renderMs: performance.now() - start }); }
                 catch (error) { reply('error', { message: String(error.message).slice(0, 240) }); }
             });
             // The first frame must not depend on rAF in a hidden candidate iframe.
             // Chromium may throttle such frames until they become visible.
             api.begin(payload.initialFrame); scene.render(api, payload.initialFrame);
-            reply('ready'); reply('frame');
+            reply('ready', { runtime: 'iframe' }); reply('frame', { runtime: 'iframe' });
         })().catch(error => reply('error', { message: String(error.message).slice(0, 240) }));
     };
     function html(pkg, channel, initialFrame) {
         const data = encode(JSON.stringify({ ...pkg, channel, initialFrame }));
-        return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' data:; img-src data:; style-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:${pkg.manifest.palette.background}}canvas{width:100%;height:100%;display:block}</style></head><body><canvas></canvas><script id="scene-data" type="application/octet-stream">${data}</script><script>(${bootstrap.toString()})();<\/script></body></html>`;
+        return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' data:; worker-src blob:; img-src data:; style-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:${pkg.manifest.palette.background}}canvas{width:100%;height:100%;display:block}</style></head><body><canvas></canvas><script id="scene-data" type="application/octet-stream">${data}</script><script>(${bootstrap.toString()})();<\/script></body></html>`;
     }
     function emit() { listeners.forEach(fn => fn(current?.metadata || null)); document.dispatchEvent(new Event('settings-sections-changed')); }
     function colors() {
@@ -78,19 +152,35 @@
         const paused = window._rafSuspended || document.hidden;
         const dt = last && !paused ? Math.min((now - last) / 1000, .08) : 0; last = now;
         if (paused) return;
-        const motion = appStorage.getItem('setting_scene_motion') !== '0' && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const motion = config.motion && !reducedMotion.matches;
         if (motion) time += dt;
-        colors();
+        const overlay = document.getElementById('lyrics-modal')?.style.display === 'flex' || document.getElementById('settings-overlay')?.classList.contains('open');
         for (const entry of [current, candidate]) {
             if (!entry?.ready) continue;
             if (entry.busy) {
                 if (now - entry.sentAt > 5000) failure(entry, 'Тема перестала отвечать');
                 continue;
             }
+            // A changing canvas invalidates backdrop-filter surfaces too. Leave GPU
+            // headroom for the UI while a costly scene runs behind transparent panels.
+            const fps = window.effectsPerformance?.fps ?? 60;
+            if (entry.renderAverage > 5) entry.panelLimited = true;
+            else if (entry.renderAverage < 3) entry.panelLimited = false;
+            entry.frameLimit = overlay && entry.panelLimited ? Math.min(fps || 60, 30) : fps;
+            const interval = entry.frameLimit ? 1000 / entry.frameLimit : 0;
+            if (entry.lastDraw && now - entry.lastDraw < interval - .5) continue;
+            const viewport = `${innerWidth}:${innerHeight}:${devicePixelRatio}`;
+            const animated = motion && entry.metadata.capabilities.motion;
+            const reactive = playing && config.visualizer && entry.metadata.capabilities.visualizer !== 'none';
+            if (reactive) entry.settleUntil = now + 2000;
+            if (!animated && !reactive && now >= (entry.settleUntil || 0) && !entry.dirty && entry.viewport === viewport && entry.staticFrame) continue;
             entry.busy = true; entry.sentAt = now;
-            const settings=preferences(entry.metadata);
-            const audio = { spectrum, sampleRate, playing, frequencyMix: settings.frequencyMix, enabled: entry.metadata.capabilities.visualizer !== 'none' && appStorage.getItem('setting_scene_visualizer_enabled') !== '0', intensity: Math.max(.1, Math.min(3, Number(appStorage.getItem('setting_scene_intensity')) || 1)) };
-            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt, motion: motion && entry.metadata.capabilities.motion, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
+            const frameDt = entry.lastDraw ? Math.min((now - entry.lastDraw) / 1000, .08) : dt;
+            entry.lastDraw = now; entry.viewport = viewport; entry.staticFrame = !animated && !reactive; entry.dirty = false;
+            entry.frames = (entry.frames || 0) + 1;
+            const settings = entry.settings;
+            const audio = { spectrum, sampleRate, playing, frequencyMix: settings.frequencyMix, enabled: entry.metadata.capabilities.visualizer !== 'none' && config.visualizer, intensity: config.intensity };
+            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
         }
     }
     function failure(entry, message) {
@@ -111,6 +201,11 @@
         if (event.data.type === 'error') { failure(entry, 'Ошибка интерактивной темы: ' + String(event.data.message).slice(0, 240)); return; }
         if (event.data.type === 'ready') { entry.ready = true; schedule(); }
         if (event.data.type === 'frame') {
+            entry.runtime = event.data.runtime || entry.runtime;
+            if (Number.isFinite(event.data.renderMs)) {
+                entry.renderMs = event.data.renderMs;
+                entry.renderAverage = entry.renderAverage == null ? entry.renderMs : entry.renderAverage * .9 + entry.renderMs * .1;
+            }
             entry.busy = false;
             if (entry === candidate) {
                 clearTimeout(entry.timer); destroy(current); current = entry; candidate = null; current.frame.style.opacity = '1';
@@ -123,13 +218,15 @@
         }
     });
     window.sceneThemes = {
+        get performance() { return current ? { runtime: current.runtime, renderMs: current.renderMs, frameLimit: current.frameLimit, frames: current.frames || 0 } : null; },
         get active() { return !!current; },
         get metadata() { return current?.metadata || null; },
         audio(data, rate, isPlaying) {
             if (!current && !candidate) return;
-            if (!data || !isPlaying) { spectrum = new Uint8Array(0); playing = false; return; }
+            if (!data || !isPlaying) { if (spectrum.length) spectrum = new Uint8Array(0); playing = false; return; }
             // Keep the original FFT length: changing it changes the Hz/bin mapping.
-            spectrum = new Uint8Array(data); sampleRate = rate; playing = !!isPlaying;
+            // postMessage snapshots synchronously; reuse the analyser's buffer between frames.
+            spectrum = data; sampleRate = rate; playing = !!isPlaying;
         },
         async activate(metadata) {
             const request = ++epoch; destroy(candidate); candidate = null;
@@ -141,6 +238,7 @@
                 const channel = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
                 const entry = { frame, channel, metadata, resolve, reject, ready: false, busy: false };
                 candidate = entry;
+                refreshConfig();
                 frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
                 document.body.prepend(frame);
                 entry.timer = setTimeout(() => { if (entry === candidate) failure(entry, 'Не удалось запустить тему: ' + (entry.stage || 'загрузка iframe') + ' (тайм-аут 15 с)'); }, 15000);
@@ -172,6 +270,6 @@
             } catch (error) { if (error.message !== 'Выбор темы отменён' && !error.sceneNotified) showNotification(error.message, 'warning', null, null, { copyText: error.stack || error.message }); }
         },
         onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-        preferencesChanged() { colors(); emit(); },
+        preferencesChanged() { refreshConfig(); colors(); emit(); },
     };
 })();

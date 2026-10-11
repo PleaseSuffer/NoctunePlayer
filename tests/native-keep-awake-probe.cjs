@@ -12,11 +12,17 @@ app.whenReady().then(() => {
         controller.setEnabled(false);
         assert.equal(ids.length, 0);
         controller.setEnabled(true);
+        assert.equal(ids.length, 0, 'idle does not block sleep');
+        controller.setPlaying(true);
         assert.equal(powerSaveBlocker.isStarted(ids[0]), true);
         controller.setEnabled(true);
         assert.equal(ids.length, 1);
+        controller.setPlaying(false);
+        assert.equal(powerSaveBlocker.isStarted(ids[0]), false, 'pause releases native blocker');
+        controller.setPlaying(true);
+        assert.equal(powerSaveBlocker.isStarted(ids[1]), true, 'resume acquires native blocker');
         controller.setEnabled(false);
-        assert.equal(powerSaveBlocker.isStarted(ids[0]), false);
+        assert.equal(powerSaveBlocker.isStarted(ids[1]), false);
         console.log('PASS: native Electron display-sleep blocker starts, deduplicates and releases on Windows.');
     } catch (error) { console.error(error); process.exitCode = 1; }
     finally { controller.setEnabled(false); app.exit(process.exitCode || 0); }

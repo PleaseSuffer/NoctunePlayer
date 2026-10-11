@@ -23,6 +23,8 @@
     let lastVolumeIcon = null;
     let autoFollow = appStorage.getItem('setting_lyrics_autoscroll') !== '0';
     let lastPlaying = null;
+    let lastShuffle = null, lastVolumeLevel = null, lastSeekProgress = null;
+    let lastIntroState = null, lastIntroStateElement = null;
     const mainCover = document.getElementById('player-cover-img');
     const mainPlaceholder = document.getElementById('player-cover-placeholder');
     const mainCoverWrap = document.getElementById('player-cover-wrap');
@@ -346,8 +348,11 @@
         refreshArtwork();
     }
     function updatePlayback() {
-        shuffleButton.classList.toggle('active', isShuffle);
-        shuffleButton.setAttribute('aria-pressed', String(isShuffle));
+        if (lastShuffle !== isShuffle) {
+            lastShuffle = isShuffle;
+            shuffleButton.classList.toggle('active', isShuffle);
+            shuffleButton.setAttribute('aria-pressed', String(isShuffle));
+        }
         if (lastRepeat !== repeatMode) {
             lastRepeat = repeatMode;
             const title = ['Повтор выключен', 'Повторять этот трек', 'Повторять плейлист'][repeatMode];
@@ -358,9 +363,12 @@
             lucide.createIcons();
         }
         const volume = Number(volumeSlider.value);
-        if (document.activeElement !== lyricsVolume) lyricsVolume.value = volume;
+        if (document.activeElement !== lyricsVolume && Number(lyricsVolume.value) !== volume) lyricsVolume.value = volume;
         const volumeLevel = isMuted ? 0 : Math.max(0, Math.min(1, volume));
-        document.getElementById('lyrics-volume-popover').style.setProperty('--volume-level', volumeLevel);
+        if (lastVolumeLevel !== volumeLevel) {
+            lastVolumeLevel = volumeLevel;
+            document.getElementById('lyrics-volume-popover').style.setProperty('--volume-level', volumeLevel);
+        }
         const volumeIcon = isMuted || volume <= 0 ? 'volume-x' : volume < 0.4 ? 'volume' : volume < 0.7 ? 'volume-1' : 'volume-2';
         if (lastVolumeIcon !== volumeIcon) {
             lastVolumeIcon = volumeIcon;
@@ -372,9 +380,12 @@
         const position = localAudioElement?.getAttribute('src') && !isRadioMode ? localAudioElement.currentTime || 0 : 0;
         seek.disabled = !Number.isFinite(duration) || duration <= 0 || _trackLoading;
         seek.value = seek.disabled ? 0 : position / duration * 100;
-        seek.parentElement?.style.setProperty('--seek-progress', seek.value + '%');
-        document.getElementById('lyrics-time-current').textContent = formatTime(position);
-        document.getElementById('lyrics-time-total').textContent = formatTime(Number.isFinite(duration) ? duration : 0);
+        const progress = Number(seek.value).toFixed(2) + '%';
+        if (lastSeekProgress !== progress) { lastSeekProgress = progress; seek.parentElement?.style.setProperty('--seek-progress', progress); }
+        const currentTime = document.getElementById('lyrics-time-current'), totalTime = document.getElementById('lyrics-time-total');
+        const currentText = formatTime(position), totalText = formatTime(Number.isFinite(duration) ? duration : 0);
+        if (currentTime.textContent !== currentText) currentTime.textContent = currentText;
+        if (totalTime.textContent !== totalText) totalTime.textContent = totalText;
         if (lastPlaying !== isPlaying) {
             lastPlaying = isPlaying;
             playButton.setAttribute('aria-label', isPlaying ? 'Пауза' : 'Воспроизвести');
@@ -642,16 +653,21 @@
     function sync() {
         if (follow && rows.length) resetScrollbarActivity();
         if (!opened || !rows.length || isRadioMode || !localAudioElement?.getAttribute('src')) {
-            if (intro) intro.classList.toggle('playing', false);
+            if (intro) { intro.classList.toggle('playing', false); lastIntroState = null; }
             return;
         }
         const position = localAudioElement.currentTime || 0;
-        let index = -1;
-        for (let i = 0; i < rows.length && rows[i].time <= position; i++) index = i;
+        let low = 0, high = rows.length;
+        while (low < high) { const middle = (low + high) >>> 1; if (rows[middle].time <= position) low = middle + 1; else high = middle; }
+        const index = low - 1;
         if (intro) {
-            intro.classList.toggle('active', index === -1);
-            intro.classList.toggle('playing', index === -1 && isPlaying && !_trackLoading);
-            intro.setAttribute('aria-hidden', String(index !== -1));
+            const state = `${index === -1}:${isPlaying && !_trackLoading}`;
+            if (lastIntroState !== state || lastIntroStateElement !== intro) {
+                lastIntroState = state; lastIntroStateElement = intro;
+                intro.classList.toggle('active', index === -1);
+                intro.classList.toggle('playing', index === -1 && isPlaying && !_trackLoading);
+                intro.setAttribute('aria-hidden', String(index !== -1));
+            }
         }
         if (index === activeIndex) return;
         activeIndex = index;
@@ -671,6 +687,7 @@
     function close() {
         resetScrollbarActivity();
         if (intro) intro.classList.toggle('playing', false);
+        lastIntroState = null;
         cancelLyricsSearch();
         opened = false; serial++; cancelAnimationFrame(frame); frame = null;
         modal.style.display = 'none'; document.body.classList.toggle('lyrics-expanded', false); previousFocus?.focus();

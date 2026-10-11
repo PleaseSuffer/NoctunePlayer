@@ -2,23 +2,26 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const { createSystemIntegration, linuxDesktopEntry, DESKTOP_ID, AUDIO_MIME_TYPES } = require('../../src/main/system-integration');
+const { createSystemIntegration, linuxDesktopEntry, DESKTOP_ID, FILE_MIME_TYPES, THEME_MIME_TYPE } = require('../../src/main/system-integration');
 const { LinuxTargetHelper } = require('app-builder-lib/out/targets/LinuxTargetHelper');
 const metadata = require('../../package.json');
 
 (async () => {
     const helper = new LinuxTargetHelper({
         info: { metadata }, config: metadata.build, platformSpecificBuildOptions: metadata.build.linux,
-        executableName: metadata.name, fileAssociations: [],
+        executableName: metadata.name, fileAssociations: metadata.build.linux.fileAssociations,
+        getTempFile: async extension => path.join(directory, 'builder-mime' + extension),
         appInfo: { productName: metadata.productName, sanitizedProductName: metadata.productName, description: metadata.description },
     });
     const installedDesktop = await helper.computeDesktopEntry(metadata.build.linux);
     assert.equal(helper.getDesktopFileName() + '.desktop', DESKTOP_ID, 'installed and portable desktop IDs match');
     assert.match(installedDesktop, /Exec=.* %F\n/, 'builder preserves unquoted multiple-file field code');
-    assert(installedDesktop.includes(`MimeType=${AUDIO_MIME_TYPES.join(';')};`));
+    assert(installedDesktop.includes(`MimeType=${FILE_MIME_TYPES.join(';')};`));
     assert(installedDesktop.includes('StartupWMClass=com.noctune.player'));
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-integration-'));
     try {
+        const builderMime = await fs.readFile(await helper.computeMimeTypeFiles(), 'utf8');
+        assert(builderMime.includes(THEME_MIME_TYPE) && builderMime.includes('*.noctheme'), 'Linux packages include the extension MIME definition');
         const icon = path.join(directory, 'app.png');
         await fs.writeFile(icon, 'icon');
         const app = { isPackaged: true, getPath: name => name === 'home' ? directory : '/opt/Noctune/noctune' };
@@ -34,13 +37,16 @@ const metadata = require('../../package.json');
         assert(!calls.some(call => call.command === 'xdg-mime'), 'registration does not change defaults');
         const desktop = await fs.readFile(path.join(env.XDG_DATA_HOME, 'applications', DESKTOP_ID), 'utf8');
         assert(desktop.includes('Exec="/home/user/Music apps/Noctune.AppImage" %F'));
-        assert(desktop.includes(`MimeType=${AUDIO_MIME_TYPES.join(';')};`));
+        assert(desktop.includes(`MimeType=${FILE_MIME_TYPES.join(';')};`));
+        const mime = await fs.readFile(path.join(env.XDG_DATA_HOME, 'mime/packages/com.noctune.player.xml'), 'utf8');
+        assert(mime.includes(THEME_MIME_TYPE) && mime.includes('*.noctheme'));
+        assert(calls.some(call => call.command === 'update-mime-database'));
         assert.equal((await integration.apply('default')).ok, true);
-        assert.deepEqual(calls.find(call => call.command === 'xdg-mime').args, ['default', DESKTOP_ID, ...AUDIO_MIME_TYPES]);
+        assert.deepEqual(calls.find(call => call.command === 'xdg-mime').args, ['default', DESKTOP_ID, ...FILE_MIME_TYPES]);
         assert(calls.every(call => !call.options.shell), 'commands never use a shell');
         const denied = createSystemIntegration({ app, iconPath: icon, platform: 'linux', env, run: async () => ({ stdout: 'other.desktop' }) });
         assert.equal((await denied.apply('default')).ok, false, 'verify desktop actually accepted defaults');
-        const missing = createSystemIntegration({ app, iconPath: icon, platform: 'linux', env, run: async () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); } });
+        const missing = createSystemIntegration({ app, iconPath: icon, platform: 'linux', env, run: async command => { if (command === 'xdg-mime') throw Object.assign(new Error('missing'), { code: 'ENOENT' }); return {stdout:''}; } });
         assert.match((await missing.apply('default')).message, /xdg-utils/);
         const links = [];
         const windows = createSystemIntegration({ app, platform: 'win32', shell: { openExternal: async url => links.push(url) } });

@@ -47,11 +47,12 @@ async function evaluate(expression) {
     const ids = await evaluate(`noctune.sceneThemes.list().then(list=>list.themes.filter(t=>t.builtin).map(t=>t.id))`);
     const results=[];
     for (const id of ids) {
-        const result = await evaluate(`(async()=>{const theme=(await noctune.sceneThemes.list()).themes.find(t=>t.id===${JSON.stringify(id)});try{await sceneThemes.activate(theme);return {id:theme.id,active:sceneThemes.active};}catch(error){return {id:theme.id,error:error.message,hidden:document.hidden,suspended:window._rafSuspended};}})()`);
+        const result = await evaluate(`(async()=>{const theme=(await noctune.sceneThemes.list()).themes.find(t=>t.id===${JSON.stringify(id)});try{await sceneThemes.activate(theme);return {id:theme.id,active:sceneThemes.active,runtime:sceneThemes.performance.runtime};}catch(error){return {id:theme.id,error:error.message,hidden:document.hidden,suspended:window._rafSuspended};}})()`);
         console.log('Scene:', result); results.push(result);
     }
     console.log('Scenes:', results);
     assert(results.length === 3 && results.every(r => r.active), 'all installed scenes render their first frame');
+    assert(results.every(r => r.runtime === 'worker'), 'all installed scenes render in dedicated Workers');
     const controls=await evaluate(`(()=>{
         const id=sceneThemes.metadata.id,mix=document.getElementById('scene-frequencyMix'),glow=document.getElementById('scene-glowIntensity');
         mix.value=90;mix.dispatchEvent(new Event('input'));glow.value=1.8;glow.dispatchEvent(new Event('input'));

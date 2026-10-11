@@ -9,6 +9,11 @@ const AUDIO_MIME_TYPES = [
   'audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/vnd.wave',
   'audio/ogg', 'application/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/flac', 'audio/x-flac',
 ];
+const THEME_MIME_TYPE = 'application/x-noctune-theme';
+const FILE_MIME_TYPES = [...AUDIO_MIME_TYPES, THEME_MIME_TYPE];
+const THEME_MIME_XML = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+  '<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">\n' +
+  `  <mime-type type="${THEME_MIME_TYPE}"><comment>Noctune theme</comment><glob pattern="*.noctheme"/></mime-type>\n</mime-info>\n`;
 
 function desktopString(value) {
   return value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
@@ -22,7 +27,7 @@ function desktopExecArg(value) {
 function linuxDesktopEntry(executable, icon) {
   return '[Desktop Entry]\nType=Application\nName=Noctune\nComment=Music player\n' +
     `Exec=${desktopExecArg(executable)} %F\nIcon=${desktopString(icon)}\n` +
-    `Terminal=false\nCategories=AudioVideo;Audio;Player;\nStartupWMClass=com.noctune.player\nMimeType=${AUDIO_MIME_TYPES.join(';')};\n`;
+    `Terminal=false\nCategories=AudioVideo;Audio;Player;\nStartupWMClass=com.noctune.player\nMimeType=${FILE_MIME_TYPES.join(';')};\n`;
 }
 
 function createSystemIntegration({ app, shell, iconPath, platform = process.platform, env = process.env, run = runFile }) {
@@ -38,6 +43,13 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
     await fs.mkdir(icons, { recursive: true });
     await fs.copyFile(iconPath, icon);
     await fs.writeFile(path.join(applications, DESKTOP_ID), linuxDesktopEntry(executable, icon), 'utf8');
+    const mime = path.join(dataHome, 'mime');
+    await fs.mkdir(path.join(mime, 'packages'), { recursive: true });
+    await fs.writeFile(path.join(mime, 'packages', 'com.noctune.player.xml'), THEME_MIME_XML, 'utf8');
+    await run('update-mime-database', [mime], { timeout: 10000 }).catch(error => {
+      if (error.code === 'ENOENT') throw new Error('Не найден update-mime-database. Установите пакет shared-mime-info для распознавания .noctheme.');
+      throw error;
+    });
     // Optional utility: desktop environments can read the entry without it.
     await run('update-desktop-database', [applications], { timeout: 10000 }).catch(() => {});
   }
@@ -49,18 +61,18 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
         if (!app.isPackaged) throw new Error('Системная интеграция доступна в установленной или распакованной сборке приложения.');
         if (platform === 'win32') {
           await shell.openExternal('ms-settings:defaultapps');
-          return { ok: true, message: 'Выберите Noctune в приложениях по умолчанию и назначьте нужные аудиоформаты.' };
+          return { ok: true, message: 'Выберите Noctune в приложениях по умолчанию и назначьте нужные аудиоформаты и темы .noctheme.' };
         }
         if (platform !== 'linux') throw new Error('Эта платформа не поддерживается.');
         await registerLinux();
         if (action === 'register') return { ok: true, message: 'Noctune добавлен в меню «Открыть с помощью».' };
-        await run('xdg-mime', ['default', DESKTOP_ID, ...AUDIO_MIME_TYPES], { timeout: 15000 });
-        const results = await Promise.all(AUDIO_MIME_TYPES.map(async type => {
+        await run('xdg-mime', ['default', DESKTOP_ID, ...FILE_MIME_TYPES], { timeout: 15000 });
+        const results = await Promise.all(FILE_MIME_TYPES.map(async type => {
           const { stdout } = await run('xdg-mime', ['query', 'default', type], { timeout: 10000 });
           return stdout.trim() === DESKTOP_ID;
         }));
         if (results.some(value => !value)) throw new Error('Окружение рабочего стола не применило все ассоциации. Выберите Noctune через свойства аудиофайла → «Открыть с помощью».');
-        return { ok: true, message: 'Noctune назначен плеером по умолчанию для MP3, WAV, OGG, M4A и FLAC.' };
+        return { ok: true, message: 'Noctune назначен приложением по умолчанию для MP3, WAV, OGG, M4A, FLAC и тем .noctheme.' };
       } catch (error) {
         const message = error.code === 'ENOENT'
           ? 'Не найден xdg-mime. Установите пакет xdg-utils или выберите Noctune через свойства аудиофайла.'
@@ -71,4 +83,4 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
   };
 }
 
-module.exports = { DESKTOP_ID, AUDIO_MIME_TYPES, desktopExecArg, linuxDesktopEntry, createSystemIntegration };
+module.exports = { DESKTOP_ID, AUDIO_MIME_TYPES, THEME_MIME_TYPE, FILE_MIME_TYPES, THEME_MIME_XML, desktopExecArg, linuxDesktopEntry, createSystemIntegration };

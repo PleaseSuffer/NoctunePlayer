@@ -252,6 +252,7 @@ contextBridge.exposeInMainWorld('noctune', {
   // ── Трей / окно ──
   setMinimizeToTray: (value) => ipcRenderer.send('setting-minimize-to-tray-changed', value),
   sendPlayingStateResponse: (isPlaying, minimizeToTray) => ipcRenderer.send('playing-state-response', isPlaying, minimizeToTray),
+  setPlaybackActive: playing => ipcRenderer.send('playback:active', playing === true),
   sendTrayState: (state) => ipcRenderer.send('tray-state-update', state),
   onTrayCmd: (cb) => ipcRenderer.on('tray-cmd', (_e, cmd) => cb(cmd)),
   onQueryPlayingState: (cb) => ipcRenderer.on('query-playing-state', () => cb()),
@@ -301,6 +302,8 @@ contextBridge.exposeInMainWorld('noctune', {
   },
 
   sceneThemes: {
+    ready: () => ipcRenderer.send('scene-themes:ready'),
+    onImported: cb => ipcRenderer.on('scene-themes:imported', (_event, result) => cb(result)),
     list: () => ipcRenderer.invoke('scene-themes:list'),
     read: id => ipcRenderer.invoke('scene-themes:read', id),
     import: () => ipcRenderer.invoke('scene-themes:import'),

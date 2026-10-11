@@ -11,15 +11,21 @@ const controller = createKeepAwake({
 controller.setEnabled(false);
 assert.equal(starts.length, 0, 'default off acquires no inhibitor');
 controller.setEnabled(true);
+assert.equal(starts.length, 0, 'enabled setting alone allows sleep while idle');
+controller.setPlaying(true);
 controller.setEnabled(true);
 assert.deepEqual(starts, ['prevent-display-sleep'], 'one blocker keeps both display and system awake');
 controller.setEnabled(false);
 controller.setEnabled(false);
 assert.deepEqual(stops, [0], 'zero is a valid blocker ID and duplicate disables are harmless');
 controller.setEnabled(true);
+controller.setPlaying(false);
+assert.equal(active.size, 0, 'pause releases the blocker without changing the preference');
+controller.setPlaying(true);
+assert.equal(active.size, 1, 'resume reacquires the blocker');
 active.clear();
 controller.setEnabled(true);
-assert.equal(starts.length, 3, 'a lost blocker is reacquired');
+assert.equal(starts.length, 4, 'a lost blocker is reacquired');
 controller.setEnabled(false);
 assert.equal(active.size, 0);
 
@@ -56,4 +62,14 @@ for (const value of [undefined, '0', '1', 'invalid']) {
     vm.runInContext(restore, context);
     assert.equal(applied.at(-1), value === '1', 'startup restores only a valid saved opt-in');
 }
+const playback = [];
+const sender = {};
+context.win = { webContents: sender };
+context.keepAwake.setPlaying = value => playback.push(value);
+vm.runInContext(source.match(/ipcMain\.on\('playback:active',[\s\S]*?\n\}\);/)[0], context);
+callbacks.get('playback:active')({ sender: {} }, true);
+assert.equal(playback.length, 0, 'unrelated renderer cannot change playback activity');
+callbacks.get('playback:active')({ sender }, true);
+callbacks.get('playback:active')({ sender }, false);
+assert.deepEqual(playback, [true, false], 'player reports actual playback independently of the saved preference');
 console.log('PASS: keep-awake defaults off, idempotent display/system inhibitor, live persistence, removal, startup and quit cleanup.');

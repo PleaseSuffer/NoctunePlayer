@@ -16,18 +16,20 @@ function audioOpenRequestFromArgv(argv, options = {}) {
   return files.length ? { action, files } : null;
 }
 
-function audioFilesFromArgv(argv, { cwd = process.cwd(), defaultApp = false, isFile = filename => fs.statSync(filename).isFile() } = {}) {
+function filesFromArgv(argv, extensions, { cwd = process.cwd(), defaultApp = false, isFile = filename => fs.statSync(filename).isFile() } = {}) {
   const files = new Set();
   for (const arg of argv.slice(defaultApp ? 2 : 1)) {
     if (typeof arg !== 'string' || !arg || arg.startsWith('-')) continue;
     try {
       if (/^[a-z][a-z\d+.-]*:\/\//i.test(arg) && !arg.startsWith('file://')) continue;
       const filename = arg.startsWith('file://') ? fileURLToPath(arg) : path.resolve(cwd, arg);
-      if (AUDIO_EXTENSIONS.has(path.extname(filename).slice(1).toLowerCase()) && isFile(filename)) files.add(filename);
+      if (extensions.has(path.extname(filename).slice(1).toLowerCase()) && isFile(filename)) files.add(filename);
     } catch (_) { /* Missing files and invalid URIs must not prevent startup. */ }
   }
   return [...files];
 }
+
+function audioFilesFromArgv(argv, options) { return filesFromArgv(argv, AUDIO_EXTENSIONS, options); }
 
 function createAudioOpenQueue(send, { delay = 0 } = {}) {
   let ready = false;
@@ -55,4 +57,4 @@ function createAudioOpenQueue(send, { delay = 0 } = {}) {
   };
 }
 
-module.exports = { AUDIO_EXTENSIONS, OPEN_ACTIONS, audioFilesFromArgv, audioOpenRequestFromArgv, createAudioOpenQueue };
+module.exports = { AUDIO_EXTENSIONS, OPEN_ACTIONS, filesFromArgv, audioFilesFromArgv, audioOpenRequestFromArgv, createAudioOpenQueue };

@@ -11,7 +11,7 @@
     chooserRow.after(document.getElementById('bg-recent-row'));
     const glow = document.getElementById('setting-bg-glow-enabled').closest('.settings-option-group').parentElement;
     glow.classList.add('ordinary-background-glow');
-    const backgroundCollection = document.createElement('div'); backgroundCollection.className = 'scene-collections'; card.append(backgroundCollection);
+    const backgroundCollection = document.createElement('div'); backgroundCollection.className = 'scene-collections background-collections'; card.append(backgroundCollection);
     const collection = document.createElement('div'); collection.className = 'scene-collections';
     const status = document.createElement('p'); status.className = 'settings-row-desc'; status.setAttribute('role', 'status'); collection.append(status);
     function gallery(title, id, target = collection) {
@@ -53,6 +53,7 @@
     intensity.slider.setAttribute('aria-label','Отклик визуализатора сцены');
     intensity.slider.addEventListener('input',()=>{
         appStorage.setItem('setting_scene_intensity',intensity.slider.value);
+        window.sceneThemes.preferencesChanged();
         intensity.value.textContent=Number(intensity.slider.value).toFixed(1)+'×';
     });
     function parameter(label, key, max, step, scale) {
@@ -174,10 +175,23 @@
     }
     async function importTheme() {
         const buttons=[...collection.querySelectorAll('.scene-add-tile')];buttons.forEach(b=>b.disabled=true);
-        try { const imported = await noctune.sceneThemes.import(); if (imported) { await refresh(); await select(imported); } }
+        try { const imported = await noctune.sceneThemes.import(); if (imported) { await refresh(); announceThemeInstall(imported); } }
         catch (error) { notifyError(error); }
         finally { buttons.forEach(b=>b.disabled=false); }
     }
+    function announceThemeInstall(theme) {
+        const updated = theme.action === 'update';
+        status.textContent = updated ? `Тема «${theme.name}» обновлена до версии ${theme.version}` : `Тема «${theme.name}» добавлена в список`;
+        showNotification(status.textContent, 'success', updated ? 'Тема обновлена' : 'Тема установлена');
+    }
+    let externalImportTask = Promise.resolve();
+    noctune.sceneThemes.onImported(result => {
+        externalImportTask = externalImportTask.then(async () => {
+            if (result.error) throw new Error(result.error);
+            await refresh();
+            announceThemeInstall(result.theme);
+        }).catch(notifyError);
+    });
     refresh().then(async list => {
         const id = appStorage.getItem('setting_scene_theme');
         // Migrate the previous single background toggle to the separate scene mode.
@@ -186,5 +200,5 @@
         const saved = list.find(t => t.id === id);
         if (saved) await select(saved);
         else { appStorage.removeItem('setting_scene_theme'); status.textContent = 'Сохранённая тема недоступна. Выберите другой фон.'; }
-    }).catch(notifyError);
+    }).catch(notifyError).finally(() => noctune.sceneThemes.ready());
 })();
