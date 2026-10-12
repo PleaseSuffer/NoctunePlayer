@@ -28,6 +28,22 @@ for (const [a,b,expected] of [['1.10.0','1.9.0',1],['1.0','1.0.0',0],['1.0.0','1
         const override=await store.installPackage(builtin);assert.equal(override.id,'builtin-rain-window');
         const builtinEntries=(await store.list()).themes.filter(t=>t.packageId===builtin.manifest.id);assert.equal(builtinEntries.length,1);assert.equal(builtinEntries[0].version,'2.0.0');
         assert.equal((await store.read('builtin-rain-window')).manifest.version,'2.0.0','updated builtin retains its ID and reads the new package');
+        const sources=path.join(temporary,'sources');await fs.mkdir(sources);
+        const folder=path.join(sources,'local-custom');await fs.cp(path.resolve('themes/builtin/03-rain-window'),folder,{recursive:true});
+        const manifest=JSON.parse(await fs.readFile(path.join(folder,'manifest.json'),'utf8'));
+        manifest.id='local-custom';manifest.version='1.0.0';await fs.writeFile(path.join(folder,'manifest.json'),JSON.stringify(manifest));
+        const makeStore=()=>createSceneThemeStore({directory:()=>path.join(temporary,'imports'),userThemesDirectory:sources,builtinDirectory:path.resolve('themes/builtin'),presetsDirectory:path.resolve('themes/backgrounds'),sdkFile:path.resolve('src/renderer/effects/scene-sdk.js')});
+        const local=makeStore();const source=(await local.list()).themes.find(t=>t.packageId==='local-custom');
+        assert.equal(source.removable,true,'source gallery entries have a remove control');
+        const snapshot=await packDirectory(folder);const imported=await local.importPackage(snapshot);
+        let entries=(await local.list()).themes.filter(t=>t.packageId==='local-custom');
+        assert.equal(entries.length,1,'source and imported copies share one gallery entry');assert.equal(entries[0].id,imported.id);
+        snapshot.manifest.version='1.1.0';const replacement=await local.installPackage(snapshot);assert.equal(replacement.id,imported.id);
+        await local.remove(replacement.id);
+        assert.ok(await fs.stat(path.join(folder,'manifest.json')),'removal never deletes source folders');
+        assert.equal((await makeStore().list()).themes.filter(t=>t.packageId==='local-custom').length,0,'source stays removed after restart');
+        assert.equal((await local.installationStatus(snapshot)).state,'install');
+        await local.installPackage(snapshot);assert.equal((await local.list()).themes.filter(t=>t.packageId==='local-custom').length,1,'reinstall restores hidden source identity');
         console.log('PASS: numeric/prerelease versions, builtins, repeat install, update in place, downgrade protection and concurrent installs.');
     } finally {await fs.rm(temporary,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

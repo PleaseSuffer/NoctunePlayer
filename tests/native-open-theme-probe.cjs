@@ -20,7 +20,7 @@ async function finish(code) {
 (async () => {
     await fs.mkdir(output, {recursive:true});
     markerExisted = await fs.stat(migrationMarker).then(() => true, () => false);
-    app.setPath('userData', path.join(output, 'user-data'));
+    app.setPath('userData', await fs.mkdtemp(path.join(output, 'user-data-')));
     const theme = await packDirectory(path.join(root, 'themes/builtin/03-rain-window'));
     theme.manifest.name = 'OS import probe ' + Date.now();
     theme.manifest.id = 'os-import-probe-' + Date.now();
@@ -77,6 +77,8 @@ async function finish(code) {
                 assert.equal(installedButton.disabled,true); assert.equal(installedButton.background,'rgba(0, 0, 0, 0)'); assert.equal(installedButton.border,'rgb(99, 197, 138)');
                 installer.close(); await pause();
                 assert.equal((await state()).count, 1, 'closing a repeated preview preserves the installed theme');
+                await win.webContents.executeJavaScript(`(async()=>{const t=(await noctune.sceneThemes.list()).themes.find(t=>t.id==='${id}');await sceneThemes.activate(t);})()`);
+                assert.equal(await win.webContents.executeJavaScript(`sceneThemes.metadata.version`),theme.manifest.version);
                 theme.manifest.version='1.1.0';await fs.writeFile(file,JSON.stringify(theme));
                 app.emit('second-instance', {}, ['electron', '.', file], root);
                 installer=await installerWindow('Обновить');
@@ -85,13 +87,13 @@ async function finish(code) {
                 await installer.webContents.executeJavaScript(`document.getElementById('install').click()`);
                 let updated=false;
                 for(let i=0;i<100;i++){
-                    updated=await win.webContents.executeJavaScript(`noctune.sceneThemes.list().then(list=>list.themes.some(t=>t.id==='${id}'&&t.version==='1.1.0'))`);
+                    updated=await win.webContents.executeJavaScript(`sceneThemes.metadata?.id==='${id}'&&sceneThemes.metadata.version==='1.1.0'`);
                     if(updated)break;await pause();
                 }
-                assert.ok(updated,'update replaces the original entry');await pause();
+                assert.ok(updated,'active theme automatically reloads after installer update');await pause();
                 assert.ok(await win.webContents.executeJavaScript(`document.querySelector('#notification-stack').textContent.includes('Тема обновлена')`),'update shows a toast');
                 assert.equal((await state()).count,1);
-                console.log('PASS: separate theme installer, metadata/preview, cold/warm file-open, cancellation without writes, install, window close and unchanged active theme.');
+                console.log('PASS: separate theme installer, preview, cancel, repeated install, update in place and automatic active scene reload.');
                 await finish(0);
             } catch (error) {console.error(error); await finish(1);}
         });

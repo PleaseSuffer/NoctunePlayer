@@ -2484,4 +2484,12 @@ body.scene-active #image-effects-settings { display: none !important; }
 .scene-option input { accent-color: var(--accent-color); }
 .scene-option[hidden] { display: none !important; }
 .scene-option input[type="range"] { flex: 1; }
+.scene-range-body { width: 100%; min-width: 0; }
+.scene-range-controls { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.scene-range-controls input[type="range"] { flex: 1; min-width: 0; width: 100%; accent-color: var(--accent-color); }
+.scene-parameter-value { flex-shrink: 0; min-width: 45px; text-align: right; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#scene-theme-options .settings-row-label { min-width: 0; overflow-wrap: anywhere; }
+.scene-parameter-select { min-width: 0; max-width: 55%; padding: 7px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--track-hover); color: var(--text-color); font: inherit; font-size: 12px; }
+.scene-parameter-select option { background: var(--bg-color); color: var(--text-color); }
+.scene-parameter-select:focus-visible, #scene-theme-options input:focus-visible + .slider-round { outline: 2px solid var(--accent-color); outline-offset: 3px; }
 #bg-recent-list { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); width: 100%; }

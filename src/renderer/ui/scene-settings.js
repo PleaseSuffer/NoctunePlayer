@@ -39,14 +39,14 @@
     toggle('Цвета плеера из темы', 'setting_scene_colors', appStorage.getItem('setting_scene_colors') !== '0', () => window.sceneThemes.preferencesChanged());
     const motion = toggle('Анимации окружения и персонажа', 'setting_scene_motion', appStorage.getItem('setting_scene_motion') !== '0', () => window.sceneThemes.preferencesChanged());
     const visualizer = toggle('Визуализатор сцены', 'setting_scene_visualizer_enabled', appStorage.getItem('setting_scene_visualizer_enabled') !== '0', () => window.sceneThemes.preferencesChanged());
-    function rangeControl(label, key, max, step, min=0) {
-        const row=document.createElement('div');row.className='settings-row';
-        const body=document.createElement('div');body.style.width='100%';
+    function rangeControl(label, key, max, step, min=0, target=options) {
+        const row=document.createElement('div');row.className='settings-row scene-range-row';
+        const body=document.createElement('div');body.className='scene-range-body';
         const title=document.createElement('label');title.className='settings-row-label';title.textContent=label;
-        const controls=document.createElement('div');controls.style.cssText='display:flex;align-items:center;gap:10px;margin-top:8px';
-        const slider=document.createElement('input');slider.type='range';slider.id='scene-'+key;slider.min=min;slider.max=max;slider.step=step;slider.style.cssText='flex:1;accent-color:var(--accent-color)';title.htmlFor=slider.id;
-        const value=document.createElement('span');value.className='settings-row-desc';value.style.minWidth='45px';
-        controls.append(slider,value);body.append(title,controls);row.append(body);options.append(row);
+        const controls=document.createElement('div');controls.className='scene-range-controls';
+        const slider=document.createElement('input');slider.type='range';slider.id='scene-'+key;slider.min=min;slider.max=max;slider.step=step;title.htmlFor=slider.id;
+        const value=document.createElement('span');value.className='scene-parameter-value';
+        controls.append(slider,value);body.append(title,controls);row.append(body);target.append(row);
         return {row,slider,value,key};
     }
     const intensity=rangeControl('Отклик на звук','intensity',2.5,.1,.2);
@@ -62,7 +62,8 @@
             const metadata=window.sceneThemes.metadata;if(!metadata)return;
             let stored;try{stored=JSON.parse(appStorage.getItem('setting_scene_preferences')||'{}');}catch(_){stored={};}
             if(!stored || typeof stored!=='object' || Array.isArray(stored))stored={};
-            stored[metadata.id]={...stored[metadata.id],[key]:Number(slider.value)/scale};
+            const id=metadata.apiVersion===2?metadata.packageId:metadata.id;
+            stored[id]={...stored[id],[key]:Number(slider.value)/scale};
             appStorage.setItem('setting_scene_preferences',JSON.stringify(stored));window.sceneThemes.preferencesChanged();
         });
         return {row,slider,value,key,scale};
@@ -73,6 +74,49 @@
     const visualizerDetail=document.createElement('div');visualizerDetail.dataset.settingsDetail='';visualizerDetail.id='scene-visualizer-details';
     visualizerDetail.append(intensity.row,frequency.row);visualizerGroup.append(visualizerRow,visualizerDetail);
     const lighting=parameter('Интенсивность свечения объектов','glowIntensity',3,.1,1);
+    const customParameters=document.createElement('div');options.append(customParameters);
+    const localLabel=value=>typeof value==='string'?value:value?.ru || value?.en || Object.values(value || {})[0] || '';
+    let parameterTheme=null;
+    function renderParameters(metadata) {
+        const signature=metadata ? JSON.stringify([metadata.packageId,metadata.parameterSchema]) : null;
+        if(signature!==parameterTheme){
+            parameterTheme=signature;customParameters.replaceChildren();
+            for(const [key,p] of Object.entries(metadata?.parameterSchema || {})){
+                let input;
+                if(p.type==='slider'){
+                    const control=rangeControl(localLabel(p.label),'custom-'+key,p.max,p.step,p.min,customParameters);
+                    input=control.slider;control.value.dataset.parameterValue=key;
+                }else{
+                    const row=document.createElement('div');row.className='settings-row';
+                    const label=document.createElement('label');label.className='settings-row-label';label.textContent=localLabel(p.label);
+                    input=document.createElement(p.type==='select'?'select':'input');input.id='scene-custom-'+key;label.htmlFor=input.id;
+                    if(p.type==='toggle'){
+                        input.type='checkbox';
+                        const control=document.createElement('label');control.className='toggle-switch';
+                        const thumb=document.createElement('span');thumb.className='slider-round';control.append(input,thumb);
+                        row.append(label,control);
+                    }else{
+                        input.className='scene-parameter-select';
+                        for(const option of p.options){const node=document.createElement('option');node.value=option.value;node.textContent=localLabel(option.label);input.append(node);}
+                        row.append(label,input);
+                    }
+                    customParameters.append(row);
+                }
+                input.dataset.parameter=key;
+                input.addEventListener(p.type==='slider'?'input':'change',()=>window.sceneThemes.setParameter(key,p.type==='toggle'?input.checked:p.type==='slider'?Number(input.value):input.value));
+            }
+        }
+        const values=window.sceneThemes.parameters || {};
+        for(const [key,p] of Object.entries(metadata?.parameterSchema || {})){
+            const input=customParameters.querySelector('[data-parameter="'+key+'"]'),value=values[key]??p.default;
+            if(p.type==='toggle')input.checked=value;else input.value=value;
+            if(p.type==='slider'){
+                const text=window.sceneParameterValues.formatSlider(value,p);
+                customParameters.querySelector('[data-parameter-value="'+key+'"]').textContent=text;
+                input.setAttribute('aria-valuetext',text);
+            }
+        }
+    }
     const groups = [], children = [...panel.children]; let group;
     for (const node of children) {
         const heading = node.matches('.settings-section-title') ? node : node.querySelector(':scope > .settings-section-title');
@@ -110,6 +154,7 @@
     const accentPicker = document.getElementById('accent-color-picker');
     const accentHint = document.createElement('p'); accentHint.className = 'settings-row-desc'; accentHint.textContent = 'Акцент задан интерактивной темой. Изменить источник цвета можно в разделе «Темы».'; accentHint.hidden = true; accentSwatches.after(accentHint);
     function changed(metadata) {
+        renderParameters(metadata);
         themeEnabled.checked = !!metadata;
         options.hidden = !metadata;
         if (metadata) { name.textContent = metadata.name; description.textContent = metadata.description; }
@@ -122,7 +167,7 @@
         intensity.slider.value=appStorage.getItem('setting_scene_intensity') || '1';
         intensity.value.textContent=Number(intensity.slider.value).toFixed(1)+'×';
         if(metadata){
-            let stored;try{stored=JSON.parse(appStorage.getItem('setting_scene_preferences')||'{}')[metadata.id];}catch(_){}
+            let stored;try{const all=JSON.parse(appStorage.getItem('setting_scene_preferences')||'{}');stored=all[metadata.apiVersion===2?metadata.packageId:metadata.id]??all[metadata.id];}catch(_){}
             for(const p of [frequency,lighting]){const v=stored?.[p.key] ?? metadata.parameters?.[p.key] ?? (p===frequency ? .6 : 1);p.slider.value=Number(v)*p.scale;p.value.textContent=p===frequency?Math.round(Number(v)*100)+'%':Number(v).toFixed(1)+'×';}
         }
         const inherited = !!metadata && appStorage.getItem('setting_scene_colors') !== '0';
@@ -159,7 +204,7 @@
             if (!t.builtin && t.removable !== false) {
                 const remove = document.createElement('button'); remove.className = 'scene-remove'; remove.textContent = '×'; remove.title = 'Удалить импортированную тему'; remove.setAttribute('aria-label', 'Удалить ' + t.name);
                 remove.addEventListener('click', async () => {
-                    try { if (window.sceneThemes.metadata?.id === t.id || appStorage.getItem('setting_scene_theme') === t.id) window.sceneThemes.deactivate(); await noctune.sceneThemes.remove(t.id); await refresh(); }
+                    try { if (window.sceneThemes.metadata?.packageId === t.packageId || window.sceneThemes.metadata?.id === t.id || appStorage.getItem('setting_scene_theme') === t.id) window.sceneThemes.deactivate(); await noctune.sceneThemes.remove(t.id); await refresh(); }
                     catch (error) { notifyError(error); }
                 }); item.append(remove);
             }
@@ -175,7 +220,7 @@
     }
     async function importTheme() {
         const buttons=[...collection.querySelectorAll('.scene-add-tile')];buttons.forEach(b=>b.disabled=true);
-        try { const imported = await noctune.sceneThemes.import(); if (imported) { await refresh(); announceThemeInstall(imported); } }
+        try { const imported = await noctune.sceneThemes.import(); if (imported) await installedTheme(imported); }
         catch (error) { notifyError(error); }
         finally { buttons.forEach(b=>b.disabled=false); }
     }
@@ -184,12 +229,22 @@
         status.textContent = updated ? `Тема «${theme.name}» обновлена до версии ${theme.version}` : `Тема «${theme.name}» добавлена в список`;
         showNotification(status.textContent, 'success', updated ? 'Тема обновлена' : 'Тема установлена');
     }
+    async function installedTheme(theme) {
+        const active = window.sceneThemes.metadata;
+        await refresh();
+        if (theme.action === 'update' && active && (active.packageId === theme.packageId || active.id === theme.id)) {
+            const replacement = themes.find(t => t.id === theme.id) || themes.find(t => t.packageId === theme.packageId);
+            // activate keeps the old scene until the new candidate renders its first
+            // frame, so a bad update doesn't leave the player without a background.
+            if (replacement) await window.sceneThemes.activate(replacement);
+        }
+        announceThemeInstall(theme);
+    }
     let externalImportTask = Promise.resolve();
     noctune.sceneThemes.onImported(result => {
         externalImportTask = externalImportTask.then(async () => {
             if (result.error) throw new Error(result.error);
-            await refresh();
-            announceThemeInstall(result.theme);
+            await installedTheme(result.theme);
         }).catch(notifyError);
     });
     refresh().then(async list => {
@@ -197,7 +252,10 @@
         // Migrate the previous single background toggle to the separate scene mode.
         if(appStorage.getItem('setting_scene_enabled')===null)appStorage.setItem('setting_scene_enabled',id && appStorage.getItem('setting_bg_image_enabled')!=='0'?'1':'0');
         if (!id || appStorage.getItem('setting_scene_enabled') !== '1') return;
-        const saved = list.find(t => t.id === id);
+        let saved = list.find(t => t.id === id);
+        if (!saved) {
+            try { const previous = await noctune.sceneThemes.read(id); saved = list.find(t => t.packageId === previous.manifest.id); } catch (_) { /* Removed/unavailable themes stay disabled. */ }
+        }
         if (saved) await select(saved);
         else { appStorage.removeItem('setting_scene_theme'); status.textContent = 'Сохранённая тема недоступна. Выберите другой фон.'; }
     }).catch(notifyError).finally(() => noctune.sceneThemes.ready());

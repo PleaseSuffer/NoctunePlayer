@@ -3,7 +3,7 @@
     let current = null, candidate = null, dormant = null, epoch = 0, last = 0, time = 0, queued = false;
     let spectrum = new Uint8Array(0), sampleRate = 44100, playing = false;
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-    let config;
+    let config, diagnosticsEnabled = false;
     function refreshConfig() {
         config = {
             motion: appStorage.getItem('setting_scene_motion') !== '0',
@@ -13,11 +13,18 @@
         for (const entry of [current, candidate]) if (entry) { entry.settings = preferences(entry.metadata); entry.dirty = true; }
     }
     const listeners = new Set();
-    function preferences(metadata) {
-        let stored; try { stored=JSON.parse(appStorage.getItem('setting_scene_preferences') || '{}')[metadata.id]; } catch (_) {}
+    function preferences(metadata, incoming) {
+        let all; try { all=JSON.parse(appStorage.getItem('setting_scene_preferences') || '{}'); } catch (_) {}
+        const stored = incoming ?? all?.[metadata.apiVersion === 2 ? metadata.packageId : metadata.id] ?? all?.[metadata.id];
         const defaults=metadata.parameters || {};
         const bounded=(value,fallback,max)=>Number.isFinite(value)?Math.max(0,Math.min(max,value)):fallback;
-        return { frequencyMix: bounded(stored?.frequencyMix,defaults.frequencyMix ?? .6,1), glowIntensity: bounded(stored?.glowIntensity,defaults.glowIntensity ?? 1,3) };
+        const result = { frequencyMix: bounded(stored?.frequencyMix,defaults.frequencyMix ?? .6,1), glowIntensity: bounded(stored?.glowIntensity,defaults.glowIntensity ?? 1,3) };
+        for (const [key,p] of Object.entries(metadata.parameterSchema || {})) {
+            const value=stored?.[key];
+            result[key]=p.type==='slider' ? window.sceneParameterValues.normalizeSlider(value,p)
+                : p.type==='toggle' ? (typeof value==='boolean' ? value : p.default) : p.options.some(o=>o.value===value) ? value : p.default;
+        }
+        return result;
     }
     const encode = text => { const bytes = new TextEncoder().encode(text); let result = ''; for (let i = 0; i < bytes.length; i += 8192) result += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(result); };
     const bootstrap = function () {
@@ -32,23 +39,28 @@
             self.onmessage = async ({ data }) => {
                 try {
                     if (data.type === 'init') {
+                        const decodeStart = performance.now();
                         const images = Object.create(null);
                         await Promise.all(Object.entries(data.assets).map(async ([id, source]) => {
                             const bytes = Uint8Array.from(atob(source.split(',')[1]), c => c.charCodeAt(0));
                             images[id] = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
                         }));
+                        const decodeMs = performance.now() - decodeStart;
                         scene = window.__noctuneScene;
                         if (!scene) throw new Error('Отсутствует NoctuneScene.define');
-                        api = NoctuneScene.create(data.canvas, data.manifest, images);
+                        api = NoctuneScene.create(data.canvas, data.manifest, images, data.apiVersion, 'worker');
                         if (scene.init) await scene.init(api);
-                        draw(data.initialFrame); postMessage({ type: 'ready', runtime: 'worker' });
+                        if (api.apiVersion === 2) for (const event of ['resize','parameters','audio','reset']) if (typeof scene[event] === 'function') api.on(event, value => scene[event](api, value));
+                        draw(data.initialFrame); postMessage({ type: 'ready', runtime: 'worker', decodeMs });
                     } else if (data.type === 'frame') draw(data.frame);
+                    else if (data.type === 'dispose') { try { if (api?.apiVersion === 2) scene?.dispose?.(api); } finally { api?.dispose?.(); self.close(); } }
                 } catch (error) { postMessage({ type: 'error', message: String(error.message).slice(0, 240) }); }
             };
         };
         async function startWorker() {
             const canvas = document.querySelector('canvas');
-            if (!canvas.transferControlToOffscreen || typeof Worker !== 'function') return false;
+            if (payload.manifest.runtimeRequirements?.dom) { reply('fallback', { reason: 'runtimeRequirements.dom' }); return false; }
+            if (!canvas.transferControlToOffscreen || typeof Worker !== 'function') { reply('fallback', { reason: 'Worker/OffscreenCanvas unavailable' }); return false; }
             const source = 'globalThis.window=globalThis;\n' + payload.sdk + '\n' + payload.script + '\n(' + workerBootstrap.toString() + ')();';
             const url = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
             let worker;
@@ -69,17 +81,18 @@
                         if (ready) reply(data.type, data);
                     };
                     const offscreen = canvas.transferControlToOffscreen();
-                    worker.postMessage({ type: 'init', canvas: offscreen, manifest: payload.manifest, assets: payload.assets, initialFrame: payload.initialFrame }, [offscreen]);
+                    worker.postMessage({ type: 'init', canvas: offscreen, manifest: payload.manifest, apiVersion: payload.apiVersion, assets: payload.assets, initialFrame: payload.initialFrame }, [offscreen]);
                 });
                 window.addEventListener('message', event => {
                     if (event.source !== parent || event.data?.sceneChannel !== payload.channel || event.data.type !== 'frame') return;
                     const frame = event.data.frame, buffer = frame.audio.spectrum.buffer;
                     worker.postMessage({ type: 'frame', frame }, buffer ? [buffer] : []);
                 });
-                window.addEventListener('pagehide', () => worker.terminate(), { once: true });
+                window.addEventListener('pagehide', () => { worker.postMessage({type:'dispose'}); setTimeout(()=>worker.terminate(),100); }, { once: true });
                 reply('ready', { runtime: 'worker' }); reply('frame', { runtime: 'worker' });
                 return true;
-            } catch (_) {
+            } catch (error) {
+                reply('fallback', { reason: String(error.message).slice(0,240) });
                 worker?.terminate();
                 canvas.replaceWith(document.createElement('canvas'));
                 return false;
@@ -95,6 +108,7 @@
             reply('stage', { stage: 'запуск отдельного потока отрисовки' });
             if (await startWorker()) return;
             const images = Object.create(null);
+            const decodeStart = performance.now();
             reply('stage', { stage: 'загрузка PNG-слоёв' });
             await Promise.all(Object.entries(payload.assets).map(async ([id, src]) => {
                 const img = new Image(); img.decoding = 'sync';
@@ -104,13 +118,16 @@
                 });
                 images[id] = img;
             }));
+            const decodeMs = performance.now() - decodeStart;
             reply('stage', { stage: 'загрузка SDK' }); await runScript(payload.sdk);
             reply('stage', { stage: 'загрузка скрипта сцены' }); await runScript(payload.script);
             const scene = window.__noctuneScene;
             if (!scene) throw new Error('Отсутствует NoctuneScene.define');
-            const api = NoctuneScene.create(document.querySelector('canvas'), payload.manifest, images);
+            const api = NoctuneScene.create(document.querySelector('canvas'), payload.manifest, images, payload.apiVersion, 'iframe');
             reply('stage', { stage: 'инициализация сцены' });
             if (scene.init) await scene.init(api);
+            if (api.apiVersion === 2) for (const event of ['resize','parameters','audio','reset']) if (typeof scene[event] === 'function') api.on(event, value => scene[event](api, value));
+            window.addEventListener('pagehide', () => { try { if(api.apiVersion===2)scene.dispose?.(api); } finally { api.dispose?.(); } }, {once:true});
             window.addEventListener('message', e => {
                 if (e.source !== parent || e.data?.sceneChannel !== payload.channel || e.data.type !== 'frame') return;
                 try { const start = performance.now(); api.begin(e.data.frame); scene.render(api, e.data.frame); reply('frame', { runtime: 'iframe', renderMs: performance.now() - start }); }
@@ -119,7 +136,7 @@
             // The first frame must not depend on rAF in a hidden candidate iframe.
             // Chromium may throttle such frames until they become visible.
             api.begin(payload.initialFrame); scene.render(api, payload.initialFrame);
-            reply('ready', { runtime: 'iframe' }); reply('frame', { runtime: 'iframe' });
+            reply('ready', { runtime: 'iframe', decodeMs }); reply('frame', { runtime: 'iframe' });
         })().catch(error => reply('error', { message: String(error.message).slice(0, 240) }));
     };
     function html(pkg, channel, initialFrame) {
@@ -146,6 +163,10 @@
         if (persist && wasActive && window.bgImageEnabled) window.backgroundSettings?.enable(true);
     }
     function schedule() { if (!queued) { queued = true; window.requestEffectsFrame(tick); } }
+    function safeArea() {
+        const element=document.getElementById('mini-player'), rect=element?.getBoundingClientRect();
+        return rect && rect.width>0 && rect.height>0 ? {x:rect.x,y:rect.y,width:rect.width,height:rect.height} : null;
+    }
     function tick(now) {
         queued = false; if (!current && !candidate) return;
         schedule();
@@ -158,6 +179,7 @@
         for (const entry of [current, candidate]) {
             if (!entry?.ready) continue;
             if (entry.busy) {
+                if (diagnosticsEnabled) entry.skipped = (entry.skipped || 0) + 1;
                 if (now - entry.sentAt > 5000) failure(entry, 'Тема перестала отвечать');
                 continue;
             }
@@ -180,7 +202,7 @@
             entry.frames = (entry.frames || 0) + 1;
             const settings = entry.settings;
             const audio = { spectrum, sampleRate, playing, frequencyMix: settings.frequencyMix, enabled: entry.metadata.capabilities.visualizer !== 'none' && config.visualizer, intensity: config.intensity };
-            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
+            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, reducedMotion: reducedMotion.matches, safeArea: safeArea(), parameters: settings, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
         }
     }
     function failure(entry, message) {
@@ -197,14 +219,20 @@
     window.addEventListener('message', event => {
         const entry = [current, candidate].find(e => e && event.source === e.frame.contentWindow && event.data?.sceneChannel === e.channel);
         if (!entry) return;
+        if (event.data.type === 'fallback') { entry.fallbackReason = String(event.data.reason).slice(0,240); return; }
         if (event.data.type === 'stage') { entry.stage = String(event.data.stage).slice(0, 120); return; }
         if (event.data.type === 'error') { failure(entry, 'Ошибка интерактивной темы: ' + String(event.data.message).slice(0, 240)); return; }
-        if (event.data.type === 'ready') { entry.ready = true; schedule(); }
+        if (event.data.type === 'ready') { entry.ready = true; if(Number.isFinite(event.data.decodeMs))entry.decodeMs=event.data.decodeMs; schedule(); }
         if (event.data.type === 'frame') {
             entry.runtime = event.data.runtime || entry.runtime;
             if (Number.isFinite(event.data.renderMs)) {
                 entry.renderMs = event.data.renderMs;
                 entry.renderAverage = entry.renderAverage == null ? entry.renderMs : entry.renderAverage * .9 + entry.renderMs * .1;
+                if (diagnosticsEnabled) {
+                    (entry.samples ||= []).push(entry.renderMs); if (entry.samples.length > 240) entry.samples.shift();
+                    entry.roundTripMs = Math.max(0, performance.now() - (entry.sentAt || performance.now()));
+                    (entry.completions ||= []).push(performance.now()); if(entry.completions.length>240)entry.completions.shift();
+                }
             }
             entry.busy = false;
             if (entry === candidate) {
@@ -218,7 +246,23 @@
         }
     });
     window.sceneThemes = {
-        get performance() { return current ? { runtime: current.runtime, renderMs: current.renderMs, frameLimit: current.frameLimit, frames: current.frames || 0 } : null; },
+        get performance() {
+            if(!current)return null;
+            const samples=[...(current.samples||[])].sort((a,b)=>a-b), completions=current.completions||[];
+            return { runtime: current.runtime, fallbackReason: current.fallbackReason || null, decodeMs: current.decodeMs ?? null, renderMs: current.renderMs, frameLimit: current.frameLimit, frames: current.frames || 0,
+                ...(diagnosticsEnabled ? { p50: samples[Math.floor(samples.length*.5)] ?? null, p95: samples[Math.min(samples.length-1,Math.floor(samples.length*.95))] ?? null,
+                    roundTripMs: current.roundTripMs ?? null, skipped: current.skipped || 0, effectiveFps: completions.length>1 ? (completions.length-1)*1000/(completions.at(-1)-completions[0]) : null } : {}) };
+        },
+        diagnostics(enabled=true) { diagnosticsEnabled=!!enabled; for(const entry of [current,candidate])if(entry){entry.samples=[];entry.completions=[];entry.skipped=0;} },
+        get parameters() { return current ? {...current.settings} : null; },
+        setParameter(key, value) {
+            if (!current || !Object.hasOwn(current.metadata.parameterSchema || {}, key)) return;
+            let stored;try{stored=JSON.parse(appStorage.getItem('setting_scene_preferences')||'{}');}catch(_){}
+            if(!stored || typeof stored!=='object' || Array.isArray(stored))stored={};
+            const id=current.metadata.packageId;
+            stored[id]=preferences(current.metadata,{...preferences(current.metadata),[key]:value});
+            appStorage.setItem('setting_scene_preferences',JSON.stringify(stored));this.preferencesChanged();
+        },
         get active() { return !!current; },
         get metadata() { return current?.metadata || null; },
         audio(data, rate, isPlaying) {
@@ -232,6 +276,7 @@
             const request = ++epoch; destroy(candidate); candidate = null;
             const pkg = await noctune.sceneThemes.read(metadata.id);
             if (request !== epoch) throw new Error('Выбор темы отменён');
+            metadata = { ...metadata, ...pkg.manifest, id: metadata.id, packageId: pkg.manifest.id, apiVersion: pkg.apiVersion, preview: metadata.preview };
             return new Promise((resolve, reject) => {
                 const frame = document.createElement('iframe'); frame.className = 'scene-frame'; frame.setAttribute('sandbox', 'allow-scripts');
                 frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1; frame.style.opacity = '0';
@@ -239,7 +284,7 @@
                 const entry = { frame, channel, metadata, resolve, reject, ready: false, busy: false };
                 candidate = entry;
                 refreshConfig();
-                frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
+                frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, reducedMotion: reducedMotion.matches, safeArea: safeArea(), parameters: entry.settings, lighting:{intensity:entry.settings.glowIntensity}, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
                 document.body.prepend(frame);
                 entry.timer = setTimeout(() => { if (entry === candidate) failure(entry, 'Не удалось запустить тему: ' + (entry.stage || 'загрузка iframe') + ' (тайм-аут 15 с)'); }, 15000);
                 schedule();
@@ -255,6 +300,7 @@
                 const entry={};
                 if(Number.isFinite(p.frequencyMix))entry.frequencyMix=Math.max(0,Math.min(1,p.frequencyMix));
                 if(Number.isFinite(p.glowIntensity))entry.glowIntensity=Math.max(0,Math.min(3,p.glowIntensity));
+                for(const [key,value] of Object.entries(p).slice(0,26))if(/^[a-z][a-zA-Z0-9]{0,47}$/.test(key) && !['constructor','prototype','frequencyMix','glowIntensity'].includes(key) && (typeof value==='boolean' || Number.isFinite(value) || typeof value==='string' && /^[a-zA-Z0-9-]{1,48}$/.test(value)))entry[key]=value;
                 settings[id]=entry;
             }
             appStorage.setItem('setting_scene_preferences',JSON.stringify(settings));this.preferencesChanged();

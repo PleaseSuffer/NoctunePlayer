@@ -6,3 +6,5 @@ backup/
 TODO.md
 refs/
 tests/.artifacts/
+themes/user/*
+!themes/user/README.md

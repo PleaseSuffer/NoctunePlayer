@@ -1,0 +1,22 @@
+{
+  "apiVersion": 2,
+  "id": "api-v2-demo",
+  "name": "Scene API v2 Demo",
+  "description": "Общий спектр за PNG-силуэтами, отражение воды и типизированные настройки",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "width": 640,
+  "height": 360,
+  "preview": "preview",
+  "palette": { "accent": "#b699ef", "background": "#101425", "gradient": ["#73bdd5", "#aa87e0", "#edbfa0"] },
+  "capabilities": { "visualizer": "bars", "visualizers": ["bars", "line", "radial"], "motion": true },
+  "runtimeRequirements": { "dom": false },
+  "quality": "balanced",
+  "parameterSchema": {
+    "waves": { "type": "slider", "label": { "ru": "Сила волн", "en": "Wave strength" }, "default": 2, "min": 0, "max": 8, "step": 0.5 },
+    "crown": { "type": "toggle", "label": { "ru": "Круговой спектр", "en": "Radial spectrum" }, "default": true },
+    "style": { "type": "select", "label": { "ru": "Визуализатор", "en": "Visualizer" }, "default": "bars", "options": [{ "value": "bars", "label": "Столбики" }, { "value": "line", "label": "Линия" }] }
+  },
+  "assets": { "preview": "assets/preview.png", "towers": "assets/towers.png", "water": "assets/water.png" },
+  "script": "scene.js"
+}

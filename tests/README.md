@@ -27,7 +27,7 @@ Electron executable; on Windows:
 | Test | Regression covered |
 | --- | --- |
 | Scene themes | Real Canvas output, sandbox isolation, palette and selection lifecycle, full-app integration |
-| Scene performance | Worker execution, panel frame budget, idle/tray suspension, resume and DOM fallback; no machine-specific FPS target or historical baseline |
+| Scene performance | Worker execution, panel frame budget, idle/tray suspension, resume and DOM fallback; API v2 in Worker/iframe, mask/inverse pixels, callback cleanup, typed settings and persistence, diagnostics and the packaged v2 demo; no machine-specific FPS target or historical baseline |
 | Rain window mask | Glass alpha boundary, foreground occlusion, spectrum baseline and fade to silence |
 | Theme opening | Separate installer, metadata, cancel, install/update states, toasts and repeated file-open |
 | Playback keep-awake | Actual audio playback, pause/resume/end, native sleep blocker and background gallery layout |

@@ -25,7 +25,7 @@ const { validatePackage, packDirectory, createSceneThemeStore, MAX_BYTES } = req
         assert.equal(list.themes[0].id, 'builtin-rain-window'); assert.equal((await store.read(first.id)).script, valid.script);
         await assert.rejects(store.read('../config.json')); await assert.rejects(store.remove('builtin-rain-window'));
         for (const mutate of [
-            p => p.apiVersion = 2,
+            p => p.apiVersion = 3,
             p => p.manifest.id = '../other',
             p => p.manifest.palette.accent = '</style><script>',
             p => p.manifest.parameters.frequencyMix=2,
@@ -40,10 +40,15 @@ const { validatePackage, packDirectory, createSceneThemeStore, MAX_BYTES } = req
         assert.equal((await store.list()).themes.length, 4, 'a corrupt import does not break other scenes');
         await store.remove(first.id); assert.equal((await store.list()).themes.length, 3);
         const userSource = path.join(temporary, 'custom-noctilia'); await fs.cp(path.join(builtinDirectory, '03-rain-window'), userSource, { recursive: true });
+        const sourceManifest = JSON.parse(await fs.readFile(path.join(userSource, 'manifest.json'), 'utf8'));
+        sourceManifest.id = 'custom-source-test';await fs.writeFile(path.join(userSource, 'manifest.json'), JSON.stringify(sourceManifest));
         const custom = (await store.list()).themes.find(t => t.id.startsWith('user-'));
-        assert.ok(custom && !custom.builtin && !custom.removable);
+        assert.ok(custom && !custom.builtin && custom.removable);
         assert.equal((await store.read(custom.id)).script, valid.script);
-        await assert.rejects(store.remove(custom.id));
+        await store.remove(custom.id);
+        assert.ok(await fs.stat(path.join(userSource, 'manifest.json')), 'source files survive gallery removal');
+        assert.ok(!(await store.list()).themes.some(t => t.packageId === 'custom-source-test'));
+        await assert.rejects(store.read(custom.id), /удалена/);
         const legacy = path.join(temporary, 'legacy'), migrated = path.join(temporary, 'migrated'); await fs.mkdir(legacy);
         await fs.copyFile(source, path.join(legacy, first.id + '.noctheme'));
         const migratedStore = createSceneThemeStore({ directory: () => migrated, builtinDirectory, legacyDirectory: legacy, sdkFile: path.join(root, 'src/renderer/effects/scene-sdk.js'), presetsDirectory: path.join(root, 'themes/backgrounds') });

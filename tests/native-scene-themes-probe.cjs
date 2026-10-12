@@ -169,6 +169,7 @@ app.whenReady().then(async () => {
             window.noctune = {fs:{toFileUrl:p=>'file:///'+p.replaceAll('\\\\','/')},sceneThemes:{read:async id=>__packages.find(p=>p.id===id).pkg,list:async()=>({themes:__packages.map(p=>p.metadata),presets:${JSON.stringify(presets)}}),import:async()=>null,remove:async()=>true,onImported(){},ready(){}}};
             void 0;
         `);
+        await win.webContents.executeJavaScript(await fs.readFile(path.join(root, 'src/renderer/core/scene-parameter-values.js'), 'utf8'));
         await win.webContents.executeJavaScript(await fs.readFile(path.join(root, 'src/renderer/effects/scene-host.js'), 'utf8'));
         await win.webContents.executeJavaScript(await fs.readFile(path.join(root, 'src/renderer/ui/scene-settings.js'), 'utf8'));
         await win.webContents.executeJavaScript(`new Promise(r=>setTimeout(r,100))`);

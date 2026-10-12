@@ -116,6 +116,8 @@ npm run dist
 
 ## Проверки
 
+Контракт тем v1 описан в [SCENE-THEMES.md](SCENE-THEMES.md), расширения v2 — в [SCENE-API-V2.md](SCENE-API-V2.md). Обе версии используют `src/renderer/effects/scene-host.js` и версионированный `scene-sdk.js`; TypeScript-декларации v2 находятся рядом в `scene-sdk.d.ts`. Валидатор и упаковщик в `src/main/scene-themes.js` выбирают версию из пакета. Эталон v2 находится в `themes/examples/api-v2`, готовый контейнер — в `themes/packages/api-v2-demo.noctheme`.
+
 ```bash
 npm test
 ```

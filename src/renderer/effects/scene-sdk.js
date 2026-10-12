@@ -1,4 +1,4 @@
-// API v1. Runs only inside the scene's opaque-origin, script-only sandbox.
+// Versioned SDK. Runs only inside the scene's opaque-origin, script-only sandbox.
 (() => {
     'use strict';
     const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, n));
@@ -23,7 +23,7 @@
             this.dt = clamp(frame.dt, 0, .08); this.time = frame.time; this.motion = frame.motion;
             this.audio = frame.audio;
             this.glowIntensity = clamp(frame.lighting?.intensity ?? 1, 0, 3);
-            const ratio = Math.min(frame.dpr || 1, 1.5), w = Math.round(frame.width * ratio), h = Math.round(frame.height * ratio);
+            const ratio = Math.min(frame.dpr || 1, this.quality?.dpr ?? 1.5), w = Math.round(frame.width * ratio), h = Math.round(frame.height * ratio);
             if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
             const s = Math.max(w / this.width, h / this.height);
             this.ctx.setTransform(s, 0, 0, s, (w - this.width * s) / 2, (h - this.height * s) / 2);
@@ -49,7 +49,7 @@
         clip(polygons, draw) {
             const c = this.ctx; c.save(); c.beginPath();
             for (const points of polygons) { c.moveTo(...points[0]); points.slice(1).forEach(p => c.lineTo(...p)); c.closePath(); }
-            c.clip(); draw(); c.restore();
+            c.clip(); try { draw(); } finally { c.restore(); }
         }
         gradient(x0, y0, x1, y1) {
             const g = this.ctx.createLinearGradient(x0, y0, x1, y1);
@@ -116,10 +116,10 @@
         }
         character(id, options = {}) {
             const c = this.ctx, image = this.images[id], W = this.width, H = this.height;
-            const breath = this.motion ? Math.sin(this.time * 1.45) * .0035 : 0;
+            const breath = this.motion ? Math.sin(this.time * 1.45) * (this.apiVersion === 2 ? options.breathAmplitude ?? .0035 : .0035) : 0;
             const anchor = options.anchor ?? H, hairY = options.hairY || [0, 380];
             let animated = this.characters.get(id);
-            if (!animated) { animated = createCanvas(); animated.width = W; animated.height = H; this.characters.set(id, animated); }
+            if (!animated) { animated = this.createSurface ? this.createSurface(W,H) : createCanvas(); animated.width = W; animated.height = H; this.characters.set(id, animated); }
             const texture = animated.getContext('2d');
             texture.clearRect(0, 0, W, H); texture.drawImage(image, 0, 0, W, H);
             // Deform in a 1:1 intermediate texture; scale the complete sprite once to avoid alpha seams.
@@ -127,7 +127,7 @@
             // Clear and replace whole texture rows; fractional edges erase only part of a pixel's alpha.
             if (this.motion) for (let y = hairTop; y < hairBottom; y += 4) {
                 const sh = Math.min(4, hairBottom - y), weight = Math.sin(Math.PI * (y - hairTop) / (hairBottom - hairTop));
-                const dx = Math.sin(this.time * 1.1 + y * .011) * weight * 1.5;
+                const dx = Math.sin(this.time * 1.1 + y * .011) * weight * (this.apiVersion === 2 ? options.hairStrength ?? 1.5 : 1.5);
                 texture.clearRect(0, y, W, sh);
                 texture.drawImage(image, 0, y / H * image.height, image.width, sh / H * image.height, dx, y, W, sh);
             }
@@ -135,7 +135,7 @@
             if (options.contour) {
                 let glow = this.glows.get(id);
                 if (!glow) {
-                    glow = createCanvas(); glow.width = W; glow.height = H;
+                    glow = this.createSurface ? this.createSurface(W,H) : createCanvas(); glow.width = W; glow.height = H;
                     const g = glow.getContext('2d');
                     g.shadowBlur = 28; g.shadowColor = this.palette.accent; g.drawImage(image, 0, 0, W, H);
                     g.shadowBlur = 0; g.globalCompositeOperation = 'destination-out'; g.drawImage(image, 0, 0, W, H);
@@ -150,7 +150,8 @@
                 }
             }
             paint(animated);
-            if (options.blink && this.motion && this.time % 5.9 > 5.73) {
+            const blinkInterval = this.apiVersion === 2 ? Math.max(.2, options.blinkInterval ?? 5.9) : 5.9;
+            if (options.blink && this.motion && this.time % blinkInterval > blinkInterval - .17) {
                 c.save(); c.translate(0, -anchor * breath); c.scale(1, 1 + breath);
                 // Crop only the eyelids from the generated closed-eye plate, preserving the rest of the face.
                 for (const [x, y, w, h] of options.eyes) {
@@ -372,9 +373,236 @@
             }
         }
     }
+    const profiles = {
+        low: { dpr: 1, particles: 40, surfaces: 8, pixels: 16 * 1024 * 1024, caches: 16 },
+        balanced: { dpr: 1.5, particles: 80, surfaces: 12, pixels: 32 * 1024 * 1024, caches: 32 },
+        high: { dpr: 2, particles: 120, surfaces: 16, pixels: 48 * 1024 * 1024, caches: 64 },
+    };
+    class SceneAPIv2 extends SceneAPI {
+        constructor(canvas, manifest, images, runtime) {
+            super(canvas, manifest, images);
+            this.apiVersion = 2;
+            this.runtime = runtime || (typeof document === 'undefined' ? 'worker' : 'iframe');
+            this.quality = Object.freeze({ ...profiles[manifest.quality || 'balanced'] });
+            this.parameters = Object.fromEntries(Object.entries(manifest.parameterSchema || {}).map(([key, p]) => [key, p.default]));
+            this.surfaces = new Set(); this.sources = new Map(); this.geometry = new Map(); this.maskCache = new Map();
+            this.events = new Map(); this.disposed = false; this.motionTime = 0; this.viewport = null;
+            this.drops.length = this.quality.particles;
+        }
+        assertAlive() { if (this.disposed) throw new Error('Scene API disposed'); }
+        boundedCache(map, key, value, release) {
+            if (map.has(key)) { const old = map.get(key); map.delete(key); if (old !== value) release?.(old); }
+            map.set(key, value);
+            while (map.size > this.quality.caches) { const first = map.keys().next().value; release?.(map.get(first)); map.delete(first); }
+            return value;
+        }
+        begin(frame) {
+            this.assertAlive();
+            const previous = this.viewport, oldParameters = JSON.stringify(this.parameters), oldAudio = this.audio;
+            const audio = { spectrum: new Uint8Array(0), sampleRate: 44100, enabled: true, playing: false, intensity: 1, ...frame.audio };
+            const dt = Number.isFinite(frame.dt) ? clamp(frame.dt, 0, .08) : 0;
+            if (frame.motion) this.motionTime += dt;
+            // v1 keeps its historic DPR cap and pulse range; v2 exposes a normalized pulse separately.
+            super.begin({ ...frame, dt, time: this.motionTime, audio, dpr: Math.min(frame.dpr || 1, this.quality.dpr) });
+            this.normalizedPulse = clamp(this.pulse);
+            this.viewport = { width: frame.width, height: frame.height, dpr: frame.dpr || 1 };
+            if(frame.safeArea){const start=this.screenToScene(frame.safeArea.x,frame.safeArea.y),end=this.screenToScene(frame.safeArea.x+frame.safeArea.width,frame.safeArea.y+frame.safeArea.height);this.safeArea={x:start.x,y:start.y,width:end.x-start.x,height:end.y-start.y};}else this.safeArea=null;
+            this.parameters = { ...this.parameters, ...frame.parameters };
+            for (const map of [this.bands, this.bandFrames, this.glows, this.characters]) {
+                while (map.size > this.quality.caches) { const key = map.keys().next().value; const item = map.get(key); if (item?.getContext) this.releaseSurface(item); map.delete(key); }
+            }
+            if (!previous || previous.width !== frame.width || previous.height !== frame.height || previous.dpr !== this.viewport.dpr) this.emit('resize', this.viewport);
+            if (oldParameters !== JSON.stringify(this.parameters)) this.emit('parameters', this.parameters);
+            if (oldAudio.playing !== audio.playing || oldAudio.enabled !== audio.enabled || oldAudio.sampleRate !== audio.sampleRate || oldAudio.spectrum.length !== audio.spectrum.length) this.emit('audio', { playing: audio.playing, enabled: audio.enabled, sampleRate: audio.sampleRate, bins: audio.spectrum.length });
+        }
+        on(event, callback) {
+            this.assertAlive();
+            if (!['resize', 'parameters', 'audio', 'reset', 'dispose', 'resources'].includes(event) || typeof callback !== 'function') throw new Error('Unknown scene event');
+            if (!this.events.has(event)) this.events.set(event, new Set());
+            const handlers = this.events.get(event);
+            if (handlers.size >= 32) throw new Error('Scene listener limit');
+            handlers.add(callback); return () => handlers.delete(callback);
+        }
+        emit(event, value) { for (const callback of this.events.get(event) || []) callback(value); }
+        createSurface(width = this.width, height = this.height) {
+            this.assertAlive();
+            if (![width, height].every(v => Number.isInteger(v) && v > 0 && v <= 4096)) throw new Error('Surface dimensions must be integers in 1..4096');
+            const pixels = [...this.surfaces].reduce((sum, s) => sum + s.width * s.height, 0);
+            if (this.surfaces.size >= this.quality.surfaces || pixels + width * height > this.quality.pixels) throw new Error('Scene surface budget exceeded');
+            const surface = createCanvas(); surface.width = width; surface.height = height;
+            this.surfaces.add(surface); return surface;
+        }
+        releaseSurface(surface) { if (this.surfaces.delete(surface)) surface.width = surface.height = 1; }
+        invalidate() {
+            for (const map of [this.glows, this.characters]) { for (const surface of map.values()) this.releaseSurface(surface); map.clear(); }
+            for (const mask of this.maskCache.values()) this.releaseSurface(mask);
+            this.maskCache.clear();
+        }
+        replaceImage(id, image) {
+            this.assertAlive(); if (!Object.hasOwn(this.images, id) || !image || ![image.width,image.height].every(v=>Number.isInteger(v)&&v>0&&v<=4096)) throw new Error('Invalid scene image');
+            const pixels=Object.entries(this.images).reduce((sum,[key,value])=>sum+(key===id?0:value.width*value.height),image.width*image.height);
+            if(pixels>48*1024*1024)throw new Error('Scene image budget exceeded');
+            if (this.images[id] !== image) this.images[id]?.close?.();
+            this.images[id] = image; this.invalidate(); this.emit('resources', { image: id });
+        }
+        setPalette(palette) {
+            const color = c => /^#[\da-f]{6}$/i.test(c);
+            if (!palette || !color(palette.accent) || !color(palette.background) || !Array.isArray(palette.gradient) || palette.gradient.length !== 3 || !palette.gradient.every(color)) throw new Error('Invalid palette');
+            this.assertAlive(); this.palette = { ...palette, gradient: [...palette.gradient] }; this.invalidate(); this.emit('resources', { palette: this.palette });
+        }
+        reset() {
+            this.assertAlive(); this.invalidate(); this.sources.clear(); this.geometry.clear(); this.bands.clear(); this.bandFrames.clear();
+            this.energy = this.pulse = this.normalizedPulse = this.motionTime = this.time = 0; this.pulses = []; this.stars = []; this.nextStar = 3; this.pulseCooldown = 0;
+            this.rainJunctions = []; this.rainScanIn = 0;
+            this.drops.forEach(d => { d.y = -d.length; d.trail = []; d.age = 0; d.speed = 0; d.heading = d.angle = 0; d.seeded = false; });
+            this.emit('reset');
+        }
+        dispose() {
+            if (this.disposed) return;
+            this.disposed = true;
+            try { this.emit('dispose'); } finally {
+                this.invalidate(); for (const surface of [...this.surfaces]) this.releaseSurface(surface);
+                for (const image of Object.values(this.images)) image.close?.();
+                this.sources.clear(); this.geometry.clear(); this.bands.clear(); this.bandFrames.clear(); this.events.clear(); this.disposed = true;
+                this.contourColors?.clear();
+            }
+        }
+        sceneToScreen(x, y) {
+            const v = this.viewport || { width: this.width, height: this.height }, scale = Math.max(v.width / this.width, v.height / this.height);
+            return { x: x * scale + (v.width - this.width * scale) / 2, y: y * scale + (v.height - this.height * scale) / 2 };
+        }
+        screenToScene(x, y) {
+            const zero = this.sceneToScreen(0, 0), v = this.viewport || { width: this.width, height: this.height }, scale = Math.max(v.width / this.width, v.height / this.height);
+            return { x: (x - zero.x) / scale, y: (y - zero.y) / scale };
+        }
+        get visibleRect() {
+            const start = this.screenToScene(0, 0), end = this.screenToScene(this.viewport?.width || this.width, this.viewport?.height || this.height);
+            return { x: start.x, y: start.y, width: end.x - start.x, height: end.y - start.y };
+        }
+        anchor(horizontal = .5, vertical = .5, inset = 0) {
+            const r = this.visibleRect; return { x: r.x + inset + (r.width - inset * 2) * horizontal, y: r.y + inset + (r.height - inset * 2) * vertical };
+        }
+        compose(groups) {
+            for (const name of ['background', 'effects', 'foreground']) {
+                if (!groups[name]) continue;
+                this.ctx.save(); try { groups[name](this); } finally { this.ctx.restore(); }
+            }
+        }
+        clipMask(asset, draw, { invert = false, feather = 0 } = {}) {
+            this.assertAlive(); if (!Object.hasOwn(this.images, asset) || typeof draw !== 'function') throw new Error('Invalid mask');
+            if(!Number.isFinite(feather))throw new Error('Invalid mask feather');
+            feather = clamp(feather, 0, 32);
+            const key = `${asset}:${feather}`;
+            let mask = this.maskCache.get(key);
+            if (!mask) {
+                // Reserve room for the temporary draw surface, evicting old mask surfaces first.
+                while (this.maskCache.size && (this.surfaces.size + 2 > this.quality.surfaces || [...this.surfaces].reduce((n,s)=>n+s.width*s.height,0)+2*this.width*this.height > this.quality.pixels)) {
+                    const first = this.maskCache.keys().next().value; this.releaseSurface(this.maskCache.get(first)); this.maskCache.delete(first);
+                }
+                mask = this.createSurface(); const ctx = mask.getContext('2d'); ctx.filter = feather ? `blur(${feather}px)` : 'none'; ctx.drawImage(this.images[asset], 0, 0, this.width, this.height);
+                this.boundedCache(this.maskCache, key, mask, s => this.releaseSurface(s));
+            }
+            const surface = this.createSurface(), original = this.ctx, ctx = surface.getContext('2d');
+            this.ctx = ctx;
+            try {
+                ctx.save(); try { draw(this); } finally { ctx.restore(); }
+                ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = invert ? 'destination-out' : 'destination-in'; ctx.drawImage(mask,0,0);
+                original.drawImage(surface, 0, 0, this.width, this.height);
+            } finally { this.ctx = original; this.releaseSurface(surface); }
+        }
+        bandsSource({ count = 96, minHz = 35, maxHz = 18000, spacing = 'hybrid', attack = 18, release = 7, smoothing = 0 } = {}) {
+            if (!Number.isInteger(count) || count < 2 || count > 512 || ![minHz,maxHz,attack,release,smoothing].every(Number.isFinite) || minHz <= 0 || maxHz <= minHz || maxHz > 96000 || attack <= 0 || release <= 0 || smoothing < 0 || smoothing > 1 || !['linear','log','hybrid'].includes(spacing)) throw new Error('Invalid bands source');
+            const key = [count,minHz,maxHz,spacing,attack,release,smoothing].join(':');
+            let state = this.sources.get(key);
+            if (!state) state = this.boundedCache(this.sources, key, { raw: new Float32Array(count), values: new Float32Array(count), frame: -1 });
+            if (state.frame === this.frameId) return state.values;
+            const data = this.audio.spectrum, nyquist = this.audio.sampleRate / 2;
+            const geometryKey = [count,minHz,maxHz,spacing,nyquist,data.length].join(':');
+            let ranges = this.geometry.get(geometryKey);
+            if (!ranges) {
+                const frequency = t => spacing === 'log' ? minHz * (maxHz/minHz)**t : minHz + (maxHz-minHz) * (spacing === 'linear' ? t : t**1.65);
+                ranges = this.boundedCache(this.geometry, geometryKey, Array.from({length:count}, (_,i)=>[Math.min(data.length,frequency(i/count)/nyquist*data.length),Math.min(data.length,frequency((i+1)/count)/nyquist*data.length)]));
+            }
+            for (let i=0;i<count;i++) {
+                const [lo,hi] = ranges[i]; let level=0, weight=0;
+                if (this.audio.playing && this.audio.enabled && hi > lo) {
+                    if (hi-lo<1) { const pos=(lo+hi)/2,b=Math.floor(pos),f=pos-b; level=(((data[b]||0)*(1-f)+(data[b+1]||0)*f)/255)**2; weight=1; }
+                    else for (let b=Math.floor(lo);b<Math.ceil(hi);b++) { const w=Math.max(0,Math.min(hi,b+1)-Math.max(lo,b)); level+=((data[b]||0)/255)**2*w; weight+=w; }
+                }
+                const target=clamp(weight ? Math.sqrt(level/weight)*(this.audio.intensity??1) : 0);
+                state.raw[i]=ease(state.raw[i],target,this.dt,target>state.raw[i]?attack:release);
+            }
+            const kernel=[1,4,6,4,1];
+            for(let i=0;i<count;i++) { let sum=0; for(let j=-2;j<=2;j++)sum+=state.raw[clamp(i+j,0,count-1)]*kernel[j+2]; state.values[i]=state.raw[i]*(1-smoothing)+sum/16*smoothing; }
+            state.frame=this.frameId; return state.values;
+        }
+        spectrum(count=96,minHz=35,maxHz=18000,key='main',spacing='hybrid') {
+            // Legacy call shape remains available; v2 bounds untrusted dynamic keys.
+            if (!Number.isInteger(count) || count<2 || count>512 || !Number.isFinite(minHz) || !Number.isFinite(maxHz) || minHz<=0 || maxHz<=minHz || !['linear','log','hybrid'].includes(spacing)) throw new Error('Invalid spectrum');
+            const values=super.spectrum(count,minHz,maxHz,key,spacing),cacheKey=`${key}:${count}:${minHz}:${maxHz}:${spacing}`;
+            this.boundedCache(this.bands,cacheKey,values);this.boundedCache(this.bandFrames,cacheKey,this.frameId);
+            return values;
+        }
+        withSource(options, draw) {
+            if (!options.source) return draw(options);
+            const values = typeof options.source === 'function' ? options.source() : options.source;
+            if (!values || values.length < 2 || values.length > 512 || !Array.from(values).every(Number.isFinite)) throw new Error('Invalid spectrum values');
+            const spectrum = this.spectrum;
+            this.spectrum = () => values;
+            try { return draw({ ...options, count: values.length, smoothing: 0 }); } finally { this.spectrum = spectrum; }
+        }
+        bars(options) { return this.withSource(options, o => super.bars(o)); }
+        line(options) { return this.withSource(options, o => super.line(o)); }
+        radialSpectrum({ x=this.width/2, y=this.height/2, radius=100, height=80, source, opacity=.8, color=this.palette.accent, glow=8, startAngle=-Math.PI/2, endAngle=Math.PI*1.5 } = {}) {
+            const bands = typeof source === 'function' ? source() : source || this.bandsSource();
+            if(![x,y,radius,height,opacity,glow,startAngle,endAngle].every(Number.isFinite)||radius<0||height<0||!bands||bands.length<2||bands.length>512||!Array.from(bands).every(Number.isFinite))throw new Error('Invalid radial spectrum');
+            const c=this.ctx; c.save();
+            try { c.strokeStyle=color; c.lineWidth=2; c.shadowColor=color; c.shadowBlur=glow*this.glowIntensity; c.globalAlpha=clamp(opacity);
+                bands.forEach((v,i)=>{ if(v<.003)return; const a=startAngle+(endAngle-startAngle)*i/bands.length; c.beginPath(); c.moveTo(x+Math.cos(a)*radius,y+Math.sin(a)*radius);c.lineTo(x+Math.cos(a)*(radius+v*height),y+Math.sin(a)*(radius+v*height));c.stroke(); });
+            } finally { c.restore(); }
+        }
+        reflection({ baseline, height, opacity=.35, distortion=2, strips=48, mask, invert=false }, draw) {
+            if (![baseline,height,opacity,distortion].every(Number.isFinite) || height<=0 || height>this.height || !Number.isInteger(strips) || strips<1 || strips>128 || typeof draw!=='function') throw new Error('Invalid reflection');
+            const surface=this.createSurface(), original=this.ctx, ctx=surface.getContext('2d'); this.ctx=ctx;
+            try {
+                ctx.save();try{draw(this);}finally{ctx.restore();}
+                this.ctx=original;
+                const paint=()=>{const c=this.ctx;c.save();try{const step=height/strips;for(let i=0;i<strips;i++){const y=i*step;c.globalAlpha=clamp(opacity)*(1-y/height);const dx=Math.sin(this.motionTime*1.5+y*.08)*distortion;c.save();c.translate(dx,baseline*2);c.scale(1,-1);c.drawImage(surface,0,baseline-y-step,this.width,step,0,baseline-y-step,this.width,step+.5);c.restore();}}finally{c.restore();}};
+                if(mask)this.clipMask(mask,paint,{invert});else paint();
+            } finally { this.ctx=original;this.releaseSurface(surface); }
+        }
+        waterRipple({ x, y, radius=80, strength=1, opacity=.3, color=this.palette.accent, rings=3, speed=1 } = {}) {
+            if(![x,y,radius,strength,opacity,speed].every(Number.isFinite)||radius<=0||!Number.isInteger(rings)||rings<1||rings>12)throw new Error('Invalid water ripple');
+            const c=this.ctx;c.save();try{c.strokeStyle=color;c.shadowColor=color;c.shadowBlur=6*this.glowIntensity;
+                for(let i=0;i<clamp(rings,1,12);i++){const p=(this.motionTime*speed*.2+i/rings)%1;c.globalAlpha=clamp(opacity*strength)*(1-p);c.beginPath();c.ellipse(x,y,Math.max(.01,radius*p),Math.max(.01,radius*p*.24),0,0,Math.PI*2);c.stroke();}
+            }finally{c.restore();}
+        }
+        character(id, options={}) {
+            if (!this.motion && options.stop === 'hide') return;
+            if(!Object.hasOwn(this.images,id))throw new Error('Unknown character image');
+            const palette=this.palette,color=options.contourColor || palette.accent;
+            this.contourColors ||= new Map();
+            if(this.contourColors.get(id)!==color){this.releaseSurface(this.glows.get(id));this.glows.delete(id);this.contourColors.set(id,color);}
+            this.palette={...palette,accent:color};
+            // Frozen local time preserves breath, hair and eyelids; audio lighting still decays.
+            const motion=this.motion;this.motion=true;
+            try { return super.character(id,options); } finally { this.motion=motion;this.palette=palette; }
+        }
+        shootingStars({ minInterval=6,maxInterval=14,color='#e5e0ff',opacity=.8,glow=8,stop='freeze' }={}) {
+            if (!this.motion && stop==='hide') return;
+            if(this.motion && this.time>=this.nextStar){this.stars.push({birth:this.time,x:80+Math.random()*this.width*.65,y:40+Math.random()*180});const min=clamp(minInterval,.5,120);this.nextStar=this.time+min+Math.random()*(clamp(maxInterval,min,120)-min);}
+            this.stars=this.stars.filter(s=>this.time-s.birth<1.9).slice(-this.quality.particles);
+            const c=this.ctx;for(const s of this.stars){const t=(this.time-s.birth)/1.9,point=p=>[s.x+330*p,s.y+55*p+90*p*p];c.save();try{c.shadowBlur=glow*this.glowIntensity;c.shadowColor=color;c.strokeStyle=color;c.lineWidth=1.6;
+                for(let i=0;i<18;i++){const tail=Math.max(0,t-i*.008);c.globalAlpha=Math.sin(t*Math.PI)*(1-i/18)*clamp(opacity);c.beginPath();c.moveTo(...point(tail));c.lineTo(...point(Math.max(0,tail-.009)));c.stroke();}
+            }finally{c.restore();}}
+        }
+    }
     window.NoctuneScene = {
         define(scene) { if (!scene || typeof scene.render !== 'function') throw new Error('Тема должна объявить render(api, frame)'); window.__noctuneScene = scene; },
-        create: (canvas, manifest, images) => new SceneAPI(canvas, manifest, images),
+        create(canvas, manifest, images, apiVersion = manifest.apiVersion || 1, runtime) {
+            if (![1,2].includes(apiVersion)) throw new Error('Unsupported Scene API version: ' + apiVersion);
+            return apiVersion === 2 ? new SceneAPIv2(canvas, manifest, images, runtime) : new SceneAPI(canvas, manifest, images);
+        },
         clamp, ease,
     };
 })();
