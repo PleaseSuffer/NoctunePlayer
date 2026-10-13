@@ -66,6 +66,7 @@
             const current = parseFloat(volumeSlider.value) || 0;
             const next = Math.max(0, Math.min(1, Math.round((current + delta) * 100) / 100));
             updateVolume(next);
+            showVolumeIndicator();
         }
 
         const HOTKEY_ACTIONS = {

@@ -703,6 +703,7 @@
     repeatButton.addEventListener('click', () => { toggleRepeat(); updatePlayback(); });
     lyricsVolume.addEventListener('input', () => { updateVolumeThrottled(lyricsVolume.value); updatePlayback(); });
     lyricsVolume.addEventListener('wheel', event => { handleVolumeWheel(event); updatePlayback(); }, { passive: false });
+    document.getElementById('lyrics-volume-button').addEventListener('wheel', event => { handleVolumeWheel(event); updatePlayback(); }, { passive: false });
     document.getElementById('lyrics-volume-button').addEventListener('click', () => { toggleMute(); updatePlayback(); });
     document.getElementById('lyrics-prev').addEventListener('click', () => playPrev());
     document.getElementById('lyrics-next').addEventListener('click', () => playNext());

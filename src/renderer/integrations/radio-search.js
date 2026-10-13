@@ -150,13 +150,39 @@
         volumeSlider.addEventListener('input', (e) => updateVolumeThrottled(e.target.value));
         miniVolumeSlider.addEventListener('input', (e) => updateVolumeThrottled(e.target.value));
 
-        // Колёсико мыши над слайдером громкости — шаг 1% за прокрут
+        const volumeWheelIndicator = document.getElementById('volume-wheel-indicator');
+        const volumeWheelIcon = document.getElementById('volume-wheel-icon');
+        const volumeWheelValue = document.getElementById('volume-wheel-value');
+        let volumeWheelIconName = null;
+        let volumeWheelHideTimer = null;
+
+        // Общий индикатор для колёсика и горячих клавиш громкости.
+        function showVolumeIndicator() {
+            const volume = parseFloat(volumeSlider.value);
+            volumeWheelValue.textContent = `${Math.round(volume * 100)}%`;
+            const iconName = (volume <= 0 || isMuted) ? 'volume-x' : volume < .4 ? 'volume' : volume < .7 ? 'volume-1' : 'volume-2';
+            if (iconName !== volumeWheelIconName) {
+                volumeWheelIcon.innerHTML = `<i data-lucide="${iconName}"></i>`;
+                lucide.createIcons({ root: volumeWheelIcon });
+                volumeWheelIconName = iconName;
+            }
+            volumeWheelIndicator.classList.add('visible');
+            clearTimeout(volumeWheelHideTimer);
+            volumeWheelHideTimer = setTimeout(() => {
+                volumeWheelIndicator.classList.remove('visible');
+                volumeWheelHideTimer = null;
+            }, 250);
+        }
+        // Колёсико мыши над слайдером или кнопкой громкости — шаг 1% за прокрут
         function handleVolumeWheel(e) {
             e.preventDefault();
+            if (e.deltaY === 0) return;
             adjustVolume(e.deltaY < 0 ? 0.01 : -0.01);
         }
         volumeSlider.addEventListener('wheel', handleVolumeWheel, { passive: false });
         miniVolumeSlider.addEventListener('wheel', handleVolumeWheel, { passive: false });
+        document.getElementById('main-volume-btn').addEventListener('wheel', handleVolumeWheel, { passive: false });
+        document.querySelector('.mini-volume-zone button').addEventListener('wheel', handleVolumeWheel, { passive: false });
 
         // Мягкий «гейт» по громкости: ниже порога эффект полностью выключен (0),
         // выше — линейно растягивается обратно до полного размаха в точке 1,
