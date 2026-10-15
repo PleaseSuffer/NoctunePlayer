@@ -27,7 +27,6 @@
       "src/**/*",
       "themes/builtin/**/*",
       "themes/backgrounds/**/*",
-      "themes/user/**/*",
       "resources/app.ico",
       "resources/app.png",
       "package.json",
