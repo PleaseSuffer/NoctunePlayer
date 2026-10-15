@@ -23,8 +23,8 @@ const quote = value => value.replace(/\$/g, '$$$$').replace(/"/g, '$\\"');
         const policy = source.split('; Register handlers')[0].replace(
             'ReadRegStr $noctuneInstalledDirectory SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" "InstallLocation"',
             'StrCpy $noctuneInstalledDirectory "${TEST_LOCATION}"'
-        );
-        assert(!policy.includes('ReadRegStr'), 'replace the registry input before executing a fixture');
+        ).replace('ReadRegDWORD $noctuneAudioOptIn HKCU "Software\\Noctune" "AudioFileAssociationsEnabled"', 'StrCpy $noctuneAudioOptIn "0"');
+        assert(!policy.includes('ReadReg'), 'replace all registry inputs before executing a fixture');
         const cases = [
             { name: 'fresh', location: '', silent: false, updated: false, force: false, expectSilent: false, expectUpdate: false, expectRun: false },
             { name: 'stale', location: stale, silent: false, updated: false, force: false, expectSilent: false, expectUpdate: false, expectRun: false },

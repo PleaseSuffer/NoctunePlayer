@@ -53,16 +53,7 @@
         "%F"
       ],
       "mimeTypes": [
-        "audio/mpeg",
-        "audio/wav",
-        "audio/x-wav",
-        "audio/vnd.wave",
-        "audio/ogg",
-        "application/ogg",
-        "audio/mp4",
-        "audio/x-m4a",
-        "audio/flac",
-        "audio/x-flac"
+        "application/x-noctune-theme"
       ]
     },
     "win": {

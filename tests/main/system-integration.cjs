@@ -5,6 +5,7 @@ const os = require('node:os');
 const { createSystemIntegration, linuxDesktopEntry, DESKTOP_ID, FILE_MIME_TYPES, THEME_MIME_TYPE } = require('../../src/main/system-integration');
 const { LinuxTargetHelper } = require('app-builder-lib/out/targets/LinuxTargetHelper');
 const metadata = require('../../package.json');
+const { audioRegistration, AUDIO_EXTENSIONS } = require('../../src/main/windows-audio-integration');
 
 (async () => {
     const helper = new LinuxTargetHelper({
@@ -16,7 +17,8 @@ const metadata = require('../../package.json');
     const installedDesktop = await helper.computeDesktopEntry(metadata.build.linux);
     assert.equal(helper.getDesktopFileName() + '.desktop', DESKTOP_ID, 'installed and portable desktop IDs match');
     assert.match(installedDesktop, /Exec=.* %F\n/, 'builder preserves unquoted multiple-file field code');
-    assert(installedDesktop.includes(`MimeType=${FILE_MIME_TYPES.join(';')};`));
+    assert(installedDesktop.includes(`MimeType=${THEME_MIME_TYPE};`));
+    assert(!installedDesktop.includes('audio/'), 'Linux packages advertise only themes until explicitly enabled');
     assert(installedDesktop.includes('StartupWMClass=com.noctune.player'));
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-integration-'));
     try {
@@ -49,9 +51,34 @@ const metadata = require('../../package.json');
         const missing = createSystemIntegration({ app, iconPath: icon, platform: 'linux', env, run: async command => { if (command === 'xdg-mime') throw Object.assign(new Error('missing'), { code: 'ENOENT' }); return {stdout:''}; } });
         assert.match((await missing.apply('default')).message, /xdg-utils/);
         const links = [];
-        const windows = createSystemIntegration({ app, platform: 'win32', shell: { openExternal: async url => links.push(url) } });
+        const registry = [], imports = [], windowsCalls = [];
+        const windowsApp = { isPackaged: true, getPath: () => 'C:\\Program Files\\Noctune\\Noctune.exe' };
+        const windowsRun = async (command, args, options) => {
+            windowsCalls.push({command,args,options});
+            if (command.endsWith('reg.exe')) {
+                const bytes=await fs.readFile(args[1]);assert.equal(bytes.readUInt16LE(0),0xfeff);
+                registry.push(bytes.toString('utf16le'));imports.push(args[1]);
+            }
+            return {stdout:''};
+        };
+        const windows = createSystemIntegration({ app:windowsApp, platform: 'win32', run:windowsRun, shell: { openExternal: async url => links.push(url) } });
+        assert.equal(windowsCalls.length,0,'no automatic audio registration at startup');
+        assert.equal((await windows.apply('register')).ok,true);assert.equal(links.length,0);
         assert.equal((await windows.apply('default')).ok, true);
         assert.deepEqual(links, ['ms-settings:defaultapps']);
+        assert.equal(registry.length,2);
+        for(const content of registry){
+            assert(content.includes('AudioFileAssociationsEnabled"=dword:00000001'));
+            assert(!content.includes('HKEY_LOCAL_MACHINE'));assert(!content.includes('UserChoice'));
+            for(const extension of AUDIO_EXTENSIONS){assert(content.includes(`Noctune.Audio.${extension}`));assert(!content.includes(`[HKEY_CURRENT_USER\\Software\\Classes\\.${extension}]`),'never set extension defaults');}
+            for(const action of ['play','new-playlist','add-playlist','enqueue'])assert(content.includes('--noctune-action='+action));
+            assert(content.includes('C:\\\\Program Files\\\\Noctune\\\\Noctune.exe'));
+        }
+        for(const file of imports)await assert.rejects(fs.stat(file),{code:'ENOENT'});
+        assert(windowsCalls.every(call=>call.options.windowsHide && !call.options.shell));
+        const windowsDenied=createSystemIntegration({app:windowsApp,platform:'win32',run:async()=>{throw Error('Access denied');},shell:{openExternal:async()=>{throw Error('must not open settings');}}});
+        assert.match((await windowsDenied.apply('default')).message,/Access denied/);
+        assert.throws(()=>audioRegistration('C:\\Noctune\n[HKEY_LOCAL_MACHINE\\Injected]'));
         const dev = createSystemIntegration({ app: { isPackaged: false }, platform: 'linux' });
         assert.equal((await dev.apply('register')).ok, false);
         assert.equal((await integration.apply('invalid')).ok, false);

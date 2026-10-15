@@ -3,6 +3,7 @@ const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const runFile = promisify(execFile);
+const { registerWindowsAudio } = require('./windows-audio-integration');
 
 const DESKTOP_ID = 'com.noctune.player.desktop';
 const AUDIO_MIME_TYPES = [
@@ -60,8 +61,10 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
         if (!['register', 'default'].includes(action)) throw new Error('Неизвестное действие.');
         if (!app.isPackaged) throw new Error('Системная интеграция доступна в установленной или распакованной сборке приложения.');
         if (platform === 'win32') {
+          await registerWindowsAudio({ executable: app.getPath('exe'), run, env });
+          if (action === 'register') return { ok: true, message: 'Музыкальные форматы добавлены в «Открыть с помощью» и контекстное меню Noctune. Приложение по умолчанию не изменено.' };
           await shell.openExternal('ms-settings:defaultapps');
-          return { ok: true, message: 'Выберите Noctune в приложениях по умолчанию и назначьте нужные аудиоформаты и темы .noctheme.' };
+          return { ok: true, message: 'Выберите Noctune в настройках Windows и назначьте нужные музыкальные форматы.' };
         }
         if (platform !== 'linux') throw new Error('Эта платформа не поддерживается.');
         await registerLinux();

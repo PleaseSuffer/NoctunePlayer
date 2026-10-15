@@ -19,10 +19,11 @@ const source = fs.readFileSync('src/renderer/ui/system-integration.js', 'utf8');
         const defaults = elements.get('btn-default-file-handler');
         const message = elements.get('system-integration-message');
         if (platform === 'darwin') { assert(elements.get('system-integration-settings').hidden); continue; }
-        assert.equal(register.hidden, platform === 'win32');
-        if (platform === 'linux') await register.listeners.click();
+        assert.equal(register.hidden, false);
+        assert.match(message.textContent,/только темы \.noctheme/);
+        await register.listeners.click();
         await defaults.listeners.click();
-        assert.deepEqual(actions, platform === 'linux' ? ['register', 'default'] : ['default']);
+        assert.deepEqual(actions, ['register', 'default']);
         assert.equal(message.textContent, 'Done');
         assert.equal(defaults.disabled, false);
         context.noctune.systemIntegration.apply = async () => ({ ok: false, message: 'Missing xdg-utils' });
