@@ -569,11 +569,30 @@
     function cancelLyricsSearch() {
         if (noctune.lyrics?.cancel) noctune.lyrics.cancel().catch(() => {});
     }
+    function setLyricsLoading(loading) {
+        if (content.classList.contains('lyrics-loading')) content.replaceChildren();
+        content.classList.toggle('lyrics-loading', loading);
+        content.setAttribute('aria-busy', String(loading));
+        if (!loading) return;
+        status.textContent = '';
+        const dots = document.createElement('div');
+        dots.className = 'lyrics-loading-dots';
+        dots.setAttribute('role', 'status');
+        dots.setAttribute('aria-label', 'Ищем текст песни');
+        for (let i = 0; i < 4; i++) {
+            const dot = document.createElement('span');
+            dot.setAttribute('aria-hidden', 'true');
+            dots.appendChild(dot);
+        }
+        content.appendChild(dots);
+    }
     function clear() {
         resetScrollbarActivity();
         cancelLyricsSearch();
         serial++;
         rows = []; intro = null; activeIndex = null; follow = autoFollow;
+        setLyricsLoading(false);
+        status.textContent = '';
         content.replaceChildren();
         content.scrollTop = 0;
         retry.hidden = true; followButton.hidden = true;
@@ -590,10 +609,13 @@
             return;
         }
         const requestSerial = serial;
-        status.textContent = 'Ищем текст песни…';
+        setLyricsAvailability(false);
+        setLyricsLoading(true);
         let result;
         try { result = await noctune.lyrics.get(track); } catch (_) { result = { status: 'error' }; }
-        if (requestSerial !== serial || !opened || !enabled || result.status === 'cancelled') return;
+        if (requestSerial !== serial || !opened || !enabled) return;
+        setLyricsLoading(false);
+        if (result.status === 'cancelled') return;
         const messages = {
             missing: 'Текст этой песни не найден.', instrumental: 'Инструментальная композиция — без текста.',
             invalid: 'Для поиска нужны название песни и исполнитель. Проверьте теги файла.',
@@ -686,6 +708,7 @@
     function tick() { if (!opened) return; updatePlayback(); sync(); frame = requestAnimationFrame(tick); }
     function close() {
         resetScrollbarActivity();
+        setLyricsLoading(false);
         if (intro) intro.classList.toggle('playing', false);
         lastIntroState = null;
         cancelLyricsSearch();
