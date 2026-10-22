@@ -50,8 +50,7 @@ tests/
   renderer/                       Воспроизведение, радио, тексты, waveform и FPS
   structure/                      Пути модулей и ресурсов, синтаксис renderer
   run.cjs                         Запуск автоматических проверок
-  native-memory-probe.cjs          Проверка памяти в настоящем Electron
-  native-memory-renderer.js        Сценарий оптимизированного waveform
+  native-addons-probe.cjs          Проверка SDK и изоляции в Electron
   README.md                       Назначение тестов и команды запуска
   native-installer-policy-probe.cjs Проверка первой установки и обновления в NSIS
 package.json                      Версия, зависимости, команды и electron-builder
@@ -65,8 +64,10 @@ LICENSE                           Лицензия MIT
 Установка расширений, подписи, версии, хранение и сетевой брокер находятся в
 `src/main/addons/`. Изолированное исполнение и SDK — в `src/renderer/addons/`,
 вкладка настроек — в `src/renderer/ui/addon-settings.js`. Примеры и схема manifest
-хранятся в `addons/`; они не устанавливаются автоматически и не включаются
-в production-пакет. Декларации SDK находятся в `addons/sdk.d.ts`. [Формат расширений](extensions-api-v1.md).
+хранятся в `addons/`; исходники расширений, примеры и инструменты SDK не включаются
+в production-пакет. Подписанный каталог `addons/catalog/official.json` входит
+в приложение для работы магазина без сети. Расширения устанавливаются отдельно.
+Декларации SDK находятся в `addons/sdk.d.ts`. [Формат расширений](extensions-api-v1.md).
 
 `npm start` запускает `src/main/index.js`. Главное окно загружает `src/renderer/index.html`; системные API доступны интерфейсу через мост `window.noctune` из `src/preload/index.js`.
 
@@ -86,8 +87,9 @@ LICENSE                           Лицензия MIT
 2. После разметки: `core/dom-refs-state.js`, `core/effects-performance.js`, уведомления.
 3. Фон, конфетти и фейерверки; затем управление воспроизведением, эквалайзер и плейлисты.
 4. Waveform, общие обработчики перемотки (`playback/seek-controls.js`) и аудиодвижок; интерфейс текста, горячие клавиши и радио.
-5. Визуализатор, `core/bootstrap.js`, настройки и настройки производительности.
-6. Импорт/экспорт плейлистов и интерфейс обновлений.
+5. Хост сцен, визуализатор, `core/bootstrap.js`, основные настройки и настройки сцен.
+6. Общие контракты расширений, API плеера, провайдеры, хост SDK и интерфейс расширений.
+7. Настройки производительности и системной интеграции, импорт/экспорт плейлистов и интерфейс обновлений.
 
 При добавлении или переносе скрипта сохраняйте зависимости этого порядка. Например, `requestEffectsFrame` должен существовать до запуска циклов эффектов, а DOM — до инициализации элементов интерфейса.
 
@@ -117,11 +119,19 @@ npm run dist
 
 `npm ci` устанавливает зависимости по lockfile. `npm run dist` запускает `electron-builder` для текущей платформы и сохраняет артефакты в `dist/`. Конфигурация содержит NSIS для Windows и AppImage, pacman, tar.gz для Linux. Сборки проверяются в соответствующей среде.
 
+Для Linux-пакета pacman требуется контакт сборщика: в `package.json` не задан
+email автора. Передайте имя и email через параметр `linux.maintainer`, заменив
+пример своими данными:
+
+```bash
+npm run dist -- --linux pacman --publish never '-c.linux.maintainer=Maintainer <maintainer@example.com>'
+```
+
 В пакет включаются только исполняемые модули и ресурсы приложения, production-зависимости, встроенные темы и обои. Подробности и аудит архива описаны в разделе [«Состав приложения при сборке»](#состав-приложения-при-сборке).
 
 ## Проверки
 
-Контракт тем v1 описан в [themes-api-v1.md](themes-api-v1.md), расширения v2 — в [themes-api-v2.md](themes-api-v2.md). Обе версии используют `src/renderer/effects/scene-host.js` и версионированный `scene-sdk.js`; TypeScript-декларации v2 находятся в `themes/sdk.d.ts`. Валидатор и упаковщик в `src/main/scene-themes.js` выбирают версию из пакета. Эталон v2 находится в `themes/examples/api-v2`, готовый контейнер — в `themes/packages/api-v2-demo.noctheme`.
+Контракт тем v1 описан в [themes-api-v1.md](themes-api-v1.md), API тем v2 — в [themes-api-v2.md](themes-api-v2.md). Обе версии используют `src/renderer/effects/scene-host.js` и версионированный `scene-sdk.js`; TypeScript-декларации v2 находятся в `themes/sdk.d.ts`. Валидатор и упаковщик в `src/main/scene-themes.js` выбирают версию из пакета. Эталон v2 находится в `themes/examples/api-v2`, готовый контейнер — в `themes/packages/api-v2-demo.noctheme`.
 
 ```bash
 npm test
@@ -132,23 +142,24 @@ npm test
 Отдельные сценарии настоящего Electron запускаются вручную. В PowerShell:
 
 ```powershell
-.\node_modules\.bin\electron.cmd tests/native-memory-probe.cjs
+.\node_modules\.bin\electron.cmd tests/native-addons-probe.cjs
 ```
 
 В Linux:
 
 ```bash
-./node_modules/.bin/electron tests/native-memory-probe.cjs
+./node_modules/.bin/electron tests/native-addons-probe.cjs
 ```
 
-Для этих сценариев нужна среда с графическим дисплеем. Они создают временные файлы и отдельный профиль, затем удаляют их. Проверка памяти проверяет последовательное декодирование, повторное использование кэша и ограниченный размер waveform на синтетических четырёхминутных WAV; её показатели относятся к тестовым процессам и не отражают суммарную память всего приложения. Полный список повторяемых проверок и команд запуска находится в [tests/README.md](../tests/README.md).
+Для этих сценариев нужна среда с графическим дисплеем. Используются тестовые профили, временные данные и подставные ответы сервисов. Проверка расширений охватывает согласие на установку, изоляцию, настройки SDK, аудиопоток и освобождение ресурсов. Полный список проверок и команд запуска находится в [tests/README.md](../tests/README.md).
 
 
 ## Состав приложения при сборке
 
 `build.files` в `package.json` перечисляет исполняемые модули main/preload,
 HTML/CSS/JS интерфейса, общие runtime-модули и стили контролов
-(`src/shared/settings-controls.css`), встроенные сцены и их слои,
+(`src/shared/settings-controls.css`), подписанный каталог магазина
+(`addons/catalog/official.json`), встроенные сцены и их слои,
 встроенные обои, иконки и лицензию. Electron-builder добавляет production-зависимости.
 Декларации типов находятся в `addons/sdk.d.ts` и `themes/sdk.d.ts`; документация,
 примеры, упаковщики и локальная веб-страница перенаправления остаются в репозитории.

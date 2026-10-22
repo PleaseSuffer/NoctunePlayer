@@ -37,6 +37,8 @@
       "resources/app.png",
       "LICENSE",
       "package.json",
+      "!.development{,/**/*}",
+      "!**/AGENTS{,.override}.md",
       "!**/*.{map,ts,tsx,mts,cts,tsbuildinfo}",
       "!**/!(LICENSE*|LICENCE*|license*|licence*|COPYING*|copying*|NOTICE*|notice*|THIRD_PARTY_LICENSE*|ThirdPartyNotices*).{md,markdown}",
       "!node_modules/**/{docs,doc,examples,example,test,tests,__tests__,coverage,benchmark,benchmarks,scripts}/**/*",

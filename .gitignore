@@ -13,6 +13,8 @@ themes/custom/
 
 # Local research, previews, credentials and build output
 .local/
+/.development/
+# Agent instructions are local at every directory level
 AGENTS.md
 AGENTS.override.md
 docs/official-extensions-style.md
