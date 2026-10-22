@@ -7,8 +7,31 @@
     const integrations = document.getElementById('addon-integrations');
     window.addonSettingsControls = { dropdown };
     const hasPanel = addon => !!addon.ui?.integrations && (addon.grants || AddonPermissions.expand(addon.permissions)).includes('ui.integrations');
-    let addons = [], busy = false;
+    let addons = [], busy = false, reloadSequence = 0;
     const updates = new Map();
+    const dynamicControls = new Set();
+    async function sourceOptions(field, value) {
+        let available = [];
+        try {
+            if (field.source === 'appearance.schemes') available = (window.addonContributions?.schemes() || []).map(item=>({value:item.reference,label:item.name + ' · ' + item.provider}));
+            else if (field.source === 'backgrounds') available = (await window.addonPlayer.listBackgrounds()).map(item=>({value:item.id,label:item.name}));
+        } catch (_) { /* Keep saved selections if a source is temporarily unavailable. */ }
+        const options = [...field.options,...available].filter((item,index,items)=>items.findIndex(other=>other.value===item.value)===index);
+        if (!options.some(item=>item.value===value)) options.push({value,label:field.source==='backgrounds'?'Выбранные обои недоступны':'Выбранная схема недоступна',disabled:true});
+        return options;
+    }
+    let sourceTimer;
+    function refreshSources() {
+        clearTimeout(sourceTimer);
+        sourceTimer = setTimeout(() => {
+            for (const item of dynamicControls) {
+                if (!item.control.wrapper.isConnected) { dynamicControls.delete(item); continue; }
+                sourceOptions(item.field,item.control.input.value).then(options=>{ if(item.control.wrapper.isConnected)item.control.updateOptions(options); });
+            }
+        },100);
+    }
+    document.addEventListener('addon-contributions-changed',refreshSources);
+    window.addonEvents?.on(event=>{ if(event.type==='backgrounds.changed')refreshSources(); });
     const node = (tag, className, text) => {
         const element = document.createElement(tag);
         if (className) element.className = className;
@@ -34,15 +57,21 @@
         input.append(text, chevron); wrapper.append(input);
         const menu = node('div', 'viz-type-dropdown-menu addon-dropdown-menu'); menu.id = id + '-options';
         menu.setAttribute('role', 'listbox'); menu.setAttribute('aria-label', field.label);
-        const options = field.options.map(option => {
+        let options = [];
+        function updateOptions(next) {
+            close(); field = {...field,options:next}; menu.replaceChildren();
+            options = next.map(option => {
             const control = node('button', 'viz-type-menu-item', option.label); control.type = 'button';
+            control.disabled = !!option.disabled;
             control.setAttribute('role', 'option'); control.dataset.value = option.value; control.tabIndex = -1;
             control.addEventListener('click', () => {
                 input.value = option.value; sync(); close(); input.focus({ preventScroll: true });
                 input.dispatchEvent(new Event('change', { bubbles: true }));
             });
             menu.append(control); return control;
-        });
+            });
+            sync();
+        }
         function sync() {
             text.textContent = field.options.find(option => option.value === input.value)?.label || '';
             for (const option of options) {
@@ -51,8 +80,10 @@
             }
         }
         function close() {
-            input.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); menu.remove();
+            input.classList.remove('open'); input.setAttribute('aria-expanded', 'false');
             if (openedDropdown?.input === input) openedDropdown = null;
+            // Removing a focused option emits focusout synchronously. Mark it closed first.
+            menu.remove();
         }
         function place() {
             const rect = input.getBoundingClientRect(), below = innerHeight - rect.bottom - 12, above = rect.top - 12;
@@ -68,7 +99,7 @@
             place();
             input.classList.add('open'); input.setAttribute('aria-expanded', 'true');
             openedDropdown = { wrapper, menu, input, close, place };
-            if (focus) (options.find(option => option.classList.contains('active')) || options[0]).focus({ preventScroll: true });
+            if (focus) (options.find(option => !option.disabled && option.classList.contains('active')) || options.find(option=>!option.disabled))?.focus({ preventScroll: true });
         }
         input.addEventListener('click', () => { if (openedDropdown?.input === input) close(); else open(); });
         input.addEventListener('change', sync);
@@ -77,17 +108,17 @@
             if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
                 event.preventDefault();
                 if (openedDropdown?.input !== input) { open(true); return; }
-                const index = options.indexOf(document.activeElement);
-                const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
-                options[next].focus({ preventScroll: true });
+                const enabled = options.filter(option=>!option.disabled), index = enabled.indexOf(document.activeElement);
+                const next = event.key === 'Home' ? 0 : event.key === 'End' ? enabled.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + enabled.length) % enabled.length;
+                enabled[next]?.focus({ preventScroll: true });
             }
         }
         wrapper.addEventListener('keydown', keydown); menu.addEventListener('keydown', keydown);
         function focusout(event) {
-            if (!wrapper.contains(event.relatedTarget) && !menu.contains(event.relatedTarget)) close();
+            if (openedDropdown?.input === input && !wrapper.contains(event.relatedTarget) && !menu.contains(event.relatedTarget)) close();
         }
         wrapper.addEventListener('focusout', focusout); menu.addEventListener('focusout', focusout);
-        sync(); return { wrapper, input, sync };
+        updateOptions(field.options); return { wrapper, input, sync, updateOptions };
     }
     function button(label, action, target, disabled = false) {
         const control = node('button', 'btn', label); control.type = 'button'; control.disabled = disabled;
@@ -118,9 +149,11 @@
         }
     }
     async function reload() {
-        closeDropdown(); addons = await api.list(); list.replaceChildren(); integrations.replaceChildren();
-        if (!addons.length) list.append(node('div', 'settings-card addons-empty', 'Расширений пока нет. Добавьте пакет из файла или по ссылке.'));
-        for (const addon of addons) {
+        const sequence = ++reloadSequence, nextAddons = await api.list();
+        const nextList = document.createDocumentFragment(), nextIntegrations = document.createDocumentFragment();
+        const nextControls = new Set();
+        if (!nextAddons.length) nextList.append(node('div', 'settings-card addons-empty', 'Расширений пока нет. Добавьте пакет из файла или по ссылке.'));
+        for (const addon of nextAddons) {
             const card = node('article', 'settings-card addon-card'); card.dataset.addonId = addon.id;
             const header = node('div', 'addon-card-header');
             const info = node('div', 'addon-card-info');
@@ -185,13 +218,27 @@
                 const controls=node('div','addons-toolbar');
                 for (const command of addon.commands) { const control=button(command.title,()=>window.addonHost.command(addon.id,command.id),controls); control.dataset.addonCommand=command.id; }
                 button(addon.enabled?'Выключить интеграцию':'Включить интеграцию',async()=>{await api.setEnabled(addon.id,!addon.enabled);await changed();},controls,!addon.compatible);
-                integration.append(controls); await renderConfiguration(addon,integration); integrations.append(integration);
-            } else if (!addon.broken && (addon.settings || addon.oauth || addon.credentials)) await renderConfiguration(addon, card);
-            list.append(card);
+                integration.append(controls); await renderConfiguration(addon,integration,nextControls); nextIntegrations.append(integration);
+            } else if (!addon.broken && (addon.settings || addon.oauth || addon.credentials)) await renderConfiguration(addon,card,nextControls);
+            nextList.append(card);
         }
+        if (sequence !== reloadSequence) return;
+        const content = panel.closest('.settings-content'), scrollTop = content?.scrollTop;
+        // Keep the current layout until the replacement is complete, including open details.
+        for (const [current, next] of [[list,nextList],[integrations,nextIntegrations]]) {
+            for (const card of next.children) {
+                const previous = [...current.children].find(item=>item.dataset.addonId===card.dataset.addonId);
+                const details = previous?.querySelectorAll('.addon-disclosure');
+                card.querySelectorAll('.addon-disclosure').forEach((detail,index)=>{ detail.open=!!details?.[index]?.open; });
+            }
+        }
+        closeDropdown(); addons = nextAddons;
+        list.replaceChildren(nextList); integrations.replaceChildren(nextIntegrations);
+        dynamicControls.clear(); for (const item of nextControls) dynamicControls.add(item);
+        if (content) content.scrollTo({top:scrollTop,behavior:'instant'});
         updateRuntime(); document.dispatchEvent(new Event('settings-sections-changed'));
     }
-    async function renderConfiguration(addon, card) {
+    async function renderConfiguration(addon, card, controls) {
         const section = node('details', 'addon-configuration addon-disclosure'); section.append(AddonPermissionView.summary('Настройки расширения', 'Settings2'));
         let values = await api.settings(addon.id), saving = Promise.resolve();
         const visibility = () => { for (const row of section.querySelectorAll('[data-setting-key]')) { const when=addon.settings[row.dataset.settingKey].visibleWhen; row.hidden=!!when && values[when.field]!==when.equals; } };
@@ -210,7 +257,8 @@
             if (field.type === 'toggle') {
                 wrapper = node('label', 'toggle-switch'); input = node('input'); input.type = 'checkbox'; input.checked = values[key]; wrapper.append(input, node('span', 'slider-round'));
             } else if (field.type === 'select') {
-                selectControl = dropdown(field, values[key], controlId);
+                selectControl = dropdown(field.source ? {...field,options:await sourceOptions(field,values[key])} : field, values[key], controlId);
+                if (field.source) controls.add({field,control:selectControl});
                 input = selectControl.input; wrapper = selectControl.wrapper;
             } else {
                 input = node('input', field.type === 'slider' ? 'addon-range' : 'integration-text-input addon-input'); input.type = field.type === 'slider' ? 'range' : field.type === 'number' ? 'number' : 'text'; input.value = values[key];
@@ -301,6 +349,12 @@
     }
     document.getElementById('addons-store').addEventListener('click', () => task(() => api.openStore({ theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', accent: getComputedStyle(document.body).getPropertyValue('--accent-color').trim() })));
     api.onChanged(() => changed().catch(error => { status.textContent = error.message; }));
+    document.getElementById('addons-link-toggle').addEventListener('click', event => {
+        const control = event.currentTarget, form = document.getElementById('addons-url-form');
+        form.hidden = !form.hidden;
+        control.setAttribute('aria-expanded', String(!form.hidden));
+        if (!form.hidden) document.getElementById('addons-url').focus();
+    });
     document.getElementById('addons-import').addEventListener('click', () => task(async () => showReview(await api.prepareFile())));
     document.getElementById('addons-url-form').addEventListener('submit', event => {
         event.preventDefault(); task(async () => { status.textContent = 'Загружаем пакет…'; await showReview(await api.prepareUrl(document.getElementById('addons-url').value.trim())); });

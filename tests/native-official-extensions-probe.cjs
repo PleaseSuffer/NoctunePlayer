@@ -1,0 +1,120 @@
+const {app,BrowserWindow}=require('electron');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const archive=process.argv.find(value=>value.startsWith('--app-asar='))?.slice(11);
+const source=archive?path.resolve(root,archive):root;
+const packageDirectory=process.argv.find(value=>value.startsWith('--official-packages='))?.slice('--official-packages='.length);
+const p=require(path.join(source,'src/main/addons/package'));
+const {createAddonStore}=require(path.join(source,'src/main/addons/store'));
+const profile=fs.mkdtempSync(path.join(os.tmpdir(),'noctune-official-native-'));
+app.setPath('userData',profile);
+const show=BrowserWindow.prototype.show;BrowserWindow.prototype.show=function(){};BrowserWindow.prototype.showInactive=function(){};
+const windows=[];app.on('browser-window-created',(_event,window)=>windows.push(window));
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const run=(window,code)=>window.webContents.executeJavaScript(code,true);
+async function waitFor(callback,label){const until=Date.now()+15000;let last;while(Date.now()<until){try{if(await callback())return;}catch(error){last=error;}await delay(60);}throw Error('Timed out: '+label+(last?' '+last.message:''));}
+if(archive){app.setAppPath(source);Object.defineProperty(app,'isPackaged',{value:true});require(path.join(source,'node_modules/electron-updater')).autoUpdater.checkForUpdates=async()=>null;}
+require(path.join(source,'src/main/index.js'));
+(async()=>{
+    let main;
+    await waitFor(()=>{main=windows.find(window=>!window.isDestroyed()&&window.webContents.getURL().endsWith('/renderer/index.html')&&!window.webContents.isLoading());return !!main;},'main window');
+    main.webContents.setBackgroundThrottling(false);
+    const store=createAddonStore({directory:path.join(profile,'addons'),appVersion:'1.4.0'}),key=crypto.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
+    for(const slug of ['sleep','shades','dusk']){
+        const expected=await p.packDirectory(path.join(root,'addons/official/noctune-'+slug));
+        const pkg=packageDirectory?await p.readPackage(path.resolve(root,packageDirectory,'noctune-'+slug+'-1.0.0.noctaddon')):p.sign(expected,key);
+        assert.equal(p.canonical(pkg.manifest),p.canonical(expected.manifest));assert.equal(p.canonical(pkg.files),p.canonical(expected.files));
+        if(packageDirectory)assert.equal(p.signingIdentity(pkg,true),require('../addons/official/publisher.json').fingerprint);
+        await store.confirm((await store.preparePackage(pkg)).ticket);
+    }
+    const change=async(id,values)=>store.setSettings(id,{...await store.settings(id),...values});
+    const notify=()=>main.webContents.send('addons:changed');
+    await change('noctune-shades',{applySelected:false});await store.setEnabled('noctune-shades',true);notify();
+    await waitFor(()=>run(main,`window.addonHost?.state('noctune-shades')?.status==='running'&&window.addonContributions.schemes().length===6`),'Shades registration');
+    await run(main,`document.getElementById('settings-fab').click();document.querySelector('.settings-nav-item[data-panel="panel-addons"]').click()`);
+    await waitFor(()=>run(main,`!!document.getElementById('addon-noctune-dusk-dayTheme')`),'Dusk settings');
+    show.call(main);main.setSize(1200,950);await delay(500);
+    for(const enabled of [true,false]){
+        const before = await run(main,`(()=>{
+            const card=document.querySelector('[data-addon-id="noctune-sleep"]');
+            card.querySelectorAll('.addon-disclosure').forEach(detail=>detail.open=true);
+            const toggle=card.querySelector('.addon-card-header input[type="checkbox"]');
+            toggle.scrollIntoView({block:'center',behavior:'instant'});
+            window.__previousAddonToggle=toggle;
+            const top=document.querySelector('.settings-content').scrollTop;
+            toggle.click();return top;
+        })()`);
+        assert(before>0,'toggle is below the top of the extension list');
+        await waitFor(()=>run(main,`document.querySelector('[data-addon-id="noctune-sleep"] .addon-card-header input')!==window.__previousAddonToggle&&document.getElementById('panel-addons').getAttribute('aria-busy')==='false'`),'extension toggle rendered');
+        const state=await run(main,`({top:document.querySelector('.settings-content').scrollTop,enabled:document.querySelector('[data-addon-id="noctune-sleep"] .addon-card-header input').checked,open:[...document.querySelectorAll('[data-addon-id="noctune-sleep"] .addon-disclosure')].every(detail=>detail.open)})`);
+        assert.equal(state.enabled,enabled);assert.equal(state.open,true,'expanded blocks survive toggling');
+        assert(Math.abs(state.top-before)<=1,'scroll position survives '+(enabled?'enabling':'disabling'));
+    }
+    const click = async selector => {
+        await run(main,`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);await delay(150);
+        const point=await run(main,`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};})()`);
+        main.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point});
+        main.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});await delay(100);
+    };
+    await run(main,`document.getElementById('addon-noctune-shades-scheme').closest('details').open=true`);
+    for(const [scheme,color] of [['slate','#18212c'],['cocoa','#261e1c'],['ivory','#f5f0e7'],['mist','#edf1f5'],['rose','#f7edef'],['graphite','#1b1b20']]){
+        await click('#addon-noctune-shades-scheme');
+        await click('#addon-noctune-shades-scheme-options [data-value="'+scheme+'"]');
+        await waitFor(async()=> (await store.settings('noctune-shades')).scheme===scheme,'Shades dropdown saves '+scheme);
+        await click('[data-addon-id="noctune-shades"] [data-addon-command="apply-selected"]');
+        await waitFor(()=>run(main,`getComputedStyle(document.body).getPropertyValue('--bg-color').trim()===${JSON.stringify(color)}`),'Shades applies '+scheme);
+    }
+    assert.equal(await run(main,`document.getElementById('addon-noctune-dusk-dayTheme').value`),'light');
+    await waitFor(()=>run(main,`(()=>{const button=document.getElementById('addon-noctune-dusk-dayTheme');if(button.getAttribute('aria-expanded')!=='true')button.click();return document.querySelectorAll('#addon-noctune-dusk-dayTheme-options [role="option"]').length===9;})()`),'dynamic dropdown sources');
+    assert.equal(await run(main,`!!document.querySelector('#addon-noctune-dusk-dayTheme-options [data-value="scheme:noctune-shades:graphite"]')`),true);
+    await run(main,`document.getElementById('addon-noctune-dusk-dayTheme').click()`);
+    const wallpapers=await run(main,`window.addonPlayer.listBackgrounds()`);assert(wallpapers.length>=2);
+    await run(main,`(async()=>{const items=await noctune.sceneThemes.list();backgroundSettings.select(items.presets[1].path);})()`);
+    const originalPath=await run(main,`window.bgImagePath`);
+    await change('noctune-dusk',{dayTheme:'scheme:noctune-shades:graphite',nightTheme:'scheme:noctune-shades:graphite',wallpapers:true,dayWallpaper:wallpapers[0].id,nightWallpaper:wallpapers[0].id});
+    await store.setEnabled('noctune-dusk',true);notify();
+    await waitFor(()=>run(main,`window.addonHost?.state('noctune-dusk')?.status==='running'&&getComputedStyle(document.body).getPropertyValue('--bg-color').trim()==='#1b1b20'`),'Dusk scheme');
+    await waitFor(()=>run(main,`window.bgImagePath!==${JSON.stringify(originalPath)}`),'Dusk wallpaper');
+    assert.equal(await run(main,`appStorage.getItem('setting_bg_image_path')`),originalPath,'temporary wallpaper does not overwrite saved path');
+    show.call(main);main.setSize(1200,950);
+    await waitFor(()=>run(main,`document.getElementById('addon-noctune-dusk-dayTheme').querySelector('.pd-label').textContent.includes('Графит')`),'live scheme choices');
+    await run(main,`const detail=document.getElementById('addon-noctune-dusk-dayTheme').closest('details');detail.open=true;document.getElementById('addon-noctune-dusk-dayTheme').scrollIntoView({block:'center'});document.getElementById('addon-noctune-dusk-dayTheme').click()`);
+    await delay(350);const screenshots=path.join(__dirname,'.artifacts/official-extensions');fs.mkdirSync(screenshots,{recursive:true});await main.webContents.capturePage();fs.writeFileSync(path.join(screenshots,'dusk-schemes.png'),(await main.webContents.capturePage()).toPNG());
+    await store.setEnabled('noctune-shades',false);notify();
+    await waitFor(()=>run(main,`window.addonContributions.schemes().length===0&&getComputedStyle(document.body).getPropertyValue('--bg-color').trim()!=='#1b1b20'`),'provider removed fallback');
+    await waitFor(()=>run(main,`document.getElementById('addon-noctune-dusk-dayTheme')?.querySelector('.pd-label').textContent==='Выбранная схема недоступна'`),'unavailable selection preserved');
+    assert.equal((await store.settings('noctune-dusk')).dayTheme,'scheme:noctune-shades:graphite');
+    await store.setEnabled('noctune-shades',true);notify();
+    await waitFor(()=>run(main,`getComputedStyle(document.body).getPropertyValue('--bg-color').trim()==='#1b1b20'`),'provider returned');
+    await store.setEnabled('noctune-dusk',false);notify();
+    await waitFor(()=>run(main,`window.bgImagePath===${JSON.stringify(originalPath)}`),'wallpaper restored');
+    const themes=await run(main,`noctune.sceneThemes.list()`);
+    await run(main,`(async()=>{const data=await noctune.sceneThemes.list();await sceneThemes.activate(data.themes[0]);})()`);
+    await store.setEnabled('noctune-dusk',true);notify();
+    await waitFor(()=>run(main,`window.addonHost.state('noctune-dusk')?.status==='running'&&!sceneThemes.active`),'temporary wallpaper hides scene');
+    await store.setEnabled('noctune-dusk',false);notify();
+    await waitFor(()=>run(main,`sceneThemes.active&&sceneThemes.metadata.id===${JSON.stringify(themes.themes[0].id)}`),'scene restored');
+    await store.setEnabled('noctune-dusk',true);notify();
+    await waitFor(()=>run(main,`window.addonHost.state('noctune-dusk')?.status==='running'&&!sceneThemes.active`),'Dusk before manual wallpaper');
+    await run(main,`(async()=>{const data=await noctune.sceneThemes.list();backgroundSettings.select(data.presets[2].path);})()`);
+    const manualPath=await run(main,`window.bgImagePath`);await store.setEnabled('noctune-dusk',false);notify();
+    await waitFor(()=>run(main,`window.addonHost.state('noctune-dusk')?.status==='stopped'`),'Dusk stopped after manual selection');
+    assert.equal(await run(main,`window.bgImagePath`),manualPath,'cleanup respects a newer manual wallpaper selection');
+    await store.setEnabled('noctune-sleep',true);notify();
+    await waitFor(()=>run(main,`window.addonHost.state('noctune-sleep')?.status==='running'`),'Sleep start');
+    const volume=await run(main,`volumeSlider.value`);
+    await run(main,`window.addonHost.command('noctune-sleep','start-timer')`);await run(main,`window.addonHost.command('noctune-sleep','cancel-timer')`);
+    assert.equal(await run(main,`volumeSlider.value`),volume);
+    await run(main,`window.__gainNodes=[];window.__gainFactory=AudioContext.prototype.createGain;AudioContext.prototype.createGain=function(...args){const node=window.__gainFactory.apply(this,args);window.__gainNodes.push(node);return node;};void 0;`);
+    await run(main,`window.addonPlayer.invoke('noctune-sleep','','audio.gain',{gain:0,ramp:.05})`);
+    await run(main,`audioCtx.resume()`);await delay(120);
+    assert((await run(main,`window.__gainNodes.at(-1).gain.value`))<.01);
+    const count=await run(main,`window.__gainNodes.length`);
+    await run(main,`window.addonPlayer.invoke('noctune-sleep','','audio.gain',{gain:1,ramp:.05})`);assert.equal(await run(main,`window.__gainNodes.length`),count);
+    await run(main,`window.__sleepNode=window.__gainNodes.at(-1);window.__disconnected=0;const disconnect=window.__sleepNode.disconnect.bind(window.__sleepNode);window.__sleepNode.disconnect=(...args)=>{window.__disconnected++;return disconnect(...args);};void 0;`);
+    await store.setEnabled('noctune-sleep',false);notify();await waitFor(()=>run(main,`window.__disconnected>0`),'gain cleanup');assert.equal(await run(main,`volumeSlider.value`),volume);
+    if(packageDirectory)assert((await store.list()).every(addon=>addon.verifiedPublisher==='Noctune'));
+    console.log('PASS: signed official packages, toggle scroll/disclosure preservation, six mouse-selected/applied schemes, cross-extension dropdown/selection, source disappearance/recovery, temporary wallpaper and scene restoration, real gain automation/reuse/cleanup and unchanged player volume.');
+    for(const window of windows)if(!window.isDestroyed())window.destroy();fs.rmSync(profile,{recursive:true,force:true});app.exit(0);
+})().catch(error=>{console.error(error);app.exit(1);});
+setTimeout(()=>{console.error('Official extensions probe timed out');app.exit(1);},90000);

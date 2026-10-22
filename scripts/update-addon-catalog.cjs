@@ -5,8 +5,9 @@ const p = require('../src/main/addons/package');
 const { mime } = require('../src/shared/addon-assets');
 const { CATALOG_FIELDS, validateCatalog } = require('../src/main/addons/catalog');
 (async () => {
-    const [output, packageFile, keyFile, packageUrl, ...extra] = process.argv.slice(2);
-    if (!output || !packageFile || !keyFile || extra.length) throw new Error('Usage: node scripts/update-addon-catalog.cjs <catalog.json> <package.noctaddon> <private.pem> [https-package-url]');
+    const args=process.argv.slice(2),artworkOption=args.find(value=>value.startsWith('--artwork='));
+    const [output, packageFile, keyFile, packageUrl, ...extra] = args.filter(value=>!value.startsWith('--artwork='));
+    if (!output || !packageFile || !keyFile || extra.length) throw new Error('Usage: node scripts/update-addon-catalog.cjs <catalog.json> <package.noctaddon> <private.pem> [https-package-url] [--artwork=directory]');
     const bytes = await fs.readFile(packageFile), pkg = p.validatePackage(JSON.parse(bytes));
     const publisher = p.signingIdentity(pkg, true);
     let previous = { revision: 0, entries: [] };
@@ -17,7 +18,7 @@ const { CATALOG_FIELDS, validateCatalog } = require('../src/main/addons/catalog'
     if (packageUrl) entry.packageUrl = packageUrl;
     for (const kind of ['icon','banner']) if (pkg.manifest[kind]) {
         const file = pkg.manifest[kind];
-        entry.artwork[kind] = { mime: mime(file), data: pkg.files[file].data };
+        entry.artwork[kind] = artworkOption ? {mime:'image/png',data:(await fs.readFile(path.join(artworkOption.slice('--artwork='.length),kind+'.png'))).toString('base64')} : { mime: mime(file), data: pkg.files[file].data };
     }
     const entries = previous.entries.filter(candidate => candidate.id !== entry.id).concat(entry).sort((a,b) => a.id.localeCompare(b.id));
     const next = p.sign({ format: 'noctune-addon-catalog', formatVersion: 1, channel: 'official', revision: previous.revision + 1, generatedAt: new Date().toISOString(), entries }, await fs.readFile(keyFile, 'utf8'));

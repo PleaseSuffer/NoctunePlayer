@@ -1,0 +1,76 @@
+{
+  "id": "noctune-shades",
+  "name": "Noctune Shades",
+  "description": "Спокойные цветовые схемы: графит, сланец, какао и три светлые палитры. Официальное расширение Noctune.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "icon": "assets/icon.png",
+  "banner": "assets/banner.png",
+  "homepage": "https://github.com/PleaseSuffer/NoctunePlayer",
+  "permissions": [
+    "settings.read",
+    "settings.events",
+    "appearance.register",
+    "appearance.switch"
+  ],
+  "commands": [
+    {
+      "id": "apply-selected",
+      "title": "Применить выбранную схему"
+    },
+    {
+      "id": "release-colors",
+      "title": "Вернуть оформление плеера"
+    }
+  ],
+  "settings": {
+    "scheme": {
+      "type": "select",
+      "label": "Цветовая схема",
+      "default": "graphite",
+      "options": [
+        {
+          "value": "graphite",
+          "label": "Графит"
+        },
+        {
+          "value": "slate",
+          "label": "Сланец"
+        },
+        {
+          "value": "cocoa",
+          "label": "Какао"
+        },
+        {
+          "value": "ivory",
+          "label": "Слоновая кость"
+        },
+        {
+          "value": "mist",
+          "label": "Туман"
+        },
+        {
+          "value": "rose",
+          "label": "Пудра"
+        }
+      ]
+    },
+    "keepAccent": {
+      "type": "toggle",
+      "label": "Сохранять собственный акцент",
+      "default": false,
+      "description": "Использовать акцент из настроек плеера; Chroma сохраняет приоритет своего акцента."
+    },
+    "applySelected": {
+      "type": "toggle",
+      "label": "Применять выбранную схему",
+      "default": true,
+      "description": "Отключите, чтобы только предоставлять схемы для Dusk и выбора во внешнем виде."
+    }
+  }
+}

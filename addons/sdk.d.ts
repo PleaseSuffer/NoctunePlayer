@@ -3,7 +3,7 @@ type SettingField = { label: string; description?: string; visibleWhen?: { field
     { type: 'toggle'; default: boolean } |
     { type: 'text'; default: string; maxLength?: number } |
     { type: 'slider' | 'number'; default: number; min: number; max: number; step: number } |
-    { type: 'select'; default: string; options: { value: string; label: string }[] }
+    { type: 'select'; default: string; options: { value: string; label: string }[]; source?: 'appearance.schemes' | 'backgrounds' }
 );
 interface OAuthProvider {
     name: string; flow: 'authorization_code' | 'device_code'; clientId: string;
@@ -85,6 +85,8 @@ interface NoctuneAddonApi {
         reorder(args:{id:string;revision:number;entries:string[]}):Promise<LocalPlaylist>;
     };
     appearance: {
+        list():Promise<{id:string;name:string;mode:AppearanceMode;owner:string|null;schemeId?:string;provider?:string}[]>;
+        select(args:TrackContext&{id:string|null}):Promise<void>;
         read():Promise<{mode:AppearanceMode;effectiveMode:'light'|'dark';palette:AppearancePalette;effectivePalette:Record<keyof AppearancePalette,string>}>;
         mode(args:TrackContext&{mode:AppearanceMode|null}):Promise<void>;
         palette(args:TrackContext&{palette:AppearancePalette|null}):Promise<void>;
@@ -111,8 +113,9 @@ interface NoctuneAddonApi {
     lyrics:{read(context?:TrackContext):Promise<AddonLyrics>;provide(source:{id:string;resolve(track:{title:string;artist:string;album:string;duration:number;sessionId:string|null}):Promise<AddonLyrics>|AddonLyrics}):Promise<void>};
     hotkeys:{register(args:{command:string}):Promise<void>};
     themes: { /** Temporary accent overlay, automatically released on disable/error. null releases this owner's overlay. */ accent(args: { color: string | null }): Promise<void>; list(): Promise<{ id: string; name: string; parameters: Record<string, unknown> }[]>; switch(args: TrackContext & { id: string | null }): Promise<void>; apply(args: TrackContext & { parameters?: Record<string, unknown>; palette?: { accent: string; gradient: [string, string, string] } }): Promise<void> };
-    backgrounds: { list(): Promise<{ id: string; name: string; video: boolean }[]>; switch(args: TrackContext & { id: string }): Promise<void>; apply(args: TrackContext & { enabled?: boolean; fit?: 'cover' | 'contain' | 'fill'; blur?: number; threshold?: number }): Promise<void> };
+    backgrounds: { list(): Promise<{ id: string; name: string; video: boolean }[]>; switch(args: TrackContext & { id: string }): Promise<void>; override(args:TrackContext&{id:string|null}):Promise<void>; apply(args: TrackContext & { enabled?: boolean; fit?: 'cover' | 'contain' | 'fill'; blur?: number; threshold?: number }): Promise<void> };
     audio: {
+        gain(args:{gain:number|null;ramp?:number}):Promise<void>;
         analyse(): Promise<{ sampleRate: number; samples: number[]; sessionId?: string }>;
         pcm(): Promise<{ sampleRate: number; samples: number[]; sessionId?: string }>;
         equalizer(args: { preset?: string; bands?: number[] }): Promise<void>;

@@ -12,6 +12,7 @@
     try { const saved = JSON.parse(appStorage.getItem('setting_addon_appearance') || 'null'); if (saved && ['light','dark','system'].includes(saved.mode)) base = { mode: saved.mode, palette: validatePalette(saved.palette) }; } catch (_) {}
     const validRevision = value => typeof value==='string' ? !!value.trim()&&value.length<=300&&!/[\r\n\0]/.test(value) : Number.isSafeInteger(value)&&value>=0;
     const key = (owner, id) => owner + ':' + id;
+    function schemesChanged() { document.dispatchEvent(new Event('addon-contributions-changed')); window.addonEvents.emit('appearance.schemes'); }
     const canonical = value => Array.isArray(value) ? '['+value.map(canonical).join(',')+']' : value && typeof value==='object' ? '{'+Object.keys(value).filter(key=>value[key]!==undefined).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}' : JSON.stringify(value);
     function text(value, max = 120) { if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error('Некорректный текст'); return value; }
     function validMode(value) { if (!['light','dark','system'].includes(value)) throw new Error('Режим: light, dark или system'); return value; }
@@ -25,7 +26,7 @@
     }
     function appearanceState() {
         let value = { mode: base.mode, palette: { ...base.palette } };
-        for (const layer of layers.values()) { value.mode = layer.mode || value.mode; value.palette = { ...value.palette, ...(layer.palette || {}) }; }
+        for (const layer of layers.values()) { value.mode = layer.mode || value.mode; value.palette = { ...value.palette, ...(layer.builtin ? cleanPalette({},value.mode) : {}), ...(layer.palette || {}) }; }
         return { mode: value.mode, effectiveMode: modeName(value.mode), palette: cleanPalette(value.palette, value.mode) };
     }
     function applyAppearance(emit = true) {
@@ -105,7 +106,7 @@
         return promise;
     }
     const api = window.addonContributions = {
-        schemes: () => [...schemes.values()].map(({owner,id,name,mode})=>({owner,id,name,mode})),
+        schemes: () => [...schemes.values()].map(({owner,id,name,mode,provider})=>({owner,id,name,mode,provider,reference:'scheme:'+owner+':'+id})),
         catalogs: () => [...catalogs.values()].map(({owner,id,name,providerId,accountId,capabilities,grants})=>({owner,id,name,providerId,accountId,capabilities:capabilities.filter(action=>action==='browse'||grants.has('servicePlaylists.'+action)),playable:grants.has('providers.play')&&!!window.addonProviders?.has(owner,providerId)})),
         hotkeys: () => [...hotkeys.values()].map(item=>({id:item.key,label:item.title})),
         userScheme(owner,id) { const scheme = schemes.get(key(owner,id)); if (!scheme) throw new Error('Схема не установлена'); layers.set(owner,{mode:scheme.mode,palette:scheme.palette}); applyAppearance(); },
@@ -117,27 +118,41 @@
             return null;
         },
         cleanup(owner) {
-            const hadLayer = layers.delete(owner);
+            let hadLayer = layers.delete(owner);
+            for (const [id,layer] of layers) if (layer.schemeOwner === owner) { layers.delete(id); hadLayer = true; }
             for (const collection of [catalogs,lyricSources,schemes,hotkeys]) for (const [id,item] of collection) if (item.owner === owner) collection.delete(id);
             for (const id of receipts.keys()) if (id.startsWith(owner+':')) receipts.delete(id);
             if (hadLayer) applyAppearance();
-            document.dispatchEvent(new Event('addon-contributions-changed'));
+            schemesChanged();
         },
         async invoke(owner, hash, method, args, context) {
             if(args.sessionId!==undefined&&args.sessionId!==window.addonEvents.snapshot().sessionId)throw new Error('Сеанс трека уже изменился');
             if (method.startsWith('appearance.')) {
                 const action = method.split('.')[1];
                 if (action === 'read') return {...appearanceState(),effectivePalette:Object.fromEntries(Object.entries(roles).map(([role,variable])=>[role,getComputedStyle(document.body).getPropertyValue(variable).trim()]))};
+                if (action === 'list') return [{id:'light',name:'Светлая',mode:'light',owner:null},{id:'dark',name:'Тёмная',mode:'dark',owner:null},{id:'system',name:'Как в системе',mode:'system',owner:null},...api.schemes().map(item=>({...item,schemeId:item.id,id:item.reference}))];
+                if (action === 'select') {
+                    if (args.id === null) { layers.delete(owner); applyAppearance(); return; }
+                    let layer;
+                    if (['light','dark','system'].includes(args.id)) layer = {mode:args.id,builtin:true};
+                    else {
+                        const match = typeof args.id === 'string' && /^scheme:([a-z][a-z0-9-]{1,63}):([a-z][a-z0-9-]{1,63})$/.exec(args.id);
+                        const scheme = match && schemes.get(key(match[1],match[2]));
+                        if (!scheme) throw new Error('Цветовая схема недоступна: включите предоставляющее её расширение');
+                        layer = {mode:scheme.mode,palette:cleanPalette(scheme.palette,scheme.mode),schemeOwner:scheme.owner,schemeId:scheme.id};
+                    }
+                    layers.delete(owner); layers.set(owner,layer); applyAppearance(); return;
+                }
                 if (action === 'register') {
-                    if (!name(args.id) || schemes.size >= 128) throw new Error('Некорректная схема или превышен лимит');
-                    const scheme = {owner,id:args.id,name:text(args.name),mode:validMode(args.mode),palette:validatePalette(args.palette)};
+                    if (!name(args.id) || (schemes.size >= 128 && !schemes.has(key(owner,args.id)))) throw new Error('Некорректная схема или превышен лимит');
+                    const scheme = {owner,id:args.id,name:text(args.name),mode:validMode(args.mode),palette:validatePalette(args.palette),provider:context?.manifest?.name || owner};
                     cleanPalette(scheme.palette,scheme.mode);
-                    schemes.set(key(owner,args.id),scheme); document.dispatchEvent(new Event('addon-contributions-changed')); return;
+                    schemes.set(key(owner,args.id),scheme); schemesChanged(); return;
                 }
                 if (action === 'switch') { if (args.id === null) { layers.delete(owner); applyAppearance(); return; } return api.userScheme(owner,args.id); }
                 if (action === 'persist') {
                     const own = layers.get(owner); if (!own) throw new Error('Нет собственного слоя для сохранения');
-                    base = { mode:own.mode||base.mode,palette:cleanPalette({...base.palette,...own.palette},own.mode||base.mode) };
+                    base = { mode:own.mode||base.mode,palette:cleanPalette({...(own.builtin?cleanPalette({},own.mode||base.mode):base.palette),...own.palette},own.mode||base.mode) };
                     appStorage.setItem('setting_addon_appearance',JSON.stringify(base)); appStorage.setItem('player_theme',modeName(base.mode)); layers.delete(owner); applyAppearance(); return;
                 }
                 const layer = {...layers.get(owner)};

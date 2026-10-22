@@ -17,6 +17,10 @@
         return found;
     }
     function validate(manifest, grants) {
+        for (const field of Object.values(manifest.settings || {})) {
+            const permission = { 'appearance.schemes':'appearance.list', backgrounds:'backgrounds.list' }[field.source];
+            if (permission && !grants.includes(permission)) fail('Источник вариантов требует разрешения ' + permission);
+        }
         if (manifest.network?.routes !== undefined) {
             if (!Array.isArray(manifest.network.routes) || !manifest.network.routes.length || manifest.network.routes.length > 64) fail('Нужно от 1 до 64 сетевых маршрутов');
             for (const item of manifest.network.routes) {

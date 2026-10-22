@@ -1,0 +1,132 @@
+{
+  "id": "noctune-dusk",
+  "name": "Noctune Dusk",
+  "description": "Оформление по расписанию: дневная и ночная схемы, палитры других расширений и смена обоев по желанию. Официальное расширение Noctune.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "icon": "assets/icon.png",
+  "banner": "assets/banner.png",
+  "homepage": "https://github.com/PleaseSuffer/NoctunePlayer",
+  "permissions": [
+    "settings.read",
+    "settings.events",
+    "appearance.list",
+    "appearance.select",
+    "appearance.events",
+    "backgrounds.list",
+    "backgrounds.override",
+    "notifications.show"
+  ],
+  "commands": [
+    {
+      "id": "apply-now",
+      "title": "Применить расписание сейчас"
+    },
+    {
+      "id": "schedule-status",
+      "title": "Текущее состояние расписания"
+    }
+  ],
+  "settings": {
+    "automatic": {
+      "type": "toggle",
+      "label": "Оформление по расписанию",
+      "default": true
+    },
+    "dayStart": {
+      "type": "text",
+      "label": "Начало дня · ЧЧ:ММ",
+      "default": "07:00",
+      "maxLength": 5
+    },
+    "nightStart": {
+      "type": "text",
+      "label": "Начало ночи · ЧЧ:ММ",
+      "default": "21:00",
+      "maxLength": 5
+    },
+    "dayTheme": {
+      "type": "select",
+      "label": "Дневная схема",
+      "default": "light",
+      "options": [
+        {
+          "value": "light",
+          "label": "Светлая"
+        },
+        {
+          "value": "dark",
+          "label": "Тёмная"
+        },
+        {
+          "value": "system",
+          "label": "Как в системе"
+        }
+      ],
+      "source": "appearance.schemes",
+      "description": "Схемы других расширений появляются после их включения."
+    },
+    "nightTheme": {
+      "type": "select",
+      "label": "Ночная схема",
+      "default": "dark",
+      "options": [
+        {
+          "value": "light",
+          "label": "Светлая"
+        },
+        {
+          "value": "dark",
+          "label": "Тёмная"
+        },
+        {
+          "value": "system",
+          "label": "Как в системе"
+        }
+      ],
+      "source": "appearance.schemes"
+    },
+    "wallpapers": {
+      "type": "toggle",
+      "label": "Менять обои вместе со схемой",
+      "default": false
+    },
+    "dayWallpaper": {
+      "type": "select",
+      "label": "Дневные обои",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "Оставить обои плеера"
+        }
+      ],
+      "source": "backgrounds",
+      "visibleWhen": {
+        "field": "wallpapers",
+        "equals": true
+      }
+    },
+    "nightWallpaper": {
+      "type": "select",
+      "label": "Ночные обои",
+      "default": "",
+      "options": [
+        {
+          "value": "",
+          "label": "Оставить обои плеера"
+        }
+      ],
+      "source": "backgrounds",
+      "visibleWhen": {
+        "field": "wallpapers",
+        "equals": true
+      }
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "id": "noctune-sleep",
+  "name": "Noctune Sleep",
+  "description": "Таймер сна: пауза по времени, мягкое затихание и управление горячими клавишами. Официальное расширение Noctune.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "icon": "assets/icon.png",
+  "banner": "assets/banner.png",
+  "homepage": "https://github.com/PleaseSuffer/NoctunePlayer",
+  "permissions": [
+    "settings.read",
+    "settings.events",
+    "playback.pause",
+    "audio.gain",
+    "notifications.show",
+    "hotkeys.register"
+  ],
+  "commands": [
+    {
+      "id": "start-timer",
+      "title": "Запустить таймер"
+    },
+    {
+      "id": "cancel-timer",
+      "title": "Отменить таймер"
+    },
+    {
+      "id": "extend-timer",
+      "title": "Добавить 5 минут"
+    },
+    {
+      "id": "time-left",
+      "title": "Сколько осталось"
+    }
+  ],
+  "settings": {
+    "minutes": {
+      "type": "slider",
+      "label": "До паузы, минут",
+      "default": 30,
+      "min": 5,
+      "max": 180,
+      "step": 5,
+      "description": "Применяется при следующем запуске таймера."
+    },
+    "fade": {
+      "type": "toggle",
+      "label": "Плавное затихание",
+      "default": true
+    },
+    "fadeSeconds": {
+      "type": "slider",
+      "label": "Затихание, секунд",
+      "default": 20,
+      "min": 5,
+      "max": 60,
+      "step": 5,
+      "visibleWhen": {
+        "field": "fade",
+        "equals": true
+      }
+    },
+    "startOnEnable": {
+      "type": "toggle",
+      "label": "Запускать при включении",
+      "default": false,
+      "description": "Также запускает новый таймер при следующем запуске плеера, если расширение включено."
+    }
+  }
+}

@@ -22,6 +22,7 @@ Electron executable; on Windows:
 .\node_modules\.bin\electron.cmd tests/native-image-effects-probe.cjs --fallback
 .\node_modules\.bin\electron.cmd tests/native-addons-probe.cjs
 .\node_modules\.bin\electron.cmd tests/native-addon-store-probe.cjs
+.\node_modules\.bin\electron.cmd tests/native-official-extensions-probe.cjs
 ```
 
 | Test | Regression covered |
@@ -35,6 +36,7 @@ Electron executable; on Windows:
 | Image effects | Real GPU/Canvas output and fallback rendering; visualizer settings and modes are covered by the Node.js renderer suite |
 | Addons | Separate installer, consent/cancel, grouped permissions and artwork, opaque iframe/Worker and CSP, SDK permissions, persistent data, cleanup, typed settings and audio-provider playback |
 | Extension store | Separate sandboxed window, signed catalog, search and tabs, both themes and sizes, install/cancel, main-window refresh and offline fallback; uses an ephemeral test key and no network |
+| Official extensions | Sleep gain automation and cleanup; Shades scheme registration; Dusk live source dropdowns, provider removal/recovery, temporary wallpaper and interactive scene restoration. Add `--official-packages=addons/packages` to verify signed local release packages; `--app-asar=dist/linux-unpacked/resources/app.asar` checks packaged SDK code. |
 
 Run full-app tests sequentially: development theme storage is shared. Tests use
 fixture profiles and generated data; retained screenshots and profiles belong in

@@ -1,5 +1,5 @@
 (function () {
-    const ids = new Map(), paths = new Map(), listeners = new Set(), effects = new Map(), backgrounds = new Map();
+    const ids = new Map(), paths = new Map(), listeners = new Set(), effects = new Map(), gains = new Map(), backgrounds = new Map();
     let session = null, serial = 0, sequence = 0, current = null, media = null, lastProgress = 0;
     const opaque = value => { if (!ids.has(value)) { if (ids.size >= 50000) throw new Error('Слишком много идентификаторов медиатеки'); const id = crypto.randomUUID(); ids.set(value, id); paths.set(id, value); } return ids.get(value); };
     const audio = () => isRadioMode ? radioAudioElement : localAudioElement;
@@ -35,9 +35,22 @@
         window.pannerNode.disconnect();
         let tail = window.pannerNode;
         for (const chain of effects.values()) for (const node of chain) { node.disconnect(); tail.connect(node); tail = node; }
+        for (const node of gains.values()) { node.disconnect(); tail.connect(node); tail = node; }
         tail.connect(audioCtx.destination);
     }
     function clearEffects(id) { const nodes = effects.get(id); if (nodes) { nodes.forEach(node => node.disconnect()); effects.delete(id); attachEffects(); } }
+    function clearGain(id) { const node = gains.get(id); if (node) { node.disconnect(); gains.delete(id); attachEffects(); } }
+    async function listBackgrounds() {
+        const catalog = await noctune.sceneThemes.list();
+        const data = [...backgroundSettings.list(), ...catalog.presets].filter((item,index,items)=>items.findIndex(other=>other.path===item.path)===index).slice(0,256);
+        const result = await Promise.all(data.map(async item => {
+            const bytes = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(item.path));
+            const id = 'background:' + [...new Uint8Array(bytes)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+            return { id, path:item.path, name:item.path.split(/[\\/]/).pop(), video:!!item.isVideo };
+        }));
+        backgrounds.clear(); for (const item of result) backgrounds.set(item.id,item.path);
+        return result.map(({path,...item})=>item);
+    }
     const playlistVersions = new Map();
     function playlistState(pl) {
         const signature = JSON.stringify([pl.name, pl.type, pl.path, pl.files]);
@@ -77,7 +90,7 @@
         return playlistView(pl);
     }
     window.addonPlayer = {
-        cleanup(id) { window.addonContributions?.cleanup(id); clearEffects(id); window.backgroundSettings?.accent(id, null); }, attachEffects,
+        cleanup(id) { window.addonContributions?.cleanup(id); clearEffects(id); clearGain(id); window.backgroundSettings?.override?.(id, null); window.backgroundSettings?.accent(id, null); }, attachEffects, listBackgrounds,
         async invoke(id, hash, method, args) {
             if (args.sessionId !== undefined && args.sessionId !== session) throw new Error('Сеанс трека уже изменился');
             if (method === 'playback.read') return snapshot();
@@ -119,7 +132,16 @@
                 for (const [key, value] of Object.entries(args.parameters || {})) sceneThemes.setParameter(key, value);
                 emit('themes.changed', { id: sceneThemes.metadata?.id || null }); return;
             }
-            if (method === 'backgrounds.list') { const catalog = await noctune.sceneThemes.list(); const data = [...backgroundSettings.list(), ...catalog.presets].filter((item, index, items) => items.findIndex(other => other.path === item.path) === index); backgrounds.clear(); return data.map(item => { const key = opaque('background:' + item.path); backgrounds.set(key, item.path); return { id: key, name: item.path.split(/[\\/]/).pop(), video: !!item.isVideo }; }); }
+            if (method === 'backgrounds.list') return listBackgrounds();
+            if (method === 'backgrounds.override') {
+                if (args.id === null) return backgroundSettings.override(id,null);
+                const path = backgrounds.get(args.id);
+                if (!path) throw new Error('Выбранные обои недоступны: обновите список фонов');
+                let exists=false;try{exists=(await noctune.fs.stat(path)).isFile;}catch(_){}
+                if (!exists) throw new Error('Выбранные обои недоступны: файл удалён или перемещён');
+                if (window.addonHost?.active?.(id,hash) === false) throw new Error('Расширение остановлено');
+                return backgroundSettings.override(id,path);
+            }
             if (method === 'backgrounds.switch') { const path = backgrounds.get(args.id); if (!path) throw new Error('Сначала получите список фонов'); backgroundSettings.select(path); return; }
             if (method === 'backgrounds.apply') { backgroundSettings.apply(args); return; }
             if (method === 'files.library') { const entry = entryFor(args.trackId); return noctune.addons.libraryFile(id, hash, entry.path); }
@@ -130,6 +152,17 @@
                 try { for (const fx of args.chain) { let node; if (fx.type === 'gain') { node = audioCtx.createGain(); node.gain.value = number(fx.gain, 0, 2); } else if (fx.type === 'biquad') { if (!['lowpass','highpass','bandpass','lowshelf','highshelf','peaking','notch','allpass'].includes(fx.filter)) throw new Error('Неизвестный фильтр'); node = audioCtx.createBiquadFilter(); node.type = fx.filter; node.frequency.value = number(fx.frequency, 20, 20000); node.Q.value = number(fx.q ?? 1, .01, 30); node.gain.value = number(fx.gain ?? 0, -12, 12); } else if (fx.type === 'compressor') { node = audioCtx.createDynamicsCompressor(); node.threshold.value = number(fx.threshold ?? -24, -100, 0); node.ratio.value = number(fx.ratio ?? 4, 1, 20); } else throw new Error('Неизвестный эффект'); nodes.push(node); } }
                 catch (error) { nodes.forEach(node => node.disconnect()); throw error; }
                 clearEffects(id); effects.set(id, nodes); attachEffects(); return;
+            }
+            if (method === 'audio.gain') {
+                if (args.gain === null) { clearGain(id); return; }
+                const gain = number(args.gain,0,1), ramp = args.ramp === undefined ? 0 : number(args.ramp,0,300);
+                initAudioEngine(); let node = gains.get(id);
+                if (!node) { node = audioCtx.createGain(); gains.set(id,node); attachEffects(); }
+                const now = audioCtx.currentTime;
+                if (node.gain.cancelAndHoldAtTime) node.gain.cancelAndHoldAtTime(now);
+                else { const value = node.gain.value; node.gain.cancelScheduledValues(now); node.gain.setValueAtTime(value,now); }
+                if (ramp) node.gain.linearRampToValueAtTime(gain,now+ramp); else node.gain.setValueAtTime(gain,now);
+                return;
             }
             throw new Error('Неизвестный метод плеера: ' + method);
         },

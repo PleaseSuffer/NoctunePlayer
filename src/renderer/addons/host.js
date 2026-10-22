@@ -62,10 +62,10 @@
                         queue: Object.fromEntries(['read','add','remove','reorder'].map(action => [action, (args = {}) => call('queue.' + action, args)])),
                         playlists: Object.fromEntries(['read','create','rename','delete','edit','select','addTracks','removeTracks','reorder'].map(action => [action, (args = {}) => call('playlists.' + action, args)])),
                         themes: Object.fromEntries(['list','switch','apply','accent'].map(action => [action, (args = {}) => call('themes.' + action, args)])),
-                        backgrounds: Object.fromEntries(['list','switch','apply'].map(action => [action, (args = {}) => call('backgrounds.' + action, args)])),
-                        audio: Object.fromEntries(['analyse','pcm','equalizer','effects'].map(action => [action, (args = {}) => call('audio.' + action, args)])),
+                        backgrounds: Object.fromEntries(['list','switch','override','apply'].map(action => [action, (args = {}) => call('backgrounds.' + action, args)])),
+                        audio: Object.fromEntries(['analyse','pcm','equalizer','effects','gain'].map(action => [action, (args = {}) => call('audio.' + action, args)])),
                         network: { ...common.network, request: args => call('network.request', args) },
-                        appearance: Object.fromEntries(['read','mode','palette','register','switch','persist'].map(action => [action, (args = {}) => call('appearance.' + action, args)])),
+                        appearance: Object.fromEntries(['read','list','select','mode','palette','register','switch','persist'].map(action => [action, (args = {}) => call('appearance.' + action, args)])),
                         credentials: Object.fromEntries(['configure','status','disconnect'].map(action => [action, profile => call('credentials.' + action, { profile })])),
                         catalog: {
                             async register(catalog) {
@@ -269,7 +269,7 @@
             item.frame.contentWindow.postMessage({ channel: item.channel, type: 'command', token, command }, '*');
         });
     }
-    window.addonHost = { refresh, command, state: id => states.get(id) };
+    window.addonHost = { refresh, command, state: id => states.get(id), active: (id,hash) => running.get(id)?.digest === hash };
     document.addEventListener('addons-changed', () => refresh().catch(error => changed('host', { status: 'error', message: error.message })));
     refresh().catch(error => changed('host', { status: 'error', message: error.message }));
 })();

@@ -3,7 +3,8 @@ const shared=require('../../src/shared/addon-contributions');
 const attributes=new Map([['data-theme','dark']]),css=new Map(),storage=new Map(),events=[];
 const style={setProperty:(key,value)=>css.set(key,value),getPropertyValue:key=>css.get(key)||'',removeProperty:key=>css.delete(key)};
 const controls=new Map([['setting-dark-theme',{}],['theme-toggle',{replaceChildren(){}}]]);
-const context={AddonContributions:shared,Event:class{constructor(type){this.type=type;}},matchMedia:()=>({matches:false,addEventListener(){}}),getComputedStyle:()=>({getPropertyValue:key=>css.get(key)||''}),
+const systemMedia={matches:false,addEventListener(){}};
+const context={AddonContributions:shared,Event:class{constructor(type){this.type=type;}},matchMedia:()=>systemMedia,getComputedStyle:()=>({getPropertyValue:key=>css.get(key)||''}),
     document:{body:{style,getAttribute:key=>attributes.get(key),setAttribute:(key,value)=>attributes.set(key,value),removeAttribute:key=>attributes.delete(key)},documentElement:{style},head:{append(){}},createElement:()=>({remove(){}}),getElementById:key=>controls.get(key),addEventListener(){},dispatchEvent(){}},
     appStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)},
     backgroundSettings:{refreshAccent(){}},addonEvents:{emit:(type,args)=>events.push({type,...args})},addonLyrics:{read:()=>({status:'missing',lines:[],plain:''})},
@@ -60,5 +61,13 @@ const api=context.addonContributions;
     context.Image=class{decode(){return new Promise(resolve=>{decode=resolve;});}};
     const oldArtwork=call('cover','artwork.read',{sessionId:'old-track'});await Promise.resolve();currentSession='new-track';decode();await assert.rejects(oldArtwork,/Сеанс/);
     await assert.rejects(call('cover','appearance.mode',{sessionId:'old-track',mode:'light'}),/Сеанс/);
+    await call('provider','appearance.register',{id:'public-gray',name:'Public gray',mode:'dark',palette:{background:'#282828',text:'#eeeeee'}});
+    const listed=await call('scheduler','appearance.list');assert(listed.some(item=>item.id==='scheme:provider:public-gray'));
+    await call('scheduler','appearance.select',{id:'scheme:provider:public-gray'});assert.equal((await call('scheduler','appearance.read')).palette.background,'#282828');
+    await assert.rejects(call('scheduler','appearance.switch',{id:'public-gray'}),/установлена/);
+    api.cleanup('provider');assert.equal((await call('scheduler','appearance.read')).palette.background,'#202020','source removal also releases dependent layers');
+    await call('scheduler','appearance.select',{id:'light'});assert.equal((await call('scheduler','appearance.read')).palette.background,'#f4f7f6');
+    await call('scheduler','appearance.select',{id:null});assert.equal((await call('scheduler','appearance.read')).palette.background,'#202020');
+    await call('scheduler','appearance.select',{id:'system'});assert.equal((await call('scheduler','appearance.read')).palette.background,'#f4f7f6');systemMedia.matches=true;assert.equal((await call('scheduler','appearance.read')).palette.background,'#121212','system selection updates its palette when the OS changes');api.cleanup('scheduler');
     console.log('PASS: owned appearance layers/persistence, readable palettes, scoped catalogs, permissions/revisions, idempotent requests, concurrent writes, disposal, lyric sources and hotkey cleanup.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1881,8 +1881,8 @@
                 }
             }
 
-            function clearBgImage() {
-                window.imageEffects?.remove(window.bgImagePath);
+            function clearBgImage(persist = true) {
+                if (persist) window.imageEffects?.remove(window.bgImagePath);
                 window.imageEffects?.select(null);
                 const prevSnapshot = window.bgImagePath ? snapshotCurrentBgFrame() : null;
                 const prevFit = window.bgImageFit || 'cover';
@@ -1898,7 +1898,7 @@
                 btnRemoveBgImage.style.display = 'none';
                 window.bgImagePath = null;
                 window.bgImageIsVideo = false;
-                appStorage.removeItem('setting_bg_image_path');
+                if (persist) appStorage.removeItem('setting_bg_image_path');
                 renderRecentBackgrounds(); // снять подсветку «активного» с недавних
 
                 // Плавно гасим снимок старого фона, открывая пустоту под ним,
@@ -4049,8 +4049,27 @@
             window.renderPlEditor = renderPlEditor;
             // Keep the theme/user palette intact underneath a temporary extension layer.
             // Map insertion order gives the last enabled owner priority without frame-by-frame contention.
+            const addonBackgrounds = new Map();
             window.backgroundSettings = {
                 list() { return getRecentBackgrounds(); },
+                override(owner, path) {
+                    const previous = [...addonBackgrounds.values()].at(-1);
+                    if (path === null) { if (!addonBackgrounds.delete(owner)) return; }
+                    else { if (addonBackgrounds.get(owner) === path && window.bgImagePath === path) return; addonBackgrounds.delete(owner); addonBackgrounds.set(owner,path); }
+                    const visible = [...addonBackgrounds.values()].at(-1);
+                    if (path === null && (window.sceneThemes?.active || window.bgImagePath !== previous)) return;
+                    if (visible) {
+                        window.sceneThemes?.deactivate(false);
+                        if (window.bgImagePath !== visible) applyBgImagePath(visible,false);
+                        settingBgEnabled.checked = true; applyBgImageEnabled(true);
+                    } else {
+                        const saved = appStorage.getItem('setting_bg_image_path');
+                        if (saved) applyBgImagePath(saved,false); else clearBgImage(false);
+                        settingBgEnabled.checked = appStorage.getItem('setting_bg_image_enabled') === '1';
+                        applyBgImageEnabled(settingBgEnabled.checked);
+                        window.sceneThemes?.resumeSaved().catch(()=>{});
+                    }
+                },
                 apply(options) {
                     if (options.enabled !== undefined) { if (typeof options.enabled !== 'boolean') throw new Error('Нужен переключатель'); this.enable(options.enabled); }
                     if (options.fit !== undefined) { if (!['cover','contain','fill'].includes(options.fit)) throw new Error('Неизвестный режим фона'); selectBgFit(options.fit); }

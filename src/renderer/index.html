@@ -2461,20 +2461,21 @@
                     <div class="settings-panel" id="panel-addons">
                         <div class="settings-section-title">Расширения</div>
                         <div class="settings-card addons-install-card">
-                            <div class="settings-row-label">Новые возможности для Noctune</div>
-                            <p class="settings-row-desc">Устанавливайте дополнения и обновляйте их отдельно от плеера. Встроенные сервисы доступны в разделе «Интеграции».</p>
-                            <div class="addons-toolbar">
-                                <button type="button" class="btn" id="addons-store">Магазин расширений</button>
-                                <button type="button" class="btn" id="addons-import">Установить из файла</button>
-                                <button type="button" class="btn" id="addons-check-all">Проверить обновления</button>
+                            <div class="addons-entry-heading">
+                                <div class="addons-entry-info"><div class="settings-row-label">Новые возможности для Noctune</div><p class="settings-row-desc">Дополнения и интеграции для вашего плеера.</p></div>
+                                <button type="button" class="btn addons-store-button" id="addons-store"><i data-lucide="store" aria-hidden="true"></i>Магазин расширений</button>
                             </div>
-                            <form id="addons-url-form" class="addons-url-form">
+                            <div class="addons-manual-actions" role="group" aria-label="Установить свой пакет">
+                                <button type="button" class="btn addons-secondary-action" id="addons-import"><i data-lucide="folder-open" aria-hidden="true"></i>Установить из файла</button>
+                                <button type="button" class="btn addons-secondary-action" id="addons-link-toggle" aria-expanded="false" aria-controls="addons-url-form"><i data-lucide="link" aria-hidden="true"></i>По ссылке<i data-lucide="chevron-down" class="addons-link-chevron" aria-hidden="true"></i></button>
+                            </div>
+                            <form id="addons-url-form" class="addons-url-form" hidden>
                                 <label for="addons-url" class="settings-row-desc">Ссылка на пакет расширения</label>
-                                <div class="addons-url-row"><input id="addons-url" class="integration-text-input" type="url" placeholder="https://…/extension.noctaddon" required aria-label="HTTPS-ссылка на пакет"><button type="submit" class="btn">Добавить</button></div>
+                                <div class="addons-url-row"><input id="addons-url" class="integration-text-input" type="url" placeholder="https://…/extension.noctaddon" required aria-label="HTTPS-ссылка на пакет"><button type="submit" class="btn"><i data-lucide="download" aria-hidden="true"></i>Добавить</button></div>
                             </form>
                             <div id="addons-status" class="settings-row-desc" role="status" aria-live="polite"></div>
                         </div>
-                        <div class="settings-section-title">Установленные</div>
+                        <div class="addons-installed-heading"><div class="settings-section-title">Установленные</div><button type="button" class="btn addons-secondary-action" id="addons-check-all"><i data-lucide="refresh-cw" aria-hidden="true"></i>Проверить обновления</button></div>
                         <div id="addons-list" class="addons-list" aria-label="Установленные расширения"></div>
                     </div>
                     <div class="settings-panel" id="panel-hotkeys">

@@ -53,6 +53,26 @@ let networkCalls=0, offline=false;
     require(path.join(source,'src/main/index.js'));
     const main=await waitFor(()=>windows.find(window=>!window.isDestroyed()&&window.webContents.getURL().endsWith('/renderer/index.html')&&!window.webContents.isLoading()));
     main.webContents.setBackgroundThrottling(false);
+    await run(main,`document.getElementById('settings-fab').click();document.querySelector('.settings-nav-item[data-panel="panel-addons"]').click()`);
+    await waitFor(()=>run(main,`document.getElementById('panel-addons').classList.contains('active')`));
+    for(const id of ['addons-store','addons-import','addons-check-all','addons-link-toggle'])assert.equal(await run(main,`!!document.querySelector('#${id} svg')`),true,'settings action has an icon: '+id);
+    assert.equal(await run(main,`!!document.getElementById('addons-check-all').closest('.addons-installed-heading')`),true);
+    assert.equal(await run(main,`document.getElementById('addons-url-form').hidden`),true);
+    await run(main,`document.getElementById('addons-link-toggle').click()`);
+    assert.equal(await run(main,`document.getElementById('addons-url-form').hidden`),false);
+    assert.equal(await run(main,`document.activeElement.id`),'addons-url');
+    await run(main,`document.getElementById('addons-url').value='https://example.com/addon.noctaddon';document.getElementById('addons-link-toggle').click();document.getElementById('addons-link-toggle').click()`);
+    assert.equal(await run(main,`document.getElementById('addons-url').value`),'https://example.com/addon.noctaddon');
+    await run(main,`document.getElementById('addons-link-toggle').click()`);
+    showWindow.call(main);
+    for(const theme of ['dark','light'])for(const width of [1280,900]){
+        main.setSize(width,850);
+        await run(main,`document.getElementById('setting-dark-theme').checked=${theme==='dark'};document.getElementById('setting-dark-theme').dispatchEvent(new Event('change'))`);
+        await delay(400);
+        assert.equal(await run(main,`(()=>{const panel=document.getElementById('panel-addons').getBoundingClientRect();return ['addons-store','addons-import','addons-check-all','addons-link-toggle'].every(id=>{const r=document.getElementById(id).getBoundingClientRect();return r.width>0&&r.left>=panel.left&&r.right<=panel.right+1;});})()`),true,'settings actions fit the panel');
+        await main.webContents.capturePage();
+        fs.writeFileSync(path.join(screenshots,`settings-${theme}-${width}.png`),(await main.webContents.capturePage()).toPNG());
+    }
     await run(main,`document.getElementById('addons-store').click()`);
     const shop=await waitFor(()=>windows.find(window=>!window.isDestroyed()&&window.webContents.getURL().includes('/addon-store/index.html')&&!window.webContents.isLoading()));
     shop.webContents.setBackgroundThrottling(false);
@@ -61,6 +81,7 @@ let networkCalls=0, offline=false;
     assert.equal(shop.webContents.getLastWebPreferences().sandbox,true);
     assert.equal(await run(shop,`typeof require`),'undefined');
     assert.equal(await run(shop,`typeof window.noctune`),'undefined');
+    assert.equal(await run(shop,`!!document.querySelector('#repository svg')`),true,'repository button has a rendered icon');
     assert.equal(await run(shop,`document.querySelector('.card-title').textContent`),'Noctune Chroma');
     assert.equal(await run(shop,`document.getElementById('community').hidden`),true);
     for(const theme of ['dark','light']){

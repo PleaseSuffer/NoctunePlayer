@@ -144,7 +144,11 @@
           "secrets.*",
           "files.*",
           "clipboard.*",
-          "system.*"
+          "system.*",
+          "appearance.list",
+          "appearance.select",
+          "backgrounds.override",
+          "audio.gain"
         ]
       }
     },
@@ -367,6 +371,12 @@
                     }
                   }
                 }
+              },
+              "source": {
+                "enum": [
+                  "appearance.schemes",
+                  "backgrounds"
+                ]
               }
             }
           }

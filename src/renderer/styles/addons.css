@@ -1,7 +1,22 @@
 .addons-install-card { display: flex; flex-direction: column; gap: 12px; }
 .addons-install-card p, .addon-card p { margin: 0; }
+.addons-entry-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.addons-entry-info { flex: 1 1 180px; min-width: 0; }
+.addons-entry-info .settings-row-desc { margin-top: 6px; line-height: 1.6; }
+.addons-store-button { flex: 0 0 auto; min-height: 40px; }
+.addons-manual-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+#panel-addons .addons-secondary-action { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); font-size: 12px; font-weight: 500; padding: 8px 12px; }
+#panel-addons .addons-secondary-action:hover { background: var(--track-hover); border-color: var(--accent-color); }
+#panel-addons .btn:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+#panel-addons .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+#panel-addons .addons-link-chevron { width: 13px; height: 13px; }
+#addons-link-toggle[aria-expanded="true"] { border-color: var(--accent-color); }
+#addons-link-toggle[aria-expanded="true"] .addons-link-chevron { transform: rotate(180deg); }
+.addons-installed-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.addons-installed-heading .settings-section-title { margin: 0; }
 .addons-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
 .addons-url-form { display: flex; flex-direction: column; gap: 7px; }
+.addons-url-form[hidden] { display: none; }
 .addons-url-row { display: flex; gap: 8px; }
 .addons-url-row input { flex: 1; min-width: 0; }
 .addons-list { display: flex; flex-direction: column; gap: 14px; }
@@ -19,6 +34,7 @@
 .addon-disclosure + .addon-disclosure { border-top: 1px solid var(--border-color); padding-top: 4px; }
 .addon-setting { gap: 20px; margin: 0; }
 .addon-setting-info { flex: 1; min-width: 0; }
+.addon-setting .settings-row-label { color: var(--text-color); }
 .addon-setting-info p { margin-top: 4px; line-height: 1.5; }
 .addon-input { width: min(45%, 240px); min-width: 90px; }
 .addon-slider { width: min(45%, 250px); flex-shrink: 0; margin-top: 0; }
@@ -27,6 +43,7 @@
 .addon-select .viz-type-dropdown-btn:disabled { opacity: .55; cursor: not-allowed; }
 .addon-dropdown-menu { backdrop-filter: blur(12px); position: fixed; z-index: 99010; overflow-y: auto; overscroll-behavior: contain; }
 .addon-dropdown-menu .viz-type-menu-item { width: 100%; border: 0; background: transparent; font: inherit; font-size: 13px; text-align: left; }
+.addon-dropdown-menu .viz-type-menu-item:disabled { opacity: .5; cursor: default; }
 .addon-dropdown-menu .viz-type-menu-item:hover { background: var(--track-hover); }
 .addon-dropdown-menu .viz-type-menu-item.active { background: var(--accent-color); color: #fff; }
 .addon-dropdown-menu .viz-type-menu-item:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
