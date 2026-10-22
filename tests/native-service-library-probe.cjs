@@ -98,7 +98,23 @@ app.on('browser-window-created',(_,win)=>{
             assert.equal(await run(`getPlaylistIcon(userPlaylists.find(pl=>pl.id===currentPlaylistId))`),'cloud');
             assert.equal(await run(`document.querySelectorAll('#playlist .track-title-item').length`),600);
             await run(`document.querySelector('#playlist .actions-btn').click()`);
-            assert.equal(await run(`document.querySelectorAll('.provider-context-menu [role="menuitem"]').length`),4);
+            await wait(`document.querySelectorAll('.provider-context-menu [role="menuitem"]').length===6&&!document.querySelector('.provider-context-menu button:disabled')`,'provider track actions loaded');
+            await clickText('.provider-context-menu button','Нравится');
+            await run(`document.querySelector('#playlist .actions-btn').click()`);
+            await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Не нравится')`,'like changed label');
+            await run(`document.body.click();document.querySelectorAll('#playlist .actions-btn')[1].click()`);
+            await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Дизлайк — реже рекомендовать')`,'dislike menu');
+            await clickText('.provider-context-menu button','Дизлайк — реже рекомендовать');
+            await run(`document.querySelectorAll('#playlist .actions-btn')[1].click()`);
+            await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Отменить дизлайк')`,'independent dislike');
+            await run(`document.body.click();document.querySelector('#playlist .provider-track').click()`);
+            await wait(`isPlaying`,'start track for hotkey');
+            await run(`togglePlayback();window.hotkeyBindings['addon:service-library-demo:toggle-like']='ctrl+alt+KeyL';document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',ctrlKey:true,altKey:true,bubbles:true,cancelable:true}))`);
+            await wait(`!document.querySelector('.provider-context-menu')`,'menu closed');
+            await delay(150);
+            await run(`document.querySelector('#playlist .actions-btn').click()`);
+            await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Нравится')`,'configured hotkey unlikes current track');
+            assert.ok(await run(`[...document.querySelectorAll('#hotkeys-list .hotkey-label')].some(label=>label.textContent.includes('Текущий трек: нравится / не нравится'))`),'extension hotkey appears in settings');
             await run(`document.body.click();document.getElementById('settings-fab').click();document.querySelector('[data-panel="panel-integrations"]').click();document.querySelector('#integration-addon-service-library-demo input[type="search"]').value='Исполнитель';document.querySelector('#integration-addon-service-library-demo .service-search').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))`);
             await wait(`document.querySelector('#integration-addon-service-library-demo .service-library-heading').textContent==='Поиск: Исполнитель'`,'inline search');
             assert.equal(await run(`document.querySelectorAll('#integration-addon-service-library-demo .provider-track').length`),2);
@@ -121,7 +137,7 @@ app.on('browser-window-created',(_,win)=>{
             await run(`noctune.addons.setEnabled('service-library-demo',true).then(()=>addonHost.refresh())`);
             await wait(`userPlaylists.some(pl=>pl.service?.id==='stream')&&userPlaylists.some(pl=>pl.service?.id==='favorites'&&pl.tracks.length>=300)`,'saved collection references restored');
             assert.equal(await run(`isPlaying`),false,'restoring a playlist does not start playback');
-            console.log('PASS: integrated library, artwork broker, 300/600-track pages, service playlist icon/type/rows, context menus, inline paginated search and natural stream autoplay with deduplicated continuation. Profile: '+profile);
+            console.log('PASS: integrated library, artwork broker, 300/600-track pages, service playlist icon/type/rows, dynamic track menus, separate like/dislike actions, configured current-track hotkey, inline paginated search and natural stream autoplay with deduplicated continuation. Profile: '+profile);
             app.exit(0);
         }catch(error){console.error(error);await fs.promises.writeFile(path.join(output,'failure.png'),(await win.webContents.capturePage()).toPNG());app.exit(1);}
     });

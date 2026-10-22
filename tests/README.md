@@ -49,6 +49,12 @@
 
 ## Проверки установщика Windows
 
+`.\node_modules\.bin\electron.cmd tests/native-windows-identity-probe.cjs`
+проверяет раннюю установку идентификатора процесса и ресурсов панели задач у
+окон. В том числе с `--app-asar=dist/win-unpacked/resources/app.asar` тест
+сохраняет идентификатор разработки: запуск через стандартный Electron не
+должен создавать ярлык Electron с идентификатором установленного Noctune.
+
 ```sh
 node tests/native-installer-policy-probe.cjs
 node tests/native-theme-associations-probe.cjs
@@ -68,6 +74,12 @@ node tests/native-theme-associations-probe.cjs
 Проверка официальных расширений дополнительно принимает
 `--official-packages=addons/packages` для проверки локально собранных подписанных
 пакетов.
+
+Контекстные действия провайдеров дополнительно проверяются в
+`renderer/provider-actions.cjs`: привязка к выбранному треку, валидация ответа,
+однократное выполнение, срок действия меню и отключение владельца.
+`native-service-library-probe.cjs` проверяет динамические подписи лайка/дизлайка
+и вызов зарегистрированной команды через назначенную горячую клавишу.
 
 ## Добавление регрессионных тестов
 

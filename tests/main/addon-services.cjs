@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
+const { constants } = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { createAddonServices } = require('../../src/main/addons/services');
@@ -31,9 +32,27 @@ const { expand } = require('../../src/shared/addon-permissions');
         await assert.rejects(invoke('network.request', { url: 'https://example.com/path', headers: { Authorization: 'spoofed' } }));
         await assert.rejects(invoke('network.request', { url: 'https://evil.example/path' }));
         await fs.rename(filename, filename + '.old'); await fs.symlink(filename + '.old', filename);
-        await assert.rejects(invoke('files.read', { handle: chosen.handle }), /ELOOP|изменился/);
+        // POSIX rejects the link itself. Windows has no O_NOFOLLOW; the
+        // descriptor identity still limits access to the originally granted file.
+        if (constants.O_NOFOLLOW) await assert.rejects(invoke('files.read', { handle: chosen.handle }), /ELOOP|изменился/);
+        else assert.equal((await invoke('files.read', { handle: chosen.handle })).data, 'new');
+        const other = path.join(directory, 'not-selected.txt');
+        await fs.writeFile(other, 'not authorized');
+        await fs.unlink(filename); await fs.symlink(other, filename);
+        for (const [method, args] of [
+            ['files.read', { handle: chosen.handle }],
+            ['files.write', { handle: saved.handle, data: 'must not be written' }],
+            ['files.reveal', { handle: chosen.handle }],
+            ['system.openFile', { handle: chosen.handle }],
+        ]) await assert.rejects(invoke(method, args), /ELOOP|изменился/, method + ' rejects a link to an unselected file');
+        assert.equal(await fs.readFile(other, 'utf8'), 'not authorized');
+        assert.equal(opened, 'https://example.com/path', 'rejected shell actions never reach the shell');
+        await fs.unlink(filename); await fs.writeFile(filename, 'replacement');
+        await assert.rejects(invoke('files.read', { handle: chosen.handle }), /изменился/, 'regular file replacement also invalidates the grant');
+        await assert.rejects(invoke('files.write', { handle: saved.handle, data: 'must not be written' }), /изменился/);
+        assert.equal(await fs.readFile(filename, 'utf8'), 'replacement');
         service.cancel('test-addon'); await assert.rejects(invoke('files.read', { handle: chosen.handle }));
         enabled = false; await assert.rejects(invoke('clipboard.read'));
-        console.log('PASS: user-selected opaque file handles, separate write grants, symlink substitution rejection, cleanup, clipboard bounds, HTTPS opening and forbidden headers.');
+        console.log('PASS: user-selected opaque file handles, separate write grants, platform-aware same-file links, rejection of foreign symlink/regular-file replacements for reads/writes/shell actions, cleanup, clipboard bounds, HTTPS opening and forbidden headers.');
     } finally { await fs.rm(directory, { recursive: true, force: true }); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

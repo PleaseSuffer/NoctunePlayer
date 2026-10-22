@@ -15,6 +15,8 @@ const iconPath = path.join(
   __dirname, '..', '..', 'resources',
   process.platform === 'win32' ? 'app.ico' : 'app.png'
 );
+const { configureWindowsAppIdentity } = require('./windows-app-identity');
+configureWindowsAppIdentity({ app, iconPath });
 
 const { createLyricsClient } = require('./integrations/lrclib/lyrics-service');
 const lyricsClient = createLyricsClient({ userAgent: 'Noctune/' + app.getVersion() + ' (https://github.com/PleaseSuffer/NoctunePlayer)' });
@@ -1168,10 +1170,6 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     protocol.handle('noctune-stream', request => addonStore.stream(request));
-    // Установленная версия использует build.appId из package.json, как ярлык
-    // NSIS. Запуск через npm start получает отдельный AUMID, чтобы ярлык
-    // Electron в Windows не подменял имя и иконку установленного Noctune.
-    app.setAppUserModelId(app.isPackaged ? 'com.noctune.player' : 'com.noctune.player.dev');
     initStore().then(() => {
       console.log('Store инициализирован');
       lastfmLoadSession();

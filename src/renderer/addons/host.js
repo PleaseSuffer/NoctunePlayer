@@ -92,7 +92,13 @@
                         clipboard: { read: () => call('clipboard.read', {}), write: text => call('clipboard.write', { text }) },
                         system: { openExternal: url => call('system.openExternal', { url }), openFile: handle => call('system.openFile', { handle }) },
                         providers: {
-                            async register(provider) { if (!provider || typeof provider.resolve !== 'function') throw new Error('Нужен обработчик resolve'); providers.set(provider.id, provider); return call('providers.register', { id: provider.id, name: provider.name }); },
+                            async register(provider) {
+                                if (!provider || typeof provider.resolve !== 'function') throw new Error('Нужен обработчик resolve');
+                                const trackActions = typeof provider.trackActions === 'function' && typeof provider.trackAction === 'function';
+                                providers.set(provider.id, provider);
+                                try { return await call('providers.register', { id: provider.id, name: provider.name, trackActions }); }
+                                catch (error) { providers.delete(provider.id); throw error; }
+                            },
                             search: (provider, query) => call('providers.search', { provider, query }),
                             play: (provider, track) => call('providers.play', { provider, track }),
                             enqueue: (provider, track) => call('providers.enqueue', { provider, track }),

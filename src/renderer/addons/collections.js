@@ -113,14 +113,23 @@
     api.menu = (event,{pl,track,play,remove}) => {
         event.preventDefault();event.stopPropagation();hideMenu();
         menu=node('div','context-menu provider-context-menu');menu.setAttribute('role','menu');
-        const action=(label,icon,run)=>{const button=node('button');button.type='button';button.setAttribute('role','menuitem');button.append(AddonPermissionView.icon(icon,'provider-menu-icon'),node('span','',label));button.addEventListener('click',()=>{hideMenu();Promise.resolve().then(run).catch(notifyError);});menu.append(button);};
+        const target=menu;
+        const action=(label,icon,run)=>{const button=node('button');button.type='button';button.setAttribute('role','menuitem');button.append(AddonPermissionView.icon(icon,'provider-menu-icon'),node('span','',label));button.addEventListener('click',()=>{if(button.disabled)return;button.disabled=true;hideMenu();Promise.resolve().then(run).catch(notifyError);});target.append(button);return button;};
         action('Воспроизвести','Play',play);
         action('Воспроизвести следующим','ListStart',()=>addQueue(pl,track,true));
         action('Добавить в очередь','ListPlus',()=>addQueue(pl,track));
         if(remove)action('Убрать из этого списка','ListMinus',remove);
         document.body.append(menu);menu.style.display='block';
-        menu.style.left=Math.max(8,Math.min(event.clientX,innerWidth-menu.offsetWidth-8))+'px';
-        menu.style.top=Math.max(8,Math.min(event.clientY,innerHeight-menu.offsetHeight-8))+'px';menu.querySelector('button')?.focus();
+        const position=()=>{target.style.left=Math.max(8,Math.min(event.clientX,innerWidth-target.offsetWidth-8))+'px';target.style.top=Math.max(8,Math.min(event.clientY,innerHeight-target.offsetHeight-8))+'px';};
+        position();menu.querySelector('button')?.focus();
+        const entry={...track,addonId:pl.addonId,providerId:pl.providerId};
+        const loading=action('Загрузка действий…','LoaderCircle',()=>{});loading.disabled=true;
+        api.actions(entry).then(actions=>{
+            if(menu!==target)return;
+            loading.remove();
+            for(const item of actions)action(item.title,item.icon,()=>api.action(entry,item.id));
+            position();
+        }).catch(error=>{if(menu===target){loading.textContent='Не удалось загрузить действия';loading.title=String(error.message||error);position();}});
     };
     document.addEventListener('click',hideMenu);document.addEventListener('scroll',hideMenu,true);document.addEventListener('keydown',event=>{if(event.key==='Escape')hideMenu();});
     async function drainImages(){
@@ -183,7 +192,7 @@
         watch(element,entry,token);
         element.addEventListener('timeupdate',()=>{if(token!==_loadToken||element.paused)return;const pl=userPlaylists.find(item=>item.id===activePlaylistId);if(pl?.service&&!pl.service.pending&&currentPlaylistId===pl.id&&(isShuffle?currentShufflePos>=shuffleList.length-2:currentIndex>=playlistOrder.length-2)&&element.currentTime>Math.min(15,element.duration/2))api.loadMore(pl,{after:entry.trackId}).catch(()=>{});});
     };
-    api.cleanup = owner => {if(userPlaylists.some(pl=>pl.id===activePlaylistId&&pl.addonId===owner)){stopTrack();updatePlayIcons(false);activePlaylistId=null;}epochs.set(owner,(epochs.get(owner)||0)+1);cleanup(owner);for(const key of imageCache.keys())if(key.startsWith(owner+':'))imageCache.delete(key);};
+    api.cleanup = owner => {hideMenu();if(userPlaylists.some(pl=>pl.id===activePlaylistId&&pl.addonId===owner)){stopTrack();updatePlayIcons(false);activePlaylistId=null;}epochs.set(owner,(epochs.get(owner)||0)+1);cleanup(owner);for(const key of imageCache.keys())if(key.startsWith(owner+':'))imageCache.delete(key);};
     api.removeCatalog = (owner,catalog) => {
         const removed=userPlaylists.filter(pl=>pl.addonId===owner&&pl.service?.catalog===catalog);
         if(removed.some(pl=>pl.id===activePlaylistId)){stopTrack();updatePlayIcons(false);activePlaylistId=null;}

@@ -22,8 +22,32 @@
         register(id, hash, args, call) {
             if (!/^[a-z][a-z0-9-]{1,63}$/.test(args.id) || typeof args.name !== 'string' || args.name.length > 120 || providers.has(key(id, args.id))) throw new Error('Некорректный или повторный провайдер');
             if ([...providers.values()].filter(provider => provider.id === id).length >= 8) throw new Error('Не более восьми провайдеров на расширение');
-            providers.set(key(id, args.id), { id, hash, name: args.name, call });
+            providers.set(key(id, args.id), { id, hash, name: args.name, call, trackActions: args.trackActions === true, offered: new Map(), pending: new Set() });
             document.dispatchEvent(new Event('addon-contributions-changed'));
+        },
+        async actions(entry) {
+            const provider = get(entry);
+            if (!provider.trackActions) return [];
+            const result = await provider.call('trackActions', { trackId: entry.trackId || entry.id });
+            if (providers.get(key(entry.addonId, entry.providerId)) !== provider) throw new Error('Провайдер выключен или обновлён');
+            if (!Array.isArray(result) || result.length > 16) throw new Error('Не более 16 действий трека');
+            const ids = new Set();
+            const actions = result.map(action => {
+                if (!action || typeof action.id !== 'string' || !/^[a-z][a-z0-9-]{1,63}$/.test(action.id) || ids.has(action.id) || typeof action.title !== 'string' || !action.title.trim() || action.title.length > 120) throw new Error('Некорректное действие трека');
+                ids.add(action.id);
+                return { id: action.id, title: action.title, icon: typeof action.icon === 'string' && /^[A-Z][A-Za-z0-9]{0,63}$/.test(action.icon) ? action.icon : 'Circle' };
+            });
+            provider.offered.set(entry.trackId || entry.id, { ids, expires: Date.now() + 60000 });
+            while (provider.offered.size > 64) provider.offered.delete(provider.offered.keys().next().value);
+            return actions;
+        },
+        async action(entry, action) {
+            const provider = get(entry), trackId = entry.trackId || entry.id, offered = provider.offered.get(trackId);
+            if (!provider.trackActions || !offered || offered.expires < Date.now() || !offered.ids.has(action)) throw new Error('Действие устарело. Откройте меню трека заново.');
+            if (provider.pending.has(trackId)) throw new Error('Действие с треком уже выполняется');
+            provider.pending.add(trackId);
+            try { await provider.call('trackAction', { trackId, action }); }
+            finally { provider.pending.delete(trackId); provider.offered.delete(trackId); }
         },
         async search(id, args) { const provider = get({ addonId: id, providerId: args.provider }); const result = await provider.call('search', { query: String(args.query).slice(0, 300) }); if (!Array.isArray(result) || result.length > 100) throw new Error('Не более 100 результатов'); return result.map(track => { const item = validate(track); return { id: item.trackId, title: item.title, artist: item.artist, album: item.album }; }); },
         enqueue(id, args) {

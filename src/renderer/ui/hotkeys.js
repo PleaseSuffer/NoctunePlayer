@@ -89,7 +89,7 @@
             const actionId = Object.keys(window.hotkeyBindings).find(k => window.hotkeyBindings[k] === combo);
             if (!actionId) return;
             const addonAction = window.addonContributions?.hotkeys().find(item => item.id === actionId);
-            const handler = HOTKEY_ACTIONS[actionId] || (addonAction ? () => { const [, owner, command] = actionId.split(':'); window.addonHost.command(owner, command).catch(error => console.warn('Extension hotkey failed:', error.message)); } : null);
+            const handler = HOTKEY_ACTIONS[actionId] || (addonAction ? () => { const [, owner, command] = actionId.split(':'); window.addonHost.command(owner, command).catch(error => showNotification(String(error.message), 'error', 'Горячая клавиша расширения')); } : null);
             if (!handler) return;
             e.preventDefault();
             handler();

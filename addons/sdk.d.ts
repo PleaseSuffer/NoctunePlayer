@@ -133,7 +133,10 @@ interface NoctuneAddonApi {
     clipboard: { read(): Promise<string>; write(text: string): Promise<void> };
     system: { openExternal(url: string): Promise<void>; openFile(handle: string): Promise<void> };
     providers: {
-        register(provider: { id: string; name: string; search?(args: { query: string }): Promise<ProviderTrack[]> | ProviderTrack[]; resolve(args: { trackId: string; reason: 'play' | 'refresh'; sessionId: string }): Promise<StreamDescriptor | ProviderFailure> | StreamDescriptor | ProviderFailure }): Promise<void>;
+        register(provider: { id: string; name: string; search?(args: { query: string }): Promise<ProviderTrack[]> | ProviderTrack[];
+            trackActions?(args: { trackId: string }): Promise<{id:string;title:string;icon?:string}[]> | {id:string;title:string;icon?:string}[];
+            trackAction?(args: { trackId: string; action: string }): Promise<void> | void;
+            resolve(args: { trackId: string; reason: 'play' | 'refresh'; sessionId: string }): Promise<StreamDescriptor | ProviderFailure> | StreamDescriptor | ProviderFailure }): Promise<void>;
         search(provider: string, query: string): Promise<ProviderTrack[]>; play(provider: string, track: ProviderTrack): Promise<void>; enqueue(provider: string, track: ProviderTrack): Promise<string>;
     };
 }
