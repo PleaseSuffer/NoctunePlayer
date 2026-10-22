@@ -1,21 +1,21 @@
-# Tests
+# Проверки
 
-Run `npm test` from the project root. The runner executes `.cjs` files in
-`main/`, `renderer/`, and `structure/` and stops on the first failure.
-The suite requires Node.js and the project dependencies; it does not need a
-graphical display or real service credentials.
+Запускайте `npm test` из корня проекта. Сценарий выполняет файлы `.cjs` из
+`main/`, `renderer/` и `structure/` и останавливается при первой ошибке.
+Для запуска нужны Node.js и зависимости проекта. Графическая среда и настоящие
+учётные данные сторонних сервисов не требуются.
 
-| Group | Coverage |
+| Группа | Что проверяется |
 | --- | --- |
-| `main/` | Package validation and signatures, extension permissions and isolation, OAuth and secret storage, network restrictions, caches, theme installation, file opening, system integration and updates |
-| `renderer/` | Playback and seeking, queues, lyrics, waveform, effect scheduling, settings persistence, extension SDK lifecycle and official extension behavior |
-| `structure/` | Entry point, local imports, HTML resources and JavaScript syntax |
+| `main/` | Проверка пакетов и подписей, разрешения и изоляция расширений, OAuth и защищённое хранение секретов, сетевые ограничения, кэши, установка тем, открытие файлов, системная интеграция и обновления |
+| `renderer/` | Воспроизведение и перемотка, очереди, тексты песен, waveform, планирование эффектов, сохранение настроек, жизненный цикл SDK и работа официальных расширений |
+| `structure/` | Точка входа, локальные импорты, ресурсы HTML и синтаксис JavaScript |
 
-## Electron integration tests
+## Интеграционные проверки Electron
 
-These tests exercise real main/preload/renderer communication, browser isolation
-and APIs that Node.js fixtures cannot verify. Run them sequentially from the
-project root, with a graphical display:
+Эти сценарии проверяют взаимодействие настоящих процессов main/preload/renderer,
+изоляцию браузерного контекста и API, которые нельзя проверить в сценариях Node.js.
+Запускайте их последовательно из корня проекта в среде с графическим дисплеем:
 
 ```sh
 ./node_modules/.bin/electron tests/native-addons-probe.cjs
@@ -27,45 +27,49 @@ project root, with a graphical display:
 ./node_modules/.bin/electron tests/native-playback-keep-awake-probe.cjs
 ```
 
-On Windows, use `.\node_modules\.bin\electron.cmd` instead.
+В Windows используйте `.\node_modules\.bin\electron.cmd`.
 
-| Test | Coverage |
+| Сценарий | Что проверяется |
 | --- | --- |
-| `native-addons-probe.cjs` | Installer consent, artwork and grouped permissions, sandbox/CSP, SDK settings, audio-provider playback, expired streams and cleanup |
-| `native-addon-store-probe.cjs` | Sandboxed store, signed catalog, install/cancel, search, tabs, main-window refresh and offline fallback |
-| `native-official-extensions-probe.cjs` | Sleep audio gain, all six Shades selections, Dusk schemes and wallpaper restoration, dropdown interaction and scroll preservation |
-| `native-open-theme-probe.cjs` | Theme installer, cancel, install/update, feedback and repeated file opening |
-| `native-scene-themes-probe.cjs` | Canvas rendering, sandbox isolation, palette lifecycle and full-app theme activation |
-| `native-playback-keep-awake-probe.cjs` | Actual playback, pause/resume/end and the native sleep blocker |
+| `native-addons-probe.cjs` | Согласие на установку, графические ресурсы и группы разрешений, песочница и CSP, настройки SDK, воспроизведение потока провайдера, истёкшие ссылки и освобождение ресурсов |
+| `native-addon-store-probe.cjs` | Изолированное окно магазина, подписанный каталог, установка и отмена, поиск, вкладки, обновление главного окна и работа без сети |
+| `native-official-extensions-probe.cjs` | Затихание звука в Sleep, выбор всех шести схем Shades, схемы Dusk и восстановление обоев, работа выпадающих списков и сохранение прокрутки |
+| `native-open-theme-probe.cjs` | Установщик тем, отмена, установка и обновление, уведомления и повторное открытие файлов |
+| `native-scene-themes-probe.cjs` | Отрисовка Canvas, изоляция песочницы, жизненный цикл палитры и включение тем в настоящем приложении |
+| `native-playback-keep-awake-probe.cjs` | Настоящее воспроизведение, пауза, возобновление, завершение и системная блокировка перехода в спящий режим |
 
-Tests use fixture profiles and generated data. Screenshots and retained profiles
-are ignored under `tests/.artifacts/`. Extension tests use temporary keys and mock
-responses; they do not verify real third-party login.
+Сценарии используют тестовые профили и сгенерированные данные. Снимки экрана и
+сохранённые профили размещаются в `tests/.artifacts/`, исключённой из Git.
+Проверки расширений используют временные ключи и подставные ответы сервисов;
+настоящий вход в сторонние сервисы ими не проверяется.
 
-## Windows installer tests
+## Проверки установщика Windows
 
 ```sh
 node tests/native-installer-policy-probe.cjs
 node tests/native-theme-associations-probe.cjs
 ```
 
-These tests require the NSIS toolchain supplied by electron-builder. They compile
-and execute fixtures without installing the application or changing the registry.
+Для запуска нужны инструменты NSIS, предоставляемые electron-builder. Сценарии
+компилируют и выполняют тестовые примеры без установки приложения и изменения
+системного реестра.
 
-## Packaged application
+## Проверка собранного приложения
 
-`npm run audit:package -- dist/linux-unpacked/resources/app.asar` validates archive
-contents, runtime imports, interface resources, themes and wallpapers.
+`npm run audit:package -- dist/linux-unpacked/resources/app.asar` проверяет состав
+архива, импорты исполняемых модулей, ресурсы интерфейса, темы и обои.
 
-The native extension tests accept
-`--app-asar=dist/linux-unpacked/resources/app.asar` to exercise packaged code.
-The official extension test additionally accepts
-`--official-packages=addons/packages` to verify locally built signed packages.
+Интеграционные проверки расширений принимают параметр
+`--app-asar=dist/linux-unpacked/resources/app.asar` для запуска кода из сборки.
+Проверка официальных расширений дополнительно принимает
+`--official-packages=addons/packages` для проверки локально собранных подписанных
+пакетов.
 
-## Adding regression tests
+## Добавление регрессионных тестов
 
-Keep repeatable checks of observable behavior, public contracts, error handling
-and resource cleanup. A permanent test should have an independent expected
-result, isolate its data and reproduce a meaningful failure. Avoid duplicating
-existing assertions, mirroring implementation details or committing profiling
-sessions, historical comparisons and release-specific screenshots.
+Добавляйте воспроизводимые проверки наблюдаемого поведения, публичных контрактов,
+обработки ошибок и освобождения ресурсов. Постоянный тест должен иметь независимый
+ожидаемый результат, изолировать свои данные и выявлять значимый сбой. Избегайте
+дублирования существующих проверок и повторения деталей реализации. Не включайте
+в репозиторий сеансы профилирования, сравнения с историческими реализациями и
+снимки экрана, привязанные к отдельным выпускам.

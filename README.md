@@ -1,17 +1,17 @@
-# Noctune Music Player
+# Noctune — музыкальный плеер
 
 <div align="center">
 
-<img src="resources/app.png" width="120" alt="Noctune Music Player">
+<img src="resources/app.png" width="120" alt="Noctune — музыкальный плеер">
 
 ### Современный музыкальный плеер на Electron
 
-Desktop-плеер для локальной музыки и интернет-радио с эквалайзером, текстами песен LRCLIB, обложками и скробблингом Last.fm, а также гибкой настройкой интерфейса.
+Настольный плеер для локальной музыки и интернет-радио с эквалайзером, текстами песен LRCLIB, обложками и скробблингом Last.fm, а также гибкой настройкой интерфейса.
 
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue)
+![Платформы](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue)
 ![Electron](https://img.shields.io/badge/Electron-Desktop_App-47848F?logo=electron)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES6-yellow?logo=javascript)
-![License](https://img.shields.io/badge/license-MIT-green)
+![Лицензия](https://img.shields.io/badge/license-MIT-green)
 
 </div>
 
