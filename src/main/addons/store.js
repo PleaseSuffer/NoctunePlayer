@@ -128,7 +128,7 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
     async list() {
       const state = await registry(), addons = [];
       for (const [id, entry] of Object.entries(state.installed)) {
-        try { const pkg = await read(id, entry); addons.push(details(pkg, { enabled: entry.enabled === true, rollbackAvailable: !!entry.previous, grants: entry.grants || permissions.expand(pkg.manifest.permissions) })); }
+        try { const pkg = await read(id, entry); addons.push(details(pkg, { enabled: entry.enabled === true, maxRevision: entry.maxRevision, rollbackAvailable: !!entry.previous, grants: entry.grants || permissions.expand(pkg.manifest.permissions) })); }
         catch (_) { addons.push({ id, name: id, broken: true, enabled: false, description: 'Пакет повреждён. Удалите его и установите снова.' }); }
       }
       return addons.sort((a, b) => a.name.localeCompare(b.name));

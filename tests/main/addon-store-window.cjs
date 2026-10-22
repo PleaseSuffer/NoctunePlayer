@@ -4,7 +4,7 @@ const { createAddonStoreWindow } = require('../../src/main/addons/store-window')
 (async () => {
     const windows = [], handlers = new Map(), links = [], discarded = [], notifications = [];
     class Window extends EventEmitter {
-        constructor(options) { super();this.options=options;this.webContents=new EventEmitter();this.webContents.mainFrame={};this.webContents.setWindowOpenHandler=callback=>{this.openHandler=callback;};windows.push(this); }
+        constructor(options) { super();this.options=options;this.webContents=new EventEmitter();this.webContents.mainFrame={};this.webContents.send=(...args)=>{this.sent=args;};this.webContents.setWindowOpenHandler=callback=>{this.openHandler=callback;};windows.push(this); }
         isDestroyed(){return !!this.destroyed;} setMenu(){} show(){} focus(){this.focused=true;}
         async loadFile(file,options){this.file=file;this.query=options.query;}
         destroy(){this.destroyed=true;this.emit('closed');}
@@ -15,7 +15,7 @@ const { createAddonStoreWindow } = require('../../src/main/addons/store-window')
     let window=windows[0]; const event=()=>({sender:window.webContents,senderFrame:window.webContents.mainFrame});
     assert.equal(window.options.webPreferences.sandbox,true);assert.equal(window.options.webPreferences.nodeIntegration,false);assert.equal(window.options.webPreferences.contextIsolation,true);
     assert.deepEqual(window.query,{theme:'light',accent:'#ac91ee'});
-    shop.open();assert.equal(windows.length,1);assert(window.focused);
+    shop.open();assert.equal(windows.length,1);assert(window.focused);assert.deepEqual(window.sent,['addon-store:refresh']);
     for(const handler of handlers.values()) {
         await assert.rejects(async()=>handler({sender:{},senderFrame:window.webContents.mainFrame}),/Недоступно/);
         await assert.rejects(async()=>handler({...event(),senderFrame:{}}),/Недоступно/);

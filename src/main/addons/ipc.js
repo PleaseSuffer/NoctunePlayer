@@ -1,12 +1,14 @@
 const { createAddonStore } = require('./store');
 const { createAddonInstaller } = require('./installer');
+const { createAddonCatalog } = require('./catalog');
 
 function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory, appVersion, icon, safeStorage, shell, clipboard }) {
   const store = createAddonStore({ directory, appVersion });
   const credentialDialog = require('./credentials-dialog').createCredentialDialog({ BrowserWindow, ipcMain });
   const services = require('./services').createAddonServices({ store, directory, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog });
   const installer = createAddonInstaller({ BrowserWindow, ipcMain, store, icon });
-  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled: () => {
+  const catalog = createAddonCatalog({ directory, appVersion, store });
+  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, catalog, onInstalled: () => {
     const window = getWindow();
     if (window && !window.isDestroyed()) window.webContents.send('addons:changed');
   } });
@@ -39,7 +41,10 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   handle('enable', async (_event, id, enabled) => { await store.setEnabled(id, enabled); if (!enabled) abort(id); });
   handle('remove', async (_event, id) => { await store.remove(id); await services.remove(id); abort(id); });
   handle('rollback', async (_event, id) => { const result = await store.rollback(id); abort(id); return result; });
-  handle('check-update', (_event, id) => store.checkUpdate(id));
+  handle('check-update', async (_event, id) => {
+    const current = (await store.list()).find(item=>item.id===id);
+    return current?.verifiedPublisher === 'Noctune' ? catalog.checkUpdate(id) : store.checkUpdate(id);
+  });
   handle('invoke', (_event, id, hash, method, args) => store.invoke(id, hash, method, args));
   handle('request', async (_event, id, hash, url) => {
     const pending = downloads.get(id) || new Set();

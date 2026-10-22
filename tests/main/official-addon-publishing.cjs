@@ -1,0 +1,45 @@
+const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const p=require('../../src/main/addons/package');
+const {createAddonCatalog,CATALOG_URL,CATALOG_FIELDS,validateCatalog}=require('../../src/main/addons/catalog');
+const {createAddonStore}=require('../../src/main/addons/store');
+const {publishOfficialAddons}=require('../../scripts/publish-official-addons.cjs');
+(async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'noctune-publishing-'));
+ try {
+ const privateKey=crypto.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'}),fingerprint=p.signingIdentity(p.sign({},privateKey),true),trustedPublisher=x=>x===fingerprint?'Noctune':null;
+ await fs.mkdir(path.join(root,'addons/catalog'),{recursive:true});
+ const initial=p.sign({format:'noctune-addon-catalog',formatVersion:1,channel:'official',revision:1,generatedAt:new Date().toISOString(),entries:[]},privateKey);
+ await fs.writeFile(path.join(root,'addons/catalog/official.json'),p.canonical(initial));
+ const addonId=require('../../addons/examples/track-info/manifest.json').id;
+ const source=path.join(root,'addons/official/'+addonId);await fs.cp('addons/examples/track-info',source,{recursive:true});
+ const thumbnail=async()=>Buffer.from('89504e470d0a1a0a','hex').toString('base64');
+ const options={root,privateKey,trustedPublisher,thumbnail};
+ assert.equal((await publishOfficialAddons(options)).packages,1);
+ let remote=JSON.parse(await fs.readFile(path.join(root,'addons/catalog/official.json'),'utf8'));
+ validateCatalog(remote,trustedPublisher);
+ let calls=0,fail=false;
+ const store=createAddonStore({directory:path.join(root,'profile'),appVersion:'1.4.0'});
+ const fetch=async url=>{if(url===CATALOG_URL){calls++;if(fail)throw Error('offline');return p.canonical(remote);}return fs.readFile(path.join(root,new URL(url).pathname.split('/').slice(4).join('/')),'utf8');};
+ const catalog=createAddonCatalog({directory:path.join(root,'profile'),store,appVersion:'1.4.0',fetch,builtin:initial,trustedPublisher});
+ assert.equal((await catalog.list(true)).entries.length,1);
+ const candidate=await catalog.prepare(addonId);await store.confirm(candidate.ticket);
+ assert.equal((await catalog.checkUpdate(addonId)).state,'current');
+ assert.equal((await publishOfficialAddons(options)).changed,false);
+ const added=path.join(root,'addons/official/new-official-demo');await fs.cp(source,added,{recursive:true});
+ const addedManifest=JSON.parse(await fs.readFile(path.join(added,'manifest.json'),'utf8'));addedManifest.id='new-official-demo';addedManifest.name='Новое расширение';await fs.writeFile(path.join(added,'manifest.json'),JSON.stringify(addedManifest));
+ assert.equal((await publishOfficialAddons(options)).packages,2);remote=JSON.parse(await fs.readFile(path.join(root,'addons/catalog/official.json'),'utf8'));
+ assert.equal((await catalog.list(true)).entries.length,2,'new directory appears after refreshing the signed catalog');
+ await fs.appendFile(path.join(source,'main.js'),'\n// updated behavior\n');
+ await assert.rejects(publishOfficialAddons(options),/версию и ревизию/);
+ const manifest=JSON.parse(await fs.readFile(path.join(source,'manifest.json'),'utf8'));manifest.version='1.0.1';manifest.revision++;await fs.writeFile(path.join(source,'manifest.json'),JSON.stringify(manifest));
+ await publishOfficialAddons(options);remote=JSON.parse(await fs.readFile(path.join(root,'addons/catalog/official.json'),'utf8'));
+ await catalog.list(true);
+ const update=await catalog.checkUpdate(addonId);assert.equal(update.state,'update');assert.equal(update.version,'1.0.1');
+ assert.equal((await store.list())[0].version,'1.0.0','discovery never auto installs');await store.confirm(update.ticket);
+ assert.equal((await store.list())[0].version,'1.0.1');
+ const changed=structuredClone(remote);changed.entries[0].sha256='a'.repeat(64);changed.revision++;remote=p.sign(changed,privateKey);
+ assert((await catalog.list(true)).message,'same revision package replacement rejected');
+ fail=true;await catalog.list(true);assert.equal((await catalog.checkUpdate(addonId)).state,'unavailable');
+ console.log('PASS: directory discovery, signed raw packages, immutable versions, idempotent publish, live updates with consent, rollback/replacement rejection and offline status');
+ }finally{await fs.rm(root,{recursive:true,force:true});}
+})().catch(error=>{console.error(error);process.exitCode=1;});

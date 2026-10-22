@@ -29,7 +29,7 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
   });
   return {
     open(appearance = {}) {
-      if (window && !window.isDestroyed()) { window.show(); window.focus(); return; }
+      if (window && !window.isDestroyed()) { window.show(); window.focus(); contents.send('addon-store:refresh'); return; }
       const theme = appearance?.theme === 'light' ? 'light' : 'dark';
       const accent = /^#[a-f0-9]{6}$/i.test(appearance?.accent) ? appearance.accent : '#ac91ee';
       window = new BrowserWindow({ title: 'Магазин расширений — Noctune', width: 1040, height: 800, minWidth: 620, minHeight: 560, show: false, backgroundColor: theme === 'light' ? '#f4f7f6' : '#15151b', icon, autoHideMenuBar: true,

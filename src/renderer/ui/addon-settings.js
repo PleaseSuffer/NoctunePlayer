@@ -184,7 +184,7 @@
                     const control = button(command.title, () => window.addonHost.command(addon.id, command.id), actions);
                     control.dataset.addonCommand = command.id;
                 }
-                if (addon.update && addon.signed) button('Проверить обновление', () => check(addon), actions);
+                if (addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune')) button('Проверить обновление', () => check(addon), actions);
                 if (updates.has(addon.id)) button('Обновить до ' + updates.get(addon.id).version, () => showReview(updates.get(addon.id)), actions);
                 if (addon.rollbackAvailable) button('Вернуть предыдущую версию', async () => {
                     if (!window.confirm(`Вернуть предыдущую версию «${addon.name}»?`)) return;
@@ -208,7 +208,7 @@
                     detail.append(origins);
                 }
                 detail.append(node('div', 'settings-row-desc', addon.signed ? 'Пакет подписан издателем' : 'Локальный пакет без подписи'));
-                detail.append(node('div', 'settings-row-desc', addon.update && addon.signed ? 'Обновления проверяются вручную' : 'Обновление: установите новый пакет из файла'));
+                detail.append(node('div', 'settings-row-desc', addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune') ? 'Обновления проверяются вручную' : 'Обновление: установите новый пакет из файла'));
                 card.append(detail);
             }
             if (!addon.broken && hasPanel(addon)) {
@@ -346,6 +346,7 @@
             status.textContent = 'Доступно обновление «' + addon.name + '»';
         }
         else status.textContent = result.message;
+        return result;
     }
     document.getElementById('addons-store').addEventListener('click', () => task(() => api.openStore({ theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', accent: getComputedStyle(document.body).getPropertyValue('--accent-color').trim() })));
     api.onChanged(() => changed().catch(error => { status.textContent = error.message; }));
@@ -360,15 +361,15 @@
         event.preventDefault(); task(async () => { status.textContent = 'Загружаем пакет…'; await showReview(await api.prepareUrl(document.getElementById('addons-url').value.trim())); });
     });
     document.getElementById('addons-check-all').addEventListener('click', () => task(async () => {
-        const eligible = addons.filter(addon => !addon.broken && addon.signed && addon.update);
+        const eligible = addons.filter(addon => !addon.broken && addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune'));
         if (!eligible.length) { status.textContent = 'Нет расширений с обновлениями по сети. Новую версию можно установить из файла.'; return; }
         const failures = [];
         for (const addon of eligible) {
-            try { await check(addon, false); }
+            try { const result=await check(addon,false); if (['unavailable','incompatible'].includes(result?.state)) failures.push(addon.name+': '+result.message); }
             catch (_) { failures.push(addon.name); }
         }
         await reload();
-        status.textContent = (updates.size ? `Доступно обновлений: ${updates.size}. Выберите обновление в карточке.` : 'Новых обновлений нет.') + (failures.length ? ' Не удалось проверить: ' + failures.join(', ') : '');
+        status.textContent = (updates.size ? `Доступно обновлений: ${updates.size}. Выберите обновление в карточке.` : failures.length ? 'Проверка обновлений завершена не полностью.' : 'Новых обновлений нет.') + (failures.length ? ' Не удалось проверить: ' + failures.join(', ') : '');
     }));
     document.addEventListener('addons-runtime-changed', updateRuntime);
     reload().catch(error => { status.textContent = error.message; });

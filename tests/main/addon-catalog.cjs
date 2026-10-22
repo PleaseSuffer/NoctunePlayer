@@ -17,10 +17,13 @@ const digest = value => crypto.createHash('sha256').update(value).digest('hex');
         const metadata = Object.fromEntries(CATALOG_FIELDS.filter(field => pkg.manifest[field] !== undefined).map(field => [field,pkg.manifest[field]]));
         const packageUrl = 'https://github.com/PleaseSuffer/NoctunePlayer/releases/download/addon-test/track-info.noctaddon';
         const entry = { ...metadata,publisher:identity,sha256:digest(bytes),published:true,packageUrl,artwork:{} };
+        const rawUrl='https://raw.githubusercontent.com/PleaseSuffer/NoctunePlayer/main/addons/distribution/'+pkg.manifest.id+'/'+pkg.manifest.version+'/'+pkg.manifest.id+'-'+pkg.manifest.version+'.noctaddon';
         const sign = value => p.sign(value,key);
         const builtin = sign({ format:'noctune-addon-catalog',formatVersion:1,channel:'official',revision:1,generatedAt:new Date().toISOString(),entries:[entry] });
         assert.equal(validateCatalog(require('../../addons/catalog/official.json')).channel,'official');
         assert.throws(() => validateCatalog(builtin),/доверенным/);
+        for(const url of [rawUrl,rawUrl.replace('/main/','/'+ 'a'.repeat(40)+'/')]) assert.equal(validateCatalog(sign({...builtin,entries:[{...entry,packageUrl:url}]}),trustedPublisher).entries[0].packageUrl,url);
+        for(const url of [rawUrl.replace('/main/','/dev/'),rawUrl.replace('/PleaseSuffer/','/Other/'),rawUrl.replace('/distribution/','/official/'),rawUrl+'?token=x',rawUrl+'#fragment',rawUrl.replace(pkg.manifest.id+'-'+pkg.manifest.version+'.noctaddon','other.noctaddon'),rawUrl.replace('/addons/','/../addons/')]) assert.throws(()=>validateCatalog(sign({...builtin,entries:[{...entry,packageUrl:url}]}),trustedPublisher));
         for (const mutation of [
             value => { value.entries.push(clone(value.entries[0])); },
             value => { value.entries[0].publisher = 'a'.repeat(64); },

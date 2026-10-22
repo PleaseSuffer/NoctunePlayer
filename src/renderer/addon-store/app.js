@@ -71,13 +71,14 @@
         try {
             const result = await api.install(id);
             byId('status').textContent = result.installed ? 'Расширение установлено. Включите его в настройках плеера.' : 'Установка отменена';
-            await load();
+            await load(true);
         } catch (error) { byId('status').textContent = error.message || 'Не удалось установить расширение'; }
         finally { busy = false; render(); }
     }
     for (const kind of ['repository','documentation','submission']) byId(kind).addEventListener('click',() => api.openLink(kind).catch(error => { byId('status').textContent = error.message; }));
     byId('search').addEventListener('input',render);
     byId('refresh').addEventListener('click',() => load(true));
+    api.onRefresh(() => load(true));
     lucide.createIcons();
     load().then(() => load(true));
 })();
