@@ -180,7 +180,7 @@
             card.append(header, node('p', 'settings-row-desc', addon.description), node('div', 'addon-runtime-status settings-row-desc', runtimeStatus(addon)));
             const actions = node('div', 'addons-toolbar');
             if (!addon.broken) {
-                for (const command of addon.commands) {
+                for (const command of hasPanel(addon) ? [] : addon.commands) {
                     const control = button(command.title, () => window.addonHost.command(addon.id, command.id), actions);
                     control.dataset.addonCommand = command.id;
                 }
@@ -204,7 +204,7 @@
                 if (!addon.permissions.length) detail.append(node('div', 'settings-row-desc', 'Дополнительные разрешения не запрашиваются'));
                 if (addon.network?.origins.length) {
                     const origins = node('ul', 'addon-permission-list');
-                    for (const origin of addon.network.origins) origins.append(node('li', 'settings-row-desc', origin));
+                    for (const origin of addon.network.origins) origins.append(node('li', 'settings-row-desc', AddonPermissionView.originLabel(origin)));
                     detail.append(origins);
                 }
                 detail.append(node('div', 'settings-row-desc', addon.signed ? 'Пакет подписан издателем' : 'Локальный пакет без подписи'));
@@ -214,11 +214,19 @@
             if (!addon.broken && hasPanel(addon)) {
                 button('Настроить интеграцию', () => { document.querySelector('[data-panel="panel-integrations"]').click(); document.getElementById('integration-addon-'+addon.id)?.scrollIntoView({block:'start'}); }, actions);
                 const integration = node('article','settings-card integration-card addon-card'); integration.id='integration-addon-'+addon.id; integration.dataset.addonId=addon.id;
-                integration.append(node('h3','addon-name',addon.ui.integrations.title),node('p','settings-row-desc',addon.ui.integrations.description||addon.description),node('p','addon-runtime-status settings-row-desc',runtimeStatus(addon)));
+                const heading=node('div','addon-card-header'),info=node('div','addon-card-info');info.append(node('h3','addon-name',addon.ui.integrations.title),node('p','addon-runtime-status settings-row-desc',runtimeStatus(addon)));
+                const toggle=node('label','toggle-switch'),enabled=node('input');enabled.type='checkbox';enabled.checked=addon.enabled;enabled.disabled=!addon.compatible;enabled.setAttribute('aria-label','Включить '+addon.name);
+                enabled.addEventListener('change',()=>task(async()=>{await api.setEnabled(addon.id,enabled.checked);await changed();}));toggle.append(enabled,node('span','slider-round'));heading.append(info,toggle);
+                integration.append(heading,node('p','settings-row-desc',addon.ui.integrations.description||addon.description));
                 const controls=node('div','addons-toolbar');
-                for (const command of addon.commands) { const control=button(command.title,()=>window.addonHost.command(addon.id,command.id),controls); control.dataset.addonCommand=command.id; }
-                button(addon.enabled?'Выключить интеграцию':'Включить интеграцию',async()=>{await api.setEnabled(addon.id,!addon.enabled);await changed();},controls,!addon.compatible);
-                integration.append(controls); await renderConfiguration(addon,integration,nextControls); nextIntegrations.append(integration);
+                const profile=Object.keys(addon.credentials||{})[0];
+                if(profile&&addon.enabled){
+                    const pkg=(await api.runtime()).find(item=>item.manifest.id===addon.id);
+                    if(pkg){const state=await api.services(addon.id,pkg.digest,'credentials.status',{profile}).catch(()=>({configured:false}));
+                        if(!state.configured)button('Подключить',async()=>{const result=await api.services(addon.id,pkg.digest,'credentials.configure',{profile});if(result.configured){window.addonEvents.emit('settings.credentials',{addonId:addon.id,profile,configured:true});await reload();}},controls);}
+                }
+                const library=node('div','integration-library-slot');library.dataset.librarySlot=addon.id;
+                integration.append(controls,library); await renderConfiguration(addon,integration,nextControls); nextIntegrations.append(integration);
             } else if (!addon.broken && (addon.settings || addon.oauth || addon.credentials)) await renderConfiguration(addon,card,nextControls);
             nextList.append(card);
         }
@@ -237,9 +245,11 @@
         dynamicControls.clear(); for (const item of nextControls) dynamicControls.add(item);
         if (content) content.scrollTo({top:scrollTop,behavior:'instant'});
         updateRuntime(); document.dispatchEvent(new Event('settings-sections-changed'));
+        document.dispatchEvent(new Event('addon-integrations-rendered'));
     }
     async function renderConfiguration(addon, card, controls) {
-        const section = node('details', 'addon-configuration addon-disclosure'); section.append(AddonPermissionView.summary('Настройки расширения', 'Settings2'));
+        const section = node('details', 'addon-configuration addon-disclosure'); section.append(AddonPermissionView.summary(hasPanel(addon)?'Подключение и параметры':'Настройки расширения', 'Settings2'));
+        if(hasPanel(addon)&&addon.commands.length){const actions=node('div','addons-toolbar');for(const command of addon.commands){const control=button(command.title,()=>window.addonHost.command(addon.id,command.id),actions);control.dataset.addonCommand=command.id;}section.append(actions);}
         let values = await api.settings(addon.id), saving = Promise.resolve();
         const visibility = () => { for (const row of section.querySelectorAll('[data-setting-key]')) { const when=addon.settings[row.dataset.settingKey].visibleWhen; row.hidden=!!when && values[when.field]!==when.equals; } };
         const ordered = hasPanel(addon) ? [...new Set([...addon.ui.integrations.sections.flatMap(section=>section.fields),...Object.keys(addon.settings||{})])] : Object.keys(addon.settings||{});
@@ -288,7 +298,7 @@
                 const pkg=(await api.runtime()).find(pkg=>pkg.manifest.id===addon.id); if(!pkg)throw new Error('Включите расширение');
                 const result=await api.services(addon.id,pkg.digest,'credentials.'+action,{profile});
                 if(action==='status')message.textContent=result.configured?'Ключ сохранён':result.secureStorage?'Ключ не настроен':'Защищённое хранилище ОС недоступно';
-                else if(grants.includes('credentials.status'))await credential('status');
+                else {if(grants.includes('credentials.status'))await credential('status');if(action==='disconnect'||result.configured===true)window.addonEvents.emit('settings.credentials',{addonId:addon.id,profile,configured:action==='configure'&&result.configured===true});}
             }
             if(grants.includes('credentials.configure'))button('Настроить ключ',()=>credential('configure'),controls,!addon.enabled);
             if(grants.includes('credentials.disconnect'))button('Удалить ключ',()=>credential('disconnect'),controls,!addon.enabled);

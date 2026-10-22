@@ -15,6 +15,17 @@
     function schemesChanged() { document.dispatchEvent(new Event('addon-contributions-changed')); window.addonEvents.emit('appearance.schemes'); }
     const canonical = value => Array.isArray(value) ? '['+value.map(canonical).join(',')+']' : value && typeof value==='object' ? '{'+Object.keys(value).filter(key=>value[key]!==undefined).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}' : JSON.stringify(value);
     function text(value, max = 120) { if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error('Некорректный текст'); return value; }
+    function media(value) {
+        const result = {};
+        for (const field of ['album','canonicalId']) if (typeof value[field] === 'string') result[field] = value[field].slice(0,300);
+        if (Number.isFinite(value.duration) && value.duration >= 0 && value.duration <= 86400) result.duration = value.duration;
+        if (typeof value.artwork === 'string' && value.artwork) {
+            const url = new URL(value.artwork);
+            if(url.protocol!=='https:'||url.username||url.password||url.hash||url.port||url.href.length>2048)throw new Error('Обложке нужен публичный HTTPS-адрес');
+            result.artwork = url.href;
+        }
+        return result;
+    }
     function validMode(value) { if (!['light','dark','system'].includes(value)) throw new Error('Режим: light, dark или system'); return value; }
     function cleanPalette(value, mode) {
         const manualAccent=document.body.style.getPropertyValue('--accent-color')||appStorage.getItem('setting_accent_color');
@@ -52,7 +63,7 @@
         if (!result || !Array.isArray(result.items) || result.items.length > 100 || (result.cursor != null && (typeof result.cursor !== 'string' || result.cursor.length > 1000))) throw new Error('Нужна страница items (до 100) и cursor');
         return { items: result.items.map(entry => {
             if (!entry || !['track','album','artist','playlist'].includes(entry.type)) throw new Error('Неизвестный тип каталога');
-            return { id: text(entry.id,300), type: entry.type, title: text(entry.title,300), artist: typeof entry.artist === 'string' ? entry.artist.slice(0,300) : '', addonId: item.owner, providerId: item.providerId, accountId: item.accountId };
+            return { id: text(entry.id,300), type: entry.type, title: text(entry.title,300), artist: typeof entry.artist === 'string' ? entry.artist.slice(0,300) : '', ...media(entry), addonId: item.owner, providerId: item.providerId, accountId: item.accountId };
         }), cursor: result.cursor || null };
     }
     async function service(owner, action, args) {
@@ -61,17 +72,21 @@
         if (!operations.includes(action) || !item.grants.has('servicePlaylists.' + action) || !item.capabilities.includes(action)) throw new Error('Операция плейлиста не поддерживается или не разрешена');
         if (args.id !== undefined) text(args.id,300);
         if (action === 'read') {
+            if(args.after!==undefined)text(args.after,300);
+            if(args.reason!==undefined&&!['open','continue'].includes(args.reason))throw new Error('Некорректная причина чтения');
             if(args.cursor!=null && (typeof args.cursor!=='string'||args.cursor.length>1000))throw new Error('Некорректный cursor');
             const result = await item.call('read', args);
             if(result?.cursor!=null && (typeof result.cursor!=='string'||result.cursor.length>1000))throw new Error('Некорректный cursor ответа');
             if (catalogs.get(key(owner,item.id)) !== item) throw new Error('Каталог остановлен');
             const validate = value => {
                 if (!value || !validRevision(value.revision)) throw new Error('Плейлисту нужна ревизия');
-                const result = { id:text(value.id,300), name:text(value.name,300), revision:String(value.revision), addonId:owner, providerId:item.providerId, accountId:item.accountId };
+                const result = { id:text(value.id,300), name:text(value.name,300), revision:String(value.revision), ...media(value), addonId:owner, providerId:item.providerId, accountId:item.accountId };
+                if(Number.isSafeInteger(value.total)&&value.total>=0&&value.total<=100000)result.total=value.total;
+                if(value.continuous===true)result.continuous=true;
                 if (value.tracks !== undefined) {
                     if (!Array.isArray(value.tracks) || value.tracks.length > 100) throw new Error('Страница содержит до 100 треков');
                     if(new Set(value.tracks.map(track=>track.entryId)).size!==value.tracks.length)throw new Error('Вхождения треков должны иметь разные entryId');
-                    result.tracks = value.tracks.map(track => ({ id:text(track.id,300), entryId:text(track.entryId,300), title:text(track.title,300), artist:typeof track.artist === 'string' ? track.artist.slice(0,300) : '' }));
+                    result.tracks = value.tracks.map(track => ({ id:text(track.id,300), entryId:text(track.entryId,300), title:text(track.title,300), artist:typeof track.artist === 'string' ? track.artist.slice(0,300) : '', ...media(track) }));
                 }
                 item.revisions.set(result.id,result.revision); return result;
             };
@@ -107,7 +122,7 @@
     }
     const api = window.addonContributions = {
         schemes: () => [...schemes.values()].map(({owner,id,name,mode,provider})=>({owner,id,name,mode,provider,reference:'scheme:'+owner+':'+id})),
-        catalogs: () => [...catalogs.values()].map(({owner,id,name,providerId,accountId,capabilities,grants})=>({owner,id,name,providerId,accountId,capabilities:capabilities.filter(action=>action==='browse'||grants.has('servicePlaylists.'+action)),playable:grants.has('providers.play')&&!!window.addonProviders?.has(owner,providerId)})),
+        catalogs: () => [...catalogs.values()].map(({owner,id,name,providerId,accountId,capabilities,grants,integration,hash})=>({owner,id,name,providerId,accountId,integration,hash,capabilities:capabilities.filter(action=>['browse','search'].includes(action)||grants.has('servicePlaylists.'+action)),playable:grants.has('providers.play')&&!!window.addonProviders?.has(owner,providerId)})),
         hotkeys: () => [...hotkeys.values()].map(item=>({id:item.key,label:item.title})),
         userScheme(owner,id) { const scheme = schemes.get(key(owner,id)); if (!scheme) throw new Error('Схема не установлена'); layers.set(owner,{mode:scheme.mode,palette:scheme.palette}); applyAppearance(); },
         async lyrics(track) {
@@ -165,13 +180,19 @@
             if (method === 'catalog.register') {
                 if (!name(args.id) || !name(args.providerId) || catalogs.has(key(owner,args.id)) || [...catalogs.values()].filter(item=>item.owner===owner).length >= 8) throw new Error('Некорректный или повторный каталог');
                 const capabilities = args.capabilities;
-                if (!Array.isArray(capabilities) || capabilities.some(action=>!['browse',...operations].includes(action))) throw new Error('Неизвестная возможность каталога');
-                catalogs.set(key(owner,args.id),{owner,id:args.id,name:text(args.name),accountId:text(args.accountId,300),providerId:args.providerId,capabilities,grants:context.grants,call:context.call,revisions:new Map()});
+                if (!Array.isArray(capabilities) || capabilities.some(action=>!['browse','search',...operations].includes(action))) throw new Error('Неизвестная возможность каталога');
+                catalogs.set(key(owner,args.id),{owner,id:args.id,name:text(args.name),accountId:text(args.accountId,300),providerId:args.providerId,capabilities,grants:context.grants,call:context.call,revisions:new Map(),integration:!!context.manifest?.ui?.integrations,hash});
                 document.dispatchEvent(new Event('addon-contributions-changed')); return;
             }
-            if (method === 'catalog.browse') {
-                const item=catalog(owner,args.catalog); if (!item.capabilities.includes('browse')) throw new Error('Каталог не поддерживает просмотр');
-                const result=await item.call('browse',{...args,addonId:owner,providerId:item.providerId,accountId:item.accountId}); if (catalogs.get(key(owner,item.id))!==item) throw new Error('Каталог остановлен'); return page(result,item);
+            if(method==='catalog.unregister'){
+                catalog(owner,args.id);catalogs.delete(key(owner,args.id));window.addonProviders?.removeCatalog?.(owner,args.id);
+                document.dispatchEvent(new Event('addon-contributions-changed'));return;
+            }
+            if (method === 'catalog.browse' || method === 'catalog.search') {
+                const action=method.split('.')[1],item=catalog(owner,args.catalog); if (!item.capabilities.includes(action)) throw new Error('Каталог не поддерживает '+action);
+                if(action==='search')text(args.query,300);
+                if(args.cursor!=null&&(typeof args.cursor!=='string'||args.cursor.length>1000))throw new Error('Некорректный cursor');
+                const result=await item.call(action,{...args,addonId:owner,providerId:item.providerId,accountId:item.accountId}); if (catalogs.get(key(owner,item.id))!==item) throw new Error('Каталог остановлен'); return page(result,item);
             }
             if (method.startsWith('servicePlaylists.')) return service(owner,method.split('.')[1],args);
             if (method === 'lyrics.read') return window.addonLyrics?.read() || {status:'missing',lines:[],plain:''};

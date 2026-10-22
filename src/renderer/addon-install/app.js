@@ -51,7 +51,7 @@ addonInstaller.details().then(addon => {
     const origins = addon.network?.origins || [];
     document.getElementById('network-section').hidden = !origins.length;
     for (const origin of origins) {
-        const item = document.createElement('li'); item.textContent = origin;
+        const item = document.createElement('li'); item.textContent = AddonPermissionView.originLabel(origin);
         if (state === 'update' && addon.addedOrigins.includes(origin)) {
             const label = document.createElement('span'); label.className = 'new-label'; label.textContent = 'Новый'; item.append(label);
         }

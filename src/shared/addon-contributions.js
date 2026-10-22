@@ -8,11 +8,32 @@
     const name = value => typeof value === 'string' && /^[a-z][a-z0-9-]{1,63}$/.test(value) && !['constructor','prototype'].includes(value);
     const fail = message => { throw new Error(message); };
     function keys(value, allowed) { if (!object(value) || Object.keys(value).some(key => !allowed.includes(key))) fail('Неизвестное поле декларации расширения'); }
+    // Origin declarations may cover a DNS subtree; actual request URLs never contain '*'.
+    // Authentication profiles remain restricted to exact origins, independently of this match.
+    function validOrigin(value, allowSubdomains = true) {
+        if (typeof value !== 'string' || value.length > 2048) return false;
+        const wildcard = value.startsWith('https://*.');
+        if (value.includes('*') && (!wildcard || !allowSubdomains)) return false;
+        const base = wildcard ? 'https://' + value.slice(10) : value;
+        let url;
+        try { url = new URL(base); } catch (_) { return false; }
+        if (url.protocol !== 'https:' || url.origin !== base || url.port || url.hostname.includes('*')) return false;
+        if (!wildcard) return true;
+        const labels = url.hostname.split('.');
+        return labels.length >= 2 && labels.every(label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label)) && /[a-z]/.test(labels.at(-1));
+    }
+    function originMatches(declaration, actual) {
+        if (!validOrigin(declaration) || !validOrigin(actual, false)) return false;
+        if (!declaration.startsWith('https://*.')) return declaration === actual;
+        const base = declaration.slice(10), host = new URL(actual).hostname;
+        return host.length > base.length + 1 && host.endsWith('.' + base);
+    }
+    const allowsOrigin = (origins, actual) => Array.isArray(origins) && origins.some(value => originMatches(value, actual));
     function route(manifest, grants, value, method = 'GET') {
         const url = new URL(value), routes = manifest.network?.routes;
         if (!routes) return;
         if (/%(?:2f|5c|2e|25)/i.test(url.pathname)) fail('Неоднозначное кодирование пути недоступно для маршрутов');
-        const found = routes.filter(item => item.origin === url.origin && item.methods.includes(method) && (item.prefix ? url.pathname.startsWith(item.path) : url.pathname === item.path));
+        const found = routes.filter(item => originMatches(item.origin, url.origin) && item.methods.includes(method) && (item.prefix ? url.pathname.startsWith(item.path) : url.pathname === item.path));
         if (!found.length || found.some(item => item.permission && !grants.includes(item.permission))) fail('Маршрут или действие не разрешены');
         return found;
     }
@@ -34,7 +55,7 @@
             if (!object(manifest.credentials) || Object.keys(manifest.credentials).length > 8) fail('Не более восьми профилей авторизации');
             for (const [id, profile] of Object.entries(manifest.credentials)) {
                 keys(profile, ['name','description','origins','header','scheme']);
-                if (!name(id) || typeof profile.name !== 'string' || !profile.name.trim() || profile.name.length > 120 || (profile.description !== undefined && (typeof profile.description !== 'string' || profile.description.length > 500)) || !Array.isArray(profile.origins) || !profile.origins.length || profile.origins.some(origin => !manifest.network?.origins.includes(origin)) || !/^(Authorization|X-[a-z0-9-]{1,60})$/i.test(profile.header) || typeof profile.scheme !== 'string' || !/^[a-zA-Z0-9_-]{0,32}$/.test(profile.scheme)) fail('Некорректный профиль авторизации');
+                if (!name(id) || typeof profile.name !== 'string' || !profile.name.trim() || profile.name.length > 120 || (profile.description !== undefined && (typeof profile.description !== 'string' || profile.description.length > 500)) || !Array.isArray(profile.origins) || !profile.origins.length || profile.origins.some(origin => !validOrigin(origin, false) || !manifest.network?.origins.includes(origin)) || !/^(Authorization|X-[a-z0-9-]{1,60})$/i.test(profile.header) || typeof profile.scheme !== 'string' || !/^[a-zA-Z0-9_-]{0,32}$/.test(profile.scheme)) fail('Некорректный профиль авторизации');
             }
             if (!grants.includes('network.request')) fail('Профилю авторизации требуется network.request');
         }
@@ -54,5 +75,5 @@
         if (!object(value) || Object.keys(value).some(key => !Object.hasOwn(roles, key)) || Object.values(value).some(color => typeof color !== 'string' || !/^#[a-f0-9]{6}$/i.test(color))) fail('Нужны семантические цвета #RRGGBB');
         return { ...value };
     }
-    return { operations, roles, validate, route, palette, name, keys };
+    return { operations, roles, validate, route, palette, name, keys, validOrigin, originMatches, allowsOrigin };
 });

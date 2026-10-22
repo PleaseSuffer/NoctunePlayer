@@ -8,7 +8,7 @@ const { createOAuth } = require('./oauth');
 const { fetchText, httpsUrl } = require('./network');
 function createAddonServices({ store, directory, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog }) {
   const vault = createVault({ directory, safeStorage }), files = new Map(), streams = new Map();
-  const requests = new Map();
+  const requests = new Map(), artwork = new Map();
   const oauth = createOAuth({ vault, openExternal: url => shell.openExternal(url), assertActive: (id, hash) => store.context(id, hash), approve: async (name, config) => {
     const answer = await dialog.showMessageBox(getWindow(), { type: 'question', title: 'Авторизация расширения', message: `${name}: ${config.name}`, detail: config.deviceCode ? `Код: ${config.deviceCode}\n${config.verificationUri}` : `Сервис: ${new URL(config.tokenUrl).hostname}\nПрава: ${config.scopes.join(', ')}\nВход откроется в системном браузере.`, buttons: ['Продолжить', 'Отмена'], defaultId: 0, cancelId: 1 });
     return answer.response === 0;
@@ -18,10 +18,11 @@ function createAddonServices({ store, directory, safeStorage, shell, clipboard, 
     for (const controller of requests.get(id) || []) controller.abort(); requests.delete(id);
     for (const [key, item] of files) if (item.id === id) files.delete(key);
     for (const [key, item] of streams) if (item.id === id) { item.controller.abort(); streams.delete(key); }
+    for (const [key, item] of artwork) if(item.id===id)artwork.delete(key);
   }
   async function resource(id, hash, pkg, input) {
     const url = httpsUrl(input.url), headers = {};
-    if (!pkg.manifest.network?.origins.includes(url.origin)) throw new Error('Домен не разрешён');
+    if (!require('../../shared/addon-contributions').allowsOrigin(pkg.manifest.network?.origins, url.origin)) throw new Error('Домен не разрешён');
     if (input.headers) {
       if (!pkg.grants.includes('network.headers') || typeof input.headers !== 'object' || Object.entries(input.headers).length > 16) throw new Error('Заголовки не разрешены');
       for (const [key, value] of Object.entries(input.headers)) {
@@ -65,9 +66,29 @@ function createAddonServices({ store, directory, safeStorage, shell, clipboard, 
     cancel, vault, oauth, grantFile,
     async remove(id) { cancel(id); await vault.remove(id); },
     async invoke(id, hash, method, args = {}) {
-      const permission = method.startsWith('credentials.') ? method : { 'settings.get': 'settings.read', 'network.request': 'network.request', 'files.select': 'files.select', 'files.save': 'files.write', 'files.read': 'files.read', 'files.write': 'files.write', 'files.reveal': 'files.reveal', 'system.openFile': 'system.openFile', 'system.openExternal': 'system.openExternal', 'clipboard.read': 'clipboard.read', 'clipboard.write': 'clipboard.write', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'secrets.delete': 'secrets.delete', 'oauth.authorize': 'oauth.authorize', 'oauth.status': 'oauth.status', 'oauth.disconnect': 'oauth.disconnect', 'providers.stream': 'providers.play' }[method];
+      const permission = method.startsWith('credentials.') ? method : { 'settings.get': 'settings.read', 'network.request': 'network.request', 'files.select': 'files.select', 'files.save': 'files.write', 'files.read': 'files.read', 'files.write': 'files.write', 'files.reveal': 'files.reveal', 'system.openFile': 'system.openFile', 'system.openExternal': 'system.openExternal', 'clipboard.read': 'clipboard.read', 'clipboard.write': 'clipboard.write', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'secrets.delete': 'secrets.delete', 'oauth.authorize': 'oauth.authorize', 'oauth.status': 'oauth.status', 'oauth.disconnect': 'oauth.disconnect', 'providers.stream': 'providers.play', 'providers.artwork':'catalog.register' }[method];
       if (!permission) throw new Error('Неизвестный метод');
       const pkg = await store.context(id, hash, permission);
+      if(method==='providers.artwork') {
+        if(!pkg.grants.includes('network.request'))throw new Error('Обложке нужен доступ к сети');
+        // Public images only: never forward OAuth, credentials, cookies or caller headers.
+        const options=await resource(id,hash,pkg,{url:args.url}),key=id+':'+hash+':'+options.url;
+        const cached=artwork.get(key);if(cached&&cached.expires>Date.now())return cached.value;
+        const pending=requests.get(id)||new Set();if(pending.size>=3)throw new Error('Не более трёх сетевых запросов');
+        const controller=new AbortController();pending.add(controller);requests.set(id,pending);
+        let response;
+        try {
+          response=await fetchText(options.url,{...options,stream:true,detailed:true,signal:controller.signal});
+          const mime=String(response.headers['content-type']||'').split(';')[0].trim();
+          if(response.statusCode!==200||!/^image\/(png|jpeg|webp|gif|avif)$/.test(mime))throw new Error('Неподдерживаемая обложка');
+          const chunks=[];let bytes=0;
+          for await(const chunk of response){bytes+=chunk.length;if(bytes>512*1024)throw new Error('Обложка превышает 512 КБ');chunks.push(chunk);}
+          await store.context(id,hash,'catalog.register');
+          const value='data:'+mime+';base64,'+Buffer.concat(chunks).toString('base64');
+          artwork.set(key,{id,value,expires:Date.now()+600000});while(artwork.size>64)artwork.delete(artwork.keys().next().value);
+          return value;
+        } finally {response?.destroy();pending.delete(controller);if(!pending.size&&requests.get(id)===pending)requests.delete(id);}
+      }
       if (method.startsWith('credentials.')) {
         const config = Object.hasOwn(pkg.manifest.credentials || {}, args.profile) ? pkg.manifest.credentials[args.profile] : null;
         if (!config) throw new Error('Неизвестный профиль авторизации');

@@ -635,6 +635,10 @@
             if (activeLi) activeLi.classList.add('active');
 
             const entry = fileEntries[absoluteTrackId];
+            if(entry.kind==='provider'){
+                const collection=userPlaylists.find(item=>item.id===activePlaylistId);
+                if(collection)collection.playingEntryId=entry.entryId;
+            }
             globalThis.addonEvents?.begin(entry);
             
             if (entry.kind === 'radio') {
@@ -761,6 +765,11 @@
                         if (myToken !== _loadToken) return;
                     }
                     if (window.setLyricsTrack) window.setLyricsTrack({ ...meta, filePath }, myToken);
+                    if(provider&&entry.artwork)window.addonProviders.artwork?.(entry).then(image=>{
+                        if(myToken!==_loadToken||!image)return;
+                        meta.coverDataUrl=image;
+                        window.setLyricsTrack?.({...meta,filePath,duration:currentTrackDuration},myToken);
+                    }).catch(()=>{});
                     trackTitle.textContent = meta.title;
                     trackArtist.textContent = meta.artist;
                     miniTrackTitle.textContent = `${meta.artist} — ${meta.title}`;
@@ -887,7 +896,11 @@
                         document.getElementById('speed-zone').classList.remove('speed-control-disabled');
                     }
                 } catch (e) {
-                    if (myToken === _loadToken) { statusText.textContent = 'Ошибка загрузки'; globalThis.addonEvents?.emit('playback.error', { error: { code: e.code || 'LOAD_FAILED', message: String(e.message).slice(0, 240) } }); }
+                    if (myToken === _loadToken) {
+                        const message = String(e.message || 'Ошибка загрузки').replace(/https?:\/\/\S+/g, '[адрес потока скрыт]').slice(0, 240);
+                        statusText.textContent = entry.kind === 'provider' ? message : 'Ошибка загрузки';
+                        globalThis.addonEvents?.emit('playback.error', { error: { code: e.code || 'LOAD_FAILED', message } });
+                    }
                 } finally {
                     if (myToken === _loadToken) _trackLoading = false;
                 }
@@ -1218,6 +1231,12 @@
                 return;
             }
 
+            if(window.addonProviders?.ensureNext){
+                try { await window.addonProviders.ensureNext(endedToken); }
+                catch(error){if(endedToken===_loadToken){updatePlayIcons(false);statusText.textContent=String(error.message).slice(0,240);}return;}
+                if(endedToken!==_loadToken)return;
+            }
+
             const nextIdx = getNextTrackIndex(true);
 
             if (nextIdx >= 0) {
@@ -1339,6 +1358,7 @@
         }
 
         async function playNext() {
+            window.addonEvents?.emit('playback.skip',{reason:'next'});
             const navigationToken = ++_loadToken;
             if (activePlaylistId && activePlaylistId !== currentPlaylistId) {
                 await selectPlaylist(activePlaylistId);
@@ -1347,10 +1367,17 @@
             if (await playQueuedAudioFile(navigationToken)) return;
             if (navigationToken !== _loadToken) return;
             if (playlistOrder.length === 0) return;
+            if(window.addonProviders?.ensureNext){
+                try { await window.addonProviders.ensureNext(navigationToken); }
+                catch(error){if(navigationToken===_loadToken){stopTrack();updatePlayIcons(false);statusText.textContent=String(error.message).slice(0,240);}return;}
+                if(navigationToken!==_loadToken)return;
+            }
             const nextIdx = getNextTrackIndex(true);
             if (nextIdx >= 0) {
                 playTrack(nextIdx);
             } else {
+                const playlist=userPlaylists.find(item=>item.id===activePlaylistId);
+                if(playlist?.service?.continuous){stopTrack();updatePlayIcons(false);statusText.textContent='Сервис пока не вернул новые треки';return;}
                 // Список закончился — при ручном нажатии Next переходим на начало
                 playTrack(0);
             }

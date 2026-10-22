@@ -113,6 +113,7 @@
                     <span class="pd-item-label"></span>
                 `;
                 item.querySelector('.pd-item-label').textContent=pl.name;
+                if(pl.type==='provider'){const badge=document.createElement('span');badge.className='pd-service-type';badge.textContent=pl.service?.continuous?'Поток':'Сервис';item.append(badge);item.title=(pl.serviceName||'Интеграция')+' · '+pl.name;}
                 item.addEventListener('click', () => {
                     selectPlaylist(pl.id);
                     playlistsDropdownMenu.classList.remove('open');
@@ -132,7 +133,8 @@
             if (!pl) return;
             const iconName = getPlaylistIcon(pl);
             pdSelectedLabel.textContent = pl.name;
-            btnEditPlaylist.disabled=btnDeletePlaylist.disabled=pl.type==='provider';
+            btnEditPlaylist.disabled=pl.type==='provider';btnDeletePlaylist.disabled=false;
+            btnDeletePlaylist.title=pl.type==='provider'?'Закрыть сервисный плейлист':'Удалить плейлист';
             pdSelectedIcon.innerHTML = `<i data-lucide="${iconName}" style="width:15px;height:15px;"></i>`;
             // Update active state in menu
             playlistsDropdownMenu.querySelectorAll('.pd-menu-item').forEach(item => {
@@ -167,6 +169,7 @@
             if (!currentPlaylistId) return;
             const pl = userPlaylists.find(p => p.id === currentPlaylistId);
             if (!pl) return;
+            if(pl.type==='provider'){window.addonProviders.closeCollection(pl.id);return;}
             const prefix = pl.type === 'folder' ? '📁' : '📻';
             document.getElementById('delete-playlist-modal-msg').textContent =
                 `Вы уверены, что хотите удалить плейлист ${prefix} «${pl.name}»? Это действие нельзя отменить.`;

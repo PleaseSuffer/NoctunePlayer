@@ -14,6 +14,8 @@ interface NoctuneAddonManifest {
     id: string; name: string; description: string; author: string; version: string; revision: number;
     apiVersion: 1; minNoctuneVersion: string; maxNoctuneVersion?: string;
     type: 'extension' | 'integration'; entry: string; permissions: string[];
+    /** Noctune >=1.4.0: network origins/routes also accept https://*.example.com (subdomains only).
+     * OAuth resourceOrigins and credential origins must still be exact HTTPS origins explicitly listed here. */
     network?: { origins: string[]; routes?: { origin: string; path: string; prefix?: boolean; methods: ('GET'|'HEAD'|'POST'|'PUT'|'PATCH'|'DELETE')[]; permission?: `servicePlaylists.${ServicePlaylistAction}` }[] };
     credentials?: Record<string, {name:string;description?:string;origins:string[];header:string;scheme:string}>;
     ui?: {integrations:{title:string;description?:string;sections:{id:string;title:string;fields:string[]}[]}}; settings?: Record<string, SettingField>; oauth?: Record<string, OAuthProvider>;
@@ -26,11 +28,12 @@ interface TrackState {
     source?: 'file' | 'radio' | 'provider'; playing: boolean; position: number; duration: number; volume: number; speed: number;
 }
 interface AddonEvent extends Partial<TrackState> {
-    type: string; sequence: number; timestamp: number; reason?: string; addonId?: string; values?: Record<string, unknown>;
+    type: string; sequence: number; timestamp: number; reason?: string; profile?:string; configured?:boolean; addonId?: string; values?: Record<string, unknown>;
     error?: { code: string | number; message: string }; [key: string]: unknown;
 }
 type TrackContext = { sessionId?: string };
-interface ProviderTrack { id: string; title: string; artist?: string; album?: string }
+interface ServiceMedia { album?:string; duration?:number; artwork?:string; canonicalId?:string }
+interface ProviderTrack extends ServiceMedia { id: string; title: string; artist?: string }
 interface StreamDescriptor { url: string; transport?: 'direct'; oauth?: string; credential?: string; headers?: Record<string, string> }
 interface ProviderFailure { error: { code: 'AUTH_REQUIRED' | 'REGION_RESTRICTED' | 'SUBSCRIPTION_REQUIRED' | 'NOT_FOUND' | 'RATE_LIMITED' | 'NETWORK' | 'UNSUPPORTED_TRANSPORT'; message: string } }
 interface SelectedFile { handle: string; name: string; size: number }
@@ -38,15 +41,17 @@ type AppearanceMode = 'light'|'dark'|'system';
 type AppearancePalette = Partial<Record<'background'|'surface'|'text'|'muted'|'border'|'hover'|'accent'|'secondary',string>>;
 interface LocalPlaylist { id:string;name:string;type:string;revision:number;tracks:{trackId:string;title:string;entryId?:string}[] }
 type ServicePlaylistAction = 'read'|'create'|'rename'|'delete'|'addTracks'|'removeTracks'|'reorder';
-interface CatalogEntry {id:string;type:'track'|'album'|'artist'|'playlist';title:string;artist?:string;addonId?:string;providerId?:string;accountId?:string}
+interface CatalogEntry extends ServiceMedia {id:string;type:'track'|'album'|'artist'|'playlist';title:string;artist?:string;addonId?:string;providerId?:string;accountId?:string}
 interface CatalogPage {items:CatalogEntry[];cursor?:string|null}
-interface ServicePlaylist {id:string;name:string;revision:string;tracks?:{id:string;entryId:string;title:string;artist?:string}[];cursor?:string|null;addonId?:string;providerId?:string;accountId?:string}
+interface ServiceRead {id?:string;cursor?:string|null;after?:string;reason?:'open'|'continue'}
+interface ServicePlaylist {id:string;name:string;revision:string;artwork?:string;total?:number;continuous?:boolean;tracks?:(ProviderTrack&{entryId:string})[];cursor?:string|null;addonId?:string;providerId?:string;accountId?:string}
 interface ServiceMutation {catalog:string;requestId:string}
 interface ServiceReceipt {id:string;revision:string;deleted?:boolean}
 interface CatalogProvider {
     id:string;name:string;providerId:string;accountId:string;
     browse?(args:{parent?:{id:string;type:string}|null;cursor?:string|null}):Promise<CatalogPage>|CatalogPage;
-    read?(args:{id?:string;cursor?:string|null}):Promise<ServicePlaylist|{items:ServicePlaylist[];cursor?:string|null}>|ServicePlaylist|{items:ServicePlaylist[];cursor?:string|null};
+    search?(args:{query:string;cursor?:string|null}):Promise<CatalogPage>|CatalogPage;
+    read?(args:ServiceRead):Promise<ServicePlaylist|{items:ServicePlaylist[];cursor?:string|null}>|ServicePlaylist|{items:ServicePlaylist[];cursor?:string|null};
     create?(args:ServiceMutation&{name:string}):Promise<ServiceReceipt>|ServiceReceipt;
     rename?(args:ServiceMutation&{id:string;revision:string;name:string}):Promise<ServiceReceipt>|ServiceReceipt;
     delete?(args:ServiceMutation&{id:string;revision:string}):Promise<ServiceReceipt>|ServiceReceipt;
@@ -99,9 +104,9 @@ interface NoctuneAddonApi {
         status(profile:string):Promise<{configured:boolean;secureStorage:boolean;expiresAt?:number|null}>;
         disconnect(profile:string):Promise<void>;
     };
-    catalog: {register(catalog:CatalogProvider):Promise<void>;browse(args:{catalog:string;parent?:{id:string;type:'album'|'artist'|'playlist'}|null;cursor?:string|null}):Promise<CatalogPage>};
+    catalog: {register(catalog:CatalogProvider):Promise<void>;unregister(id:string):Promise<void>;search(args:{catalog:string;query:string;cursor?:string|null}):Promise<CatalogPage>;browse(args:{catalog:string;parent?:{id:string;type:'album'|'artist'|'playlist'}|null;cursor?:string|null}):Promise<CatalogPage>};
     servicePlaylists: {
-        read(args:{catalog:string;id?:string;cursor?:string|null}):Promise<ServicePlaylist|{items:ServicePlaylist[];cursor?:string|null}>;
+        read(args:ServiceRead&{catalog:string}):Promise<ServicePlaylist|{items:ServicePlaylist[];cursor?:string|null}>;
         create(args:ServiceMutation&{name:string}):Promise<ServiceReceipt>;
         rename(args:ServiceMutation&{id:string;revision:string;name:string}):Promise<ServiceReceipt>;
         delete(args:ServiceMutation&{id:string;revision:string}):Promise<ServiceReceipt>;

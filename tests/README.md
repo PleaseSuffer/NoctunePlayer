@@ -19,6 +19,7 @@
 
 ```sh
 ./node_modules/.bin/electron tests/native-addons-probe.cjs
+./node_modules/.bin/electron tests/native-service-library-probe.cjs
 ./node_modules/.bin/electron tests/native-addon-store-probe.cjs
 ./node_modules/.bin/electron tests/native-official-extensions-probe.cjs
 ./node_modules/.bin/electron tests/native-open-theme-probe.cjs
@@ -32,6 +33,7 @@
 | Сценарий | Что проверяется |
 | --- | --- |
 | `native-addons-probe.cjs` | Согласие на установку, графические ресурсы и группы разрешений, песочница и CSP, настройки SDK, воспроизведение потока провайдера, истёкшие ссылки и освобождение ресурсов |
+| `native-service-library-probe.cjs` | Библиотека внутри интеграции, обложки через публичный брокер, страницы 300/600, поиск, контекстное меню, непрерывная волна и восстановление ссылок на плейлисты |
 | `native-addon-store-probe.cjs` | Изолированное окно магазина, подписанный каталог, установка и отмена, поиск, вкладки, обновление главного окна и работа без сети |
 | `native-official-extensions-probe.cjs` | Затихание звука в Sleep, выбор всех шести схем Shades, схемы Dusk и восстановление обоев, работа выпадающих списков и сохранение прокрутки |
 | `native-open-theme-probe.cjs` | Установщик тем, отмена, установка и обновление, уведомления и повторное открытие файлов |

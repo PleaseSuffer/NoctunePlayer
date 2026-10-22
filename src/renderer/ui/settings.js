@@ -194,14 +194,17 @@
                     li.draggable = true;
                     li.dataset.idx = idx;
                     const isRadio = pl.type === 'radio';
+                    const isService = pl.type === 'provider';
                     li.innerHTML = `
                         <span class="pl-drag-handle"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg></span>
-                        <span class="pl-name">${pl.name || 'Без названия'}</span>
-                        <span class="pl-type-badge ${isRadio ? 'radio' : ''}">${isRadio ? 'Радио' : 'Папка'}</span>
+                        <span class="pl-name"></span>
+                        <span class="pl-type-badge ${isRadio ? 'radio' : ''}">${isService ? (pl.service?.continuous?'Поток':'Сервис') : isRadio ? 'Радио' : 'Папка'}</span>
                         <button type="button" class="actions-btn pl-export-btn" data-idx="${idx}" title="Экспортировать в .m3u" style="flex-shrink:0;">
                             <i data-lucide="download" style="width:14px;height:14px;"></i>
                         </button>
                     `;
+                    li.querySelector('.pl-name').textContent=pl.name||'Без названия';
+                    if(isService){li.querySelector('.pl-export-btn').disabled=true;li.querySelector('.pl-export-btn').title='Сервисный плейлист не экспортируется в M3U';}
                     li.querySelector('.pl-export-btn').addEventListener('click', (e) => {
                         e.stopPropagation();
                         if (window.exportPlaylistToM3U) window.exportPlaylistToM3U(userPlaylists[idx]);

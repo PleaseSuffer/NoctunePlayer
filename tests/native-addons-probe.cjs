@@ -259,7 +259,7 @@ app.on('browser-window-created', (_, win) => {
             await wait(`!!document.getElementById('integration-addon-service-workbench-demo')`,'declarative integration panel');
             await run(`document.querySelector('[data-addon-id="service-workbench-demo"] .addon-card-header input').click()`);
             await wait(`addonHost.state('service-workbench-demo')?.status==='running'`,'extended SDK worker ready');
-            await wait(`!!document.querySelector('#addon-catalogs .addon-catalog')`,'catalog registered in host UI');
+            await wait(`!!document.querySelector('#integration-addon-service-workbench-demo .addon-catalog')`,'catalog registered in host UI');
             await run(`document.querySelector('[data-panel="panel-integrations"]').click();document.querySelector('#integration-addon-service-workbench-demo .addon-configuration').open=true;`);
             assert.equal(await run(`document.getElementById('addon-service-workbench-demo-note').closest('.settings-row').hidden`),true);
             await run(`document.getElementById('addon-service-workbench-demo-demoLyrics').click()`);
@@ -292,8 +292,8 @@ app.on('browser-window-created', (_, win) => {
             await run(`document.querySelector('[data-panel="panel-integrations"]').click();document.getElementById('integration-addon-service-workbench-demo').scrollIntoView({block:'start'});`);
             await wait(`getComputedStyle(document.querySelector('.settings-modal')).backgroundColor==='rgb(43, 43, 48)'`,'registered scheme reaches settings surfaces');
             await delay(350);await fs.promises.writeFile(path.join(output,'sdk-integrations.png'),(await win.webContents.capturePage()).toPNG());
-            await run(`document.querySelector('[data-panel="panel-addons"]').click();[...document.querySelectorAll('#addon-catalogs button')].find(button=>button.textContent==='Плейлисты').click();`);
-            await wait(`document.getElementById('addon-catalogs').textContent.includes('Изменено через SDK')`,'remote playlists in host browser');
+            await run(`document.querySelector('[data-panel="panel-integrations"]').click();[...document.querySelectorAll('#integration-addon-service-workbench-demo .addon-catalog button')].find(button=>button.textContent==='Плейлисты').click();`);
+            await wait(`document.getElementById('integration-addon-service-workbench-demo').textContent.includes('Изменено через SDK')`,'remote playlists in host browser');
             await run(`document.querySelector('[data-addon-id="service-workbench-demo"] .addon-card-header input').click()`);
             await wait(`addonHost.state('service-workbench-demo')?.status==='stopped'`,'extended contributions disposed');
             assert.equal(await run(`addonContributions.catalogs().length`),0);assert.equal(await run(`addonContributions.schemes().length`),0);assert.equal(await run(`addonContributions.hotkeys().length`),0);

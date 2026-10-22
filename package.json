@@ -46,6 +46,7 @@
       "!node_modules/lucide/dist/umd/lucide.js"
     ],
     "linux": {
+      "maintainer": "Telegram: @borisik_denis",
       "fileAssociations": [
         {
           "ext": "noctheme",

@@ -783,6 +783,7 @@
         if (track && metadata && track.token === token && Boolean(track.radio) === Boolean(metadata.radio) && track.stationName === metadata.stationName && track.title === metadata.title && track.artist === metadata.artist) {
             const gainedDuration = !track.duration && metadata.duration > 0;
             track.duration = metadata.duration || track.duration;
+            if(metadata.coverDataUrl&&metadata.coverDataUrl!==track.coverDataUrl){track.coverDataUrl=metadata.coverDataUrl;updateNowPlaying();}
             if (gainedDuration && opened) load();
             return;
         }

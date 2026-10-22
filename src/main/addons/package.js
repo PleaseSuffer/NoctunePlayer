@@ -55,7 +55,8 @@ function validatePackage(value) {
   if (grants.includes('network.request')) {
     keys(m.network, ['origins','routes']);
     if (!Array.isArray(m.network.origins) || !m.network.origins.length || m.network.origins.length > 8 || new Set(m.network.origins).size !== m.network.origins.length) fail('Укажите до восьми HTTPS-доменов');
-    for (const origin of m.network.origins) if (httpsUrl(origin).origin !== origin) fail('В network.origins допустимы только точные HTTPS-origin');
+    for (const origin of m.network.origins) if (!require('../../shared/addon-contributions').validOrigin(origin)) fail('В network.origins нужен точный HTTPS-origin или https://*.example.com');
+    if (m.network.origins.some(origin => origin.includes('*')) && compareVersions(m.minNoctuneVersion, '1.4.0') < 0) fail('Поддомены требуют minNoctuneVersion 1.4.0 или новее');
   } else if (m.network !== undefined) fail('Домены требуют разрешения network');
   if (m.settings !== undefined) settings.validate(m.settings);
   require('../../shared/addon-contributions').validate(m, grants);
@@ -68,7 +69,7 @@ function validatePackage(value) {
       httpsUrl(config.tokenUrl);
       httpsUrl(config.flow === 'authorization_code' ? config.authorizationUrl : config.deviceAuthorizationUrl);
       if (!Array.isArray(config.scopes) || config.scopes.length > 32 || !config.scopes.every(s => typeof s === 'string' && /^[\x21\x23-\x5b\x5d-\x7e]{1,120}$/.test(s))) fail('Некорректные OAuth scopes');
-      if (!Array.isArray(config.resourceOrigins) || config.resourceOrigins.length > 8 || !config.resourceOrigins.every(origin => httpsUrl(origin).origin === origin && m.network?.origins.includes(origin))) fail('OAuth resourceOrigins должны быть разрешены в network.origins');
+      if (!Array.isArray(config.resourceOrigins) || config.resourceOrigins.length > 8 || !config.resourceOrigins.every(origin => require('../../shared/addon-contributions').validOrigin(origin, false) && m.network?.origins.includes(origin))) fail('OAuth resourceOrigins должны быть точными origin в network.origins');
       if (config.redirectPort !== undefined && (!Number.isInteger(config.redirectPort) || config.redirectPort < 1024 || config.redirectPort > 65535)) fail('Некорректный порт OAuth callback');
       if (config.extraParams !== undefined && (!object(config.extraParams) || Object.keys(config.extraParams).length > 12 || Object.entries(config.extraParams).some(([k,v]) => !/^[a-zA-Z][a-zA-Z0-9_]{0,60}$/.test(k) || ['state','client_id','redirect_uri','response_type','code_challenge','code_challenge_method','scope'].includes(k) || typeof v !== 'string' || v.length > 300))) fail('Некорректные параметры OAuth');
     }

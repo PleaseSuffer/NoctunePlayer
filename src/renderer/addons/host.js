@@ -72,10 +72,12 @@
                                 if (!catalog || !['browse','read'].some(action => typeof catalog[action] === 'function')) throw new Error('Нужен browse или read');
                                 const id = '@catalog:' + catalog.id; if (providers.has(id)) throw new Error('Каталог уже зарегистрирован');
                                 providers.set(id, catalog);
-                                try { return await call('catalog.register', { id:catalog.id,name:catalog.name,providerId:catalog.providerId,accountId:catalog.accountId,capabilities:['browse','read','create','rename','delete','addTracks','removeTracks','reorder'].filter(action=>typeof catalog[action]==='function') }); }
+                                try { return await call('catalog.register', { id:catalog.id,name:catalog.name,providerId:catalog.providerId,accountId:catalog.accountId,capabilities:['browse','search','read','create','rename','delete','addTracks','removeTracks','reorder'].filter(action=>typeof catalog[action]==='function') }); }
                                 catch(error) { providers.delete(id); throw error; }
                             },
                             browse: args => call('catalog.browse', args),
+                            search: args => call('catalog.search', args),
+                            async unregister(id) { providers.delete('@catalog:'+id);return call('catalog.unregister',{id}); },
                         },
                         servicePlaylists: Object.fromEntries(['read','create','rename','delete','addTracks','removeTracks','reorder'].map(action => [action, args => call('servicePlaylists.' + action, args)])),
                         artwork: { read: (args = {}) => call('artwork.read', args) },
@@ -225,7 +227,7 @@
                     if (!grants.has(data.method === 'providers.search' ? 'providers.register' : 'providers.play')) throw new Error('Нет разрешения провайдера');
                     value = await window.addonProviders[data.method.split('.')[1]](m.id, args);
                 } else {
-                    const permission = { 'catalog.browse': 'catalog.register', 'settings.get': 'settings.read', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'files.save': 'files.write' }[data.method] || data.method;
+                    const permission = { 'catalog.browse': 'catalog.register', 'catalog.search': 'catalog.register', 'catalog.unregister':'catalog.register', 'settings.get': 'settings.read', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'files.save': 'files.write' }[data.method] || data.method;
                     if (!grants.has(permission)) throw new Error('Нет разрешения: ' + permission);
                     if (/^(appearance|catalog|servicePlaylists|artwork|lyrics|hotkeys)\./.test(data.method)) {
                         value = await window.addonContributions.invoke(m.id, pkg.digest, data.method, args, { manifest:m, grants, call:(action, value)=>providerCall((data.method==='lyrics.provide'?'@lyrics:':'@catalog:')+args.id,action,value) });

@@ -24,6 +24,7 @@
         function getPlaylistIcon(pl) {
             if (!pl) return 'list-music';
             if (pl.type === 'radio') return 'radio';
+            if (pl.type === 'provider') return 'cloud';
             return 'folder-open';
         }
 

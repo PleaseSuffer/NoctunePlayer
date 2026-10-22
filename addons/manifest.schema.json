@@ -167,7 +167,25 @@
           "items": {
             "type": "string",
             "pattern": "^https://[^/?#@]+$",
-            "maxLength": 2048
+            "maxLength": 2048,
+            "description": "Exact HTTPS origin, or https://*.example.com for subdomains only (requires minNoctuneVersion >=1.4.0). Never use wildcards for OAuth or credentials."
+          }
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["origin", "path", "methods"],
+            "properties": {
+              "origin": { "type": "string", "pattern": "^https://[^/?#@]+$", "description": "Must be a declaration in network.origins, including its wildcard if any." },
+              "path": { "type": "string", "pattern": "^/[a-zA-Z0-9_./~-]*$" },
+              "prefix": { "type": "boolean" },
+              "methods": { "type": "array", "minItems": 1, "items": { "enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] } },
+              "permission": { "enum": ["servicePlaylists.read", "servicePlaylists.create", "servicePlaylists.rename", "servicePlaylists.delete", "servicePlaylists.addTracks", "servicePlaylists.removeTracks", "servicePlaylists.reorder"] }
+            }
           }
         }
       }

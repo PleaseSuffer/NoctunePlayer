@@ -1,0 +1,90 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const os = require('node:os');
+const { EventEmitter } = require('node:events');
+const { Readable } = require('node:stream');
+const https = require('node:https');
+const dns = require('node:dns').promises;
+const schema = require('../../src/shared/addon-contributions');
+const { packDirectory, validatePackage } = require('../../src/main/addons/package');
+const { createAddonStore } = require('../../src/main/addons/store');
+const { createAddonServices } = require('../../src/main/addons/services');
+const { fetchText, httpsUrl } = require('../../src/main/addons/network');
+const clone = value => JSON.parse(JSON.stringify(value));
+(async () => {
+    const wildcard = 'https://*.media.service.test', api = 'https://api.service.test';
+    for (const origin of ['https://a.media.service.test','https://a.b.media.service.test']) assert.equal(schema.originMatches(wildcard, origin), true);
+    for (const origin of ['https://media.service.test','https://evilmedia.service.test','https://a.media.service.test.evil.test','https://a.media.service.test.','http://a.media.service.test','https://a.media.service.test:444']) assert.equal(schema.originMatches(wildcard, origin), false);
+    for (const value of ['https://*','https://*.com','https://*.127.0.0.1','https://*.*.example.com','https://cdn.*.example.com','https://*.example.com/path','https://*.example.com:443','https://*.example.com?x','https://*.example.com#x','https://user@*.example.com','https://*.EXAMPLE.com','https://*.example.com.']) assert.equal(schema.validOrigin(value), false, value);
+    assert.throws(() => httpsUrl(wildcard));
+    const pkg = await packDirectory('addons/examples/track-info');
+    pkg.manifest.minNoctuneVersion = '1.4.0';
+    pkg.manifest.permissions = ['network.request','network.headers','providers.play','credentials.use','credentials.status'];
+    pkg.manifest.network = { origins: [api,wildcard], routes: [
+        { origin: api, path: '/', prefix: true, methods: ['GET'] },
+        { origin: wildcard, path: '/get-mp3/', prefix: true, methods: ['GET','HEAD'] },
+    ] };
+    pkg.manifest.credentials = { 'test-key': { name: 'Test', origins: [api], header: 'Authorization', scheme: 'Bearer' } };
+    validatePackage(pkg);
+    let bad = clone(pkg); bad.manifest.minNoctuneVersion = '1.3.9'; assert.throws(() => validatePackage(bad), /1.4.0/);
+    bad = clone(pkg); bad.manifest.credentials['test-key'].origins = [wildcard]; assert.throws(() => validatePackage(bad), /профиль/);
+    bad = clone(pkg); bad.manifest.oauth = { 'test-oauth': { name:'Test',flow:'authorization_code',clientId:'public-client',authorizationUrl:api+'/authorize',tokenUrl:api+'/token',scopes:[],resourceOrigins:[wildcard] } }; assert.throws(() => validatePackage(bad), /точными/);
+    schema.route(pkg.manifest, [], 'https://shard.media.service.test/get-mp3/audio', 'GET');
+    assert.throws(() => schema.route(pkg.manifest, [], 'https://shard.media.service.test/admin', 'GET'));
+    assert.throws(() => schema.route(pkg.manifest, [], 'https://shard.media.service.test/get-mp3/audio', 'POST'));
+    const overlap = clone(pkg.manifest);
+    overlap.network.routes.push({origin:'https://shard.media.service.test',path:'/get-mp3/',prefix:true,methods:['GET'],permission:'servicePlaylists.delete'});
+    assert.throws(() => schema.route(overlap, [], 'https://shard.media.service.test/get-mp3/audio', 'GET'));
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-origin-patterns-'));
+    const originalGet = https.get, originalLookup = dns.lookup;
+    try {
+        const store = createAddonStore({ directory: path.join(directory,'registry'), appVersion:'1.4.0' });
+        const exact = clone(pkg); exact.manifest.network.origins[1] = 'https://a.media.service.test'; exact.manifest.network.routes[1].origin = exact.manifest.network.origins[1];
+        await store.confirm((await store.preparePackage(exact)).ticket);
+        const update = clone(pkg); update.manifest.revision++;
+        assert.deepEqual((await store.preparePackage(update)).addedOrigins, [wildcard], 'widening a host to a subtree requires explicit new-origin review');
+        const grants = pkg.manifest.permissions;
+        const service = createAddonServices({directory:path.join(directory,'secrets'),safeStorage:{isEncryptionAvailable:()=>true,getSelectedStorageBackend:()=> 'test',encryptString:value=>Buffer.from(value),decryptString:value=>value.toString()},store:{context:async(_id,_hash,permission)=>{if(permission)assert.ok(grants.includes(permission));return {...pkg,grants};}}});
+        await service.vault.set('origin-test','credential:test-key',{value:'test-only-secret',config:JSON.stringify(pkg.manifest.credentials['test-key']),expiresAt:null});
+        const invoke = args => service.invoke('origin-test','hash','network.request',args);
+        const requests = []; let address = '1.1.1.1';
+        dns.lookup = async () => [{address,family:4}];
+        https.get = (url,options,callback) => {
+            requests.push({url:url.href,headers:{...options.headers}});
+            options.lookup(url.hostname,{},(error,pinned)=>{assert.equal(error,null);assert.equal(pinned,address);});
+            const request = new EventEmitter();
+            request.destroy = error => { if(error)request.emit('error',error);request.emit('close'); };
+            queueMicrotask(() => {
+                const redirect = url.pathname === '/redirect' ? 'https://second.media.service.test/get-mp3/audio' : url.pathname === '/get-mp3/private' ? 'https://private.media.service.test/get-mp3/audio' : null;
+                const response = Readable.from([Buffer.from('audio')]);
+                response.statusCode = redirect ? 302 : options.headers.Range ? 206 : 200;
+                response.headers = {'content-type':'audio/mpeg',...(redirect?{location:redirect}:{})};
+                response.setTimeout = () => response;
+                callback(response); request.emit('close');
+            });
+            return request;
+        };
+        await invoke({url:api+'/redirect',credential:'test-key',headers:{'X-Canary':'private-header'}});
+        assert.equal(requests[0].headers.Authorization,'Bearer test-only-secret');
+        assert.equal(requests[1].headers.Authorization,undefined,'a redirect into an allowed CDN subtree must not receive API credentials');
+        assert.equal(requests[1].headers['X-Canary'],undefined);
+        await assert.rejects(invoke({url:'https://third.media.service.test/get-mp3/audio',credential:'test-key'}),/Профиль/);
+        await assert.rejects(invoke({url:'https://third.media.service.test/get-mp3/audio',headers:{Authorization:'Bearer injected'}}),/заголовок/);
+        await assert.rejects(invoke({url:'https://third.media.service.test/admin'}),/Маршрут/);
+        await assert.rejects(invoke({url:'https://media.service.test/get-mp3/audio'}),/Домен/);
+        await assert.rejects(invoke({url:'https://third.media.service.test.evil.test/get-mp3/audio'}),/Домен/);
+        const stream = await service.invoke('origin-test','hash','providers.stream',{url:'https://fresh.media.service.test/get-mp3/audio'});
+        const audio = await service.stream(new Request(stream,{headers:{Range:'bytes=0-4'}}));
+        assert.equal(audio.status,206); assert.equal(await audio.text(),'audio');
+        assert.equal(requests.at(-1).headers.Authorization,undefined); assert.equal(requests.at(-1).headers.Range,'bytes=0-4');
+        address = '127.0.0.1'; const count = requests.length;
+        await assert.rejects(invoke({url:'https://private.media.service.test/get-mp3/audio'}),/адреса/);
+        assert.equal(requests.length,count,'a matched wildcard never bypasses public-DNS validation');
+        address = '1.1.1.1';
+        dns.lookup = async host => [{address:host.startsWith('private.')?'10.0.0.1':'1.1.1.1',family:4}];
+        await assert.rejects(fetchText('https://first.media.service.test/get-mp3/private',{origins:[wildcard]}),/адреса/);
+        service.cancel('origin-test');
+    } finally { https.get=originalGet;dns.lookup=originalLookup;await fs.rm(directory,{recursive:true,force:true}); }
+    console.log('PASS: generic HTTPS subdomain declarations, version/schema bounds, suffix isolation, route overlap, explicit update review, exact-only auth, redirect header isolation, streaming Range and public DNS enforcement.');
+})().catch(error => { console.error(error); process.exitCode=1; });

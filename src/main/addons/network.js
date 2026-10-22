@@ -1,6 +1,7 @@
 const https = require('node:https');
 const dns = require('node:dns').promises;
 const net = require('node:net');
+const { allowsOrigin } = require('../../shared/addon-contributions');
 
 const blocked = new net.BlockList();
 for (const [address, prefix] of [['0.0.0.0',8],['10.0.0.0',8],['100.64.0.0',10],['127.0.0.0',8],['169.254.0.0',16],['172.16.0.0',12],['192.0.0.0',24],['192.0.2.0',24],['192.168.0.0',16],['198.18.0.0',15],['198.51.100.0',24],['203.0.113.0',24],['224.0.0.0',3]]) blocked.addSubnet(address, prefix, 'ipv4');
@@ -11,13 +12,13 @@ function publicAddress(address) {
 }
 function httpsUrl(value) {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.username || url.password || url.hash || (url.port && url.port !== '443') || url.href.length > 2048) throw new Error('Требуется публичный HTTPS-адрес без пароля и нестандартного порта');
+  if (url.protocol !== 'https:' || url.hostname.includes('*') || url.username || url.password || url.hash || (url.port && url.port !== '443') || url.href.length > 2048) throw new Error('Требуется публичный HTTPS-адрес без пароля и нестандартного порта');
   return url;
 }
 async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3, origins, deadline = Date.now() + 15000, method = 'GET', headers = {}, body, detailed = false, stream = false, headerOrigin, validateUrl } = {}) {
   const url = httpsUrl(value);
   validateUrl?.(url.href, method);
-  if (origins && !origins.includes(url.origin)) throw new Error('Домен не указан в разрешениях расширения');
+  if (origins && !allowsOrigin(origins, url.origin)) throw new Error('Домен не указан в разрешениях расширения');
   const hostname = url.hostname.replace(/^\[|\]$/g, '');
   if (signal?.aborted) throw new Error('Запрос отменён');
   if (Date.now() >= deadline) throw new Error('Сервер не ответил за 15 секунд');

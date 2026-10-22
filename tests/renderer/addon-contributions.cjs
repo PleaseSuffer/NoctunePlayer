@@ -4,7 +4,7 @@ const attributes=new Map([['data-theme','dark']]),css=new Map(),storage=new Map(
 const style={setProperty:(key,value)=>css.set(key,value),getPropertyValue:key=>css.get(key)||'',removeProperty:key=>css.delete(key)};
 const controls=new Map([['setting-dark-theme',{}],['theme-toggle',{replaceChildren(){}}]]);
 const systemMedia={matches:false,addEventListener(){}};
-const context={AddonContributions:shared,Event:class{constructor(type){this.type=type;}},matchMedia:()=>systemMedia,getComputedStyle:()=>({getPropertyValue:key=>css.get(key)||''}),
+const context={URL,AddonContributions:shared,Event:class{constructor(type){this.type=type;}},matchMedia:()=>systemMedia,getComputedStyle:()=>({getPropertyValue:key=>css.get(key)||''}),
     document:{body:{style,getAttribute:key=>attributes.get(key),setAttribute:(key,value)=>attributes.set(key,value),removeAttribute:key=>attributes.delete(key)},documentElement:{style},head:{append(){}},createElement:()=>({remove(){}}),getElementById:key=>controls.get(key),addEventListener(){},dispatchEvent(){}},
     appStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)},
     backgroundSettings:{refreshAccent(){}},addonEvents:{emit:(type,args)=>events.push({type,...args})},addonLyrics:{read:()=>({status:'missing',lines:[],plain:''})},
@@ -56,6 +56,22 @@ const api=context.addonContributions;
     const retryArgs={catalog:'retry-library',id:'playlist',revision:'1',name:'Retry',requestId:'retry-after-timeout'};
     await assert.rejects(api.invoke('retry','','servicePlaylists.rename',retryArgs,{}),/NETWORK/);
     assert.equal((await api.invoke('retry','','servicePlaylists.rename',retryArgs,{})).revision,'2');assert.equal(remoteChanges,1);api.cleanup('retry');
+    let removedCatalog=null,lastRead;
+    context.addonProviders={has:()=>true,removeCatalog:(owner,id)=>{removedCatalog=[owner,id];}};
+    const track={id:'track',entryId:'batch-1-track',title:'Title',type:'track',duration:180,album:'Album',canonicalId:'stable-track',artwork:'https://images.example.com/cover.jpg'};
+    await api.invoke('media','digest','catalog.register',{id:'media-library',providerId:'audio-provider',accountId:'account-3',name:'Library',capabilities:['browse','search','read']},{manifest:{ui:{integrations:{title:'Library'}}},grants:new Set(['providers.play','servicePlaylists.read']),call:async(action,args)=>{
+        if(action==='read'){lastRead=args;return {id:'wave',name:'Wave',revision:'batch-1',tracks:[track],continuous:true,total:20,cursor:'next',artwork:track.artwork};}
+        return {items:[{...track,title:action==='search'?args.query:track.title}],cursor:null};
+    }});
+    const metadata=api.catalogs().find(item=>item.owner==='media');assert.equal(metadata.integration,true);assert.equal(metadata.hash,'digest');assert.equal(metadata.playable,true);
+    const found=await api.invoke('media','','catalog.search',{catalog:'media-library',query:'Search title'},{});
+    assert.equal(found.items[0].title,'Search title');assert.equal(found.items[0].duration,180);assert.equal(found.items[0].artwork,track.artwork);assert.equal(found.items[0].canonicalId,'stable-track');
+    await assert.rejects(api.invoke('media','','catalog.search',{catalog:'media-library',query:''},{}));
+    const wave=await api.invoke('media','','servicePlaylists.read',{catalog:'media-library',id:'wave',after:'opaque-current',reason:'continue'},{});
+    assert.equal(wave.continuous,true);assert.equal(wave.total,20);assert.equal(wave.tracks[0].album,'Album');assert.equal(lastRead.after,'opaque-current');
+    await assert.rejects(api.invoke('media','','servicePlaylists.read',{catalog:'media-library',id:'wave',after:42},{}));
+    track.artwork='file:///private.jpg';await assert.rejects(api.invoke('media','','catalog.browse',{catalog:'media-library'},{}),/HTTPS/);
+    await api.invoke('media','','catalog.unregister',{id:'media-library'},{});assert.deepEqual(removedCatalog,['media','media-library']);assert(!api.catalogs().some(item=>item.owner==='media'));
     let currentSession='old-track',decode;
     context.addonEvents.snapshot=()=>({sessionId:currentSession});context.addonLyrics.artwork=()=> 'data:image/png;base64,AA==';
     context.Image=class{decode(){return new Promise(resolve=>{decode=resolve;});}};
