@@ -29,6 +29,7 @@
       "src/preload/**/*.js",
       "src/renderer/**/*.{js,html,css}",
       "src/shared/**/*.{js,css}",
+      "addons/catalog/official.json",
       "themes/builtin/**/{manifest.json,scene.js}",
       "themes/builtin/**/assets/**/*.{png,jpg,jpeg,webp}",
       "themes/backgrounds/*.{png,jpg,jpeg,webp,json}",

@@ -1,0 +1,73 @@
+name: Extension catalog submission
+description: Submit a signed extension for review; the community catalog is not yet open.
+title: "[Extension] "
+body:
+  - type: markdown
+    attributes:
+      value: "Community catalog submissions are reviewed manually. Submission does not publish an extension. Do not include private keys, tokens or user data."
+  - type: input
+    id: addon-id
+    attributes:
+      label: Extension ID
+      placeholder: my-extension
+    validations:
+      required: true
+  - type: input
+    id: repository
+    attributes:
+      label: Public source repository
+      placeholder: https://github.com/OWNER/REPOSITORY
+    validations:
+      required: true
+  - type: input
+    id: package
+    attributes:
+      label: Signed release asset URL
+      placeholder: https://github.com/OWNER/REPOSITORY/releases/download/TAG/my-extension.noctaddon
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version, revision and minimum Noctune version
+      placeholder: "1.0.0, revision 1, Noctune 1.4.0"
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License and license file URL
+    validations:
+      required: true
+  - type: input
+    id: sha256
+    attributes:
+      label: Package SHA-256
+    validations:
+      required: true
+  - type: input
+    id: publisher
+    attributes:
+      label: Publisher public key fingerprint (SHA-256 of Ed25519 SPKI)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Features and settings
+    validations:
+      required: true
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Permissions, domains and data handling
+      description: Explain each permission, authentication, storage and network access.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Build instructions and validation
+      description: Source tag or commit, reproducible packaging steps, tested platforms and known limitations.
+    validations:
+      required: true

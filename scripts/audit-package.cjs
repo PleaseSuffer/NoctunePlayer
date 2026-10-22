@@ -12,7 +12,7 @@ const exists = name => assert(present.has(name), 'Missing runtime file: ' + name
 for (const name of files) {
     assert(!/\.(map|ts|tsx|mts|cts|tsbuildinfo)$/i.test(name), 'Development file in archive: ' + name);
     assert(!/\.(md|markdown)$/i.test(name) || legal(name), 'Documentation in archive: ' + name);
-    assert(!/^(docs|tests|scripts|addons|\.local|\.artifacts)\//.test(name), 'Development directory in archive: ' + name);
+    assert(name === 'addons/catalog/official.json' || !/^(docs|tests|scripts|addons|\.local|\.artifacts)\//.test(name), 'Development directory in archive: ' + name);
     assert(!/^themes\/(examples|packages|user|custom)\//.test(name), 'Development theme in archive: ' + name);
     assert(!/^src\/web\//.test(name), 'Website file in archive: ' + name);
     assert(!/^node_modules\/(electron-builder|app-builder-lib|@electron\/asar|typescript)\//.test(name), 'Build tool in archive: ' + name);

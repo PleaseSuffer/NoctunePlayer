@@ -299,6 +299,8 @@
         }
         else status.textContent = result.message;
     }
+    document.getElementById('addons-store').addEventListener('click', () => task(() => api.openStore({ theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', accent: getComputedStyle(document.body).getPropertyValue('--accent-color').trim() })));
+    api.onChanged(() => changed().catch(error => { status.textContent = error.message; }));
     document.getElementById('addons-import').addEventListener('click', () => task(async () => showReview(await api.prepareFile())));
     document.getElementById('addons-url-form').addEventListener('submit', event => {
         event.preventDefault(); task(async () => { status.textContent = 'Загружаем пакет…'; await showReview(await api.prepareUrl(document.getElementById('addons-url').value.trim())); });

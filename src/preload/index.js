@@ -225,6 +225,12 @@ contextBridge.exposeInMainWorld('noctune', {
     services: (id, hash, method, args) => ipcRenderer.invoke('addons:services', id, hash, method, args),
     libraryFile: (id, hash, filename) => ipcRenderer.invoke('addons:library-file', id, hash, filename),
     list: () => ipcRenderer.invoke('addons:list'),
+    openStore: appearance => ipcRenderer.invoke('addons:open-store', appearance),
+    onChanged: callback => {
+      const listener = () => callback();
+      ipcRenderer.on('addons:changed', listener);
+      return () => ipcRenderer.removeListener('addons:changed', listener);
+    },
     runtime: () => ipcRenderer.invoke('addons:runtime'),
     prepareFile: () => ipcRenderer.invoke('addons:prepare-file'),
     prepareUrl: url => ipcRenderer.invoke('addons:prepare-url', url),

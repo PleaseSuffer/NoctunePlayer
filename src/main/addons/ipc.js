@@ -6,6 +6,10 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   const credentialDialog = require('./credentials-dialog').createCredentialDialog({ BrowserWindow, ipcMain });
   const services = require('./services').createAddonServices({ store, directory, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog });
   const installer = createAddonInstaller({ BrowserWindow, ipcMain, store, icon });
+  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled: () => {
+    const window = getWindow();
+    if (window && !window.isDestroyed()) window.webContents.send('addons:changed');
+  } });
   const downloads = new Map();
   function sender(event) {
     const win = getWindow();
@@ -18,6 +22,7 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   handle('services', (_event, id, hash, method, args) => services.invoke(id, hash, method, args));
   handle('library-file', async (_event, id, hash, filename) => { await store.context(id, hash, 'files.library'); return services.grantFile(id, hash, filename); });
   handle('list', () => store.list());
+  handle('open-store', (_event, appearance) => shop.open(appearance));
   handle('runtime', () => store.runtime());
   handle('prepare-file', async event => {
     const choice = await dialog.showOpenDialog(sender(event), { title: 'Установить расширение', properties: ['openFile'], filters: [{ name: 'Noctune Extension', extensions: ['noctaddon'] }] });

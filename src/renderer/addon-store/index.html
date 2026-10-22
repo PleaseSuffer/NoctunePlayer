@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:">
+    <title>Магазин расширений — Noctune</title>
+    <link rel="stylesheet" href="../theme-install/style.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="../../../node_modules/lucide/dist/umd/lucide.min.js"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <header class="store-header">
+        <div><span class="brand">Noctune</span><span class="store-label">Расширения</span></div>
+        <button type="button" id="repository" class="quiet"><i data-lucide="github"></i>Репозиторий</button>
+    </header>
+    <main>
+        <section class="intro"><p class="eyebrow">Магазин расширений</p><h1>Настройте Noctune под себя</h1><p class="subtitle">Оформление, интеграции и дополнения для вашей музыки.</p></section>
+        <div class="store-toolbar">
+            <div class="tabs" role="tablist" aria-label="Каталоги расширений">
+                <button type="button" id="tab-official" role="tab" aria-selected="true" aria-controls="official"><i data-lucide="badge-check"></i>Официальные<span id="official-count" class="count"></span></button>
+                <button type="button" id="tab-community" role="tab" aria-selected="false" aria-controls="community" tabindex="-1"><i data-lucide="users"></i>Пользовательские</button>
+            </div>
+            <button type="button" id="refresh" class="quiet" aria-label="Обновить каталог"><i data-lucide="refresh-cw"></i><span>Обновить</span></button>
+        </div>
+        <section id="official" role="tabpanel" aria-labelledby="tab-official">
+            <div class="search-row"><label class="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="Найти расширение" aria-label="Поиск официальных расширений" maxlength="120"></label><span class="catalog-source" id="catalog-source">Каталог Noctune</span></div>
+            <p class="catalog-message" id="catalog-message" role="status"></p>
+            <div id="catalog" class="catalog" aria-label="Официальные расширения"></div>
+            <p id="empty" class="empty" hidden>Ничего не найдено. Попробуйте другое название.</p>
+        </section>
+        <section id="community" role="tabpanel" aria-labelledby="tab-community" hidden>
+            <div class="community-placeholder">
+                <span class="community-icon"><i data-lucide="blocks"></i></span>
+                <span class="badge">Скоро</span>
+                <h2>Пользовательские расширения</h2>
+                <p>Здесь появятся дополнения сообщества с описаниями, версиями и сведениями об авторах.</p>
+                <p class="muted">Пока расширения можно устанавливать из файла или по HTTPS-ссылке в настройках плеера. Для разработчиков подготовлены SDK, примеры и порядок публикации.</p>
+                <div class="community-actions"><button type="button" id="documentation" class="primary"><i data-lucide="book-open"></i>Как опубликовать расширение</button><button type="button" id="submission"><i data-lucide="git-pull-request"></i>Заявка на GitHub</button></div>
+            </div>
+        </section>
+    </main>
+    <footer><span id="status" role="status" aria-live="polite"></span><span class="footer-note">Расширения устанавливаются с вашим подтверждением</span></footer>
+</body>
+</html>
