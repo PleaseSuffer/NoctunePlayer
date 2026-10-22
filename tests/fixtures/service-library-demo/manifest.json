@@ -1,0 +1,26 @@
+{
+  "id": "service-library-demo",
+  "name": "Тестовая медиатека",
+  "description": "Изолированная фикстура каталога для регрессионных проверок SDK.",
+  "author": "Noctune tests",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "integration",
+  "entry": "main.js",
+  "permissions": ["ui.integrations", "catalog.register", "servicePlaylists.read", "providers.register", "providers.play", "network.request", "credentials.status", "credentials.configure", "credentials.use"],
+  "credentials": {
+    "demo-token": {"name": "Тестовый ключ", "origins": ["https://api.service.example"], "header": "Authorization", "scheme": "Bearer"}
+  },
+  "network": {
+    "origins": ["https://api.service.example", "https://media.service.example", "https://images.service.example"],
+    "routes": [
+      {"origin": "https://api.service.example", "path": "/", "prefix": true, "methods": ["GET"]},
+      {"origin": "https://media.service.example", "path": "/audio/", "prefix": true, "methods": ["GET", "HEAD"]},
+      {"origin": "https://images.service.example", "path": "/covers/", "prefix": true, "methods": ["GET"]}
+    ]
+  },
+  "ui": {"integrations": {"title": "Тестовая медиатека", "sections": []}},
+  "commands": []
+}
