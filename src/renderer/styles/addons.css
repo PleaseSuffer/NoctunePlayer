@@ -1,0 +1,50 @@
+.addons-install-card { display: flex; flex-direction: column; gap: 12px; }
+.addons-install-card p, .addon-card p { margin: 0; }
+.addons-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.addons-url-form { display: flex; flex-direction: column; gap: 7px; }
+.addons-url-row { display: flex; gap: 8px; }
+.addons-url-row input { flex: 1; min-width: 0; }
+.addons-list { display: flex; flex-direction: column; gap: 14px; }
+.addons-empty { padding: 24px; color: var(--text-muted); text-align: center; }
+.addon-card { display: flex; flex-direction: column; gap: 12px; margin-bottom: 0; }
+.addon-card-header { display: flex; align-items: center; gap: 20px; }
+.addon-card-info { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.addon-name { margin: 0 0 5px; font-size: 15px; font-weight: 600; }
+.addon-runtime-status { color: var(--accent-fg); }
+.addon-details { font-size: 12px; overflow-wrap: anywhere; }
+.addon-permission-list { margin: 8px 0 12px; padding-left: 18px; line-height: 1.7; }
+.addon-permission-list:has(.addon-permission-group) { padding: 0; display: flex; flex-direction: column; gap: 10px; }
+#addons-status:empty { display: none; }
+#panel-addons[aria-busy="true"] { cursor: progress; }
+.addon-disclosure + .addon-disclosure { border-top: 1px solid var(--border-color); padding-top: 4px; }
+.addon-setting { gap: 20px; margin: 0; }
+.addon-setting-info { flex: 1; min-width: 0; }
+.addon-setting-info p { margin-top: 4px; line-height: 1.5; }
+.addon-input { width: min(45%, 240px); min-width: 90px; }
+.addon-slider { width: min(45%, 250px); flex-shrink: 0; margin-top: 0; }
+.addon-input:focus-visible, .addon-range:focus-visible, .addon-select button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+.addon-dropdown-chevron { width: 15px; height: 15px; }
+.addon-select .viz-type-dropdown-btn:disabled { opacity: .55; cursor: not-allowed; }
+.addon-dropdown-menu { backdrop-filter: blur(12px); position: fixed; z-index: 99010; overflow-y: auto; overscroll-behavior: contain; }
+.addon-dropdown-menu .viz-type-menu-item { width: 100%; border: 0; background: transparent; font: inherit; font-size: 13px; text-align: left; }
+.addon-dropdown-menu .viz-type-menu-item:hover { background: var(--track-hover); }
+.addon-dropdown-menu .viz-type-menu-item.active { background: var(--accent-color); color: #fff; }
+.addon-dropdown-menu .viz-type-menu-item:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
+.addon-card .addon-banner { width: 100%; height: auto; aspect-ratio: 4 / 1; object-fit: cover; border-radius: 10px; }
+.addon-card .addon-icon { width: 48px; height: 48px; border-radius: 10px; object-fit: contain; flex: 0 0 auto; }
+@media (max-width: 760px) {
+    .addons-url-row { flex-wrap: wrap; }
+    .addons-url-row input { flex-basis: 100%; }
+}
+@media (max-width: 650px) {
+    .addon-setting { flex-wrap: wrap; gap: 10px; }
+    .addon-setting-info { flex-basis: 100%; }
+    .addon-setting:has(.toggle-switch) .addon-setting-info { flex-basis: auto; }
+    .addon-input, .addon-slider, .addon-select { width: 100%; }
+}
+
+body.no-blur .addon-dropdown-menu { backdrop-filter: none; background: var(--bg-color); }
+.addon-setting[hidden], #addon-color-schemes[hidden] { display: none; }
+.addon-catalog-content, .addon-catalog { display: flex; flex-direction: column; gap: 12px; }
+.addon-catalog-track { gap: 12px; flex-wrap: wrap; }
+.addon-catalog-track > .settings-row-label { flex: 1; min-width: 160px; }

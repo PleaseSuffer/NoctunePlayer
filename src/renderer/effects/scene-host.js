@@ -236,6 +236,7 @@
             }
             entry.busy = false;
             if (entry === candidate) {
+                if (entry.guard && !entry.guard()) { destroy(entry); candidate = null; return; }
                 clearTimeout(entry.timer); destroy(current); current = entry; candidate = null; current.frame.style.opacity = '1';
                 document.body.classList.add('scene-active'); document.getElementById('custom-bg-video')?.pause();
                 appStorage.setItem('setting_scene_theme', entry.metadata.id);
@@ -272,16 +273,16 @@
             // postMessage snapshots synchronously; reuse the analyser's buffer between frames.
             spectrum = data; sampleRate = rate; playing = !!isPlaying;
         },
-        async activate(metadata) {
+        async activate(metadata, guard) {
             const request = ++epoch; destroy(candidate); candidate = null;
             const pkg = await noctune.sceneThemes.read(metadata.id);
-            if (request !== epoch) throw new Error('Выбор темы отменён');
+            if (request !== epoch || guard && !guard()) throw new Error('Выбор темы отменён');
             metadata = { ...metadata, ...pkg.manifest, id: metadata.id, packageId: pkg.manifest.id, apiVersion: pkg.apiVersion, preview: metadata.preview };
             return new Promise((resolve, reject) => {
                 const frame = document.createElement('iframe'); frame.className = 'scene-frame'; frame.setAttribute('sandbox', 'allow-scripts');
                 frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1; frame.style.opacity = '0';
                 const channel = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
-                const entry = { frame, channel, metadata, resolve, reject, ready: false, busy: false };
+                const entry = { frame, channel, metadata, resolve, reject, guard, ready: false, busy: false };
                 candidate = entry;
                 refreshConfig();
                 frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, reducedMotion: reducedMotion.matches, safeArea: safeArea(), parameters: entry.settings, lighting:{intensity:entry.settings.glowIntensity}, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });

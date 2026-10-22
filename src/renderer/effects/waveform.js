@@ -19,7 +19,9 @@
             return !!(window.sceneThemes?.active || (window.bgImageEnabled && window.bgImagePath));
         }
 
-        function getWaveformColor() {
+        let waveformRenderedColor = null;
+
+        function getWaveformColor(accent) {
             if (window.waveformColorMode === 'custom') {
                 return window.waveformCustomColor || '#4a90e2';
             }
@@ -30,7 +32,7 @@
             // произвольного цвета берём нейтральный, однозначно читаемый на
             // фоне текущей темы.
             if (window.waveformColorMode === 'accent' || (window.waveformColorMode !== 'theme' && waveformHasBackground())) {
-                return getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
+                return accent || getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
             }
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             return isDark ? '#e8e8e8' : '#2b2b2b';
@@ -156,6 +158,7 @@
             void canvasProgress.offsetWidth; // форсируем reflow перед возвратом transition
             [canvasBase, canvasProgress].forEach(c => { c.style.transition = ''; });
 
+            waveformRenderedColor = color;
             wrap.style.opacity = '1';
         }
 
@@ -188,6 +191,23 @@
 
         // Перерисовка при смене темы/акцента/режима/чувствительности — без
         // этого цвет/форма волны остались бы «залипшими» на момент загрузки трека.
+        // Accent animation changes only existing pixels: no resize, geometry rebuild,
+        // progress reset or forced layout. Keep the alpha/edge fade already drawn.
+        function recolorWaveform(accent) {
+            if (!window.waveformEnabled || !window._waveformCurrentFilePath) return;
+            const color = getWaveformColor(accent);
+            if (color === waveformRenderedColor) return;
+            for (const id of ['waveform-canvas-base', 'waveform-canvas-progress']) {
+                const canvas = document.getElementById(id);
+                if (!canvas || !canvas.width || !canvas.height) continue;
+                const ctx = canvas.getContext('2d');
+                ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.globalCompositeOperation = 'source-in'; ctx.fillStyle = color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.restore();
+            }
+            waveformRenderedColor = color;
+        }
+
         function refreshWaveformColorIfNeeded() {
             const filePath = window._waveformCurrentFilePath;
             if (!filePath || !window._waveformCache.has(filePath)) return;

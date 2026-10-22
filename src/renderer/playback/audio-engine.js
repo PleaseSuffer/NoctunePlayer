@@ -231,6 +231,7 @@
             window.chSplitter.connect(window.chMerger, 1, 1);
             window.chMerger.connect(window.pannerNode);
             window.pannerNode.connect(audioCtx.destination);
+            window.addonPlayer?.attachEffects();
 
             // Apply saved channel mode
             const savedPBMode = appStorage.getItem('setting_pb_mode');
@@ -489,6 +490,7 @@
         }
 
         function trackPlaybackActivity(audio) {
+            globalThis.addonEvents?.media(audio);
             const report = playing => {
                 if (audio === (isRadioMode ? radioAudioElement : localAudioElement)) reportPlaybackActive(playing);
             };
@@ -499,6 +501,7 @@
         }
 
         function stopTrack() {
+            globalThis.addonEvents?.stop();
             reportPlaybackActive(false);
             // Отменяем также асинхронные загрузки и обработчики старого трека.
             _loadToken++;
@@ -632,6 +635,7 @@
             if (activeLi) activeLi.classList.add('active');
 
             const entry = fileEntries[absoluteTrackId];
+            globalThis.addonEvents?.begin(entry);
             
             if (entry.kind === 'radio') {
                 isRadioMode = true;
@@ -731,8 +735,11 @@
                 statusText.textContent = 'Загрузка...';
                 
                 try {
-                    const filePath = entry.path;
-                    const cachedMeta = parsedMetadataCache[absoluteTrackId] || await (async () => {
+                    const provider = entry.kind === 'provider';
+                    const stream = provider ? await window.addonProviders.resolve(entry, myToken) : null;
+                    if (myToken !== _loadToken) return;
+                    const filePath = provider ? '' : entry.path;
+                    const cachedMeta = provider ? { title: entry.title, artist: entry.artist || '', album: entry.album || '' } : parsedMetadataCache[absoluteTrackId] || await (async () => {
                         // Быстрое чтение метаданных если кэш ещё не заполнен —
                         // единый вызов через music-metadata (preload) вместо
                         // ручного fs.open + самописного ID3-парсера.
@@ -773,7 +780,7 @@
                         });
                     }
 
-                    if (typeof loadTrackWaveform === 'function') loadTrackWaveform(filePath, myToken);
+                    if (!provider && typeof loadTrackWaveform === 'function') loadTrackWaveform(filePath, myToken);
 
                     // Каждый трек — новый Audio() + новый MediaElementSourceNode.
                     // createMediaElementSource можно вызвать для одного элемента только один раз,
@@ -812,7 +819,8 @@
 
                     // Устанавливаем источник — браузер начинает буферизацию немедленно
                     const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
-                    localAudioElement.src = fileUrl;
+                    localAudioElement.src = provider ? stream : fileUrl;
+                    if (provider) window.addonProviders.watch(localAudioElement, entry, myToken);
                     localAudioElement.load();
 
                     // Инициализируем переменные длительности как 0, обновим по событию
@@ -858,7 +866,7 @@
                     startSourceAt(startPosition);
 
                     // Если размер файла не закэширован — подгружаем в фоне
-                    if (!entry._fileSize) {
+                    if (!provider && !entry._fileSize) {
                         noctune.fs.stat(filePath).then(stats => {
                             entry._fileSize = stats.size;
                             // Обновим kbps если длительность уже известна
@@ -879,7 +887,7 @@
                         document.getElementById('speed-zone').classList.remove('speed-control-disabled');
                     }
                 } catch (e) {
-                    if (myToken === _loadToken) statusText.textContent = 'Ошибка загрузки';
+                    if (myToken === _loadToken) { statusText.textContent = 'Ошибка загрузки'; globalThis.addonEvents?.emit('playback.error', { error: { code: e.code || 'LOAD_FAILED', message: String(e.message).slice(0, 240) } }); }
                 } finally {
                     if (myToken === _loadToken) _trackLoading = false;
                 }
@@ -972,6 +980,7 @@
                 // AbortError — ожидаемо при быстром переключении треков (play прерван pause)
                 if (err.name === 'AbortError') return;
                 if (playingToken !== _loadToken || playingElement !== localAudioElement) return;
+                if (playingElement._noctuneProvider && (playingElement.error || playingElement._noctuneRecovering || err.name === 'NotSupportedError')) return;
                 stopTrack();
                 updatePlayIcons(false);
                 statusText.textContent = 'Ошибка воспроизведения';

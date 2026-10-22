@@ -5,6 +5,7 @@
             btnShuffle.classList.toggle('active', isShuffle);
             miniBtnShuffle.classList.toggle('active', isShuffle);
             appStorage.setItem('player_shuffle', isShuffle ? '1' : '0');
+            window.addonEvents?.emit('playback.shuffle');
         }
 
         function updateRepeatUI() {
@@ -21,11 +22,13 @@
             lucide.createIcons();
         }
 
-        function toggleRepeat() {
-            repeatMode = (repeatMode + 1) % 3;
+        function setRepeatMode(value) {
+            repeatMode = value;
             updateRepeatUI();
             appStorage.setItem('player_repeat', String(repeatMode));
+            window.addonEvents?.emit('playback.repeat');
         }
+        function toggleRepeat() { setRepeatMode((repeatMode + 1) % 3); }
 
         // ========================
         // VIRTUAL SHUFFLE PLAYLIST

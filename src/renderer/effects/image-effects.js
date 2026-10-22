@@ -420,16 +420,48 @@
             return sum / (last - first) / 255;
         });
     }
-    function tint(bitmap, channel, colors) {
-        const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
-        const c = canvas.getContext('2d', { willReadFrequently: true }); c.drawImage(bitmap, 0, 0);
-        const rgba = c.getImageData(0,0,canvas.width,canvas.height);
-        for (let i = 0; i < rgba.data.length; i += 4) { const color = paletteColor(colors,(i/4%canvas.width)/Math.max(1,canvas.width-1)); const alpha = rgba.data[i + channel]; rgba.data[i] = color[0] * 255; rgba.data[i + 1] = color[1] * 255; rgba.data[i + 2] = color[2] * 255; rgba.data[i + 3] = alpha; }
-        c.putImageData(rgba,0,0); return canvas;
+    // Extract each immutable mask channel once. Animated colors are cheap Canvas composites,
+    // rather than repeated bitmap readbacks, pixel loops and new canvas allocations.
+    const alphaMasks = new WeakMap();
+    function tint(bitmap, channel, colors, canvas) {
+        let masks = alphaMasks.get(bitmap);
+        if (!masks) { masks = new Map(); alphaMasks.set(bitmap, masks); }
+        let mask = masks.get(channel);
+        if (!mask) {
+            mask = document.createElement('canvas'); mask.width = bitmap.width; mask.height = bitmap.height;
+            const c = mask.getContext('2d', { willReadFrequently: true }); c.drawImage(bitmap, 0, 0);
+            const rgba = c.getImageData(0, 0, mask.width, mask.height);
+            for (let i = 0; i < rgba.data.length; i += 4) {
+                const alpha = rgba.data[i + channel];
+                rgba.data[i] = rgba.data[i + 1] = rgba.data[i + 2] = 255; rgba.data[i + 3] = alpha;
+            }
+            c.putImageData(rgba, 0, 0); masks.set(channel, mask);
+        }
+        if (!canvas) { canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height; }
+        const c = canvas.getContext('2d');
+        c.globalCompositeOperation = 'copy'; c.drawImage(mask, 0, 0);
+        c.globalCompositeOperation = 'source-in';
+        const css = color => 'rgb(' + color.map(value => Math.round(value * 255)).join(',') + ')';
+        if (colors.length === 1) c.fillStyle = css(colors[0]);
+        else {
+            const gradient = c.createLinearGradient(0, 0, Math.max(1, canvas.width - 1), 0);
+            colors.forEach((color, index) => gradient.addColorStop(index / (colors.length - 1), css(color)));
+            c.fillStyle = gradient;
+        }
+        c.fillRect(0, 0, canvas.width, canvas.height); c.globalCompositeOperation = 'source-over';
+        return canvas;
     }
     function paintFallback(fit, palette, energy, moving, channelShift) {
-        const key = JSON.stringify(palette);
-        if (!fallbackLayers || fallbackLayers.key !== key) fallbackLayers = { key, edge:tint(sharp,0,palette.contours), halo:tint(glow,0,palette.contours), waves:tint(glow,0,palette.waves), lights:tint(glow,1,palette.highlights) };
+        if (!fallbackLayers) fallbackLayers = { keys: {} };
+        for (const [key, bitmap, channel, colors, enabled] of [
+            ['edge', sharp, 0, palette.contours, config.contours], ['halo', glow, 0, palette.contours, config.contours],
+            ['waves', glow, 0, palette.waves, config.waves], ['lights', glow, 1, palette.highlights, config.highlights],
+        ]) {
+            if (!enabled) continue;
+            const colorKey = JSON.stringify(colors);
+            if (fallbackLayers.keys[key] === colorKey) continue;
+            fallbackLayers[key] = tint(bitmap, channel, colors, fallbackLayers[key]); fallbackLayers.keys[key] = colorKey;
+        }
         const w = overlay.width / fit[0], h = overlay.height / fit[1], x = (overlay.width - w) / 2, y = (overlay.height - h) / 2;
         if (moving && ((pulses.ripple.items.length > 0 && config.ripple) || (reactive.chromatic > .002 && config.chromatic))) {
             if (config.chromatic && !channels) {

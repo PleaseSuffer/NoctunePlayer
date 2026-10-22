@@ -7,4 +7,4 @@
 
 В установленном приложении новые импорты сохраняются в `app.getPath('userData')/themes/user`, поскольку ресурсы внутри app.asar доступны только для чтения. Пользовательские темы устанавливаются отдельно от приложения. Старые импорты из каталога `scene-themes` автоматически копируются в новое место с сохранением ID.
 
-Описание API: [SCENE-THEMES.md](../../docs/SCENE-THEMES.md), [SCENE-API-V2.md](../../docs/SCENE-API-V2.md).
+Описание API: [themes-api-v1.md](../../docs/themes-api-v1.md), [themes-api-v2.md](../../docs/themes-api-v2.md).

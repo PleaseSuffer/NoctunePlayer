@@ -1,0 +1,13 @@
+{
+  "id":"service-workbench-demo",
+  "name":"Мастерская SDK 1",
+  "description":"Учебный каталог и плейлисты в памяти, панель интеграции, защищённый профиль и серая цветовая схема. С реальным музыкальным сервисом не соединяется.",
+  "author":"Noctune",
+  "version":"1.0.0","revision":1,"apiVersion":1,"minNoctuneVersion":"1.4.0","type":"integration","entry":"main.js",
+  "permissions":["settings.*","notifications.show","ui.integrations","catalog.register","servicePlaylists.*","providers.register","providers.play","network.request","credentials.*","appearance.*","artwork.read","lyrics.read","lyrics.provide","hotkeys.register","playback.read","playback.shuffle","playback.repeat"],
+  "network":{"origins":["https://api.example.com"],"routes":[{"origin":"https://api.example.com","path":"/profile","methods":["GET"]}]},
+  "credentials":{"demo-key":{"name":"Учебный профиль ключа","description":"Только для проверки формы SDK. Не вводите настоящий ключ: домен example.com является заглушкой.","origins":["https://api.example.com"],"header":"Authorization","scheme":"Bearer"}},
+  "ui":{"integrations":{"title":"Мастерская SDK 1","description":"Демонстрация возможностей. Все плейлисты учебные и хранятся только до отключения расширения.","sections":[{"id":"demo-controls","title":"Настройки демонстрации","fields":["label","demoLyrics","note"]}]}},
+  "settings":{"label":{"type":"text","label":"Название профиля","default":"Учебный аккаунт","maxLength":80},"demoLyrics":{"type":"toggle","label":"Учебный источник текста","description":"При включении заменяет текст открытой песни демонстрационной строкой.","default":false},"note":{"type":"text","label":"Текст демонстрационной строки","default":"Текст от расширения SDK 1","visibleWhen":{"field":"demoLyrics","equals":true}}},
+  "commands":[{"id":"show-state","title":"Проверить состояние SDK"},{"id":"apply-gray","title":"Применить серую схему"},{"id":"release-gray","title":"Вернуть оформление"}]
+}

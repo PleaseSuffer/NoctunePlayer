@@ -1175,6 +1175,8 @@
             // почти пропадает на фоне. --accent-fg — производная от акцента
             // переменная с зажатой светлотой специально под такие места;
             // сам --accent-color при этом никогда не подменяется.
+            const addonAccents = new Map();
+            let addonAccentStyle = null;
             function computeAccentFg(hex) {
                 let h = (hex || '#4a90e2').replace('#', '');
                 if (h.length === 3) h = h.split('').map(c => c + c).join('');
@@ -1225,9 +1227,13 @@
                 return `#${toHex(rr)}${toHex(gg)}${toHex(bb)}`;
             }
 
-            function refreshAccentFg() {
-                const current = getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
+            function refreshAccentFg(color) {
+                const current = color || getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
                 const safeFg = computeAccentFg(current);
+                if (addonAccentStyle) {
+                    document.documentElement.style.setProperty('--addon-accent-fg', safeFg);
+                    return;
+                }
                 document.documentElement.style.setProperty('--accent-fg', safeFg);
                 document.body.style.setProperty('--accent-fg', safeFg);
             }
@@ -1602,6 +1608,7 @@
                 customBgImageEl.style.visibility = enabled ? '' : 'hidden';
                 customBgVideoEl.style.visibility = enabled ? '' : 'hidden';
                 window.imageEffects?.refreshVisibility();
+                window.addonEvents?.emit('backgrounds.changed');
             }
             settingBgEnabled.addEventListener('change', () => {
                 if (settingBgEnabled.checked) {
@@ -1868,6 +1875,7 @@
                     // убираем сверху снимок старого, открывая его.
                     if (prevSnapshot) playBgCrossfade(prevSnapshot, prevFit);
                     window.imageEffects?.select(filePath);
+                    window.addonEvents?.emit('backgrounds.changed');
                 } catch (e) {
                     console.error('Не удалось установить фон:', e);
                 }
@@ -2681,14 +2689,15 @@
 
             function renderHotkeysList() {
                 hotkeysListEl.innerHTML = '';
-                HOTKEY_DEFS.forEach(def => {
+                [...HOTKEY_DEFS, ...(window.addonContributions?.hotkeys() || [])].forEach(def => {
                     const row = document.createElement('div');
                     row.className = 'hotkey-row';
                     row.innerHTML = `
-                        <span class="hotkey-label">${def.label}</span>
+                        <span class="hotkey-label"></span>
                         <div class="hotkey-controls">
                             <span class="hotkey-chip" data-action="${def.id}" title="Нажмите, чтобы изменить">${formatComboForDisplay(window.hotkeyBindings[def.id])}</span>
                         </div>`;
+                    row.querySelector('.hotkey-label').textContent = def.label;
                     hotkeysListEl.appendChild(row);
                 });
                 hotkeysListEl.querySelectorAll('.hotkey-chip').forEach(chip => {
@@ -2735,6 +2744,7 @@
                 document.addEventListener('keydown', captureHandler, true);
             }
 
+            document.addEventListener('addon-contributions-changed', renderHotkeysList);
             document.getElementById('btn-reset-hotkeys').addEventListener('click', () => {
                 window.hotkeyBindings = Object.assign({}, DEFAULT_HOTKEYS);
                 saveHotkeyBindings();
@@ -4037,9 +4047,41 @@
             // Открыто наружу для renderer/library/playlist-io.js — после импорта .m3u
             // нужно перерисовать список плейлистов прямо в открытых настройках.
             window.renderPlEditor = renderPlEditor;
+            // Keep the theme/user palette intact underneath a temporary extension layer.
+            // Map insertion order gives the last enabled owner priority without frame-by-frame contention.
             window.backgroundSettings = {
+                list() { return getRecentBackgrounds(); },
+                apply(options) {
+                    if (options.enabled !== undefined) { if (typeof options.enabled !== 'boolean') throw new Error('Нужен переключатель'); this.enable(options.enabled); }
+                    if (options.fit !== undefined) { if (!['cover','contain','fill'].includes(options.fit)) throw new Error('Неизвестный режим фона'); selectBgFit(options.fit); }
+                    for (const [key, id] of Object.entries({ blur: 'setting-bg-blur-intensity', threshold: 'setting-bg-blur-threshold' })) {
+                        if (options[key] === undefined) continue;
+                        const input = document.getElementById(id), value = options[key];
+                        if (!Number.isFinite(value) || value < Number(input.min) || value > Number(input.max)) throw new Error('Параметр фона вне диапазона');
+                        input.value = value; input.dispatchEvent(new Event('input'));
+                    }
+                    window.addonEvents?.emit('backgrounds.changed');
+                },
                 enable(enabled) { settingBgEnabled.checked = enabled; applyBgImageEnabled(enabled); },
                 select(path) { applyBgImagePath(path, true); this.enable(true); appStorage.setItem('setting_bg_image_enabled', '1'); },
+                accent(owner, color) {
+                    const previous = [...addonAccents.values()].at(-1);
+                    if (color === null) { if (!addonAccents.delete(owner)) return; }
+                    else { if (addonAccents.get(owner) === color) return; addonAccents.set(owner, color); }
+                    const visible = [...addonAccents.values()].at(-1);
+                    if (visible === previous) return;
+                    if (visible) {
+                        if (!addonAccentStyle) { addonAccentStyle = document.createElement('style'); addonAccentStyle.textContent = ':root, body { --accent-color: var(--addon-accent-color) !important; --accent-fg: var(--addon-accent-fg) !important; }'; document.head.append(addonAccentStyle); }
+                        document.documentElement.style.setProperty('--addon-accent-color', visible);
+                    } else {
+                        addonAccentStyle?.remove(); addonAccentStyle = null;
+                        document.documentElement.style.removeProperty('--addon-accent-color');
+                        document.documentElement.style.removeProperty('--addon-accent-fg');
+                    }
+                    refreshAccentFg(visible);
+                    if (typeof recolorWaveform === 'function') recolorWaveform(visible);
+                },
+                refreshAccent() { refreshAccentFg(); },
                 palette(palette) {
                     if (document.body.style.getPropertyValue('--accent-color') === palette.accent && window.vizGradColor1 === palette.gradient[0] && window.vizGradColor2 === palette.gradient[1] && window.vizGradColor3 === palette.gradient[2]) return;
                     for (const element of [document.documentElement, document.body]) {

@@ -38,6 +38,27 @@ context.refreshWaveformColorIfNeeded();
 assert.equal(renderedColor, accent);
 assert.equal(context.window._waveformLastFraction, 0.42, 'recoloring retains playback progress');
 
+// Animated recoloring keeps canvas backing stores, geometry, alpha and progress intact.
+const paints = [];
+const canvases = new Map(['waveform-canvas-base', 'waveform-canvas-progress'].map(id => [id, {
+    width: 300, height: 60,
+    getContext() { return { save() {}, restore() {}, setTransform() {},
+        set globalCompositeOperation(value) { assert.equal(value, 'source-in'); },
+        set fillStyle(value) { paints.push([id, value]); }, fillRect() {},
+    }; },
+    getBoundingClientRect() { throw new Error('Animated recoloring must not measure layout'); },
+}]));
+context.document.getElementById = id => canvases.get(id);
+context.window.waveformEnabled = true; context.window.waveformColorMode = 'accent';
+context.recolorWaveform('#112233'); assert.equal(paints.length, 2);
+context.recolorWaveform('#112233'); assert.equal(paints.length, 2, 'same color is a no-op');
+context.recolorWaveform('#334455'); assert.equal(paints.length, 4);
+assert.equal(context.window._waveformLastFraction, 0.42);
+assert([...canvases.values()].every(canvas => canvas.width === 300 && canvas.height === 60));
+context.window.waveformColorMode = 'custom'; context.recolorWaveform('#667788');
+assert.equal(paints.at(-1)[1], '#123456', 'accent animation respects a fixed waveform color');
+context.recolorWaveform('#abcdef'); assert.equal(paints.length, 6, 'fixed waveform is not repainted each frame');
+
 const settings = fs.readFileSync('src/renderer/ui/settings.js', 'utf8');
 const definitions = settings.slice(settings.indexOf('const WAVEFORM_COLOR_MODES ='), settings.indexOf('function reloadWaveformForCurrentTrack()'));
 const selector = settings.slice(settings.indexOf('function selectWaveformColorMode(mode)'), settings.indexOf("waveformColorModeBtn.addEventListener('click'"));

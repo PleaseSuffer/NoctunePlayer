@@ -219,6 +219,25 @@ function parseM3U(text) {
 // Публичный API, доступный в рендерере как window.noctune
 // ══════════════════════════════════════════════════════════════════════════
 contextBridge.exposeInMainWorld('noctune', {
+  addons: {
+    settings: id => ipcRenderer.invoke('addons:settings', id),
+    setSettings: (id, value) => ipcRenderer.invoke('addons:set-settings', id, value),
+    services: (id, hash, method, args) => ipcRenderer.invoke('addons:services', id, hash, method, args),
+    libraryFile: (id, hash, filename) => ipcRenderer.invoke('addons:library-file', id, hash, filename),
+    list: () => ipcRenderer.invoke('addons:list'),
+    runtime: () => ipcRenderer.invoke('addons:runtime'),
+    prepareFile: () => ipcRenderer.invoke('addons:prepare-file'),
+    prepareUrl: url => ipcRenderer.invoke('addons:prepare-url', url),
+    openInstaller: ticket => ipcRenderer.invoke('addons:open-installer', ticket),
+    discard: ticket => ipcRenderer.invoke('addons:discard', ticket),
+    setEnabled: (id, enabled) => ipcRenderer.invoke('addons:enable', id, enabled),
+    remove: id => ipcRenderer.invoke('addons:remove', id),
+    rollback: id => ipcRenderer.invoke('addons:rollback', id),
+    checkUpdate: id => ipcRenderer.invoke('addons:check-update', id),
+    invoke: (id, hash, method, args) => ipcRenderer.invoke('addons:invoke', id, hash, method, args),
+    request: (id, hash, url) => ipcRenderer.invoke('addons:request', id, hash, url),
+    cancelRequests: id => ipcRenderer.invoke('addons:cancel-requests', id),
+  },
   lyrics: { get: payload => ipcRenderer.invoke('lyrics:get', payload), cancel: () => ipcRenderer.invoke('lyrics:cancel') },
   // Статичные значения окружения (нужны, например, для отчётов об ошибках,
   // где раньше использовался глобальный process.*, недоступный без

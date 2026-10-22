@@ -33,7 +33,8 @@
         });
 
         function savePlaylistsToStorage() {
-            appStorage.setItem('noctune_playlists', JSON.stringify(userPlaylists));
+            appStorage.setItem('noctune_playlists', JSON.stringify(userPlaylists.filter(pl => pl.type !== 'provider')));
+            globalThis.addonEvents?.playlistsChanged?.();
         }
 
         function loadPlaylistsFromStorage() {
@@ -109,8 +110,9 @@
                 item.setAttribute('role', 'option');
                 item.innerHTML = `
                     <span class="pd-item-icon"><i data-lucide="${iconName}" style="width:15px;height:15px;"></i></span>
-                    <span class="pd-item-label">${pl.name}</span>
+                    <span class="pd-item-label"></span>
                 `;
+                item.querySelector('.pd-item-label').textContent=pl.name;
                 item.addEventListener('click', () => {
                     selectPlaylist(pl.id);
                     playlistsDropdownMenu.classList.remove('open');
@@ -130,6 +132,7 @@
             if (!pl) return;
             const iconName = getPlaylistIcon(pl);
             pdSelectedLabel.textContent = pl.name;
+            btnEditPlaylist.disabled=btnDeletePlaylist.disabled=pl.type==='provider';
             pdSelectedIcon.innerHTML = `<i data-lucide="${iconName}" style="width:15px;height:15px;"></i>`;
             // Update active state in menu
             playlistsDropdownMenu.querySelectorAll('.pd-menu-item').forEach(item => {
@@ -228,6 +231,8 @@
                     await loadMusicFromDirectory(pl.path);
                     if (pl.files?.length) await addFilesToPlaylist(pl.files, pl.id);
                 }
+            } else if (pl.type === 'provider') {
+                window.addonProviders.render(pl);
             } else if (pl.type === 'radio') {
                 loadRadioStations(pl);
             }

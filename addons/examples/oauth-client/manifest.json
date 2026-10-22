@@ -1,0 +1,45 @@
+{
+  "id": "oauth-client-demo",
+  "name": "OAuth · пример клиента",
+  "description": "Шаблон OAuth PKCE. Перед использованием замените example.com и зарегистрируйте публичный desktop-клиент у сервиса.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "integration",
+  "entry": "main.js",
+  "permissions": [
+    "oauth.authorize",
+    "oauth.status",
+    "oauth.disconnect",
+    "network.request",
+    "notifications.show"
+  ],
+  "network": {
+    "origins": [
+      "https://api.example.com"
+    ]
+  },
+  "oauth": {
+    "example-service": {
+      "name": "Пример сервиса",
+      "flow": "authorization_code",
+      "clientId": "REGISTER-YOUR-PUBLIC-CLIENT",
+      "authorizationUrl": "https://accounts.example.com/authorize",
+      "tokenUrl": "https://accounts.example.com/token",
+      "scopes": [
+        "music:read"
+      ],
+      "resourceOrigins": [
+        "https://api.example.com"
+      ]
+    }
+  },
+  "commands": [
+    {
+      "id": "check-profile",
+      "title": "Проверить профиль"
+    }
+  ]
+}

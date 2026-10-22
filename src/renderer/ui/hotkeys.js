@@ -88,7 +88,8 @@
             const combo = normalizeKeyCombo(e);
             const actionId = Object.keys(window.hotkeyBindings).find(k => window.hotkeyBindings[k] === combo);
             if (!actionId) return;
-            const handler = HOTKEY_ACTIONS[actionId];
+            const addonAction = window.addonContributions?.hotkeys().find(item => item.id === actionId);
+            const handler = HOTKEY_ACTIONS[actionId] || (addonAction ? () => { const [, owner, command] = actionId.split(':'); window.addonHost.command(owner, command).catch(error => console.warn('Extension hotkey failed:', error.message)); } : null);
             if (!handler) return;
             e.preventDefault();
             handler();

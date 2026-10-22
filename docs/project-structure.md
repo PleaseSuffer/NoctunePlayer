@@ -1,6 +1,6 @@
 # Структура проекта
 
-Документ соответствует исходникам версии 1.3.1. Версия приложения и параметры упаковки задаются в `package.json`; версии зависимостей закреплены в `package-lock.json`.
+Документ описывает текущую структуру исходников. Версия приложения и параметры упаковки задаются в `package.json`; версии зависимостей закреплены в `package-lock.json`.
 
 ```text
 src/
@@ -53,7 +53,6 @@ tests/
   native-memory-probe.cjs          Проверка памяти в настоящем Electron
   native-memory-renderer.js        Сценарий оптимизированного waveform
   README.md                       Назначение тестов и команды запуска
-  native-thumbnail-probe.cjs       Проверка загрузки миниатюр с CSS приложения
   native-installer-policy-probe.cjs Проверка первой установки и обновления в NSIS
 package.json                      Версия, зависимости, команды и electron-builder
 package-lock.json                 Зафиксированные версии зависимостей
@@ -62,6 +61,12 @@ LICENSE                           Лицензия MIT
 ```
 
 ## Процессы и ответственность модулей
+
+Установка расширений, подписи, версии, хранение и сетевой брокер находятся в
+`src/main/addons/`. Изолированное исполнение и SDK — в `src/renderer/addons/`,
+вкладка настроек — в `src/renderer/ui/addon-settings.js`. Примеры и схема manifest
+хранятся в `addons/`; они не устанавливаются автоматически и не включаются
+в production-пакет. Декларации SDK находятся в `addons/sdk.d.ts`. [Формат расширений](extensions-api-v1.md).
 
 `npm start` запускает `src/main/index.js`. Главное окно загружает `src/renderer/index.html`; системные API доступны интерфейсу через мост `window.noctune` из `src/preload/index.js`.
 
@@ -112,11 +117,11 @@ npm run dist
 
 `npm ci` устанавливает зависимости по lockfile. `npm run dist` запускает `electron-builder` для текущей платформы и сохраняет артефакты в `dist/`. Конфигурация содержит NSIS для Windows и AppImage, pacman, tar.gz для Linux. Сборки проверяются в соответствующей среде.
 
-В пакет включаются `src/**/*`, `resources/app.ico`, `resources/app.png`, `package.json` и зависимости. Документация и тесты остаются в репозитории для разработки.
+В пакет включаются только исполняемые модули и ресурсы приложения, production-зависимости, встроенные темы и обои. Подробности и аудит архива описаны в разделе [«Состав приложения при сборке»](#состав-приложения-при-сборке).
 
 ## Проверки
 
-Контракт тем v1 описан в [SCENE-THEMES.md](SCENE-THEMES.md), расширения v2 — в [SCENE-API-V2.md](SCENE-API-V2.md). Обе версии используют `src/renderer/effects/scene-host.js` и версионированный `scene-sdk.js`; TypeScript-декларации v2 находятся рядом в `scene-sdk.d.ts`. Валидатор и упаковщик в `src/main/scene-themes.js` выбирают версию из пакета. Эталон v2 находится в `themes/examples/api-v2`, готовый контейнер — в `themes/packages/api-v2-demo.noctheme`.
+Контракт тем v1 описан в [themes-api-v1.md](themes-api-v1.md), расширения v2 — в [themes-api-v2.md](themes-api-v2.md). Обе версии используют `src/renderer/effects/scene-host.js` и версионированный `scene-sdk.js`; TypeScript-декларации v2 находятся в `themes/sdk.d.ts`. Валидатор и упаковщик в `src/main/scene-themes.js` выбирают версию из пакета. Эталон v2 находится в `themes/examples/api-v2`, готовый контейнер — в `themes/packages/api-v2-demo.noctheme`.
 
 ```bash
 npm test
@@ -128,14 +133,43 @@ npm test
 
 ```powershell
 .\node_modules\.bin\electron.cmd tests/native-memory-probe.cjs
-.\node_modules\.bin\electron.cmd tests/native-thumbnail-probe.cjs
 ```
 
 В Linux:
 
 ```bash
 ./node_modules/.bin/electron tests/native-memory-probe.cjs
-./node_modules/.bin/electron tests/native-thumbnail-probe.cjs
 ```
 
-Для этих сценариев нужна среда с графическим дисплеем. Они создают временные файлы и отдельный профиль, затем удаляют их. Проверка памяти проверяет последовательное декодирование, повторное использование кэша и ограниченный размер waveform на синтетических четырёхминутных WAV; её показатели относятся к тестовым процессам и не отражают суммарную память всего приложения. Проверка миниатюр использует настоящие `nativeImage`, ленивую загрузку изображения и CSS приложения. Полный список повторяемых проверок и команд запуска находится в [tests/README.md](../tests/README.md).
+Для этих сценариев нужна среда с графическим дисплеем. Они создают временные файлы и отдельный профиль, затем удаляют их. Проверка памяти проверяет последовательное декодирование, повторное использование кэша и ограниченный размер waveform на синтетических четырёхминутных WAV; её показатели относятся к тестовым процессам и не отражают суммарную память всего приложения. Полный список повторяемых проверок и команд запуска находится в [tests/README.md](../tests/README.md).
+
+
+## Состав приложения при сборке
+
+`build.files` в `package.json` перечисляет исполняемые модули main/preload,
+HTML/CSS/JS интерфейса, общие runtime-модули и стили контролов
+(`src/shared/settings-controls.css`), встроенные сцены и их слои,
+встроенные обои, иконки и лицензию. Electron-builder добавляет production-зависимости.
+Декларации типов находятся в `addons/sdk.d.ts` и `themes/sdk.d.ts`; документация,
+примеры, упаковщики и локальная веб-страница перенаправления остаются в репозитории.
+
+Из зависимостей исключены source map, TypeScript-исходники, документация,
+примеры, тесты и скрипты разработки. Для Lucide используется только
+`dist/umd/lucide.min.js`. Лицензии и уведомления сторонних библиотек сохраняются.
+`scene-sdk.js` входит в runtime: без него не работают встроенные и импортированные темы.
+
+После сборки проверьте реальное содержимое архива:
+
+```bash
+npm run audit:package -- dist/linux-unpacked/resources/app.asar
+```
+
+Для Windows укажите `dist/win-unpacked/resources/app.asar`.
+Проверка контролирует отсутствие файлов разработки, ссылки HTML и JS,
+ресурсы встроенных тем, обои, зависимости и лицензию.
+
+Интеграционную проверку расширений можно выполнить с модулями собранного архива:
+
+```bash
+./node_modules/.bin/electron tests/native-addons-probe.cjs --app-asar=dist/linux-unpacked/resources/app.asar
+```

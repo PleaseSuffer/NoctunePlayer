@@ -1,4 +1,5 @@
 (function initLyrics() {
+    let addonLyricsSnapshot = {status:'missing',lines:[],plain:''};
     const modal = document.getElementById('lyrics-modal');
     const openButtons = [document.getElementById('btn-lyrics'), document.getElementById('mini-btn-lyrics')];
     const closeButton = document.getElementById('lyrics-close');
@@ -8,6 +9,7 @@
     const trackLabel = document.getElementById('lyrics-track');
     const retry = document.getElementById('lyrics-retry');
     const followButton = document.getElementById('lyrics-follow');
+    const unsyncedHint = document.getElementById('lyrics-unsynced');
     const viewToggle = document.getElementById('lyrics-view-toggle');
     const autoScrollToggle = document.getElementById('setting-lyrics-autoscroll');
     const settingsBody = document.getElementById('lyrics-settings-body');
@@ -587,6 +589,7 @@
         content.appendChild(dots);
     }
     function clear() {
+        addonLyricsSnapshot = {status:'missing',lines:[],plain:''};
         resetScrollbarActivity();
         cancelLyricsSearch();
         serial++;
@@ -596,13 +599,15 @@
         content.replaceChildren();
         content.scrollTop = 0;
         retry.hidden = true; followButton.hidden = true;
+        unsyncedHint.hidden = true;
         status.classList.toggle('lyrics-synced-hint', false);
 
         trackLabel.textContent = track ? [track.artist, track.title].filter(Boolean).join(' — ') : '';
         updateNowPlaying();
     }
+    window.addonLyrics = { read: () => JSON.parse(JSON.stringify(addonLyricsSnapshot)), artwork: () => track?.coverThumbnailDataUrl || track?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked ? remoteCover : '') || '' };
     async function load() {
-        clear();
+        clear(); addonLyricsSnapshot = {status:'missing',lines:[],plain:''};
         if (!enabled || !opened) return;
         if (!track || track.radio) {
             status.textContent = track?.radio ? 'Текст для радиопотока недоступен.' : 'Выберите песню для поиска текста.';
@@ -612,10 +617,15 @@
         setLyricsAvailability(false);
         setLyricsLoading(true);
         let result;
-        try { result = await noctune.lyrics.get(track); } catch (_) { result = { status: 'error' }; }
+        try {
+            if (window.addonContributions) result = await window.addonContributions.lyrics({ title:track.title||'',artist:track.artist||'',album:track.album||'',duration:track.duration||0,sessionId:window.addonEvents?.snapshot().sessionId });
+            if (requestSerial !== serial || !opened || !enabled) return;
+            if (!result) result = await noctune.lyrics.get(track);
+        } catch (_) { result = { status: 'error' }; }
         if (requestSerial !== serial || !opened || !enabled) return;
         setLyricsLoading(false);
         if (result.status === 'cancelled') return;
+        addonLyricsSnapshot = {status:result.status,lines:result.lines||[],plain:result.plain||''};
         const messages = {
             missing: 'Текст этой песни не найден.', instrumental: 'Инструментальная композиция — без текста.',
             invalid: 'Для поиска нужны название песни и исполнитель. Проверьте теги файла.',
@@ -666,7 +676,7 @@
             followButton.hidden = false;
             sync();
         } else {
-            status.textContent = 'Текст без синхронизации';
+            unsyncedHint.hidden = false;
             const plain = document.createElement('div');
             plain.className = 'lyrics-plain'; plain.textContent = result.plain;
             content.appendChild(plain);
@@ -769,6 +779,7 @@
         clear();
     });
     window.setLyricsTrack = (metadata, token) => {
+        window.addonEvents?.metadata(metadata);
         if (track && metadata && track.token === token && Boolean(track.radio) === Boolean(metadata.radio) && track.stationName === metadata.stationName && track.title === metadata.title && track.artist === metadata.artist) {
             const gainedDuration = !track.duration && metadata.duration > 0;
             track.duration = metadata.duration || track.duration;

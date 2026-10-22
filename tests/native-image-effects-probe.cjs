@@ -201,6 +201,25 @@ app.whenReady().then(async () => {
         await evaluate('imageEffects.applyAppearance({...imageEffects.appearance(),colors:{contours:{mode:"custom",custom:"#00ff00"}}})');
         await new Promise(resolve=>setTimeout(resolve,100));
         assert.notEqual(await evaluate('window.snapshotEffect()'),redTint,'custom colors change actual pixels');
+        // A changing accent must reuse extracted masks and existing tint surfaces.
+        await evaluate("imageEffects.applyAppearance({enabled:true,contours:true,waves:true,highlights:true,sparks:false,ripple:false,chromatic:false,colors:{contours:{mode:'accent'},waves:{mode:'accent'},highlights:{mode:'accent'}}});imageEffects.audio(new Uint8Array(256).fill(230),44100,true)");
+        await new Promise(resolve=>setTimeout(resolve,150));
+        await evaluate(`window.paletteReads=0;window.paletteCanvases=0;window.paletteFrames=0;
+            window.savedReadPixels=CanvasRenderingContext2D.prototype.getImageData;
+            CanvasRenderingContext2D.prototype.getImageData=function(...args){window.paletteReads++;return window.savedReadPixels.apply(this,args)};
+            window.savedCreateElement=document.createElement.bind(document);
+            document.createElement=function(...args){if(args[0]==='canvas')window.paletteCanvases++;return window.savedCreateElement(...args)};
+            window.savedClearRect=CanvasRenderingContext2D.prototype.clearRect;
+            CanvasRenderingContext2D.prototype.clearRect=function(...args){window.paletteFrames++;return window.savedClearRect.apply(this,args)};void 0;`);
+        for (const color of ['#ff0000','#ff8800','#ffff00','#00ff00','#00ffff','#0000ff','#8800ff','#ff0088']) {
+            await evaluate(`document.documentElement.style.setProperty('--accent-color',${JSON.stringify(color)});imageEffects.audio(new Uint8Array(256).fill(230),44100,true)`);
+            await new Promise(resolve=>setTimeout(resolve,55));
+        }
+        const paletteCost=await evaluate(`({reads:window.paletteReads,canvases:window.paletteCanvases,frames:window.paletteFrames})`);
+        assert.equal(paletteCost.reads,0,'animated palettes never read back mask pixels after preparation');
+        assert.equal(paletteCost.canvases,0,'animated palettes reuse existing canvas surfaces');
+        assert(paletteCost.frames>=8,'effects keep rendering across palette changes');
+        await evaluate(`CanvasRenderingContext2D.prototype.getImageData=window.savedReadPixels;document.createElement=window.savedCreateElement;CanvasRenderingContext2D.prototype.clearRect=window.savedClearRect;void 0;`);
         const saved=await evaluate('imageEffects.appearance()');
         await evaluate('imageEffects.applyAppearance({});imageEffects.applyAppearance('+JSON.stringify(saved)+')');
         assert.deepEqual(await evaluate('imageEffects.appearance()'),saved,'theme settings round trip');

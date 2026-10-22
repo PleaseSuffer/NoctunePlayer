@@ -18,10 +18,9 @@ Electron executable; on Windows:
 .\node_modules\.bin\electron.cmd tests/native-open-theme-probe.cjs
 .\node_modules\.bin\electron.cmd tests/native-playback-keep-awake-probe.cjs
 .\node_modules\.bin\electron.cmd tests/native-memory-probe.cjs
-.\node_modules\.bin\electron.cmd tests/native-thumbnail-probe.cjs
 .\node_modules\.bin\electron.cmd tests/native-image-effects-probe.cjs
 .\node_modules\.bin\electron.cmd tests/native-image-effects-probe.cjs --fallback
-.\node_modules\.bin\electron.cmd tests/native-visualizer-settings-probe.cjs
+.\node_modules\.bin\electron.cmd tests/native-addons-probe.cjs
 ```
 
 | Test | Regression covered |
@@ -31,8 +30,9 @@ Electron executable; on Windows:
 | Rain window mask | Glass alpha boundary, foreground occlusion, spectrum baseline and fade to silence |
 | Theme opening | Separate installer, metadata, cancel, install/update states, toasts and repeated file-open |
 | Playback keep-awake | Actual audio playback, pause/resume/end, native sleep blocker and background gallery layout |
-| Memory and thumbnails | Native audio decode serialization, bounded waveform/artwork storage and image loading |
-| Image effects and visualizers | Real GPU/Canvas output, fallback rendering, controls and persistence |
+| Memory | Native audio decode serialization and bounded waveform/artwork storage |
+| Image effects | Real GPU/Canvas output and fallback rendering; visualizer settings and modes are covered by the Node.js renderer suite |
+| Addons | Separate installer, consent/cancel, grouped permissions and artwork, opaque iframe/Worker and CSP, SDK permissions, persistent data, cleanup, typed settings and audio-provider playback |
 
 Run full-app tests sequentially: development theme storage is shared. Tests use
 fixture profiles and generated data; retained screenshots and profiles belong in
@@ -51,12 +51,30 @@ These tests require the NSIS toolchain from electron-builder. They validate
 installer policy and compile association macros using fixtures; they do not
 install the application or modify the registry.
 
-`installed-build-probe.cjs` is the optional post-installation smoke test. Pass the
-installed `Noctune.exe` path after closing the application. It uses a local debug
-connection and temporarily changes settings, then restores them. It is excluded
-from `npm test`; its purpose is to detect packaging/preload failures that source
-tests cannot catch.
-
 Historical algorithm comparisons and duplicate installed-app diagnostics are
 not part of the test suite. Keep reusable behavioral assertions instead of
 adding release-specific snapshots or tests requiring the developer's profile.
+
+Проверки SDK 1: `main/addon-sdk.cjs` (права, настройки, vault, OAuth PKCE/state/refresh),
+`main/addon-services.cjs` (file handles, подмена симлинком, clipboard, HTTPS),
+`renderer/addon-player.cjs` (сеансы, устаревшие события, очередь).
+`native-addons-probe.cjs` дополнительно проверяет API 1, все типы настроек,
+реальный поток через Web Audio, истёкшую ссылку HTTP 403 и один refresh,
+события/PCM/анализатор и освобождение ресурсов. Профиль теста временный,
+HTTPS-аудиосервер заменён локальным детерминированным mock; реальный вход
+в сторонние сервисы этим тестом не проверяется.
+
+`main/addon-assets.cjs` проверяет упаковку и лимиты двоичных ресурсов,
+канонический base64, подпись ресурсов, artwork в снимке установки и группировку
+полных/частичных разрешений. Native probe проверяет чтение ресурсов из Worker,
+logo/banner и вложенные списки реальных разрешений в установщике.
+
+
+## Проверка собранного приложения
+
+`npm run audit:package -- dist/linux-unpacked/resources/app.asar` проверяет
+реальный состав архива, ссылки интерфейса и модулей, ресурсы тем и обоев.
+С флагом `--app-asar=dist/linux-unpacked/resources/app.asar` native addon probe
+загружает main/preload/renderer из сборки; дополнительно проверяет метаданные
+локального WAV и активацию встроенной темы. Используются временный профиль
+и тестовый поток, запрос обновлений приложения отключён.

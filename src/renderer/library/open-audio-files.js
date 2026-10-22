@@ -46,6 +46,7 @@ async function openExternalAudioFiles(request) {
         target.files = [...new Set([...(target.files || []), ...files])];
         savePlaylistsToStorage();
         externalAudioQueue.push(...files.map(path => ({ playlistId: target.id, path })));
+        globalThis.addonEvents?.emit('queue.changed');
         sendTrayState();
         await addFilesToPlaylist(files, target.id, { validated: true });
         statusText.textContent = `Добавлено в очередь: ${files.length}`;
@@ -69,6 +70,11 @@ async function openExternalAudioFiles(request) {
 async function playQueuedAudioFile(token = _loadToken) {
     while (externalAudioQueue.length) {
         const next = externalAudioQueue.shift();
+        globalThis.addonEvents?.emit('queue.changed');
+        if (next.provider) {
+            if (token !== _loadToken) return true;
+            try { await window.addonProviders.play(next.provider.addonId, { provider: next.provider.providerId, track: next.provider.track }); return true; } catch (_) { continue; }
+        }
         if (!userPlaylists.some(value => value.id === next.playlistId && value.type === 'folder')) continue;
         if (!(await validatedAudioPaths([next.path])).length) continue;
         if (token !== _loadToken) return true;

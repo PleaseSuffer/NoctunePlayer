@@ -1,0 +1,489 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Noctune addon manifest API 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "description",
+    "author",
+    "version",
+    "revision",
+    "apiVersion",
+    "minNoctuneVersion",
+    "type",
+    "entry",
+    "permissions",
+    "commands"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "version": {
+      "$ref": "#/$defs/version"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "apiVersion": {
+      "const": 1
+    },
+    "minNoctuneVersion": {
+      "$ref": "#/$defs/version"
+    },
+    "maxNoctuneVersion": {
+      "$ref": "#/$defs/version"
+    },
+    "type": {
+      "enum": [
+        "extension",
+        "integration"
+      ]
+    },
+    "entry": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*\\.js$"
+    },
+    "permissions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "storage.read",
+          "storage.write",
+          "notifications.show",
+          "settings.read",
+          "settings.events",
+          "playback.read",
+          "playback.play",
+          "playback.pause",
+          "playback.stop",
+          "playback.seek",
+          "playback.next",
+          "playback.previous",
+          "playback.volume",
+          "playback.speed",
+          "events.track",
+          "events.playback",
+          "events.progress",
+          "events.queue",
+          "events.playlists",
+          "queue.read",
+          "queue.add",
+          "queue.remove",
+          "queue.reorder",
+          "playlists.read",
+          "playlists.create",
+          "playlists.rename",
+          "playlists.delete",
+          "playlists.edit",
+          "playlists.select",
+          "themes.list",
+          "themes.switch",
+          "themes.apply",
+          "themes.events",
+          "backgrounds.list",
+          "backgrounds.switch",
+          "backgrounds.apply",
+          "backgrounds.events",
+          "audio.analyse",
+          "audio.pcm",
+          "audio.equalizer",
+          "audio.effects",
+          "providers.register",
+          "providers.play",
+          "network.request",
+          "network.headers",
+          "oauth.authorize",
+          "oauth.status",
+          "oauth.disconnect",
+          "secrets.read",
+          "secrets.write",
+          "secrets.delete",
+          "files.select",
+          "files.read",
+          "files.write",
+          "files.library",
+          "files.reveal",
+          "clipboard.read",
+          "clipboard.write",
+          "system.openExternal",
+          "system.openFile",
+          "storage.*",
+          "notifications.*",
+          "settings.*",
+          "playback.*",
+          "events.*",
+          "queue.*",
+          "playlists.*",
+          "themes.*",
+          "backgrounds.*",
+          "audio.*",
+          "providers.*",
+          "network.*",
+          "oauth.*",
+          "secrets.*",
+          "files.*",
+          "clipboard.*",
+          "system.*"
+        ]
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "origins"
+      ],
+      "properties": {
+        "origins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^https://[^/?#@]+$",
+            "maxLength": 2048
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    },
+    "update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "channel"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        },
+        "channel": {
+          "const": "stable"
+        }
+      }
+    },
+    "homepage": {
+      "type": "string",
+      "pattern": "^https://",
+      "maxLength": 2048
+    },
+    "settings": {
+      "type": "object",
+      "maxProperties": 32,
+      "propertyNames": {
+        "pattern": "^[a-z][a-zA-Z0-9_-]{0,47}$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "label",
+              "default"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "type": {
+                "const": "toggle"
+              },
+              "default": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "label",
+              "default"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "type": {
+                "const": "text"
+              },
+              "default": {
+                "type": "string"
+              },
+              "maxLength": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4000
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "label",
+              "default",
+              "min",
+              "max",
+              "step"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "type": {
+                "enum": [
+                  "number",
+                  "slider"
+                ]
+              },
+              "default": {
+                "type": "number"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "step": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "label",
+              "default",
+              "options"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 500
+              },
+              "type": {
+                "const": "select"
+              },
+              "default": {
+                "type": "string"
+              },
+              "options": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "value",
+                    "label"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "maxLength": 99
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 120
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "oauth": {
+      "type": "object",
+      "maxProperties": 8,
+      "propertyNames": {
+        "$ref": "#/$defs/id"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "flow",
+          "clientId",
+          "tokenUrl",
+          "scopes",
+          "resourceOrigins"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "flow": {
+            "enum": [
+              "authorization_code",
+              "device_code"
+            ]
+          },
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "authorizationUrl": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "tokenUrl": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "deviceAuthorizationUrl": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://"
+          },
+          "scopes": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          },
+          "resourceOrigins": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^https://[^/?#@]+$",
+              "maxLength": 2048
+            }
+          },
+          "redirectPort": {
+            "type": "integer",
+            "minimum": 1024,
+            "maximum": 65535
+          },
+          "extraParams": {
+            "type": "object",
+            "maxProperties": 12,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 300
+            }
+          }
+        }
+      }
+    },
+    "icon": {
+      "type": "string",
+      "maxLength": 180,
+      "pattern": "^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*\\.(png|jpg|jpeg|webp|gif|avif|ico)$",
+      "description": "Path to a bundled image resource."
+    },
+    "banner": {
+      "type": "string",
+      "maxLength": 180,
+      "pattern": "^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*\\.(png|jpg|jpeg|webp|gif|avif|ico)$",
+      "description": "Path to a bundled image resource."
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,63}$",
+      "not": {
+        "enum": [
+          "constructor",
+          "prototype"
+        ]
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+    }
+  }
+}

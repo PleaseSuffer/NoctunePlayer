@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:">
+  <title>Установка расширения — Noctune</title>
+  <link rel="stylesheet" href="../theme-install/style.css">
+  <link rel="stylesheet" href="../../shared/settings-controls.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../../shared/addon-permission-view.css">
+  <script src="../../../node_modules/lucide/dist/umd/lucide.min.js"></script>
+  <script src="../../shared/addon-permissions.js"></script>
+  <script src="../../shared/addon-permission-view.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body class="addon-install">
+  <main>
+    <header><span class="brand">Noctune</span><span class="badge" id="badge">Новое расширение</span></header>
+    <img id="addon-banner" class="addon-banner" alt="" hidden>
+    <section class="details" aria-labelledby="name">
+      <p class="eyebrow" id="eyebrow">Установка расширения</p>
+      <img id="addon-icon" class="addon-icon" alt="" hidden>
+      <h1 id="name">Загрузка…</h1>
+      <p id="verified-publisher" class="addon-verified-publisher" hidden></p>
+      <p id="description"></p>
+      <dl id="metadata"></dl>
+    </section>
+    <section class="access-section" aria-labelledby="permissions-heading">
+      <div class="section-heading"><h2 id="permissions-heading">Разрешения</h2><span id="permission-count" class="count"></span></div>
+      <p class="section-description">Возможности, которые сможет использовать расширение.</p>
+      <ul id="permissions" class="permissions-list"></ul>
+      <p id="no-permissions" class="note" hidden>Дополнительные разрешения не запрашиваются.</p>
+      <section id="network-section" aria-labelledby="network-heading" hidden>
+        <h3 id="network-heading">Разрешённые домены</h3>
+        <ul id="origins" class="origins-list"></ul>
+      </section>
+    </section>
+    <section class="publisher-section" aria-labelledby="publisher-heading">
+      <h2 id="publisher-heading">Источник пакета</h2>
+      <p id="signature-note" class="note"></p>
+      <details id="publisher-details" hidden><summary>Ключ издателя</summary><code id="publisher"></code></details>
+    </section>
+    <p id="activation-note" class="note"></p>
+  </main>
+  <footer>
+    <label id="consent-row" class="consent"><span class="toggle-switch"><input id="consent" type="checkbox" disabled><span class="slider-round"></span></span><span id="consent-label">Доверяю автору и разрешаю указанный доступ</span></label>
+    <p id="status" role="status" aria-live="polite"></p>
+    <div class="actions"><button id="cancel" type="button">Отмена</button><button id="install" type="button" class="primary" disabled>Установить</button></div>
+  </footer>
+</body>
+</html>

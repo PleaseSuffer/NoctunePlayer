@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker, safeStorage, clipboard, protocol } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
@@ -30,6 +30,9 @@ app.commandLine.appendSwitch('hardware-media-key-handling');
 app.commandLine.appendSwitch('enable-features', 'MediaSessionService');
 
 let win = null;
+const { registerAddonIpc } = require('./addons/ipc');
+protocol.registerSchemesAsPrivileged([{ scheme: 'noctune-stream', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+const addonStore = registerAddonIpc({ safeStorage, shell, clipboard, ipcMain, BrowserWindow, dialog, icon: iconPath, getWindow: () => win, directory: () => path.join(app.getPath('userData'), 'addons'), appVersion: app.getVersion() });
 const { createSceneThemeStore } = require('./scene-themes');
 const sceneThemeRoot = path.join(__dirname, '../../themes');
 const sceneThemeStore = createSceneThemeStore({
@@ -348,8 +351,7 @@ function lastfmLoadSession() {
 async function lastfmBeginAuth() {
   const res = await lastfmRequest({ method: 'auth.getToken' }, 'GET');
   const token = res.token;
-  const { key } = lastfmActiveCredentials(); // раньше тут была захардкожена LASTFM_API_KEY —
-                                              // ручной ключ игнорировался именно в этой ссылке
+  const { key } = lastfmActiveCredentials();
   const authUrl = `${LASTFM_AUTH_ROOT}?api_key=${key}&token=${token}`;
   shell.openExternal(authUrl);
   return { ok: true, token };
@@ -1165,6 +1167,7 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
+    protocol.handle('noctune-stream', request => addonStore.stream(request));
     // Установленная версия использует build.appId из package.json, как ярлык
     // NSIS. Запуск через npm start получает отдельный AUMID, чтобы ярлык
     // Electron в Windows не подменял имя и иконку установленного Noctune.

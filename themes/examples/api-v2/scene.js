@@ -1,4 +1,4 @@
-/// <reference path="../../../src/renderer/effects/scene-sdk.d.ts" />
+/// <reference path="../../sdk.d.ts" />
 NoctuneScene.define({
     render(api, frame) {
         const source = api.bandsSource({ count: 80, minHz: 35, maxHz: 18000, attack: 18, release: 7, smoothing: .35 });

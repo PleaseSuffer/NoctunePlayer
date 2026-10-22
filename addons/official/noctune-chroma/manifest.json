@@ -1,0 +1,46 @@
+{
+  "id": "noctune-chroma",
+  "name": "Noctune Chroma",
+  "description": "Плавное переливание акцента: полный RGB-цикл, авторские палитры и переходы между вашими цветами. Официальное расширение Noctune.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "icon": "assets/icon.png",
+  "banner": "assets/banner.png",
+  "homepage": "https://github.com/PleaseSuffer/NoctunePlayer",
+  "permissions": ["settings.read", "settings.events", "themes.accent", "notifications.show"],
+  "commands": [{ "id": "restart-cycle", "title": "Начать цикл заново" }, { "id": "check-palette", "title": "Проверить свою палитру" }],
+  "settings": {
+    "animated": { "type": "toggle", "label": "Переливание акцента", "description": "При выключении возвращается актуальный цвет темы. Сохранённые цвета и градиенты не изменяются.", "default": true },
+    "mode": { "type": "select", "label": "Палитра", "default": "rainbow", "options": [
+      { "value": "rainbow", "label": "Радуга · полный RGB-цикл" },
+      { "value": "aurora", "label": "Северное сияние" },
+      { "value": "sunset", "label": "Закат" },
+      { "value": "ocean", "label": "Океан" },
+      { "value": "neon", "label": "Неон" },
+      { "value": "custom", "label": "Свои цвета" }
+    ] },
+    "colors": { "type": "text", "label": "Своя палитра", "description": "Для режима «Свои цвета»: от 2 до 12 цветов #RRGGBB или #RGB через запятую. Например: #ff6b9d, #a78bfa, #38bdf8. При ошибке продолжает работать последняя корректная палитра.", "default": "#ff6b9d, #a78bfa, #38bdf8", "maxLength": 160 },
+    "duration": { "type": "slider", "label": "Длительность цикла, секунд", "description": "Время полного прохода палитры. Меньше — быстрее; больше — спокойнее.", "min": 6, "max": 300, "step": 1, "default": 45 },
+    "direction": { "type": "select", "label": "Направление", "default": "forward", "options": [
+      { "value": "forward", "label": "По кругу" },
+      { "value": "reverse", "label": "В обратную сторону" },
+      { "value": "bounce", "label": "Туда и обратно" }
+    ] },
+    "easing": { "type": "select", "label": "Переходы между цветами", "description": "Для готовых и своей палитры. Радуга равномерно проходит весь цветовой круг.", "default": "smooth", "options": [
+      { "value": "smooth", "label": "Плавные · мягкое замедление у цвета" },
+      { "value": "linear", "label": "Равномерные" }
+    ] },
+    "saturation": { "type": "slider", "label": "Насыщенность, %", "description": "100% сохраняет исходные цвета; уменьшение делает палитру более пастельной.", "min": 20, "max": 100, "step": 1, "default": 85 },
+    "brightness": { "type": "slider", "label": "Яркость, %", "min": 35, "max": 100, "step": 1, "default": 100 },
+    "offset": { "type": "slider", "label": "Начальная точка цикла, °", "description": "Сдвигает начало палитры. Кнопка «Начать цикл заново» возвращает к этой точке.", "min": 0, "max": 359, "step": 1, "default": 210 },
+    "quality": { "type": "select", "label": "Частота обновления", "default": "20", "options": [
+      { "value": "20", "label": "Плавно · 20 кадров/с" },
+      { "value": "10", "label": "Экономно · 10 кадров/с" }
+    ] }
+  }
+}

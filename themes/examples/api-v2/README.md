@@ -30,4 +30,4 @@ node scripts/pack-scene-theme.cjs themes/user/my-theme themes/user/my-theme.noct
 
 Локальные кастомные темы исключены из Git. Справочный пример и его готовый пакет `themes/packages/api-v2-demo.noctheme` публикуются вместе с SDK.
 
-Полный контракт, ограничения ресурсов, события и профили качества: [SCENE-API-V2.md](../../../docs/SCENE-API-V2.md). Типы: [scene-sdk.d.ts](../../../src/renderer/effects/scene-sdk.d.ts).
+Полный контракт, ограничения ресурсов, события и профили качества: [themes-api-v2.md](../../../docs/themes-api-v2.md). Типы: [sdk.d.ts](../../sdk.d.ts).

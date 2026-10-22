@@ -1,0 +1,68 @@
+{
+  "id": "auto-appearance-demo",
+  "name": "Оформление по треку",
+  "description": "Пример SDK 1: чередует темы при смене треков и меняет палитру после заданного времени.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "permissions": [
+    "settings.read",
+    "settings.events",
+    "events.track",
+    "events.progress",
+    "themes.list",
+    "themes.switch",
+    "themes.apply"
+  ],
+  "commands": [],
+  "settings": {
+    "enabled": {
+      "type": "toggle",
+      "label": "Автоматическое оформление",
+      "default": false
+    },
+    "label": {
+      "type": "text",
+      "label": "Название профиля",
+      "default": "Мой профиль",
+      "maxLength": 80
+    },
+    "seconds": {
+      "type": "number",
+      "label": "Смена палитры после, секунд",
+      "min": 1,
+      "max": 600,
+      "step": 1,
+      "default": 30
+    },
+    "brightness": {
+      "type": "slider",
+      "label": "Яркость акцента",
+      "min": 0.2,
+      "max": 1,
+      "step": 0.1,
+      "default": 0.8
+    },
+    "mode": {
+      "type": "select",
+      "label": "Режим",
+      "default": "alternate",
+      "options": [
+        {
+          "value": "alternate",
+          "label": "Чередовать темы"
+        },
+        {
+          "value": "palette",
+          "label": "Только палитра"
+        }
+      ]
+    }
+  },
+  "icon": "assets/logo.png",
+  "banner": "assets/logo.png"
+}

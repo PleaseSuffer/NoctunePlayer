@@ -1,0 +1,24 @@
+{
+  "id": "track-info-demo",
+  "name": "Информация о треке",
+  "description": "Пример расширения: показывает текущий трек и сохраняет число запусков команды.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "permissions": [
+    "storage.read",
+    "storage.write",
+    "notifications.show",
+    "playback.read"
+  ],
+  "commands": [
+    {
+      "id": "show-track",
+      "title": "Показать текущий трек"
+    }
+  ]
+}

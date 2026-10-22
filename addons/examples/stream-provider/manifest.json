@@ -1,0 +1,39 @@
+{
+  "id": "stream-provider-demo",
+  "name": "Провайдер аудио · пример",
+  "description": "Проигрывает выбранную публичную HTTPS-ссылку через аудиограф Noctune. Укажите разрешённый origin в manifest.",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 1,
+  "minNoctuneVersion": "1.4.0",
+  "type": "integration",
+  "entry": "main.js",
+  "permissions": [
+    "providers.register",
+    "providers.play",
+    "network.request",
+    "settings.read",
+    "notifications.show"
+  ],
+  "network": {
+    "origins": [
+      "https://example.com"
+    ]
+  },
+  "settings": {
+    "url": {
+      "type": "text",
+      "label": "Прямая ссылка на аудио",
+      "description": "Замените example.com в manifest на origin вашего аудиосервера и соберите пакет заново.",
+      "default": "https://example.com/audio.mp3",
+      "maxLength": 2000
+    }
+  },
+  "commands": [
+    {
+      "id": "play-example",
+      "title": "Проиграть поток"
+    }
+  ]
+}

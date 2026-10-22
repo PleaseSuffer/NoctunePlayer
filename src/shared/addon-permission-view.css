@@ -1,0 +1,62 @@
+.addon-permission-group {
+    list-style: none;
+    border: 1px solid var(--border-color, #32303e);
+    border-radius: 12px;
+    background: var(--track-hover, #ffffff05);
+    overflow: hidden;
+    transition: border-color .2s, background-color .2s;
+}
+li.permission.addon-permission-group { padding: 0; }
+.addon-permission-group::before { display: none; }
+.addon-permission-group:hover { border-color: var(--accent-color, #ac91ee); }
+.addon-permission-group.is-partial { border-color: color-mix(in srgb, #d8ad42 45%, var(--border-color, #32303e)); }
+.addon-permission-group.is-new { border-color: #b38a35; }
+.addon-permission-group > details { margin: 0; font-size: 12px; color: inherit; }
+.addon-permission-group summary, .addon-disclosure > summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+.addon-permission-group summary { padding: 14px; line-height: 1.5; }
+.addon-permission-group summary::-webkit-details-marker, .addon-disclosure > summary::-webkit-details-marker { display: none; }
+.addon-permission-group summary::marker, .addon-disclosure > summary::marker { content: ''; }
+.permission-group-icon {
+    width: 36px; height: 36px; padding: 8px; flex: 0 0 auto;
+    color: var(--accent-fg, #b6abd9);
+    background: color-mix(in srgb, var(--accent-color, #ac91ee) 12%, transparent);
+    border-radius: 10px;
+}
+.permission-group-heading { display: block; flex: 1; min-width: 0; }
+.permission-group-title { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.permission-group-name { font-size: 13px; font-weight: 600; color: var(--text-color, #e4e2ef); }
+.addon-permission-group code { font-size: 11px; color: var(--text-muted, #aaa8b8); overflow-wrap: anywhere; white-space: normal; }
+.permission-group-heading > code { display: block; margin: 3px 0 0; }
+.permission-access-badge { display: inline-block; font-size: 10px; font-weight: 500; border-radius: 5px; padding: 2px 6px; }
+.is-full > details > summary .permission-access-badge { color: var(--accent-fg, #c8b3ff); background: color-mix(in srgb, var(--accent-color, #ac91ee) 12%, transparent); }
+.is-partial > details > summary .permission-access-badge { color: #98700a; background: #d8ad421c; }
+body[data-theme="dark"] .is-partial > details > summary .permission-access-badge, body.addon-install .is-partial > details > summary .permission-access-badge { color: #edca70; }
+.addon-disclosure-chevron { width: 16px; height: 16px; flex: 0 0 auto; color: var(--text-muted, #aaa8b8); transition: transform .2s; }
+.addon-permission-group details[open] > summary > .addon-disclosure-chevron,
+.addon-disclosure[open] > summary > .addon-disclosure-chevron { transform: rotate(180deg); }
+.permission-group-content { padding: 12px 16px 14px; border-top: 1px solid var(--border-color, #32303e); }
+.permission-group-content .permission-description { margin: 0 0 8px; color: var(--text-muted, #aaa8b8); font-size: 12px; line-height: 1.6; }
+.permission-children { margin: 0; padding: 0 0 0 17px; line-height: 1.7; }
+.permission-children > li { padding: 4px 0; color: var(--text-color, #dddbe7); }
+.permission-children > li > code { display: inline-block; margin: 0 0 0 6px; }
+.permission-children > li::marker { color: var(--accent-fg, #ac91ee); }
+.permission-children .new-label, .addon-permission-group .new-label { color: #bc8f19; font-size: 10px; }
+.addon-permission-group summary:focus-visible, .addon-disclosure > summary:focus-visible { outline: 2px solid var(--accent-color, #ac91ee); outline-offset: -3px; border-radius: 10px; }
+.addon-disclosure > summary { padding: 10px 0; color: var(--text-color, #e4e2ef); font-size: 13px; font-weight: 600; }
+.addon-disclosure-title { flex: 1; min-width: 0; }
+.addon-disclosure-icon { width: 16px; height: 16px; flex: 0 0 auto; color: var(--accent-fg, #ac91ee); }
+.addon-disclosure[open] > summary { margin-bottom: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+    .addon-permission-group details[open] > .permission-group-content { animation: settingsRevealIn .2s ease; }
+}
+
+.addon-verified-publisher { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--accent-fg, #a6c8ff); font-size: 11px; font-weight: 600; line-height: 1.4; }
+.addon-verified-publisher[hidden] { display: none; }
+.addon-verified-icon { width: 14px; height: 14px; flex-shrink: 0; }
