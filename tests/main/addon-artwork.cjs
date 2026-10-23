@@ -25,6 +25,10 @@ const {createAddonServices}=require(path.join(root,'src/main/addons/services'));
         mode='large';await assert.rejects(call('https://images.example.com/covers/b'),/512/);
         mode='pending';const request=call('https://images.example.com/covers/c');await new Promise(resolve=>setImmediate(resolve));services.cancel('fixture');await assert.rejects(request,/aborted/);
         mode='valid';await call('https://images.example.com/covers/a');assert.equal(count,6,'owner cleanup clears image cache');
+        await assert.rejects(services.invoke('fixture','current','artwork.fetch',{url:'https://images.example.com/covers/source'}),/Denied/,'catalog permission alone cannot supply local artwork');
+        grants.splice(0,grants.length,'artwork.provide','network.request');
+        assert.equal(await services.invoke('fixture','current','artwork.fetch',{url:'https://images.example.com/covers/source'}),'data:image/png;base64,Zml4dHVyZQ==','local artwork sources need no catalog permission');
+        await assert.rejects(call('https://images.example.com/covers/a'),/Denied/);
         enabled=false;await assert.rejects(call('https://images.example.com/covers/a'),/Denied/);
         console.log('PASS: public artwork origin/routes, no credential forwarding, MIME/size/status restrictions, memory cache, cancellation and disabled owner.');
     }finally{await fs.rm(directory,{recursive:true,force:true});}

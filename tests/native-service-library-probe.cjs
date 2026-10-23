@@ -107,7 +107,7 @@ app.on('browser-window-created',(_,win)=>{
             await run(`document.querySelector('#playlist .provider-inline-action').click()`);
             await wait(`document.querySelector('#playlist .provider-inline-action')?.getAttribute('aria-pressed')==='false'`,'inline unlike updates');
             await run(`document.querySelector('#playlist .actions-btn').click()`);
-            await wait(`document.querySelectorAll('.provider-context-menu [role="menuitem"]').length===6&&!document.querySelector('.provider-context-menu button:disabled')`,'provider track actions loaded');
+            await wait(`document.querySelectorAll('.provider-context-menu [role="menuitem"]').length===7&&!document.querySelector('.provider-context-menu button:disabled')`,'provider track actions loaded');
             await clickText('.provider-context-menu button','Нравится');
             await run(`document.querySelector('#playlist .actions-btn').click()`);
             await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Не нравится')`,'like changed label');
@@ -136,10 +136,10 @@ app.on('browser-window-created',(_,win)=>{
             await wait(`document.querySelector('#integration-addon-service-library-demo .service-library-heading').textContent==='Поиск: Исполнитель'`,'inline search');
             assert.equal(await run(`document.querySelectorAll('#integration-addon-service-library-demo .provider-track').length`),2);
             await clickText('#integration-addon-service-library-demo button','Ещё результаты');await wait(`document.querySelectorAll('#integration-addon-service-library-demo .provider-track').length===4`,'search pagination');
-            await clickText('#integration-addon-service-library-demo button','Назад');await wait(`document.querySelectorAll('#integration-addon-service-library-demo .service-playlist-card').length===5`,'root for stream');
-            await run(`document.querySelectorAll('#integration-addon-service-library-demo .service-playlist-card')[1].click()`);
-            await wait(`document.querySelector('#integration-addon-service-library-demo .service-library-heading').textContent==='Персональный поток'`,'stream');
-            await run(`document.querySelector('#integration-addon-service-library-demo .provider-track').click()`);
+            assert.equal(await run(`addonProviders.openServiceCollection('foreign-addon',{provider:'demo-audio',catalog:'demo-library',id:'stream'}).then(()=>false,()=>true)`),true,'foreign extension cannot open another catalog');
+            await run(`document.querySelector('#integration-addon-service-library-demo .actions-btn').click()`);
+            await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Открыть поток')`,'open collection action');
+            await clickText('.provider-context-menu button','Открыть поток');
             await wait(`isPlaying&&fileEntries.some(track=>track.canonicalId?.includes('9004'))`,'stream continuation without replacement');
             await wait(`isPlaying&&fileEntries[playlistOrder[currentIndex]]?.canonicalId?.includes('9006')`,'automatic next track in stream');
             await run(`togglePlayback();document.getElementById('settings-close-btn').click()`);await delay(600);

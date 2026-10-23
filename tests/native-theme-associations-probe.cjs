@@ -40,7 +40,8 @@ SectionEnd
             const input=read[2].includes('AudioFileAssociationsEnabled')?'TEST_AUDIO_OPT_IN'
                 :read[2].includes('UserChoice')?'TEST_USER_CHOICE'
                 :read[2].includes('".${EXT}"')?'TEST_LEGACY_DEFAULT'
-                :read[2].includes('".noctheme"')?'TEST_THEME_DEFAULT':null;
+                :read[2].includes('".noctheme"')?'TEST_THEME_DEFAULT'
+                :read[2].includes('".noctaddon"')?'TEST_ADDON_DEFAULT':null;
             return `  StrCpy ${read[1]} "${input?'${'+input+'}':''}"`;
         }
         const write=line.match(/^\s*(WriteRegStr|WriteRegDWORD|WriteRegNone|DeleteRegKey|DeleteRegValue)\s+(?:\/ifempty\s+)?(\S+)\s+"([^"]*)"(?:\s+"([^"]*)")?/);
@@ -51,10 +52,10 @@ SectionEnd
     assert(!/^\s*(ReadReg|WriteReg|DeleteReg|System::Call)/m.test(isolated),'all registry/OS instructions must be replaced');
     const include = path.join(output,'isolated.nsh');await fs.writeFile(include,isolated);
     for(const scenario of [
-        {name:'fresh',optIn:0,choice:'',legacy:'',theme:''},
-        {name:'legacy',optIn:0,choice:'Other.Player',legacy:'',theme:'Other.Theme'},
-        {name:'chosen-default',optIn:0,choice:'Noctune.Audio.mp3',legacy:'Noctune.Audio.flac',theme:''},
-        {name:'explicit-opt-in',optIn:1,choice:'',legacy:'',theme:''},
+        {name:'fresh',optIn:0,choice:'',legacy:'',theme:'',addon:''},
+        {name:'legacy',optIn:0,choice:'Other.Player',legacy:'',theme:'Other.Theme',addon:'Other.Addon'},
+        {name:'chosen-default',optIn:0,choice:'Noctune.Audio.mp3',legacy:'Noctune.Audio.flac',theme:'',addon:''},
+        {name:'explicit-opt-in',optIn:1,choice:'',legacy:'',theme:'',addon:''},
     ]){
         const log=path.join(output,scenario.name+'.txt'), exe=path.join(output,scenario.name+'.exe');
         const fixture=`Unicode true
@@ -70,6 +71,7 @@ OutFile "${exe}"
 !define TEST_USER_CHOICE "${scenario.choice}"
 !define TEST_LEGACY_DEFAULT "${scenario.legacy}"
 !define TEST_THEME_DEFAULT "${scenario.theme}"
+!define TEST_ADDON_DEFAULT "${scenario.addon}"
 !include "${include}"
 Function .onInit
   StrCpy $INSTDIR "C:\\Fixture\\Noctune"
@@ -90,10 +92,13 @@ SectionEnd
         const writes=operations.filter(line=>line.startsWith('Write'));
         const audioWrites=writes.filter(line=>/Noctune\.Audio|Noctune\.Commands|\|\.(mp3|wav|ogg|m4a|flac)$/.test(line));
         assert(writes.some(line=>line.includes('Software\\Classes\\Noctune.Theme|')),scenario.name+': themes always registered');
+        assert(writes.some(line=>line.includes('Software\\Classes\\Noctune.Addon|')),scenario.name+': addon packages always registered');
+        assert(writes.some(line=>line.includes('Software\\Classes\\Noctune.Addon\\shell\\open\\command|')),scenario.name+': addon open handler');
         assert.equal(audioWrites.length>0,scenario.optIn===1||scenario.name==='chosen-default',scenario.name+': audio registration requires explicit consent or a previously chosen default');
         if(scenario.name==='chosen-default')assert(audioWrites.every(line=>/\|HKCU\|Software\\Classes\\Noctune\.Audio\.(mp3|flac)(\\|\|)/.test(line)),'restore only previously selected handlers, no menus or other formats');
         assert(!operations.some(line=>line.includes('UserChoice')),'UserChoice is only read, never changed');
         if(scenario.theme)assert(!writes.includes('WriteRegStr|HKCU|Software\\Classes\\.noctheme|'),'keep another theme default');
+        if(scenario.addon)assert(!writes.includes('WriteRegStr|HKCU|Software\\Classes\\.noctaddon|'),'keep another addon default');
         if(scenario.optIn===0){
             for(const ext of ['mp3','wav','ogg','m4a','flac'])assert(operations.includes(`DeleteRegValue|HKCU|Software\\Classes\\.${ext}\\OpenWithProgids|Noctune.Audio.${ext}`));
             if(scenario.choice==='Noctune.Audio.mp3'){

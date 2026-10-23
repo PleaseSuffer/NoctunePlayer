@@ -80,7 +80,10 @@
                             async unregister(id) { providers.delete('@catalog:'+id);return call('catalog.unregister',{id}); },
                         },
                         servicePlaylists: Object.fromEntries(['read','create','rename','delete','addTracks','removeTracks','reorder'].map(action => [action, args => call('servicePlaylists.' + action, args)])),
-                        artwork: { read: (args = {}) => call('artwork.read', args) },
+                        artwork: {
+                            read: (args = {}) => call('artwork.read', args),
+                            async provide(source) { if (!source || typeof source.resolve !== 'function' || providers.has('@artwork:'+source.id)) throw new Error('Нужен новый источник resolve');providers.set('@artwork:'+source.id, source);try{return await call('artwork.provide',{id:source.id});}catch(error){providers.delete('@artwork:'+source.id);throw error;} },
+                        },
                         lyrics: {
                             read: (args = {}) => call('lyrics.read', args),
                             async provide(source) { if (!source || typeof source.resolve !== 'function' || providers.has('@lyrics:'+source.id)) throw new Error('Нужен новый источник resolve');providers.set('@lyrics:'+source.id, source);try{return await call('lyrics.provide',{id:source.id});}catch(error){providers.delete('@lyrics:'+source.id);throw error;} },
@@ -102,6 +105,7 @@
                             search: (provider, query) => call('providers.search', { provider, query }),
                             play: (provider, track) => call('providers.play', { provider, track }),
                             enqueue: (provider, track) => call('providers.enqueue', { provider, track }),
+                            openCollection: (provider, options) => call('providers.openCollection', { ...options, provider }),
                             invalidate: (provider, trackIds) => call('providers.invalidate', { provider, trackIds }),
                         },
                     };
@@ -235,15 +239,15 @@
                 } else if (data.method === 'providers.invalidate') {
                     if (!grants.has('providers.register')) throw new Error('Нет разрешения провайдера');
                     window.addonProviders.invalidate(m.id, args);
-                } else if (data.method === 'providers.search' || data.method === 'providers.play' || data.method === 'providers.enqueue') {
+                } else if (data.method === 'providers.search' || data.method === 'providers.play' || data.method === 'providers.enqueue' || data.method === 'providers.openCollection') {
                     if (data.method === 'providers.enqueue' && !grants.has('queue.add')) throw new Error('Нет разрешения queue.add');
                     if (!grants.has(data.method === 'providers.search' ? 'providers.register' : 'providers.play')) throw new Error('Нет разрешения провайдера');
-                    value = await window.addonProviders[data.method.split('.')[1]](m.id, args);
+                    value = await window.addonProviders[data.method === 'providers.openCollection' ? 'openServiceCollection' : data.method.split('.')[1]](m.id, args);
                 } else {
                     const permission = { 'catalog.browse': 'catalog.register', 'catalog.search': 'catalog.register', 'catalog.unregister':'catalog.register', 'settings.get': 'settings.read', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'files.save': 'files.write' }[data.method] || data.method;
                     if (!grants.has(permission)) throw new Error('Нет разрешения: ' + permission);
                     if (/^(appearance|catalog|servicePlaylists|artwork|lyrics|hotkeys)\./.test(data.method)) {
-                        value = await window.addonContributions.invoke(m.id, pkg.digest, data.method, args, { manifest:m, grants, call:(action, value)=>providerCall((data.method==='lyrics.provide'?'@lyrics:':'@catalog:')+args.id,action,value) });
+                        value = await window.addonContributions.invoke(m.id, pkg.digest, data.method, args, { manifest:m, grants, call:(action, value)=>providerCall((data.method==='lyrics.provide'?'@lyrics:':data.method==='artwork.provide'?'@artwork:':'@catalog:')+args.id,action,value) });
                     } else if (/^(playback|queue|playlists|themes|backgrounds|audio)\./.test(data.method) || data.method === 'files.library') value = await window.addonPlayer.invoke(m.id, pkg.digest, data.method, args);
                     else value = await noctune.addons.services(m.id, pkg.digest, data.method, args);
                 }

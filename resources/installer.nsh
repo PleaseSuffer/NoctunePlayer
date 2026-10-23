@@ -102,6 +102,19 @@
 !macroend
 
 !macro customInstall
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Addon" "" "Расширение Noctune"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Addon\DefaultIcon" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Addon\shell\open" "" "Установить или обновить расширение Noctune"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Addon\shell\open\command" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" $\"%1$\"'
+  WriteRegNone SHELL_CONTEXT "Software\Classes\.noctaddon\OpenWithProgids" "Noctune.Addon"
+  WriteRegStr SHELL_CONTEXT "Software\Noctune\Capabilities\FileAssociations" ".noctaddon" "Noctune.Addon"
+  ReadRegStr $R9 HKCR ".noctaddon" ""
+  ${If} $R9 == ""
+    WriteRegStr SHELL_CONTEXT "Software\Classes\.noctaddon" "" "Noctune.Addon"
+  ${EndIf}
+  WriteRegStr SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctaddon\shell\Noctune" "" "Установить или обновить расширение Noctune"
+  WriteRegStr SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctaddon\shell\Noctune" "Icon" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
+  WriteRegStr SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctaddon\shell\Noctune\command" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\" $\"%1$\"'
   WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme" "" "Тема Noctune"
   WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme\DefaultIcon" "" '$\"$INSTDIR\${APP_EXECUTABLE_FILENAME}$\",0'
   WriteRegStr SHELL_CONTEXT "Software\Classes\Noctune.Theme\shell\open" "" "Добавить тему в Noctune"
@@ -142,6 +155,15 @@
 !macroend
 
 !macro customUnInstall
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\Noctune.Addon"
+  DeleteRegValue SHELL_CONTEXT "Software\Classes\.noctaddon\OpenWithProgids" "Noctune.Addon"
+  DeleteRegKey /ifempty SHELL_CONTEXT "Software\Classes\.noctaddon\OpenWithProgids"
+  ReadRegStr $R9 SHELL_CONTEXT "Software\Classes\.noctaddon" ""
+  ${If} $R9 == "Noctune.Addon"
+    DeleteRegValue SHELL_CONTEXT "Software\Classes\.noctaddon" ""
+  ${EndIf}
+  DeleteRegKey /ifempty SHELL_CONTEXT "Software\Classes\.noctaddon"
+  DeleteRegKey SHELL_CONTEXT "Software\Classes\SystemFileAssociations\.noctaddon\shell\Noctune"
   DeleteRegKey SHELL_CONTEXT "Software\Classes\Noctune.Theme"
   DeleteRegValue SHELL_CONTEXT "Software\Classes\.noctheme\OpenWithProgids" "Noctune.Theme"
   DeleteRegKey /ifempty SHELL_CONTEXT "Software\Classes\.noctheme\OpenWithProgids"

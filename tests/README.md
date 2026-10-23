@@ -20,6 +20,8 @@
 ```sh
 ./node_modules/.bin/electron tests/native-addons-probe.cjs
 ./node_modules/.bin/electron tests/native-service-library-probe.cjs
+./node_modules/.bin/electron tests/native-metadata-sources-probe.cjs
+./node_modules/.bin/electron tests/native-open-addon-probe.cjs
 ./node_modules/.bin/electron tests/native-addon-store-probe.cjs
 ./node_modules/.bin/electron tests/native-official-extensions-probe.cjs
 ./node_modules/.bin/electron tests/native-open-theme-probe.cjs
@@ -34,6 +36,8 @@
 | --- | --- |
 | `native-addons-probe.cjs` | Согласие на установку, графические ресурсы и группы разрешений, песочница и CSP, настройки SDK, воспроизведение потока провайдера, истёкшие ссылки и освобождение ресурсов |
 | `native-service-library-probe.cjs` | Библиотека внутри интеграции, обложки через публичный брокер, страницы 300/600, поиск, контекстное меню, непрерывный поток и восстановление ссылок на плейлисты |
+| `native-metadata-sources-probe.cjs` | Источники обложек и текстов локальных треков в Worker, загрузка без токенов и catalog.register, работа без Last.fm, скрытые пути файлов и очистка после отключения; поддерживает `--app-asar=...` |
+| `native-open-addon-probe.cjs` | Открытие .noctaddon при холодном старте и повторном запуске, одно окно для повторного файла, отмена, неизменяемый снимок пакета, обновление и повреждённый файл; поддерживает `--app-asar=...` |
 | `native-addon-store-probe.cjs` | Изолированное окно магазина, подписанный каталог, установка и отмена, поиск, вкладки, обновление главного окна и работа без сети |
 | `native-official-extensions-probe.cjs` | Затихание звука в Sleep, выбор всех шести схем Shades, схемы Dusk и восстановление обоев, работа выпадающих списков и сохранение прокрутки |
 | `native-open-theme-probe.cjs` | Установщик тем, отмена, установка и обновление, уведомления и повторное открытие файлов |

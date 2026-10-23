@@ -67,9 +67,10 @@ function createAddonServices({ store, directory, safeStorage, shell, clipboard, 
     async remove(id) { cancel(id); await vault.remove(id); },
     async invoke(id, hash, method, args = {}) {
       const permission = method.startsWith('credentials.') ? method : { 'settings.get': 'settings.read', 'network.request': 'network.request', 'files.select': 'files.select', 'files.save': 'files.write', 'files.read': 'files.read', 'files.write': 'files.write', 'files.reveal': 'files.reveal', 'system.openFile': 'system.openFile', 'system.openExternal': 'system.openExternal', 'clipboard.read': 'clipboard.read', 'clipboard.write': 'clipboard.write', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'secrets.delete': 'secrets.delete', 'oauth.authorize': 'oauth.authorize', 'oauth.status': 'oauth.status', 'oauth.disconnect': 'oauth.disconnect', 'providers.stream': 'providers.play', 'providers.artwork':'catalog.register' }[method];
-      if (!permission) throw new Error('Неизвестный метод');
-      const pkg = await store.context(id, hash, permission);
-      if(method==='providers.artwork') {
+      const effectivePermission = method === 'artwork.fetch' ? 'artwork.provide' : permission;
+      if (!effectivePermission) throw new Error('Неизвестный метод');
+      const pkg = await store.context(id, hash, effectivePermission);
+      if(method==='providers.artwork'||method==='artwork.fetch') {
         if(!pkg.grants.includes('network.request'))throw new Error('Обложке нужен доступ к сети');
         // Public images only: never forward OAuth, credentials, cookies or caller headers.
         const options=await resource(id,hash,pkg,{url:args.url}),key=id+':'+hash+':'+options.url;
@@ -83,7 +84,7 @@ function createAddonServices({ store, directory, safeStorage, shell, clipboard, 
           if(response.statusCode!==200||!/^image\/(png|jpeg|webp|gif|avif)$/.test(mime))throw new Error('Неподдерживаемая обложка');
           const chunks=[];let bytes=0;
           for await(const chunk of response){bytes+=chunk.length;if(bytes>512*1024)throw new Error('Обложка превышает 512 КБ');chunks.push(chunk);}
-          await store.context(id,hash,'catalog.register');
+          await store.context(id,hash,effectivePermission);
           const value='data:'+mime+';base64,'+Buffer.concat(chunks).toString('base64');
           artwork.set(key,{id,value,expires:Date.now()+600000});while(artwork.size>64)artwork.delete(artwork.keys().next().value);
           return value;

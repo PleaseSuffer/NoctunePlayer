@@ -1,6 +1,6 @@
 (function () {
     const { roles, palette: validatePalette, operations, name } = AddonContributions;
-    const catalogs = new Map(), lyricSources = new Map(), schemes = new Map(), layers = new Map(), hotkeys = new Map();
+    const catalogs = new Map(), lyricSources = new Map(), artworkSources = new Map(), schemes = new Map(), layers = new Map(), hotkeys = new Map();
     const mutations = new Map(), receipts = new Map();
     const baseColors = {
         light: { background:'#f4f7f6',surface:'#ffffff',text:'#333333',muted:'#666666',border:'#e0e0e0',hover:'#e8ebea',accent:'#4a90e2',secondary:'#8e44ad' },
@@ -12,6 +12,7 @@
     try { const saved = JSON.parse(appStorage.getItem('setting_addon_appearance') || 'null'); if (saved && ['light','dark','system'].includes(saved.mode)) base = { mode: saved.mode, palette: validatePalette(saved.palette) }; } catch (_) {}
     const validRevision = value => typeof value==='string' ? !!value.trim()&&value.length<=300&&!/[\r\n\0]/.test(value) : Number.isSafeInteger(value)&&value>=0;
     const key = (owner, id) => owner + ':' + id;
+    const trackMetadata = track => ({ title:String(track.title||'').slice(0,300), artist:String(track.artist||'').slice(0,300), album:String(track.album||'').slice(0,300), duration:Number.isFinite(track.duration)?Math.max(0,Math.min(86400,track.duration)):0, sessionId:typeof track.sessionId==='string'?track.sessionId:null });
     function schemesChanged() { document.dispatchEvent(new Event('addon-contributions-changed')); window.addonEvents.emit('appearance.schemes'); }
     const canonical = value => Array.isArray(value) ? '['+value.map(canonical).join(',')+']' : value && typeof value==='object' ? '{'+Object.keys(value).filter(key=>value[key]!==undefined).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}' : JSON.stringify(value);
     function text(value, max = 120) { if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error('Некорректный текст'); return value; }
@@ -126,19 +127,46 @@
         hotkeys: () => [...hotkeys.values()].map(item=>({id:item.key,label:item.title})),
         userScheme(owner,id) { const scheme = schemes.get(key(owner,id)); if (!scheme) throw new Error('Схема не установлена'); layers.set(owner,{mode:scheme.mode,palette:scheme.palette}); applyAppearance(); },
         async lyrics(track) {
+            const fallbacks=[];
             for (const source of lyricSources.values()) {
-                try { const result = await source.call('resolve',track); if (lyricSources.get(key(source.owner,source.id)) !== source) continue; if (result?.status === 'found') return validateLyrics(result); if(result?.status==='instrumental')return {status:'instrumental',lines:[],plain:''}; }
+                try {
+                    const result = await source.call('resolve',trackMetadata(track));
+                    if (lyricSources.get(key(source.owner,source.id)) !== source) continue;
+                    if (result?.status === 'found') {
+                        const value=validateLyrics({...result,source:typeof result.source==='string'&&result.source.trim()?result.source:source.title});
+                        if(value.lines.some(line=>line.text.trim()))return value;
+                        if(value.plain.trim())fallbacks.push({source,value});
+                    } else if(result?.status==='instrumental')fallbacks.push({source,value:{status:'instrumental',lines:[],plain:''}});
+                }
                 catch (_) { /* A failed source does not suppress built-in lyrics. */ }
+            }
+            const current=fallbacks.filter(({source})=>lyricSources.get(key(source.owner,source.id))===source);
+            return (current.find(({value})=>value.status==='found')||current[0])?.value||null;
+        },
+        hasArtwork(owner) { return [...artworkSources.values()].some(source=>source.owner===owner); },
+        async artwork(track) {
+            const metadata=trackMetadata(track);
+            for(const source of artworkSources.values()){
+                const current=()=>artworkSources.get(key(source.owner,source.id))===source;
+                try{
+                    const result=await source.call('resolve',metadata);
+                    if(!current()||result?.status!=='found')continue;
+                    const validated=media({artwork:result.url});if(!validated.artwork)continue;
+                    const dataUrl=await noctune.addons.services(source.owner,source.hash,'artwork.fetch',{url:validated.artwork});
+                    if(current())return {status:'found',dataUrl,owner:source.owner};
+                }catch(_){ /* A failed source does not suppress the next source or Last.fm. */ }
             }
             return null;
         },
         cleanup(owner) {
             let hadLayer = layers.delete(owner);
+            const hadArtwork=this.hasArtwork(owner);
             for (const [id,layer] of layers) if (layer.schemeOwner === owner) { layers.delete(id); hadLayer = true; }
-            for (const collection of [catalogs,lyricSources,schemes,hotkeys]) for (const [id,item] of collection) if (item.owner === owner) collection.delete(id);
+            for (const collection of [catalogs,lyricSources,artworkSources,schemes,hotkeys]) for (const [id,item] of collection) if (item.owner === owner) collection.delete(id);
             for (const id of receipts.keys()) if (id.startsWith(owner+':')) receipts.delete(id);
             if (hadLayer) applyAppearance();
             schemesChanged();
+            if(hadArtwork)document.dispatchEvent(new Event('addon-artwork-sources-changed'));
         },
         async invoke(owner, hash, method, args, context) {
             if(args.sessionId!==undefined&&args.sessionId!==window.addonEvents.snapshot().sessionId)throw new Error('Сеанс трека уже изменился');
@@ -196,9 +224,14 @@
             }
             if (method.startsWith('servicePlaylists.')) return service(owner,method.split('.')[1],args);
             if (method === 'lyrics.read') return window.addonLyrics?.read() || {status:'missing',lines:[],plain:''};
+            if (method === 'artwork.provide') {
+                if (!name(args.id) || artworkSources.size >= 32 || artworkSources.has(key(owner,args.id))) throw new Error('Некорректный или повторный источник обложек');
+                artworkSources.set(key(owner,args.id),{owner,id:args.id,hash,call:context.call});
+                document.dispatchEvent(new Event('addon-artwork-sources-changed'));return;
+            }
             if (method === 'lyrics.provide') {
                 if (!name(args.id) || lyricSources.size >= 32 || lyricSources.has(key(owner,args.id))) throw new Error('Некорректный или повторный источник текста');
-                lyricSources.set(key(owner,args.id),{owner,id:args.id,call:context.call}); return;
+                lyricSources.set(key(owner,args.id),{owner,id:args.id,title:typeof context.manifest?.name==='string'?context.manifest.name.slice(0,120):'Расширение',call:context.call}); return;
             }
             if (method === 'artwork.read') {
                 const sessionId=window.addonEvents.snapshot().sessionId;

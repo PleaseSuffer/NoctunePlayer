@@ -204,7 +204,7 @@
                 if (!addon.permissions.length) detail.append(node('div', 'settings-row-desc', 'Дополнительные разрешения не запрашиваются'));
                 if (addon.network?.origins.length) {
                     const origins = node('ul', 'addon-permission-list');
-                    for (const origin of addon.network.origins) origins.append(node('li', 'settings-row-desc', AddonPermissionView.originLabel(origin)));
+                    AddonPermissionView.renderNetwork(origins, addon);
                     detail.append(origins);
                 }
                 detail.append(node('div', 'settings-row-desc', addon.signed ? 'Пакет подписан издателем' : 'Локальный пакет без подписи'));
@@ -214,7 +214,10 @@
             if (!addon.broken && hasPanel(addon)) {
                 button('Настроить интеграцию', () => { document.querySelector('[data-panel="panel-integrations"]').click(); document.getElementById('integration-addon-'+addon.id)?.scrollIntoView({block:'start'}); }, actions);
                 const integration = node('article','settings-card integration-card addon-card'); integration.id='integration-addon-'+addon.id; integration.dataset.addonId=addon.id;
-                const heading=node('div','addon-card-header'),info=node('div','addon-card-info');info.append(node('h3','addon-name',addon.ui.integrations.title),node('p','addon-runtime-status settings-row-desc',runtimeStatus(addon)));
+                if(addon.artwork?.banner){const banner=node('img','addon-banner');banner.src=addon.artwork.banner;banner.alt='';banner.addEventListener('error',()=>banner.remove());integration.append(banner);}
+                const heading=node('div','addon-card-header'),info=node('div','addon-card-info');
+                if(addon.artwork?.icon){const icon=node('img','addon-icon');icon.src=addon.artwork.icon;icon.alt='';icon.addEventListener('error',()=>icon.remove());heading.append(icon);}
+                info.append(node('h3','addon-name',addon.ui.integrations.title),node('p','addon-runtime-status settings-row-desc',runtimeStatus(addon)));
                 const toggle=node('label','toggle-switch'),enabled=node('input');enabled.type='checkbox';enabled.checked=addon.enabled;enabled.disabled=!addon.compatible;enabled.setAttribute('aria-label','Включить '+addon.name);
                 enabled.addEventListener('change',()=>task(async()=>{await api.setEnabled(addon.id,enabled.checked);await changed();}));toggle.append(enabled,node('span','slider-round'));heading.append(info,toggle);
                 integration.append(heading,node('p','settings-row-desc',addon.ui.integrations.description||addon.description));

@@ -11,10 +11,12 @@ const AUDIO_MIME_TYPES = [
   'audio/ogg', 'application/ogg', 'audio/mp4', 'audio/x-m4a', 'audio/flac', 'audio/x-flac',
 ];
 const THEME_MIME_TYPE = 'application/x-noctune-theme';
-const FILE_MIME_TYPES = [...AUDIO_MIME_TYPES, THEME_MIME_TYPE];
+const ADDON_MIME_TYPE = 'application/x-noctune-addon';
+const FILE_MIME_TYPES = [...AUDIO_MIME_TYPES, THEME_MIME_TYPE, ADDON_MIME_TYPE];
 const THEME_MIME_XML = '<?xml version="1.0" encoding="UTF-8"?>\n' +
   '<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">\n' +
-  `  <mime-type type="${THEME_MIME_TYPE}"><comment>Noctune theme</comment><glob pattern="*.noctheme"/></mime-type>\n</mime-info>\n`;
+  `  <mime-type type="${THEME_MIME_TYPE}"><comment>Noctune theme</comment><glob pattern="*.noctheme"/></mime-type>\n` +
+  `  <mime-type type="${ADDON_MIME_TYPE}"><comment>Noctune extension</comment><glob pattern="*.noctaddon"/></mime-type>\n</mime-info>\n`;
 
 function desktopString(value) {
   return value.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
@@ -48,7 +50,7 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
     await fs.mkdir(path.join(mime, 'packages'), { recursive: true });
     await fs.writeFile(path.join(mime, 'packages', 'com.noctune.player.xml'), THEME_MIME_XML, 'utf8');
     await run('update-mime-database', [mime], { timeout: 10000 }).catch(error => {
-      if (error.code === 'ENOENT') throw new Error('Не найден update-mime-database. Установите пакет shared-mime-info для распознавания .noctheme.');
+      if (error.code === 'ENOENT') throw new Error('Не найден update-mime-database. Установите пакет shared-mime-info для распознавания .noctheme и .noctaddon.');
       throw error;
     });
     // Optional utility: desktop environments can read the entry without it.
@@ -75,7 +77,7 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
           return stdout.trim() === DESKTOP_ID;
         }));
         if (results.some(value => !value)) throw new Error('Окружение рабочего стола не применило все ассоциации. Выберите Noctune через свойства аудиофайла → «Открыть с помощью».');
-        return { ok: true, message: 'Noctune назначен приложением по умолчанию для MP3, WAV, OGG, M4A, FLAC и тем .noctheme.' };
+        return { ok: true, message: 'Noctune назначен приложением по умолчанию для MP3, WAV, OGG, M4A, FLAC, тем .noctheme и расширений .noctaddon.' };
       } catch (error) {
         const message = error.code === 'ENOENT'
           ? 'Не найден xdg-mime. Установите пакет xdg-utils или выберите Noctune через свойства аудиофайла.'
@@ -86,4 +88,4 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
   };
 }
 
-module.exports = { DESKTOP_ID, AUDIO_MIME_TYPES, THEME_MIME_TYPE, FILE_MIME_TYPES, THEME_MIME_XML, desktopExecArg, linuxDesktopEntry, createSystemIntegration };
+module.exports = { DESKTOP_ID, AUDIO_MIME_TYPES, THEME_MIME_TYPE, ADDON_MIME_TYPE, FILE_MIME_TYPES, THEME_MIME_XML, desktopExecArg, linuxDesktopEntry, createSystemIntegration };

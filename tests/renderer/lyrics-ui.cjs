@@ -21,6 +21,7 @@ const ids = ['lyrics-modal', 'btn-lyrics', 'mini-btn-lyrics', 'lyrics-close', 's
 ids.push('lyrics-radio-station', 'lyrics-seek-row', 'lyrics-volume-popover', 'lyrics-shuffle', 'lyrics-repeat', 'lyrics-volume', 'lyrics-volume-button', 'lyrics-volume-icon');
 ids.push('setting-lyrics-scrollbar', 'lyrics-scrollbar-dropdown', 'lyrics-scrollbar-menu', 'lyrics-scrollbar-label', 'lyrics-scrollbar-icon');
 ids.push('lyrics-unsynced');
+ids.push('lyrics-source');
 const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
 elements['lyrics-seek'].type = 'range';
 for (const id of ['player-cover-img', 'player-cover-placeholder', 'player-cover-wrap', 'lyrics-cover-wrap', 'cover-download-status', 'lastfm-cover-cache-options', 'lastfm-cover-cache-limit', 'lastfm-cover-cache-limit-label', 'cover-cache-location-button', 'cover-cache-location-menu', 'cover-cache-location-dropdown', 'cover-cache-location-label', 'lastfm-cover-cache-usage', 'lastfm-cover-cache-path', 'settings-fab']) elements[id] = new Element();
@@ -32,6 +33,7 @@ elements['lyrics-scrollbar-menu'].children = ['auto', 'always', 'hidden'].map(mo
 const requests = [];
 let lyricsCancels = 0;
 const windowListeners = {};
+const documentListeners = {};
 const storage = new Map();
 let coverProgress;
 let timerSerial = 0;
@@ -39,7 +41,7 @@ const idleTimers = new Map();
 const context = {
     setTimeout: (callback, delay) => { const id = ++timerSerial; idleTimers.set(id, { callback, delay }); return id; },
     clearTimeout: id => idleTimers.delete(id),
-    document: { addEventListener() {}, querySelector: selector => layout[selector], getElementById: id => elements[id], createElement: () => new Element(), activeElement: new Element(), body: new Element() },
+    document: { addEventListener: (name, callback) => { documentListeners[name] = callback; }, querySelector: selector => layout[selector], getElementById: id => elements[id], createElement: () => new Element(), activeElement: new Element(), body: new Element() },
     appStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) }, window: { matchMedia: () => ({ matches: false }), addEventListener: (name, callback) => { windowListeners[name] = callback; } },
     noctune: { lastfm: { onCoverProgress: callback => { coverProgress = callback; } }, lyrics: { cancel: async () => { lyricsCancels++; }, get: payload => new Promise(resolve => requests.push({ payload, resolve })) } },
     requestAnimationFrame: () => 1, cancelAnimationFrame() {}, isRadioMode: false, localAudioElement: null,
@@ -428,5 +430,66 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
     const integrations = html.slice(html.indexOf('id="panel-integrations"'), html.indexOf('id="panel-hotkeys"'));
     assert(integrations.indexOf('id="integration-card-lyrics"') > integrations.indexOf('id="integration-card-lastfm"'));
     assert.equal((html.match(/id="integration-card-lyrics"/g) || []).length, 1);
+    let coverReads=0,sourceEnabled=true,finishCover;
+    context.window.lastfmEnabled=false;
+    context.noctune.lastfm.cover=async()=>{coverReads++;return {status:'found',dataUrl:'data:image/png;base64,builtin'};};
+    context.window.addonContributions={hasArtwork:()=>sourceEnabled,artwork:async()=>({status:'found',owner:'extension',dataUrl:'data:image/png;base64,extension'}),lyrics:async()=>null};
+    context.window.setLyricsTrack({title:'Local cover',artist:'Artist',filePath:'C:/private/local.mp3'},100);
+    context.window.refreshLyricsArtwork();await flush();await flush();
+    assert.equal(elements['player-cover-img'].src,'data:image/png;base64,extension','extension covers work independently of Last.fm');
+    assert.equal(coverReads,0);
+    context.window.addonContributions.artwork=async()=>null;context.window.lastfmEnabled=true;
+    context.window.setLyricsTrack({title:'Fallback',artist:'Artist',filePath:'C:/private/fallback.mp3'},101);
+    context.window.refreshLyricsArtwork();await flush();await flush();
+    assert.equal(elements['player-cover-img'].src,'data:image/png;base64,builtin');assert.equal(coverReads,1);
+    context.window.addonContributions.artwork=()=>new Promise(resolve=>{finishCover=resolve;});
+    context.window.setLyricsTrack({title:'Old source',artist:'Artist',filePath:'C:/private/old.mp3'},102);
+    context.window.refreshLyricsArtwork();
+    context.window.setLyricsTrack({title:'Embedded',artist:'Artist',filePath:'C:/private/embedded.mp3',coverDataUrl:'data:image/png;base64,embedded'},103);
+    context.window.refreshLyricsArtwork();
+    finishCover({status:'found',owner:'extension',dataUrl:'data:image/png;base64,stale'});await flush();
+    assert.equal(elements['player-cover-img'].src,'data:image/png;base64,embedded','late source cannot replace embedded cover of new track');
+    assert.equal(coverReads,1,'embedded cover prevents remote lookup');
+    context.window.addonContributions.artwork=async()=>({status:'found',owner:'extension',dataUrl:'data:image/png;base64,extension'});
+    context.window.setLyricsTrack({title:'Cleanup',artist:'Artist',filePath:'C:/private/cleanup.mp3'},104);
+    context.window.refreshLyricsArtwork();await flush();await flush();
+    sourceEnabled=false;context.window.lastfmEnabled=false;context.window.addonContributions.artwork=async()=>null;
+    documentListeners['addon-artwork-sources-changed']();await flush();
+    assert.equal(context.window.addonLyrics.artwork(),'','disabling a source releases its current cover');
+    let lyricsReads=0,lyricsMetadata;
+    context.noctune.lyrics.get=async()=>{lyricsReads++;return {status:'missing',lines:[],plain:''};};
+    context.window.addonContributions.lyrics=async metadata=>{lyricsMetadata=metadata;return {status:'found',lines:[],plain:'Local extension lyrics'};};
+    context.window.setLyricsTrack({title:'Local lyrics',artist:'Artist',filePath:'C:/private/lyrics.mp3',coverDataUrl:'data:image/png;base64,embedded'},105);
+    await flush();
+    assert.equal(context.window.addonLyrics.read().plain,'Local extension lyrics');assert.equal(lyricsReads,1);assert.equal(lyricsMetadata.filePath,undefined);
+    assert.equal(elements['lyrics-source'].textContent,'Тексты: Расширение');
+    context.window.addonContributions.lyrics=async()=>({status:'found',lines:[],plain:'Example lyric',source:'Service <name>'});
+    context.window.setLyricsTrack({title:'Named source',artist:'Artist',coverDataUrl:'data:image/png;base64,embedded'},107);await flush();
+    assert.equal(elements['lyrics-source'].textContent,'Тексты: Service <name>');assert.equal(context.window.addonLyrics.read().source,'Service <name>');
+    context.noctune.lyrics.get=async()=>({status:'found',lines:[{time:0,text:'Timed builtin'}],plain:'Timed builtin'});
+    context.window.setLyricsTrack({title:'Synced builtin',artist:'Artist'},109);await flush();
+    assert.equal(context.window.addonLyrics.read().source,'LRCLIB');assert.equal(context.window.addonLyrics.read().lines[0].text,'Timed builtin');
+    context.noctune.lyrics.get=async()=>({status:'found',lines:[],plain:'Plain builtin'});
+    context.window.setLyricsTrack({title:'Both plain',artist:'Artist'},110);await flush();
+    assert.equal(context.window.addonLyrics.read().source,'Service <name>','equal plain formats retain extension precedence');
+    context.noctune.lyrics.get=async()=>{throw Error('Offline');};
+    context.window.setLyricsTrack({title:'Builtin offline',artist:'Artist'},111);await flush();
+    assert.equal(context.window.addonLyrics.read().plain,'Example lyric','builtin failure preserves extension text');
+    let finishBuiltin;
+    context.noctune.lyrics.get=()=>new Promise(resolve=>{finishBuiltin=resolve;});
+    context.window.setLyricsTrack({title:'Old comparison',artist:'Artist'},112);await flush();
+    context.window.addonContributions.lyrics=async()=>({status:'found',lines:[{time:0,text:'New timed extension'}],plain:'',source:'Timed extension'});
+    context.noctune.lyrics.get=async()=>{throw Error('Synchronized extension must avoid builtin lookup');};
+    context.window.setLyricsTrack({title:'New synchronized track',artist:'Artist'},113);await flush();
+    finishBuiltin({status:'found',lines:[{time:0,text:'Stale builtin'}],plain:''});await flush();
+    assert.equal(context.window.addonLyrics.read().source,'Timed extension');assert.equal(context.window.addonLyrics.read().lines[0].text,'New timed extension');
+    context.window.addonContributions.lyrics=async()=>null;
+    context.window.setLyricsTrack({title:'Lyrics fallback',artist:'Artist',filePath:'C:/private/fallback.mp3',coverDataUrl:'data:image/png;base64,embedded'},106);
+    context.noctune.lyrics.get=async()=>{lyricsReads++;return {status:'found',lines:[],plain:'Fallback lyric'};};
+    await flush();assert.equal(lyricsReads,3,'missing extension lyrics falls back to LRCLIB');
+    assert.equal(elements['lyrics-source'].textContent,'Тексты: LRCLIB');assert.equal(context.window.addonLyrics.read().source,'LRCLIB');
+    context.noctune.lyrics.get=async()=>({status:'missing',lines:[],plain:''});
+    context.window.setLyricsTrack({title:'Missing lyrics',artist:'Artist',coverDataUrl:'data:image/png;base64,embedded'},108);
+    assert.equal(elements['lyrics-source'].hidden,true,'old source is cleared while switching tracks');await flush();assert.equal(elements['lyrics-source'].hidden,true);
     console.log('PASS: on-demand fetching, track-switch race, safe text rendering, disable and pending-response cancellation.');
 })().catch(error => { console.error(error); process.exitCode = 1; });

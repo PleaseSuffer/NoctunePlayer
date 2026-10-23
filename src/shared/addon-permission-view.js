@@ -37,6 +37,37 @@
     window.AddonPermissionView = {
         icon, summary,
         originLabel: value => value.startsWith('https://*.') ? value + ' · все поддомены, кроме основного домена' : value,
+        renderNetwork(target, addon) {
+            target.replaceChildren();
+            const added = new Set(addon.state === 'update' ? addon.addedOrigins || [] : []);
+            for (const origin of addon.network?.origins || []) {
+                const routes = (addon.network.routes || []).filter(route => route.origin === origin);
+                const item = element('li', 'addon-permission-group addon-network-group');
+                const details = element('details'), heading = summary(origin, 'Globe');
+                details.dataset.origin = origin;
+                const title = heading.querySelector('.addon-disclosure-title');
+                title.append(element('span', 'addon-network-count', routes.length ? `Маршрутов: ${routes.length}` : 'Доступ к домену'));
+                if (added.has(origin)) {
+                    item.classList.add('is-new');
+                    title.append(element('span', 'new-label', 'Новый домен'));
+                }
+                const content = element('div', 'permission-group-content');
+                if (origin.startsWith('https://*.')) content.append(element('p', 'permission-description', 'Все поддомены, кроме основного домена.'));
+                if (routes.length) {
+                    const list = element('ul', 'addon-network-routes');
+                    for (const route of routes) {
+                        const row = element('li', 'addon-network-route'), methods = element('span', 'addon-network-methods');
+                        for (const method of route.methods) methods.append(element('span', 'addon-network-method', method));
+                        row.append(methods, element('code', 'addon-network-path', route.path));
+                        if (route.prefix) row.append(element('span', 'addon-network-scope', 'Все пути, начинающиеся с указанного'));
+                        if (route.permission) row.append(element('span', 'addon-network-scope', 'Необходимо право [' + route.permission + ']'));
+                        list.append(row);
+                    }
+                    content.append(list);
+                } else content.append(element('p', 'permission-description', addon.network.routes ? 'Сетевые маршруты для этого домена не заявлены.' : 'Все пути в рамках разрешённого доступа к сети.'));
+                details.append(heading, content); item.append(details); target.append(item);
+            }
+        },
         render(target, addon) {
             target.replaceChildren();
             const added = new Set(addon.state === 'update' ? AddonPermissions.expand(addon.addedPermissions || []) : []);

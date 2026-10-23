@@ -13,6 +13,19 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
     if (window && !window.isDestroyed()) window.webContents.send('addons:changed');
   } });
   const downloads = new Map();
+  const fileInstalls = new Map();
+  store.openFile = file => {
+    const existing = fileInstalls.get(file);
+    if (existing) { if(existing.ticket)installer.open(existing.ticket).catch(()=>{});return existing.promise; }
+    const entry = {};
+    entry.promise = (async()=>{
+      const preview = await store.prepareFile(file);entry.ticket=preview.ticket;
+      const installed = await installer.open(preview.ticket);
+      const win=getWindow();if(installed&&win&&!win.isDestroyed())win.webContents.send('addons:changed');
+      return installed;
+    })().finally(()=>fileInstalls.delete(file));
+    fileInstalls.set(file,entry);return entry.promise;
+  };
   function sender(event) {
     const win = getWindow();
     if (!win || win.isDestroyed() || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Недоступно для этого окна');

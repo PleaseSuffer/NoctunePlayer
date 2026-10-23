@@ -53,6 +53,12 @@
           "name": "Noctune Theme",
           "description": "Noctune theme",
           "mimeType": "application/x-noctune-theme"
+        },
+        {
+          "ext": "noctaddon",
+          "name": "Noctune Extension",
+          "description": "Noctune extension package",
+          "mimeType": "application/x-noctune-addon"
         }
       ],
       "target": [
@@ -67,7 +73,8 @@
         "%F"
       ],
       "mimeTypes": [
-        "application/x-noctune-theme"
+        "application/x-noctune-theme",
+        "application/x-noctune-addon"
       ]
     },
     "win": {

@@ -60,3 +60,14 @@ body[data-theme="dark"] .is-partial > details > summary .permission-access-badge
 .addon-verified-publisher { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; color: var(--accent-fg, #a6c8ff); font-size: 11px; font-weight: 600; line-height: 1.4; }
 .addon-verified-publisher[hidden] { display: none; }
 .addon-verified-icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+.addon-network-group > details > summary { padding: 14px; gap: 12px; margin: 0; }
+.addon-network-group .addon-disclosure-title { overflow-wrap: anywhere; font-size: 12px; font-weight: 600; color: var(--text-color, #e4e2ef); }
+.addon-network-count { display: block; margin-top: 4px; font-size: 11px; font-weight: 400; color: var(--text-muted, #aaa8b8); }
+.addon-network-routes { list-style: none; padding: 0; margin: 0; }
+.addon-network-route { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 0; }
+.addon-network-route + .addon-network-route { border-top: 1px solid var(--border-color, #32303e); }
+.addon-network-methods { display: flex; flex-wrap: wrap; gap: 4px; }
+.addon-network-method { padding: 2px 6px; border-radius: 5px; font-size: 10px; font-weight: 600; color: var(--accent-fg, #b6abd9); background: color-mix(in srgb, var(--accent-color, #ac91ee) 12%, transparent); }
+.addon-network-path { flex: 1 1 180px; }
+.addon-network-scope { width: 100%; color: var(--text-muted, #aaa8b8); font-size: 11px; overflow-wrap: anywhere; }

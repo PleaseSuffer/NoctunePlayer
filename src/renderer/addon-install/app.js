@@ -43,20 +43,9 @@ addonInstaller.details().then(addon => {
         const note=document.createElement('p');note.className='permission-description';note.textContent='Защищённый ввод в Noctune. Использование только для: '+profile.origins.join(', ')+'. Значение не передаётся расширению напрямую.';
         item.append(title,note);list.append(item);
     }
-    for (const route of addon.network?.routes || []) {
-        const item=document.createElement('li');item.className='permission';
-        const title=document.createElement('strong');title.textContent=route.methods.join(', ')+' '+route.origin+route.path+(route.prefix?'…':'');
-        const note=document.createElement('p');note.className='permission-description';note.textContent=route.permission?'Необходимо право ['+route.permission+']':'В рамках разрешённого доступа к сети';item.append(title,note);list.append(item);
-    }
     const origins = addon.network?.origins || [];
     document.getElementById('network-section').hidden = !origins.length;
-    for (const origin of origins) {
-        const item = document.createElement('li'); item.textContent = AddonPermissionView.originLabel(origin);
-        if (state === 'update' && addon.addedOrigins.includes(origin)) {
-            const label = document.createElement('span'); label.className = 'new-label'; label.textContent = 'Новый'; item.append(label);
-        }
-        document.getElementById('origins').append(item);
-    }
+    AddonPermissionView.renderNetwork(document.getElementById('origins'), addon);
     const verified = document.getElementById('verified-publisher');
     verified.hidden = !addon.verifiedPublisher;
     if (addon.verifiedPublisher) { verified.textContent = 'Официальное расширение · ' + addon.verifiedPublisher; verified.prepend(AddonPermissionView.icon('BadgeCheck', 'addon-verified-icon')); }

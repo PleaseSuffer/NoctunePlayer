@@ -114,7 +114,10 @@ interface NoctuneAddonApi {
         removeTracks(args:ServiceMutation&{id:string;revision:string;entries:string[]}):Promise<ServiceReceipt>;
         reorder(args:ServiceMutation&{id:string;revision:string;entries:string[]}):Promise<ServiceReceipt>;
     };
-    artwork:{read(context?:TrackContext):Promise<{sessionId:string|null;dataUrl:string;width:number;height:number}|null>};
+    artwork:{
+        read(context?:TrackContext):Promise<{sessionId:string|null;dataUrl:string;width:number;height:number}|null>;
+        provide(source:{id:string;resolve(track:{title:string;artist:string;album:string;duration:number;sessionId:string|null}):Promise<{status:'found';url:string}|{status:'missing'|'error'}>|{status:'found';url:string}|{status:'missing'|'error'}}):Promise<void>;
+    };
     lyrics:{read(context?:TrackContext):Promise<AddonLyrics>;provide(source:{id:string;resolve(track:{title:string;artist:string;album:string;duration:number;sessionId:string|null}):Promise<AddonLyrics>|AddonLyrics}):Promise<void>};
     hotkeys:{register(args:{command:string}):Promise<void>};
     themes: { /** Temporary accent overlay, automatically released on disable/error. null releases this owner's overlay. */ accent(args: { color: string | null }): Promise<void>; list(): Promise<{ id: string; name: string; parameters: Record<string, unknown> }[]>; switch(args: TrackContext & { id: string | null }): Promise<void>; apply(args: TrackContext & { parameters?: Record<string, unknown>; palette?: { accent: string; gradient: [string, string, string] } }): Promise<void> };
@@ -139,6 +142,7 @@ interface NoctuneAddonApi {
             trackAction?(args: { trackId: string; action: string }): Promise<void> | void;
             resolve(args: { trackId: string; reason: 'play' | 'refresh'; sessionId: string }): Promise<StreamDescriptor | ProviderFailure> | StreamDescriptor | ProviderFailure }): Promise<void>;
         search(provider: string, query: string): Promise<ProviderTrack[]>; play(provider: string, track: ProviderTrack): Promise<void>; enqueue(provider: string, track: ProviderTrack): Promise<string>;
+        openCollection(provider: string, options: {catalog: string; id: string; play?: boolean}): Promise<void>;
         invalidate(provider: string, trackIds?: string[]): Promise<void>;
     };
 }

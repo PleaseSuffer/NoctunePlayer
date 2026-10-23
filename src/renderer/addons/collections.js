@@ -69,6 +69,13 @@
         if(playEntry!==undefined){const index=pl.tracks.findIndex(track=>track.entryId===playEntry);if(select&&index>=0)await playTrack(playlistOrder.indexOf(index));}
         return pl;
     };
+    api.openServiceCollection = async (owner,args) => {
+        if(typeof args.catalog!=='string'||!args.catalog||args.catalog.length>300||typeof args.id!=='string'||!args.id||args.id.length>300||(args.play!==undefined&&typeof args.play!=='boolean'))throw new Error('Некорректная коллекция сервиса');
+        const catalog=catalogs().find(item=>item.owner===owner&&item.id===args.catalog&&item.providerId===args.provider&&item.playable);
+        if(!catalog)throw new Error('Каталог провайдера недоступен');
+        const pl=await api.openCollection(catalog,args.id);
+        if(args.play&&pl.tracks.length&&currentCatalog(pl.service)&&currentPlaylistId===pl.id){window.addonEvents.emit('playback.skip',{reason:'selection'});await playTrack(0);}
+    };
     api.loadMore = async (pl,{after,force=false}={}) => {
         const source=pl.service;if(!source||(!source.cursor&&!source.continuous))return 0;
         if(source.pending)return source.pending;

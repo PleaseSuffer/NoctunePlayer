@@ -3,6 +3,7 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
 const { themeFilesFromArgv, createThemeOpenQueue } = require('./open-theme-files');
+const { addonFilesFromArgv, createAddonOpenQueue } = require('./open-addon-files');
 const { createSystemIntegration } = require('./system-integration');
 const { KEY: KEEP_AWAKE_KEY, createKeepAwake } = require('./keep-awake');
 const keepAwake = createKeepAwake(powerSaveBlocker);
@@ -75,11 +76,19 @@ const themeOpenQueue = createThemeOpenQueue(file => themeInstaller.open(file), r
   if (!win || win.isDestroyed()) return;
   win.webContents.send('scene-themes:imported', result);
 });
+const addonOpenQueue = createAddonOpenQueue(file => addonStore.openFile(file), error => {
+  dialog.showMessageBox(win, { type:'error', title:'Расширение Noctune', message:'Не удалось открыть расширение', detail:String(error.message||error) }).catch(()=>{});
+}, file => { addonStore.openFile(file).catch(()=>{}); });
+app.on('open-file', (event, file) => {
+  const files=addonFilesFromArgv(['Noctune',file]);
+  if(files.length){event.preventDefault();addonOpenQueue.enqueue(files);}
+});
 ipcMain.on('scene-themes:ready', event => {
   if (win && event.sender === win.webContents && event.senderFrame === win.webContents.mainFrame) themeOpenQueue.setReady(true);
 });
 function handleArgvForFiles(argv, cwd = process.cwd()) {
   themeOpenQueue.enqueue(themeFilesFromArgv(argv, { cwd, defaultApp: !!process.defaultApp }));
+  addonOpenQueue.enqueue(addonFilesFromArgv(argv, { cwd, defaultApp: !!process.defaultApp }));
   const request = audioOpenRequestFromArgv(argv, { cwd, defaultApp: !!process.defaultApp });
   if (request) audioOpenQueue.enqueue(request.files, request.action);
 }
@@ -639,6 +648,7 @@ function createWindow() {
   Menu.setApplicationMenu(null);
   audioOpenQueue.setReady(false);
   themeOpenQueue.setReady(false);
+  addonOpenQueue.setReady(false);
   win.webContents.on('render-process-gone', () => keepAwake.setPlaying(false));
   win.on('closed', () => keepAwake.setPlaying(false));
   // CSP blocks fetch/assets; frame navigation needs a separate Electron guard.
@@ -651,6 +661,7 @@ function createWindow() {
     if (event.isMainFrame && !event.isSameDocument) {
       audioOpenQueue.setReady(false);
       themeOpenQueue.setReady(false);
+      addonOpenQueue.setReady(false);
       keepAwake.setPlaying(false);
     }
   });
@@ -666,6 +677,7 @@ function createWindow() {
   });
 
   win.webContents.on('did-finish-load', () => {
+    addonOpenQueue.setReady(true);
     const savedPath = store.get('music-directory');
     if (savedPath) {
       win.webContents.send('load-saved-directory', savedPath);
@@ -1128,7 +1140,7 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
-    if (win && !themeFilesFromArgv(commandLine, { cwd: workingDirectory, defaultApp: !!process.defaultApp }).length) {
+    if (win && !themeFilesFromArgv(commandLine, { cwd: workingDirectory, defaultApp: !!process.defaultApp }).length && !addonFilesFromArgv(commandLine, { cwd: workingDirectory, defaultApp: !!process.defaultApp }).length) {
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();

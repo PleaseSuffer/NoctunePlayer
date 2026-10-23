@@ -42,6 +42,7 @@ const { audioRegistration, AUDIO_EXTENSIONS } = require('../../src/main/windows-
         assert(desktop.includes(`MimeType=${FILE_MIME_TYPES.join(';')};`));
         const mime = await fs.readFile(path.join(env.XDG_DATA_HOME, 'mime/packages/com.noctune.player.xml'), 'utf8');
         assert(mime.includes(THEME_MIME_TYPE) && mime.includes('*.noctheme'));
+        assert(mime.includes('application/x-noctune-addon')&&mime.includes('*.noctaddon'));
         assert(calls.some(call => call.command === 'update-mime-database'));
         assert.equal((await integration.apply('default')).ok, true);
         assert.deepEqual(calls.find(call => call.command === 'xdg-mime').args, ['default', DESKTOP_ID, ...FILE_MIME_TYPES]);

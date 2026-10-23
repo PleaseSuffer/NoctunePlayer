@@ -10,6 +10,7 @@
     const retry = document.getElementById('lyrics-retry');
     const followButton = document.getElementById('lyrics-follow');
     const unsyncedHint = document.getElementById('lyrics-unsynced');
+    const sourceLabel = document.getElementById('lyrics-source');
     const viewToggle = document.getElementById('lyrics-view-toggle');
     const autoScrollToggle = document.getElementById('setting-lyrics-autoscroll');
     const settingsBody = document.getElementById('lyrics-settings-body');
@@ -70,7 +71,8 @@
             placeholder.hidden = false; setArtworkState('error');
         });
     }
-    let artworkSerial = 0, artworkKey = '', remoteCover = '';
+    let artworkSerial = 0, artworkKey = '', remoteCover = '', remoteCoverOwner = null;
+    const remoteArtworkVisible = owner => owner ? window.addonContributions?.hasArtwork(owner) : window.lastfmEnabled && coversToggle.checked;
     const trackArtwork = new Map();
     const artworkIdentity = metadata => JSON.stringify([metadata?.artist, metadata?.title, metadata?.album || '']);
     const coverIdentity = metadata => {
@@ -79,9 +81,9 @@
         const directory = cacheLocation === 'music' ? filePath.slice(0, filePath.lastIndexOf('/')) : '';
         return JSON.stringify([directory, value('artist'), value('album'), value('album') ? '' : value('title')]);
     };
-    function rememberArtwork(filePath, metadata, image) {
+    function rememberArtwork(filePath, metadata, image, owner = null) {
         trackArtwork.delete(filePath);
-        trackArtwork.set(filePath, { identity: artworkIdentity(metadata), image });
+        trackArtwork.set(filePath, { identity: artworkIdentity(metadata), image, owner });
         let bytes = [...trackArtwork.values()].reduce((sum, item) => sum + item.image.length, 0);
         for (const [path, item] of trackArtwork) {
             if (trackArtwork.size <= 100 && bytes <= 30 * 1024 * 1024) break;
@@ -127,7 +129,7 @@
         if (actionSerial !== coverActionSerial) return;
         if (fileEntries.some(entry => entry.path === payload.filePath)) rememberArtwork(payload.filePath, payload, thumbnail || '');
         if (!track?.radio && coverIdentity(track) === identity) {
-            artworkSerial++; remoteCover = result.dataUrl;
+            artworkSerial++; remoteCover = result.dataUrl; remoteCoverOwner = null;
             artworkKey = JSON.stringify([track.token, track.artist, track.title, track.album]);
             updateNowPlaying();
         }
@@ -141,7 +143,7 @@
         if (!element) return;
         element.loading = 'lazy'; element.decoding = 'async';
         const saved = trackArtwork.get(entry.path);
-        const image = metadata?.coverThumbnailDataUrl || metadata?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked && saved?.identity === artworkIdentity(metadata) ? saved.image : '') || '';
+        const image = metadata?.coverThumbnailDataUrl || metadata?.coverDataUrl || (saved?.identity === artworkIdentity(metadata) && remoteArtworkVisible(saved.owner) ? saved.image : '') || '';
         if (placeholder) placeholder.style.display = '';
         if (!image) { element.classList.toggle('loaded', false); element.removeAttribute('src'); return; }
         if (element.getAttribute('src') === image && element.classList.contains('loaded')) return;
@@ -257,7 +259,7 @@
     coverCacheToggle.checked = appStorage.getItem('setting_lastfm_cover_cache') !== '0';
     coverCacheSettings.style.display = coversToggle.checked ? 'block' : 'none';
     async function refreshArtwork() {
-        if (!track || (track.radio && !track.title?.trim()) || track.coverDataUrl || !window.lastfmEnabled || !coversToggle.checked) return;
+        if (!track || (track.radio && !track.title?.trim()) || track.coverDataUrl) return;
         const key = JSON.stringify([track.token, track.artist, track.title, track.album]);
         if (key === artworkKey) return;
         artworkKey = key;
@@ -265,15 +267,24 @@
         artworkRequestId = 'cover-' + requestSerial + '-' + Date.now();
         setArtworkState('searching');
         let result;
-        try { result = await noctune.lastfm.cover({ artist: track.artist, title: track.title, album: track.album, filePath: track.filePath, transient: Boolean(track.radio), requestId: artworkRequestId }); } catch (_) { if (requestSerial === artworkSerial) setArtworkState('error'); return; }
-        if (requestSerial !== artworkSerial || !window.lastfmEnabled || !coversToggle.checked) return;
+        let owner = null;
+        try {
+            if(!track.radio && track.filePath && window.addonContributions?.artwork)result=await window.addonContributions.artwork({title:track.title,artist:track.artist,album:track.album,duration:track.duration,sessionId:window.addonEvents?.snapshot().sessionId});
+            if(requestSerial!==artworkSerial)return;
+            if(result?.status==='found')owner=result.owner;
+            else {
+                if(!window.lastfmEnabled||!coversToggle.checked){setArtworkState('idle');return;}
+                result = await noctune.lastfm.cover({ artist: track.artist, title: track.title, album: track.album, filePath: track.filePath, transient: Boolean(track.radio), requestId: artworkRequestId });
+            }
+        } catch (_) { if (requestSerial === artworkSerial) setArtworkState('error'); return; }
+        if (requestSerial !== artworkSerial || !remoteArtworkVisible(owner)) return;
         if (result.status === 'found') {
-            setArtworkState('decoding', 1); remoteCover = result.dataUrl;
+            setArtworkState('decoding', 1); remoteCover = result.dataUrl; remoteCoverOwner = owner;
             if (!track.radio && track.filePath) {
                 let thumbnail = null;
                 try { thumbnail = noctune.metadata?.thumbnail ? await noctune.metadata.thumbnail(remoteCover) : remoteCover; } catch (_) {}
-                if (requestSerial !== artworkSerial || !window.lastfmEnabled || !coversToggle.checked) return;
-                rememberArtwork(track.filePath, track, thumbnail || '');
+                if (requestSerial !== artworkSerial || !remoteArtworkVisible(owner)) return;
+                rememberArtwork(track.filePath, track, thumbnail || '', owner);
             }
             updatePlaylistArtwork(); updateNowPlaying();
         }
@@ -296,6 +307,10 @@
         updateNowPlaying();
         updatePlaylistArtwork();
     };
+    document.addEventListener('addon-artwork-sources-changed',()=>{
+        for(const [file,saved] of trackArtwork)if(saved.owner)trackArtwork.delete(file);
+        window.refreshLyricsArtwork();
+    });
     coversToggle.addEventListener('change', () => {
         appStorage.setItem('setting_lastfm_covers', coversToggle.checked ? '1' : '0');
         coverCacheSettings.style.display = coversToggle.checked ? 'block' : 'none';
@@ -345,7 +360,7 @@
         station.textContent = radio ? track.stationName || 'Радиостанция' : '';
         document.getElementById('lyrics-song-title').textContent = track?.title || (radio ? 'Прямой эфир' : 'Музыка не выбрана');
         document.getElementById('lyrics-song-artist').textContent = track?.artist || '';
-        const image = track?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked ? remoteCover : '') || '';
+        const image = track?.coverDataUrl || (remoteArtworkVisible(remoteCoverOwner) ? remoteCover : '') || '';
         displayArtwork(image);
         refreshArtwork();
     }
@@ -590,6 +605,7 @@
     }
     function clear() {
         addonLyricsSnapshot = {status:'missing',lines:[],plain:''};
+        if(sourceLabel){sourceLabel.textContent='';sourceLabel.hidden=true;}
         resetScrollbarActivity();
         cancelLyricsSearch();
         serial++;
@@ -605,7 +621,7 @@
         trackLabel.textContent = track ? [track.artist, track.title].filter(Boolean).join(' — ') : '';
         updateNowPlaying();
     }
-    window.addonLyrics = { read: () => JSON.parse(JSON.stringify(addonLyricsSnapshot)), artwork: () => track?.coverThumbnailDataUrl || track?.coverDataUrl || (window.lastfmEnabled && coversToggle.checked ? remoteCover : '') || '' };
+    window.addonLyrics = { read: () => JSON.parse(JSON.stringify(addonLyricsSnapshot)), artwork: () => track?.coverThumbnailDataUrl || track?.coverDataUrl || (remoteArtworkVisible(remoteCoverOwner) ? remoteCover : '') || '' };
     async function load() {
         clear(); addonLyricsSnapshot = {status:'missing',lines:[],plain:''};
         if (!enabled || !opened) return;
@@ -620,12 +636,19 @@
         try {
             if (window.addonContributions) result = await window.addonContributions.lyrics({ title:track.title||'',artist:track.artist||'',album:track.album||'',duration:track.duration||0,sessionId:window.addonEvents?.snapshot().sessionId });
             if (requestSerial !== serial || !opened || !enabled) return;
-            if (!result) result = await noctune.lyrics.get(track);
+            const synchronized=value=>value?.status==='found'&&value.lines?.some(line=>Number.isFinite(line.time)&&line.text?.trim());
+            if (!synchronized(result)) {
+                try {
+                    const builtin = {...await noctune.lyrics.get(track),source:'LRCLIB'};
+                    if (!result || synchronized(builtin) || (result.status!=='found'&&builtin.status==='found')) result=builtin;
+                } catch (_) { if(!result)result={status:'error'}; }
+            }
         } catch (_) { result = { status: 'error' }; }
         if (requestSerial !== serial || !opened || !enabled) return;
         setLyricsLoading(false);
         if (result.status === 'cancelled') return;
-        addonLyricsSnapshot = {status:result.status,lines:result.lines||[],plain:result.plain||''};
+        const source = typeof result.source==='string'&&result.source.trim()?result.source.trim().slice(0,120):'Расширение';
+        addonLyricsSnapshot = {status:result.status,lines:result.lines||[],plain:result.plain||'',...(result.status==='found'?{source}:{})};
         const messages = {
             missing: 'Текст этой песни не найден.', instrumental: 'Инструментальная композиция — без текста.',
             invalid: 'Для поиска нужны название песни и исполнитель. Проверьте теги файла.',
@@ -639,6 +662,7 @@
             return;
         }
         setLyricsAvailability(false);
+        if(sourceLabel){sourceLabel.textContent='Тексты: '+source;sourceLabel.hidden=false;}
         if (result.lines.length) {
             status.textContent = 'Синхронизированный текст · нажмите строку для перемотки';
             status.classList.toggle('lyrics-synced-hint', true);

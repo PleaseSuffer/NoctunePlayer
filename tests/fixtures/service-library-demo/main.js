@@ -20,9 +20,11 @@ NoctuneAddon.define(async api => {
         resolve: ({trackId, sessionId}) => { current = { trackId, sessionId }; return {url: 'https://media.service.example/audio/' + parameter(trackId) + '.wav'}; },
         trackActions: ({trackId}) => [
             {id:likes.has(trackId)?'unlike':'like',title:likes.has(trackId)?'Не нравится':'Нравится',icon:'Heart',inline:true,active:likes.has(trackId)},
-            {id:dislikes.has(trackId)?'undislike':'dislike',title:dislikes.has(trackId)?'Отменить дизлайк':'Дизлайк — реже рекомендовать',icon:'ThumbsDown'}
+            {id:dislikes.has(trackId)?'undislike':'dislike',title:dislikes.has(trackId)?'Отменить дизлайк':'Дизлайк — реже рекомендовать',icon:'ThumbsDown'},
+            {id:'open-stream',title:'Открыть поток',icon:'Radio'}
         ],
-        trackAction: ({trackId, action}) => {
+        trackAction: async ({trackId, action}) => {
+            if(action==='open-stream'){await api.providers.openCollection('demo-audio',{catalog:'demo-library',id:'stream',play:true});return;}
             if(action==='like')likes.add(trackId);else if(action==='unlike')likes.delete(trackId);
             else if(action==='dislike')dislikes.add(trackId);else if(action==='undislike')dislikes.delete(trackId);
             else throw new Error('Unknown action');
