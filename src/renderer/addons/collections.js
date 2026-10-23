@@ -162,10 +162,47 @@
         const intentPlay=()=>{window.addonEvents.emit('playback.skip',{reason:'selection'});return play();};
         const context=event=>api.menu(event,{pl,track,play:intentPlay,remove});
         button.addEventListener('click',context);row.addEventListener('contextmenu',context);
-        row.addEventListener('click',event=>{if(!event.target.closest('.actions-btn'))Promise.resolve().then(intentPlay).catch(notifyError);});
+        row.addEventListener('click',event=>{if(!event.target.closest('.actions-btn, .provider-inline-actions'))Promise.resolve().then(intentPlay).catch(notifyError);});
         row.tabIndex=0;row.addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target===row){event.preventDefault();Promise.resolve().then(intentPlay).catch(notifyError);}});
-        row.append(image,placeholder,info,duration,button);api.image(image,track.artwork,catalog);return row;
+        row.append(image,placeholder,info,duration);
+        const entry={...track,addonId:pl.addonId,providerId:pl.providerId};
+        if(api.hasInline(entry))row.append(inlineControls(entry));
+        row.append(button);api.image(image,track.artwork,catalog);return row;
     };
+    // Only visible rows request state; two callbacks at a time stay within Worker quotas.
+    const inlineJobs=[], inlineQueued=new WeakSet();let inlineBusy=0;
+    function queueInline(control){if(inlineQueued.has(control))return;inlineQueued.add(control);inlineJobs.push(control);drainInline();}
+    function drainInline(){while(inlineBusy<2&&inlineJobs.length){const control=inlineJobs.shift();inlineQueued.delete(control);if(!control.isConnected)continue;inlineBusy++;control._refresh().finally(()=>{inlineBusy--;drainInline();});}}
+    const inlineObserver=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{for(const item of entries)if(item.isIntersecting){inlineObserver.unobserve(item.target);queueInline(item.target);}}):null;
+    function inlineControls(entry){
+        const control=node('span','provider-inline-actions');control._entry=entry;let sequence=0;
+        control.addEventListener('click',event=>event.stopPropagation());
+        control._refresh=async()=>{
+            const serial=++sequence;
+            try{
+                const actions=await api.actions(entry,'row');if(!control.isConnected||serial!==sequence)return;
+                control.replaceChildren();
+                for(const action of actions.filter(item=>item.inline).slice(0,3)){
+                    const button=node('button','provider-inline-action'+(action.active?' is-active':''));button.type='button';button.title=action.title;button.setAttribute('aria-label',action.title);button.setAttribute('aria-pressed',String(action.active));button.append(AddonPermissionView.icon(action.icon,'provider-track-icon'));
+                    button.addEventListener('click',async()=>{
+                        if(button.disabled)return;button.disabled=true;
+                        try{await api.actions(entry);await api.action(entry,action.id);}catch(error){notifyError(error);}finally{queueInline(control);}
+                    });control.append(button);
+                }
+                control.removeAttribute('title');
+            }catch(error){if(serial===sequence){control.replaceChildren();control.title=String(error.message||error);}}
+        };
+        queueMicrotask(()=>{if(!control.isConnected)return;if(inlineObserver)inlineObserver.observe(control);else queueInline(control);});
+        return control;
+    }
+    document.addEventListener('provider-track-actions-changed',event=>{
+        const {addonId,providerId,trackIds}=event.detail;
+        for(const control of document.querySelectorAll('.provider-inline-actions')){
+            const entry=control._entry;if(!entry||entry.addonId!==addonId||entry.providerId!==providerId||trackIds&&!trackIds.includes(entry.trackId||entry.id))continue;
+            for(const button of control.querySelectorAll('button'))button.disabled=true;
+            if(inlineObserver)inlineObserver.observe(control);else queueInline(control);
+        }
+    });
     api.render = pl => {
         const previousShuffle=isShuffle&&activePlaylistId===pl.id?shuffleList.map(index=>fileEntries[playlistOrder[index]]?.entryId):[];
         fileEntries=pl.tracks.slice();playlistOrder=fileEntries.map((_,i)=>i);parsedMetadataCache={};

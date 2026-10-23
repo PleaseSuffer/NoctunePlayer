@@ -10,6 +10,12 @@
             const notifToggle = document.getElementById('setting-notifications');
             if (notifToggle && !notifToggle.checked) return;
 
+            if (options.replaceKey) {
+                for (const previous of notifStack.querySelectorAll('.notification-toast')) {
+                    if (previous.dataset.replaceKey === options.replaceKey) previous.remove();
+                }
+            }
+
             // Max 3 toasts
             const existing = notifStack.querySelectorAll('.notification-toast');
             if (existing.length >= MAX_NOTIFS) {
@@ -50,6 +56,7 @@
 
             const toast = document.createElement('div');
             toast.className = 'notification-toast' + (cornerAction ? ' has-corner-action' : '');
+            if (options.replaceKey) toast.dataset.replaceKey = options.replaceKey;
             toast.innerHTML = `
                 <div class="notification-toast-icon ${type}">
                     <i data-lucide="${iconName}" style="width:16px;height:16px;"></i>

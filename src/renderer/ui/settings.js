@@ -95,7 +95,7 @@
                 settingsToc.innerHTML = '';
                 if (settingsContent) settingsContent.scrollTo({ top: settingsContent.scrollTop, behavior: 'instant' });
                 clickedTocTarget = null;
-                if (!activePanel) { settingsToc.classList.remove('has-items'); return; }
+                if (!activePanel || activePanel.id === 'panel-integrations') { settingsToc.classList.remove('has-items'); return; }
 
                 const titles = [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
                 if (titles.length < 2) {
@@ -1233,6 +1233,15 @@
             function refreshAccentFg(color) {
                 const current = color || getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
                 const safeFg = computeAccentFg(current);
+                // Contrast against the accent used as a selected-row background.
+                let hex = current.replace('#', '');
+                if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+                if (!/^[a-f\d]{6}$/i.test(hex)) hex = '4a90e2';
+                const rgb = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
+                const luminance = rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+                const contrast = luminance > .179 ? '#000000' : '#ffffff';
+                document.documentElement.style.setProperty('--accent-contrast', contrast);
+                document.body.style.setProperty('--accent-contrast', contrast);
                 if (addonAccentStyle) {
                     document.documentElement.style.setProperty('--addon-accent-fg', safeFg);
                     return;

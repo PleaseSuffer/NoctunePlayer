@@ -15,16 +15,17 @@
     function library(catalog) {
         const key=catalog.owner+':'+catalog.id,previous=libraries.get(key);
         if(previous&&previous.hash===catalog.hash&&previous.accountId===catalog.accountId)return previous.element;
-        const element=node('section','integration-library addon-catalog'),toolbar=node('div','service-library-toolbar'),form=node('form','service-search'),search=node('input','integration-text-input'),refresh=node('button','actions-btn'),back=node('button','btn service-back','Назад'),heading=node('h4','service-library-heading','Библиотека'),status=node('p','settings-row-desc service-library-status'),body=node('div','service-library-content');
+        const element=node('section','integration-library addon-catalog'),toolbar=node('div','service-library-toolbar'),form=node('form','service-search'),search=node('input','integration-text-input'),refresh=node('button','service-icon-button'),back=node('button','service-icon-button service-back'),heading=node('h4','service-library-heading','Библиотека'),header=node('div','service-library-header'),status=node('p','settings-row-desc service-library-status'),body=node('div','service-library-content');
         const record={element,hash:catalog.hash,accountId:catalog.accountId};libraries.set(key,record);
         search.type='search';search.placeholder='Найти трек или исполнителя';search.maxLength=200;search.setAttribute('aria-label','Поиск в '+catalog.name);search.autocomplete='off';
         search.hidden=!catalog.capabilities.includes('search');form.append(search);
-        refresh.type='button';refresh.setAttribute('aria-label','Обновить библиотеку');refresh.title='Обновить библиотеку';refresh.append(AddonPermissionView.icon('RefreshCw','provider-track-icon'));
-        toolbar.append(form,refresh);back.type='button';back.hidden=true;element.append(toolbar,back,heading,status,body);
+        function setIcon(control,label,icon){control.type='button';control.title=label;control.setAttribute('aria-label',label);control.append(AddonPermissionView.icon(icon,'provider-track-icon'));}
+        setIcon(refresh,'Обновить библиотеку','RefreshCw');setIcon(back,'Назад','ArrowLeft');
+        toolbar.append(back,form,refresh);back.hidden=true;header.append(heading);element.append(toolbar,header,status,body);
         let sequence=0,parent=null,selected=null,searchQuery='',timer=null,loading=false;
         const alive=id=>id===sequence&&libraries.get(key)===record&&api.catalogs().some(item=>item.owner===catalog.owner&&item.id===catalog.id&&item.hash===catalog.hash);
         const invoke=(method,args={})=>api.invoke(catalog.owner,'',method,{catalog:catalog.id,...args});
-        function button(label,run,target=body){const el=node('button','btn',label);el.type='button';el.addEventListener('click',async()=>{el.disabled=true;try{await run();}catch(error){status.textContent=error.message;}finally{el.disabled=false;}});target.append(el);return el;}
+        function button(label,icon,run,target=body){const el=node('button','service-icon-button');setIcon(el,label,icon);el.addEventListener('click',async()=>{el.disabled=true;try{await run();}catch(error){status.textContent=error.message;}finally{el.disabled=false;}});target.append(el);return el;}
         async function task(fn){const id=++sequence;loading=true;status.textContent='Загрузка…';refresh.disabled=true;try{await fn(id);if(alive(id))status.textContent='';}catch(error){if(alive(id))status.textContent=error.message;}finally{if(alive(id)){loading=false;refresh.disabled=false;}}}
         const selectionArgs=()=>({...selected,provider:catalog.providerId,catalog:catalog.id,hash:catalog.hash,accountId:catalog.accountId,persist:!searchQuery,searchQuery:searchQuery||undefined});
         async function openPlayer(entryId,close=false){
@@ -32,17 +33,17 @@
             if(close)document.getElementById('settings-close-btn').click();return pl;
         }
         function drawTracks() {
-            body.replaceChildren();heading.textContent=selected.name;back.hidden=false;
+            body.replaceChildren();header.replaceChildren(heading);heading.textContent=selected.name;back.hidden=false;
             const bar=node('div','service-playlist-toolbar'),count=node('span','settings-row-desc',selected.continuous?'Непрерывный поток':`${selected.tracks.length}${selected.total?' из '+selected.total:''} треков`);bar.append(count);
-            if(catalog.playable)button('Открыть в плеере',()=>openPlayer(undefined,true),bar);body.append(bar);
-            const rows=node('ul','service-tracks');
+            if(catalog.playable)button('Открыть в плеере','PanelTop',()=>openPlayer(undefined,true),header);body.append(bar);
+            const rows=node('ul','service-tracks custom-scroll');rows.tabIndex=0;rows.setAttribute('aria-label','Треки: '+selected.name);
             for(const track of selected.tracks){
                 const pl={addonId:catalog.owner,providerId:catalog.providerId};
                 rows.append(window.addonProviders.trackRow({track,pl,catalog,play:()=>openPlayer(track.entryId)}));
             }
             body.append(rows);
             if(!selected.tracks.length)body.append(node('p','settings-row-desc','Треков пока нет'));
-            if(selected.cursor&&!selected.continuous)button(searchQuery?'Ещё результаты':'Ещё 300 треков',()=>task(async id=>{
+            if(selected.cursor&&!selected.continuous)button(searchQuery?'Ещё результаты':'Ещё 300 треков','ListPlus',()=>task(async id=>{
                 const target=selected;let count=0;
                 do {
                     if(searchQuery){const page=await invoke('catalog.search',{query:searchQuery,cursor:target.cursor});if(!alive(id))return;target.tracks.push(...page.items.map(track=>({...track,entryId:'search-'+track.id})));target.cursor=page.cursor;}
@@ -59,7 +60,7 @@
         });}
         async function browse(next=null){searchQuery='';selected=null;await task(async serial=>{
             const page=await invoke('catalog.browse',{parent,cursor:next});if(!alive(serial))return;
-            if(!next)body.replaceChildren();heading.textContent=parent?.title||'Библиотека';back.hidden=!parent;
+            if(!next)body.replaceChildren();header.replaceChildren(heading);heading.textContent=parent?.title||'Библиотека';back.hidden=!parent;
             const grid=node('div','service-playlist-grid');
             for(const entry of page.items){
                 if(entry.type==='track'){
@@ -74,7 +75,7 @@
             }
             body.append(grid);
             if(!page.items.length)body.append(node('p','settings-row-desc','Пока ничего нет'));
-            if(page.cursor)button('Загрузить ещё',event=>browse(page.cursor));
+            if(page.cursor)button('Загрузить ещё','ListPlus',()=>browse(page.cursor));
         });}
         async function runSearch(){const query=search.value.trim();if(!query){parent=null;await browse();return;}parent=null;searchQuery=query;await task(async serial=>{
             const page=await invoke('catalog.search',{query});if(!alive(serial))return;

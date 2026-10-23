@@ -68,7 +68,7 @@ interface NoctuneAddonApi {
     assets: { read(file: string): { mime: string; base64: string; size: number }; url(file: string): string };
     storage: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
     settings: { get(): Promise<Record<string, unknown>> };
-    notify(message: string): Promise<void>;
+    notify(message: string, options?: {key?: string}): Promise<void>;
     player: {
         current(): Promise<TrackState>; play(options?: TrackContext & { trackId?: string }): Promise<void>;
         pause(context?: TrackContext): Promise<void>; stop(context?: TrackContext): Promise<void>;
@@ -134,10 +134,12 @@ interface NoctuneAddonApi {
     system: { openExternal(url: string): Promise<void>; openFile(handle: string): Promise<void> };
     providers: {
         register(provider: { id: string; name: string; search?(args: { query: string }): Promise<ProviderTrack[]> | ProviderTrack[];
-            trackActions?(args: { trackId: string }): Promise<{id:string;title:string;icon?:string}[]> | {id:string;title:string;icon?:string}[];
+            inlineActions?: boolean;
+            trackActions?(args: { trackId: string; surface: 'menu' | 'row' }): Promise<{id:string;title:string;icon?:string;inline?:boolean;active?:boolean}[]> | {id:string;title:string;icon?:string;inline?:boolean;active?:boolean}[];
             trackAction?(args: { trackId: string; action: string }): Promise<void> | void;
             resolve(args: { trackId: string; reason: 'play' | 'refresh'; sessionId: string }): Promise<StreamDescriptor | ProviderFailure> | StreamDescriptor | ProviderFailure }): Promise<void>;
         search(provider: string, query: string): Promise<ProviderTrack[]>; play(provider: string, track: ProviderTrack): Promise<void>; enqueue(provider: string, track: ProviderTrack): Promise<string>;
+        invalidate(provider: string, trackIds?: string[]): Promise<void>;
     };
 }
 declare const NoctuneAddon: { define(activate: (api: NoctuneAddonApi) => void | Promise<void>): void };

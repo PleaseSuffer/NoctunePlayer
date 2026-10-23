@@ -5,6 +5,8 @@ NoctuneAddon.define(async api => {
         const snapshot = await api.player.current();
         if (!current || snapshot.sessionId !== current.sessionId) throw new Error('Выберите трек сервиса');
         if (likes.has(current.trackId)) likes.delete(current.trackId); else likes.add(current.trackId);
+        await api.providers.invalidate('demo-audio', [current.trackId]);
+        await api.notify(likes.has(current.trackId)?'Лайк поставлен':'Лайк снят', {key:'track-rating'});
     });
     await api.hotkeys.register({ command: 'toggle-like' });
     async function request(path) {
@@ -14,10 +16,10 @@ NoctuneAddon.define(async api => {
     }
     const parameter = value => encodeURIComponent(value || '');
     await api.providers.register({
-        id: 'demo-audio', name: 'Тестовая медиатека',
+        id: 'demo-audio', name: 'Тестовая медиатека', inlineActions: true,
         resolve: ({trackId, sessionId}) => { current = { trackId, sessionId }; return {url: 'https://media.service.example/audio/' + parameter(trackId) + '.wav'}; },
         trackActions: ({trackId}) => [
-            {id:likes.has(trackId)?'unlike':'like',title:likes.has(trackId)?'Не нравится':'Нравится',icon:'Heart'},
+            {id:likes.has(trackId)?'unlike':'like',title:likes.has(trackId)?'Не нравится':'Нравится',icon:'Heart',inline:true,active:likes.has(trackId)},
             {id:dislikes.has(trackId)?'undislike':'dislike',title:dislikes.has(trackId)?'Отменить дизлайк':'Дизлайк — реже рекомендовать',icon:'ThumbsDown'}
         ],
         trackAction: ({trackId, action}) => {

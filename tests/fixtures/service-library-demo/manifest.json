@@ -9,7 +9,7 @@
   "minNoctuneVersion": "1.4.0",
   "type": "integration",
   "entry": "main.js",
-  "permissions": ["ui.integrations", "catalog.register", "servicePlaylists.read", "providers.register", "providers.play", "network.request", "credentials.status", "credentials.configure", "credentials.use", "hotkeys.register", "playback.read"],
+  "permissions": ["ui.integrations", "catalog.register", "servicePlaylists.read", "providers.register", "providers.play", "network.request", "credentials.status", "credentials.configure", "credentials.use", "hotkeys.register", "playback.read", "notifications.show"],
   "credentials": {
     "demo-token": {"name": "Тестовый ключ", "origins": ["https://api.service.example"], "header": "Authorization", "scheme": "Bearer"}
   },

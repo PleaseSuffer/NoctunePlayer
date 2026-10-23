@@ -69,7 +69,7 @@ app.on('browser-window-created',(_,win)=>{
         win.webContents.setAudioMuted(true);win.webContents.setBackgroundThrottling(false);
         const run=async code=>{try{return await win.webContents.executeJavaScript(code);}catch(error){console.error('Failed:',code);throw error;}};
         const wait=async(code,message)=>{for(let i=0;i<150;i++){if(await run(code))return;await delay(100);}throw new Error(message);};
-        const clickText=(selector,text)=>run(`(()=>{const button=[...document.querySelectorAll(${JSON.stringify(selector)})].find(node=>node.textContent===${JSON.stringify(text)});if(!button)throw new Error('Button missing');button.click();})()`);
+        const clickText=(selector,text)=>run(`(()=>{const button=[...document.querySelectorAll(${JSON.stringify(selector)})].find(node=>(node.getAttribute("aria-label")||node.textContent)===${JSON.stringify(text)});if(!button)throw new Error('Button missing');button.click();})()`);
         try{
             await installed;await run('window.addonHost.refresh()');
             await wait(`window.addonHost.state('service-library-demo')?.status==='running'`,'addon startup');
@@ -91,12 +91,21 @@ app.on('browser-window-created',(_,win)=>{
             await run(`document.querySelector('#integration-addon-service-library-demo .service-playlist-card').click()`);
             await wait(`document.querySelectorAll('#integration-addon-service-library-demo .provider-track').length===300`,'initial 300 liked tracks');
             assert.match(await run(`document.querySelector('#integration-addon-service-library-demo .service-playlist-toolbar').textContent`),/300 из 720/);
+            await run(`document.querySelector('.integration-library').scrollIntoView({block:'start'})`);await delay(600);
+            await fs.promises.writeFile(path.join(output,'tracks-dark.png'),(await win.webContents.capturePage()).toPNG());
             await clickText('#integration-addon-service-library-demo button','Ещё 300 треков');
             await wait(`document.querySelectorAll('#integration-addon-service-library-demo .provider-track').length===600`,'load next 300');
             await clickText('#integration-addon-service-library-demo button','Открыть в плеере');
             await wait(`fileEntries.length===600`,'opened full loaded playlist');
             assert.equal(await run(`getPlaylistIcon(userPlaylists.find(pl=>pl.id===currentPlaylistId))`),'cloud');
             assert.equal(await run(`document.querySelectorAll('#playlist .track-title-item').length`),600);
+            await wait(`document.querySelector('#playlist .provider-inline-action')?.getAttribute('aria-pressed')==='false'`,'initial inline like state');
+            await run(`document.querySelector('#playlist .provider-inline-action').click()`);
+            await wait(`document.querySelector('#playlist .provider-inline-action')?.getAttribute('aria-pressed')==='true'`,'inline like updates');
+            await delay(300);await fs.promises.writeFile(path.join(output,'track-rating.png'),(await win.webContents.capturePage()).toPNG());
+            assert.equal(await run(`isPlaying`),false,'rating a row does not start playback');
+            await run(`document.querySelector('#playlist .provider-inline-action').click()`);
+            await wait(`document.querySelector('#playlist .provider-inline-action')?.getAttribute('aria-pressed')==='false'`,'inline unlike updates');
             await run(`document.querySelector('#playlist .actions-btn').click()`);
             await wait(`document.querySelectorAll('.provider-context-menu [role="menuitem"]').length===6&&!document.querySelector('.provider-context-menu button:disabled')`,'provider track actions loaded');
             await clickText('.provider-context-menu button','Нравится');
@@ -114,6 +123,14 @@ app.on('browser-window-created',(_,win)=>{
             await delay(150);
             await run(`document.querySelector('#playlist .actions-btn').click()`);
             await wait(`[...document.querySelectorAll('.provider-context-menu button')].some(button=>button.textContent==='Нравится')`,'configured hotkey unlikes current track');
+            await wait(`document.querySelector('#playlist .provider-inline-action')?.getAttribute('aria-pressed')==='false'`,'hotkey refreshes row');
+            await wait(`[...document.querySelectorAll('.notification-toast-msg')].some(node=>node.textContent==='Лайк снят')`,'first hotkey toast');
+            for(const [pressed,message] of [['true','Лайк поставлен'],['false','Лайк снят']]){
+                await run(`document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyL',ctrlKey:true,altKey:true,bubbles:true,cancelable:true}))`);
+                await wait(`document.querySelector('#playlist .provider-inline-action')?.getAttribute('aria-pressed')===${JSON.stringify(pressed)}`,'repeated hotkey refreshes row');
+                await wait(`[...document.querySelectorAll('.notification-toast-msg')].some(node=>node.textContent===${JSON.stringify(message)})`,'repeated hotkey toast');
+                assert.equal(await run(`document.querySelectorAll('.notification-toast[data-replace-key="service-library-demo:track-rating"]').length`),1,'rating feedback replaces its own toast');
+            }
             assert.ok(await run(`[...document.querySelectorAll('#hotkeys-list .hotkey-label')].some(label=>label.textContent.includes('Текущий трек: нравится / не нравится'))`),'extension hotkey appears in settings');
             await run(`document.body.click();document.getElementById('settings-fab').click();document.querySelector('[data-panel="panel-integrations"]').click();document.querySelector('#integration-addon-service-library-demo input[type="search"]').value='Исполнитель';document.querySelector('#integration-addon-service-library-demo .service-search').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))`);
             await wait(`document.querySelector('#integration-addon-service-library-demo .service-library-heading').textContent==='Поиск: Исполнитель'`,'inline search');

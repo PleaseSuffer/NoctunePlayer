@@ -39,7 +39,7 @@
                         },
                         readText(file) { if (!Object.hasOwn(data.files, file) || typeof data.files[file] !== 'string') throw new Error('Файл отсутствует в пакете'); return data.files[file]; },
                         storage: Object.freeze({ get: key => call('storage.get', { key }), set: (key, value) => call('storage.set', { key, value }) }),
-                        notify: message => call('notify', { message }),
+                        notify: (message, options = {}) => call('notify', { message, key: options.key }),
                         player: Object.freeze({ current: () => call('playback.read', {}) }),
                         network: Object.freeze({ text: url => call('network', { url }), json: async url => JSON.parse(await call('network', { url })) }),
                     });
@@ -96,12 +96,13 @@
                                 if (!provider || typeof provider.resolve !== 'function') throw new Error('Нужен обработчик resolve');
                                 const trackActions = typeof provider.trackActions === 'function' && typeof provider.trackAction === 'function';
                                 providers.set(provider.id, provider);
-                                try { return await call('providers.register', { id: provider.id, name: provider.name, trackActions }); }
+                                try { return await call('providers.register', { id: provider.id, name: provider.name, trackActions, inlineActions: provider.inlineActions === true }); }
                                 catch (error) { providers.delete(provider.id); throw error; }
                             },
                             search: (provider, query) => call('providers.search', { provider, query }),
                             play: (provider, track) => call('providers.play', { provider, track }),
                             enqueue: (provider, track) => call('providers.enqueue', { provider, track }),
+                            invalidate: (provider, trackIds) => call('providers.invalidate', { provider, trackIds }),
                         },
                     };
                     const url = URL.createObjectURL(new Blob([data.files[data.manifest.entry]], { type: 'text/javascript' }));
@@ -207,11 +208,14 @@
                 const args = data.args || {}; let value = null;
                 if (data.method === 'notify') {
                     if (!grants.has('notifications.show') || typeof args.message !== 'string' || args.message.length > 500) throw new Error('Уведомление не разрешено');
-                    if (item.lastNotification && performance.now() - item.lastNotification < 3000) throw new Error('Уведомления доступны раз в три секунды');
-                    item.lastNotification = performance.now();
+                    if (args.key !== undefined && (typeof args.key !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(args.key))) throw new Error('Некорректный ключ уведомления');
+                    if (args.key === undefined) {
+                        if (item.lastNotification && performance.now() - item.lastNotification < 3000) throw new Error('Уведомления доступны раз в три секунды');
+                        item.lastNotification = performance.now();
+                    }
                     // Existing toast markup interpolates strings, so escape addon text.
                     const escape = text => text.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
-                    showNotification(args.message, 'info', escape(m.name));
+                    showNotification(args.message, 'info', escape(m.name), null, { replaceKey: args.key === undefined ? undefined : m.id + ':' + args.key });
                 } else if (data.method === 'playback.read') {
                     if (!grants.has('playback.read')) throw new Error('Нет доступа к текущему треку');
                     value = window.addonEvents.snapshot();
@@ -228,6 +232,9 @@
                 } else if (data.method === 'providers.register') {
                     if (!grants.has('providers.register')) throw new Error('Регистрация провайдера не разрешена');
                     window.addonProviders.register(m.id, pkg.digest, args, (action, value) => providerCall(args.id, action, value));
+                } else if (data.method === 'providers.invalidate') {
+                    if (!grants.has('providers.register')) throw new Error('Нет разрешения провайдера');
+                    window.addonProviders.invalidate(m.id, args);
                 } else if (data.method === 'providers.search' || data.method === 'providers.play' || data.method === 'providers.enqueue') {
                     if (data.method === 'providers.enqueue' && !grants.has('queue.add')) throw new Error('Нет разрешения queue.add');
                     if (!grants.has(data.method === 'providers.search' ? 'providers.register' : 'providers.play')) throw new Error('Нет разрешения провайдера');
