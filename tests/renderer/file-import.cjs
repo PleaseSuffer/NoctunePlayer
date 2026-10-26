@@ -11,6 +11,7 @@ function extract(name) {
 (async () => {
     const nodes = [];
     const context = {
+        appStorage: { getItem: () => null },
         console, userPlaylists: [{ id: 'music', type: 'folder', path: '/music', files: [] }, { id: 'radio', type: 'radio' }],
         currentPlaylistId: 'music', fileEntries: [{ path: '/music/original.mp3' }], playlistOrder: [0],
         isShuffle: false, parsedMetadataCache: {}, statusText: {}, lucide: { createIcons() {} },
@@ -27,6 +28,7 @@ function extract(name) {
         },
     };
     vm.createContext(context);
+    vm.runInContext(fs.readFileSync('src/renderer/playback/file-metadata.js', 'utf8'), context);
     for (const name of ['validatedAudioPaths', 'addFilesToPlaylist', 'selectPlaylist']) vm.runInContext(extract(name), context);
     const paths = ['/outside/new.flac', '/outside/new.flac', '/folder/directory.mp3', '/missing.mp3', 'notes.txt'];
     assert.deepEqual(Array.from(await context.validatedAudioPaths(paths)), ['/outside/new.flac']);

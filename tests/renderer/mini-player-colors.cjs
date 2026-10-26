@@ -1,0 +1,13 @@
+const assert = require('node:assert/strict');
+const palette = require('../../src/renderer/mini-player/colors');
+const theme = { '--bg-color': '#121212', '--accent-color': '#fff' };
+assert.deepEqual(palette({ colorMode: 'theme' }, theme), theme);
+const light = palette({ colorMode: 'accent' }, theme);
+assert.equal(light['--bg-color'], 'rgb(255, 255, 255)');
+assert.equal(light['--text-color'], 'rgb(0, 0, 0)');
+const dark = palette({ colorMode: 'custom', customColor: '#000000' }, theme);
+assert.equal(dark['--bg-color'], 'rgb(0, 0, 0)');
+assert.equal(dark['--text-color'], 'rgb(255, 255, 255)');
+assert.equal(palette({ colorMode: 'accent' }, { '--accent-color': 'rgb(100%, 0%, 0%)' })['--bg-color'], 'rgb(255, 0, 0)');
+assert.deepEqual(palette({ colorMode: 'theme' }, theme), theme, 'switching back restores the full original palette');
+console.log('PASS: mini-player theme, accent and custom colors retain readable controls');

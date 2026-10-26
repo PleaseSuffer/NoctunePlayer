@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Noctune — Мини-плеер</title>
+    <link rel="stylesheet" href="../styles/app.css">
+    <link rel="stylesheet" href="style.css">
+    <script defer src="../../../node_modules/lucide/dist/umd/lucide.min.js"></script>
+    <script defer src="colors.js"></script>
+    <script defer src="app.js"></script>
+</head>
+<body data-theme="dark">
+    <main id="floating-player" aria-label="Мини-плеер Noctune">
+        <div class="drag-handle" title="Перетащить мини-плеер"></div>
+        <div class="artwork" id="artwork"><i data-lucide="music"></i><img id="cover" alt="Обложка трека" hidden></div>
+        <div class="content">
+            <div class="track-info" id="track-info">
+                <div class="title" id="title">Музыка не выбрана</div>
+                <div class="artist" id="artist">Noctune</div>
+            </div>
+            <div class="transport" id="transport" role="group" aria-label="Воспроизведение">
+                <button class="mini-btn extra-control" data-action="lyrics" title="Текст песни" aria-label="Текст песни"><i data-lucide="text-initial"></i></button>
+                <button class="mini-btn extra-control" data-action="shuffle" title="Случайный порядок" aria-label="Случайный порядок" aria-pressed="false"><i data-lucide="shuffle"></i></button>
+                <button class="mini-btn" data-action="prev" title="Предыдущий трек" aria-label="Предыдущий трек"><i data-lucide="skip-back"></i></button>
+                <button class="mini-btn play-pause" data-action="playpause" title="Воспроизвести" aria-label="Воспроизвести"><i data-lucide="play"></i></button>
+                <button class="mini-btn" data-action="next" title="Следующий трек" aria-label="Следующий трек"><i data-lucide="skip-forward"></i></button>
+                <button class="mini-btn extra-control" data-action="repeat" title="Повтор выключен" aria-label="Повтор выключен"><i data-lucide="repeat"></i></button>
+                <button class="mini-btn" data-action="mute" title="Выключить звук" aria-label="Выключить звук"><i data-lucide="volume-2"></i></button>
+                <input type="range" id="volume" min="0" max="1" step="0.01" value="0.8" aria-label="Громкость">
+            </div>
+            <div class="timeline" id="timeline">
+                <span id="elapsed">0:00</span>
+                <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Позиция воспроизведения">
+                <span id="duration">0:00</span>
+            </div>
+        </div>
+        <div class="window-controls" role="group" aria-label="Окно мини-плеера">
+            <button class="mini-btn close" data-action="close" title="Скрыть мини-плеер" aria-label="Скрыть мини-плеер"><i data-lucide="x"></i></button>
+            <button class="mini-btn" data-action="expand" title="Развернуть плеер" aria-label="Развернуть плеер"><i data-lucide="maximize-2"></i></button>
+            <button class="mini-btn" data-action="pin" title="Поверх всех окон" aria-label="Поверх всех окон" aria-pressed="false"><i data-lucide="pin"></i></button>
+            <button class="mini-btn" data-action="settings" title="Настройки мини-плеера" aria-label="Настройки мини-плеера"><i data-lucide="settings-2"></i></button>
+        </div>
+    </main>
+</body>
+</html>

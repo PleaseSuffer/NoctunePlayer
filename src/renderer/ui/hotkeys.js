@@ -82,7 +82,7 @@
             seekFwd5:    () => seekRelative(5),
         };
 
-        document.addEventListener('keydown', (e) => {
+        window.handlePlayerHotkey = (e) => {
             if (window._hotkeyCaptureActive) return; // идёт запись нового бинда в настройках
             if (isHotkeyBlockedTarget(e.target)) return;
             const combo = normalizeKeyCombo(e);
@@ -93,4 +93,9 @@
             if (!handler) return;
             e.preventDefault();
             handler();
-        });
+            return true;
+        };
+        window.getPlayerHotkeyCombos = () => window._hotkeyCaptureActive ? [] : Object.entries(window.hotkeyBindings)
+            .filter(([id, combo]) => combo && (HOTKEY_ACTIONS[id] || window.addonContributions?.hotkeys().some(item => item.id === id)))
+            .map(([, combo]) => combo);
+        document.addEventListener('keydown', window.handlePlayerHotkey);

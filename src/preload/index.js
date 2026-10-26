@@ -276,6 +276,15 @@ contextBridge.exposeInMainWorld('noctune', {
 
   // ── Трей / окно ──
   setMinimizeToTray: (value) => ipcRenderer.send('setting-minimize-to-tray-changed', value),
+  miniPlayer: {
+    getSettings: () => ipcRenderer.invoke('mini-player:get-settings'),
+    setSettings: value => ipcRenderer.invoke('mini-player:set-settings', value),
+    open: (replace = true) => ipcRenderer.send('mini-player:command', { action: 'open', replace }),
+    publish: state => ipcRenderer.send('mini-player:state', state),
+    onCommand: callback => ipcRenderer.on('mini-player:command', (_event, command) => callback(command)),
+    onSettings: callback => ipcRenderer.on('mini-player:settings', (_event, settings) => callback(settings)),
+    onVisibility: callback => ipcRenderer.on('mini-player:visibility', (_event, visible) => callback(visible)),
+  },
   sendPlayingStateResponse: (isPlaying, minimizeToTray) => ipcRenderer.send('playing-state-response', isPlaying, minimizeToTray),
   setPlaybackActive: playing => ipcRenderer.send('playback:active', playing === true),
   sendTrayState: (state) => ipcRenderer.send('tray-state-update', state),

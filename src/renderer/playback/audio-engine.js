@@ -88,8 +88,10 @@
             if (!window.replayGainNode || !audioCtx) return;
             const enabled = window.replayGainEnabled && !isRadioMode;
             const db = enabled ? window._currentTrackReplayGainDb : null;
-            const gain = (typeof db === 'number' && isFinite(db)) ? Math.pow(10, db / 20) : 1;
-            window.replayGainNode.gain.setValueAtTime(gain, audioCtx.currentTime);
+            const gain = (typeof db === 'number' && isFinite(db)) ? Math.pow(10, db / 20)
+                : window.normalizationEnabled && !isRadioMode ? (window._currentNormalizationGain || 1) : 1;
+            window.replayGainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            window.replayGainNode.gain.setTargetAtTime(gain, audioCtx.currentTime, 0.15);
         }
 
         // Включение/выключение лимитера уже во время работающего аудиографа
@@ -501,6 +503,8 @@
         }
 
         function stopTrack() {
+            if (typeof cancelNormalization === 'function') cancelNormalization();
+            window.refreshPlayingFileMetadata = null;
             globalThis.addonEvents?.stop();
             reportPlaybackActive(false);
             // Отменяем также асинхронные загрузки и обработчики старого трека.
@@ -748,7 +752,7 @@
                         // единый вызов через music-metadata (preload) вместо
                         // ручного fs.open + самописного ID3-парсера.
                         try {
-                            const m = await noctune.metadata.parseFile(filePath, entry.name);
+                            const m = await readFileMetadata(filePath, entry.name);
                             if (m.fileSize) entry._fileSize = m.fileSize;
                             return m;
                         } catch(e) {
@@ -759,10 +763,12 @@
                     // Проверяем, не был ли уже выбран другой трек
                     if (myToken !== _loadToken) return;
 
-                    const meta = { ...cachedMeta };
+                    const meta = provider ? { ...cachedMeta } : fileMetadataView(cachedMeta, entry.name);
                     if (meta.hasEmbeddedCover) {
-                        meta.coverDataUrl = await noctune.metadata.cover(filePath) || meta.coverThumbnailDataUrl;
+                        const cover = await noctune.metadata.cover(filePath);
                         if (myToken !== _loadToken) return;
+                        Object.assign(meta, fileMetadataView(cachedMeta, entry.name));
+                        if (meta.hasEmbeddedCover) meta.coverDataUrl = cover || meta.coverThumbnailDataUrl;
                     }
                     if (window.setLyricsTrack) window.setLyricsTrack({ ...meta, filePath }, myToken);
                     if(provider&&entry.artwork)window.addonProviders.artwork?.(entry).then(image=>{
@@ -787,6 +793,28 @@
                             album: meta.album || '',
                             artwork
                         });
+                    }
+
+                    if (!provider) {
+                        window.refreshPlayingFileMetadata = async () => {
+                            if (myToken !== _loadToken) return;
+                            const view = fileMetadataView(cachedMeta, entry.name);
+                            Object.assign(meta, view);
+                            trackTitle.textContent = meta.title;
+                            trackArtist.textContent = meta.artist;
+                            miniTrackTitle.textContent = `${meta.artist} — ${meta.title}`;
+                            triggerMiniMarquee();
+                            lastfmResetTrackState({ artist: meta.artist, title: meta.title, album: meta.album || '', duration: currentTrackDuration });
+                            window.setLyricsTrack?.({ ...meta, filePath, duration: currentTrackDuration }, myToken);
+                            if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: meta.title, artist: meta.artist, album: meta.album || '' });
+                            if (meta.hasEmbeddedCover) {
+                                const cover = await noctune.metadata.cover(filePath);
+                                if (myToken !== _loadToken || appStorage.getItem('setting_read_tags') === '0') return;
+                                meta.coverDataUrl = cover || meta.coverThumbnailDataUrl;
+                                window.setLyricsTrack?.({ ...meta, filePath, duration: currentTrackDuration }, myToken);
+                                if ('mediaSession' in navigator && meta.coverDataUrl) navigator.mediaSession.metadata = new MediaMetadata({ title: meta.title, artist: meta.artist, album: meta.album || '', artwork: [{ src: meta.coverDataUrl, sizes: '512x512', type: 'image/jpeg' }] });
+                            }
+                        };
                     }
 
                     if (!provider && typeof loadTrackWaveform === 'function') loadTrackWaveform(filePath, myToken);
@@ -873,6 +901,8 @@
                     // Запускаем воспроизведение немедленно (не ждём полной загрузки)
                     _trackLoading = false;
                     startSourceAt(startPosition);
+
+                    if (typeof prepareNormalization === 'function') prepareNormalization(filePath, myToken, cachedMeta.duration);
 
                     // Если размер файла не закэширован — подгружаем в фоне
                     if (!provider && !entry._fileSize) {

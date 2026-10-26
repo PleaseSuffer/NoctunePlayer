@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker, safeStorage, clipboard, protocol } = require('electron');
+const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker, safeStorage, clipboard, protocol, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
@@ -178,6 +178,12 @@ async function initStore() {
   }
   return storeInitialization;
 }
+
+const { createMiniPlayer } = require('./mini-player');
+const miniPlayerController = createMiniPlayer({ app, BrowserWindow, ipcMain, screen,
+  getMainWindow: () => win, getStore: initStore, icon: iconPath,
+  quit: () => { isQuiting = true; app.quit(); },
+});
 
 ipcMain.handle('performance:hardware-get', async () => {
   await initStore();
@@ -642,10 +648,12 @@ function createWindow() {
       contextIsolation: true,
       sandbox: false, // preload/index.js использует require('fs')/require('path') напрямую
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
+      backgroundThrottling: false, // Playback and the floating controls stay responsive while this window is hidden.
     }
   });
 
   Menu.setApplicationMenu(null);
+  miniPlayerController.attach(win);
   audioOpenQueue.setReady(false);
   themeOpenQueue.setReady(false);
   addonOpenQueue.setReady(false);
@@ -699,6 +707,8 @@ function createWindow() {
     ipcMain.once('playing-state-response', (_e, isPlaying, minimizeToTraySetting) => {
       // Настройка из рендерера имеет приоритет (синхронизируем флаг)
       if (typeof minimizeToTraySetting === 'boolean') minimizeToTray = minimizeToTraySetting;
+
+      if (miniPlayerController.handleMainClose(isPlaying === true)) return;
 
       if (minimizeToTray && isPlaying) {
         // Сворачивание включено и музыка играет — скрываем в трей
@@ -1173,6 +1183,7 @@ if (!gotTheLock) {
   // "Восстанавливать воспроизведение"), могла теряться. Принудительно
   // дописываем localStorage на диск перед любым выходом из приложения.
   app.on('before-quit', () => {
+    isQuiting = true;
     try {
       if (win && !win.isDestroyed()) {
         win.webContents.session.flushStorageData();
@@ -1203,7 +1214,15 @@ if (!gotTheLock) {
       return Menu.buildFromTemplate([
         {
           label: visible ? 'Свернуть' : 'Развернуть',
-          click: () => { if (visible) { win.hide(); } else { win.show(); win.focus(); } }
+          click: () => {
+            if (visible && !win.isMinimized()) win.hide();
+            else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
+          }
+        },
+        {
+          label: 'Мини-плеер',
+          enabled: miniPlayerController.getSettings().enabled,
+          click: () => miniPlayerController.open()
         },
         { type: 'separator' },
         { type: 'separator' },
@@ -1259,6 +1278,7 @@ if (!gotTheLock) {
     });
 
     tray.setToolTip('Noctune Player');
+    tray.on('mouse-enter', () => miniPlayerController.showFromTray());
     refreshTrayMenu();
 
     // Обновляем метку при смене видимости окна
@@ -1272,7 +1292,8 @@ if (!gotTheLock) {
     win.on('hide', () => sendToRenderer('window-tray-visibility', false));
 
     tray.on('click', () => {
-      if (win.isVisible()) { win.focus(); } else { win.show(); win.focus(); }
+      if (win.isMinimized()) win.restore();
+      win.show(); win.focus();
       refreshTrayMenu();
     });
   });

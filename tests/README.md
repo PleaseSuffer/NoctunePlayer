@@ -28,6 +28,7 @@
 ./node_modules/.bin/electron tests/native-scene-themes-probe.cjs
 ./node_modules/.bin/electron tests/native-scene-themes-probe.cjs --full-app
 ./node_modules/.bin/electron tests/native-playback-keep-awake-probe.cjs
+./node_modules/.bin/electron tests/native-file-audio-options-probe.cjs
 ```
 
 В Windows используйте `.\node_modules\.bin\electron.cmd`.
@@ -43,6 +44,7 @@
 | `native-open-theme-probe.cjs` | Установщик тем, отмена, установка и обновление, уведомления и повторное открытие файлов |
 | `native-scene-themes-probe.cjs` | Отрисовка Canvas, изоляция песочницы, жизненный цикл палитры и включение тем в настоящем приложении |
 | `native-playback-keep-awake-probe.cjs` | Настоящее воспроизведение, пауза, возобновление, завершение и системная блокировка перехода в спящий режим |
+| `native-file-audio-options-probe.cjs` | Чтение тегов из сгенерированного WAV, анализ PCM и нормализация громкости, сохранение настроек и переключение метаданных без прерывания воспроизведения |
 
 Сценарии используют тестовые профили и сгенерированные данные. Снимки экрана и
 сохранённые профили размещаются в `tests/.artifacts/`, исключённой из Git.

@@ -286,6 +286,20 @@
                 appStorage.setItem('setting_crossfade_in', crossfadeInDuration);
             });
 
+            const settingNormalize = document.getElementById('setting-normalize');
+            const settingReadTags = document.getElementById('setting-read-tags');
+            settingNormalize.checked = appStorage.getItem('setting_normalize') === '1';
+            settingReadTags.checked = appStorage.getItem('setting_read_tags') !== '0';
+            settingNormalize.addEventListener('change', () => {
+                window.normalizationEnabled = settingNormalize.checked;
+                appStorage.setItem('setting_normalize', settingNormalize.checked ? '1' : '0');
+                void updateNormalization();
+            });
+            settingReadTags.addEventListener('change', () => {
+                appStorage.setItem('setting_read_tags', settingReadTags.checked ? '1' : '0');
+                refreshFileMetadataViews();
+            });
+
             // ---- PLAYER: ReplayGain ----
             const settingReplayGain = document.getElementById('setting-replaygain');
             settingReplayGain.addEventListener('change', () => {
@@ -1044,6 +1058,13 @@
             }
 
             speedSlider.addEventListener('input', () => applyPlaybackSpeed(parseFloat(speedSlider.value)));
+            [speedSlider, document.getElementById('main-speed-slider')].forEach(slider => {
+                slider.title = 'Скорость воспроизведения. ПКМ — сбросить до 1.0×';
+                slider.addEventListener('contextmenu', event => {
+                    event.preventDefault();
+                    applyPlaybackSpeed(1);
+                });
+            });
 
             document.getElementById('main-speed-slider').addEventListener('input', function() {
                 applyPlaybackSpeed(parseFloat(this.value));

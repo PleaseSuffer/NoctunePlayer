@@ -1,3 +1,14 @@
+        .mini-settings-dropdown { flex: 0 0 260px; max-width: 48%; }
+        .mini-settings-dropdown .viz-type-menu-item { width: 100%; border: 0; background: transparent; text-align: left; font-family: inherit; }
+        .mini-settings-dropdown .viz-type-menu-item:hover { background: var(--track-hover); }
+        .mini-settings-dropdown .viz-type-menu-item.active { background: var(--accent-color); color: #fff; }
+        .mini-settings-range { display: flex; align-items: center; gap: 12px; flex: 0 0 260px; max-width: 48%; }
+        .mini-settings-range input { min-width: 0; flex: 1; accent-color: var(--accent-color); }
+        .mini-settings-range output { font-size: 12px; font-weight: 700; width: 55px; text-align: right; font-variant-numeric: tabular-nums; }
+        :is(#mini-player-settings, #mini-player-appearance-settings) .settings-row > div:first-child { min-width: 0; }
+        :is(#mini-player-settings, #mini-player-appearance-settings) .settings-row { gap: 20px; }
+        #mini-player-appearance-section[hidden], #mini-player-appearance-settings .settings-row[hidden] { display: none; }
+        .mini-settings-color { width: 32px; height: 28px; border: none; background: none; cursor: pointer; border-radius: 4px; }
         :root {
             --bg-color: #f4f7f6;
             --container-bg: rgba(255, 255, 255, 0.85);

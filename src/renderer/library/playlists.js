@@ -482,7 +482,7 @@
                             // ID3-парсера + отдельного зонда длительности через <audio> —
                             // music-metadata (в preload) отдаёт всё сразу и для любых
                             // форматов (MP3/FLAC/OGG/WAV/M4A), а не только MP3.
-                            const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                            const meta = await readFileMetadata(filePath, entry.name);
                             entry._fileSize = meta.fileSize;
 
                             const duration = meta.duration;
@@ -605,7 +605,7 @@
                         const trackIndex = i + bIdx;
                         try {
                             const filePath = entry.path;
-                            const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                            const meta = await readFileMetadata(filePath, entry.name);
                             if (fileEntries !== targetEntries) return;
                             entry._fileSize = meta.fileSize;
                             const titleElem = document.getElementById(`title-${trackIndex}`);
@@ -768,7 +768,7 @@
                     try {
                         if (entry.kind === 'radio') return;
                         const filePath = entry.path;
-                        const meta = await noctune.metadata.parseFile(filePath, entry.name);
+                        const meta = await readFileMetadata(filePath, entry.name);
                         if (fileEntries !== targetEntries) return;
                         entry._fileSize = meta.fileSize;
 

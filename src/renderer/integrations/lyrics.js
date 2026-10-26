@@ -91,7 +91,7 @@
         }
     }
     window.getTrackCoverCacheInfo = async (index, entry) => {
-        const metadata = parsedMetadataCache[index] || await noctune.metadata.parseFile(entry.path, entry.name);
+        const metadata = parsedMetadataCache[index] || await readFileMetadata(entry.path, entry.name);
         const payload = { artist: metadata.artist, title: metadata.title, album: metadata.album, filePath: entry.path };
         const result = await noctune.lastfm.trackCoverCacheStatus(payload);
         if (!result.ok) throw new Error('Не удалось проверить кэш обложки');

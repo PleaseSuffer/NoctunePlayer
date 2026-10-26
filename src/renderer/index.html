@@ -539,10 +539,10 @@
                             <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Нормализация громкости</div>
-                                    <div class="settings-row-desc">Выравнивать уровень громкости треков</div>
+                                    <div class="settings-row-desc">Анализ локальных файлов до 128 МБ и 30 минут. ReplayGain имеет приоритет</div>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-normalize" disabled>
+                                    <input type="checkbox" id="setting-normalize">
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
@@ -569,7 +569,7 @@
                                 </div>
                                 <span id="setting-balance-label" style="font-size:12px;font-weight:700;min-width:36px;text-align:right;">0</span>
                             </div>
-                            <div class="settings-row" style="border-bottom:none;">
+                            <div class="settings-row">
                                 <div>
                                     <div class="settings-row-label">Режим воспроизведения</div>
                                     <div class="settings-row-desc">Моно, стерео или отдельный канал</div>
@@ -601,14 +601,16 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="settings-section-title">Скорость воспроизведения</div>
-                        <div class="settings-card">
-                            <div style="display:flex;align-items:center;gap:12px;">
-                                <input type="range" id="setting-playback-speed" min="0.5" max="2" step="0.1" value="1"
-                                    style="flex:1;accent-color:var(--accent-color);">
-                                <span id="setting-playback-speed-label" style="font-size:13px;font-weight:700;min-width:38px;text-align:right;">1.0×</span>
+                            <div class="settings-row" style="border-bottom:none;">
+                                <div style="flex:1;">
+                                    <label for="setting-playback-speed" class="settings-row-label">Скорость воспроизведения</label>
+                                    <div class="settings-row-desc">От 0.5× до 2×. Значение 1× — обычная скорость трека.</div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
+                                    <input type="range" id="setting-playback-speed" min="0.5" max="2" step="0.1" value="1"
+                                        style="flex:1;min-width:0;accent-color:var(--accent-color);">
+                                    <span id="setting-playback-speed-label" style="font-size:13px;font-weight:700;min-width:38px;text-align:right;">1.0×</span>
+                                </div>
                             </div>
                         </div>
 
@@ -620,7 +622,7 @@
                                     <div class="settings-row-desc">ID3, Vorbis, FLAC и др.</div>
                                 </div>
                                 <label class="toggle-switch">
-                                    <input type="checkbox" id="setting-read-tags" disabled>
+                                    <input type="checkbox" id="setting-read-tags" checked>
                                     <span class="slider-round"></span>
                                 </label>
                             </div>
@@ -704,6 +706,9 @@
                             </div>
                             </div><!-- /settings-option-group -->
                         </div>
+                        <div class="settings-section-title" id="mini-player-settings-title">Мини-плеер</div>
+                        <div class="settings-card" id="mini-player-settings"></div>
+                        <div class="settings-row-desc" id="mini-player-settings-status" role="status"></div>
                     </div>
 
                     <!-- === ЭКВАЛАЙЗЕР === -->
@@ -898,6 +903,11 @@
                                 </div>
                             </div>
                             </div><!-- /settings-option-group -->
+                        </div>
+
+                        <div id="mini-player-appearance-section" hidden>
+                            <div class="settings-section-title" id="mini-player-appearance-title">Мини-плеер</div>
+                            <div class="settings-card" id="mini-player-appearance-settings"></div>
                         </div>
 
                         <div class="settings-section-title">Фон</div>
@@ -2644,6 +2654,8 @@
     <script src="effects/fireworks.js"></script>
     <script src="playback/playback-controls.js"></script>
     <script src="playback/equalizer.js"></script>
+    <script src="playback/file-metadata.js"></script>
+    <script src="playback/normalization.js"></script>
     <script src="library/playlists.js"></script>
     <script src="library/open-audio-files.js"></script>
     <script src="library/drag-drop.js"></script>
@@ -2671,6 +2683,8 @@
     <script src="ui/addon-settings.js"></script>
     <script src="ui/addon-contributions.js"></script>
     <script src="ui/performance-settings.js"></script>
+    <script src="ui/mini-player.js"></script>
+    <script src="ui/mini-player-settings.js"></script>
     <script src="ui/system-integration.js"></script>
     <script src="library/playlist-io.js"></script>
     <script src="updates/updater.js"></script>
