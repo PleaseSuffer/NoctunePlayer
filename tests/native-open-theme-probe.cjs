@@ -1,9 +1,9 @@
 const { app, BrowserWindow } = require('electron');
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
-const { packDirectory } = require('../src/main/scene-themes');
 const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'tests/.artifacts/open-theme');
 BrowserWindow.prototype.show = function () {};
@@ -18,15 +18,17 @@ async function finish(code) {
     app.exit(code);
 }
 (async () => {
-    await fs.mkdir(output, {recursive:true});
-    markerExisted = await fs.stat(migrationMarker).then(() => true, () => false);
-    app.setPath('userData', await fs.mkdtemp(path.join(output, 'user-data-')));
-    const theme = await packDirectory(path.join(root, 'themes/builtin/03-rain-window'));
+    // Bootstrap main synchronously: awaiting fixture IO can let Electron become
+    // ready before main registers its privileged protocol and startup options.
+    fsSync.mkdirSync(output, {recursive:true});
+    markerExisted = fsSync.existsSync(migrationMarker);
+    app.setPath('userData', fsSync.mkdtempSync(path.join(output, 'user-data-')));
+    const theme = JSON.parse(fsSync.readFileSync(path.join(root, 'themes/packages/03-rain-window.noctheme'), 'utf8'));
     theme.manifest.name = 'OS import probe ' + Date.now();
     theme.manifest.id = 'os-import-probe-' + Date.now();
     const content = JSON.stringify(theme), id = 'import-' + crypto.createHash('sha256').update(content).digest('hex').slice(0,24);
     importPath = path.join(root, 'themes/user', id + '.noctheme');
-    const file = path.join(output, 'Новая тема.noctheme'); await fs.writeFile(file, content);
+    const file = path.join(output, 'Новая тема.noctheme'); fsSync.writeFileSync(file, content);
     process.argv.push(file);
     app.on('browser-window-created', (_event, win) => {
         win.webContents.on('did-finish-load', async () => {

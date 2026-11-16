@@ -31,7 +31,7 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
     let automatic = false, dismissed = false, applyingBounds = false, saveTimer, destroyed = false;
     let applied = {};
     let hovered = false, hoverTimer = null;
-    let applyingTop = false;
+    let applyingTop = false, watchingDisplays = false;
     const edgeSnap = createEdgeSnap();
     let dragOrigin = null;
     const ready = Promise.resolve().then(getStore).then(value => {
@@ -231,7 +231,10 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
         };
         main.on('restore', restored); main.on('show', restored);
         main.on('closed', destroy);
-        screen.on('display-removed', apply); screen.on('display-metrics-changed', apply);
+        if (!watchingDisplays) {
+            screen.on('display-removed', apply); screen.on('display-metrics-changed', apply);
+            watchingDisplays = true;
+        }
     }
     function handleMainClose(playing) {
         if (!settings.enabled || settings.onMainClose === 'default' || settings.onMainClose === 'playing' && !playing) return false;
@@ -240,8 +243,14 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
         getMainWindow().hide(); reconcile(); return true;
     }
     function destroy() {
+        if (destroyed) return;
         destroyed = true; clearTimeout(saveTimer); clearInterval(hoverTimer);
-        screen.removeListener('display-removed', apply); screen.removeListener('display-metrics-changed', apply);
+        // A secondary process can quit before ready without ever attaching a window.
+        // Even reading a method on Electron's lazy screen proxy would throw then.
+        if (watchingDisplays) {
+            screen.removeListener('display-removed', apply); screen.removeListener('display-metrics-changed', apply);
+            watchingDisplays = false;
+        }
         if (alive(mini)) mini.destroy(); mini = null;
     }
     app.on('before-quit', destroy);

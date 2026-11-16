@@ -1,6 +1,16 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { DEFAULTS, normalizeSettings, createMiniPlayer } = require('../../src/main/mini-player');
+// Mimic Electron's lazy screen proxy in a secondary process quitting before ready.
+{
+    const earlyApp = new EventEmitter(), earlyIpc = new EventEmitter();
+    earlyIpc.handle = () => {};
+    const unavailableScreen = new Proxy({}, { get() { throw Error('screen before ready'); } });
+    const earlyController = createMiniPlayer({ app: earlyApp, ipcMain: earlyIpc, screen: unavailableScreen,
+        BrowserWindow: null, getMainWindow: () => null, getStore: async () => ({ get: () => undefined }) });
+    assert.doesNotThrow(() => earlyApp.emit('before-quit'));
+    assert.doesNotThrow(() => earlyController.destroy(), 'cleanup remains idempotent');
+}
 assert.deepEqual(normalizeSettings(null), DEFAULTS);
 assert.equal(normalizeSettings({ width: 10, height: Infinity, opacity: 200, onClose: 'bogus' }).width, 300);
 assert.equal(normalizeSettings({ height: Infinity }).height, 96);

@@ -25,6 +25,7 @@
 ./node_modules/.bin/electron tests/native-addon-store-probe.cjs
 ./node_modules/.bin/electron tests/native-official-extensions-probe.cjs
 ./node_modules/.bin/electron tests/native-open-theme-probe.cjs
+./node_modules/.bin/electron tests/native-mini-player-early-quit-probe.cjs
 ./node_modules/.bin/electron tests/native-scene-themes-probe.cjs
 ./node_modules/.bin/electron tests/native-scene-themes-probe.cjs --full-app
 ./node_modules/.bin/electron tests/native-playback-keep-awake-probe.cjs
