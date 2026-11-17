@@ -44,9 +44,13 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
       signal,
       method, headers: { 'Accept': '*/*', 'Accept-Encoding': 'identity', ...(headerOrigin && headerOrigin !== url.origin ? {} : headers) },
       // Pin DNS resolution to the checked addresses to prevent rebinding.
-      lookup: (_host, options, callback) => options.all ? callback(null, addresses) : callback(null, addresses[0].address, addresses[0].family),
+      // net/TLS expects DNS completion after its socket handlers are installed.
+      // A synchronous callback can escape the request on an unreachable IPv6 route.
+      lookup: (_host, options, callback) => process.nextTick(() => options.all ? callback(null, addresses) : callback(null, addresses[0].address, addresses[0].family)),
     };
     const receive = response => {
+      // Also own errors from discarded redirects and streams before a consumer attaches.
+      response.on('error', reject);
       const status = response.statusCode;
       if ([301,302,303,307,308].includes(status)) {
         response.resume();
@@ -66,7 +70,6 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
         else chunks.push(chunk);
       });
       response.on('aborted', () => reject(new Error('Сервер прервал ответ')));
-      response.on('error', reject);
       response.on('end', () => resolve(detailed ? { status, headers: response.headers, body: Buffer.concat(chunks).toString('utf8') } : Buffer.concat(chunks).toString('utf8')));
     };
     const request = method === 'GET' && body === undefined ? https.get(url, options, receive) : https.request(url, options, receive);

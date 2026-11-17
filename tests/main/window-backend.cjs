@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict');
+const {configureWindowBackend}=require('../../src/main/window-backend');
+function check(platform,env,input={},argv=['Noctune',...Object.entries(input).map(([key,value])=>'--'+key+'='+value)]){const switches={...input},writes=[];const app={relaunch:options=>writes.push(options.execPath?['relaunch',options.args,options.execPath]:['relaunch',options.args]),exit:code=>writes.push(['exit',code]),commandLine:{hasSwitch:key=>Object.hasOwn(switches,key),getSwitchValue:key=>switches[key]||'',appendSwitch:(key,value)=>{switches[key]=value;writes.push([key,value]);}}};return {...configureWindowBackend({app,platform,env,argv}),writes};}
+const wayland={XDG_SESSION_TYPE:'wayland',WAYLAND_DISPLAY:'wayland-0',DISPLAY:':0'};
+assert.deepEqual(check('linux',wayland),{backend:'x11',positioningSupported:true,writes:[['relaunch',['--ozone-platform=x11']],['exit',0]]});
+assert.deepEqual(check('win32',wayland),{backend:'native',positioningSupported:true,writes:[]});
+assert.deepEqual(check('darwin',wayland),{backend:'native',positioningSupported:true,writes:[]});
+assert.deepEqual(check('linux',{XDG_SESSION_TYPE:'x11',DISPLAY:':0'}),{backend:'x11',positioningSupported:true,writes:[]});
+assert.deepEqual(check('linux',{WAYLAND_DISPLAY:'wayland-0'}),{backend:'wayland',positioningSupported:false,writes:[]});
+assert.deepEqual(check('linux',wayland,{'ozone-platform':'wayland'}),{backend:'wayland',positioningSupported:false,writes:[]});
+assert.deepEqual(check('linux',wayland,{'ozone-platform':'auto'}),{backend:'wayland',positioningSupported:false,writes:[]});
+assert.deepEqual(check('linux',wayland,{'ozone-platform':'x11'}),{backend:'x11',positioningSupported:true,writes:[]});
+assert.equal(check('linux',{XDG_SESSION_TYPE:'wayland'}, {display:':1'}).backend,'x11');
+assert.equal(check('linux',{XDG_SESSION_TYPE:'wayland',DISPLAY:' '}).backend,'wayland');
+assert.equal(check('linux',wayland,{'ozone-platform':'wayland'},['Noctune']).backend,'x11','Electron-injected Wayland default is not an explicit user override');
+assert.deepEqual(check('linux',wayland,{},['Noctune','song with spaces.mp3','--','track.mp3']).writes[0],['relaunch',['song with spaces.mp3','--ozone-platform=x11','--','track.mp3']]);
+assert.equal(check('linux',wayland,{},['Noctune','--','--ozone-platform=wayland']).backend,'x11','literal filenames after -- are not startup overrides');
+assert.deepEqual(check('linux',{...wayland,APPIMAGE:'/apps/Noctune.AppImage',APPDIR:'/tmp/.mount-noctune'}, {},['/tmp/.mount-noctune/noctune','file.mp3']).writes[0],['relaunch',['file.mp3','--ozone-platform=x11'],'/apps/Noctune.AppImage']);
+assert.deepEqual(check('linux',{...wayland,APPIMAGE:'/apps/Other.AppImage',APPDIR:'/tmp/.mount-other'}, {},['/opt/Noctune/noctune']).writes[0],['relaunch',['--ozone-platform=x11']]);
+console.log('PASS: early Linux XWayland selection, native-only fallback, explicit backend/display overrides, and unchanged Windows/macOS startup.');

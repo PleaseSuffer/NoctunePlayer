@@ -266,13 +266,32 @@
             const label = node('label', 'settings-row-label', field.label); label.htmlFor = controlId; info.append(label);
             if (field.description) info.append(node('p', 'settings-row-desc', field.description));
             row.append(info);
-            let input, wrapper, selectControl;
+            let input, wrapper, selectControl, refreshDirectory;
             if (field.type === 'toggle') {
                 wrapper = node('label', 'toggle-switch'); input = node('input'); input.type = 'checkbox'; input.checked = values[key]; wrapper.append(input, node('span', 'slider-round'));
-            } else if (field.type === 'select') {
-                selectControl = dropdown(field.source ? {...field,options:await sourceOptions(field,values[key])} : field, values[key], controlId);
+            } else if (field.type === 'select' || field.type === 'directory') {
+                const selectField = field.type === 'directory' ? {...field,options:[{value:'app',label:'В папку приложения'},{value:'downloads',label:'В папку загрузок'},{value:'custom',label:'Выбранная папка'}]} : field.source ? {...field,options:await sourceOptions(field,values[key])} : field;
+                selectControl = dropdown(selectField, values[key], controlId);
                 if (field.source) controls.add({field,control:selectControl});
                 input = selectControl.input; wrapper = selectControl.wrapper;
+                if (field.type === 'directory') {
+                    wrapper = node('div', 'addon-directory'); wrapper.append(selectControl.wrapper);
+                    const path = node('div', 'settings-row-desc addon-directory-path'), actions = node('div', 'addons-toolbar');
+                    const call = async action => {
+                        const pkg = (await api.runtime()).find(pkg => pkg.manifest.id === addon.id);
+                        if (!pkg) throw new Error('Включите расширение для настройки папки');
+                        return api.services(addon.id, pkg.digest, 'downloads.folder', {setting:key,action});
+                    };
+                    const choose = button('Выбрать папку', async () => { const result = await call('choose'); if (!result.canceled) path.textContent = result.path; }, actions, !addon.enabled);
+                    button('Открыть папку', () => call('open'), actions, !addon.enabled);
+                    refreshDirectory = async () => {
+                        choose.hidden = values[key] !== 'custom';
+                        if (!addon.enabled) { path.textContent = 'Включите расширение для настройки папки'; return; }
+                        try { const result = await call('status'); path.textContent = result.path || 'Папка не выбрана'; }
+                        catch (error) { path.textContent = error.message; }
+                    };
+                    wrapper.append(path, actions); await refreshDirectory();
+                }
             } else {
                 input = node('input', field.type === 'slider' ? 'addon-range' : 'integration-text-input addon-input'); input.type = field.type === 'slider' ? 'range' : field.type === 'number' ? 'number' : 'text'; input.value = values[key];
                 if (['slider','number'].includes(field.type)) { input.min = field.min; input.max = field.max; input.step = field.step; }
@@ -284,7 +303,7 @@
                 const previous = values[key], value = field.type === 'toggle' ? input.checked : ['slider','number'].includes(field.type) ? Number(input.value) : input.value;
                 const hadFocus = document.activeElement === input;
                 input.disabled = true;
-                const pending = saving.then(async () => { values = await api.setSettings(addon.id, { ...values, [key]: value }); visibility(); window.addonEvents.emit('settings.changed', { addonId: addon.id, values, key }); });
+                const pending = saving.then(async () => { values = await api.setSettings(addon.id, { ...values, [key]: value }); visibility(); window.addonEvents.emit('settings.changed', { addonId: addon.id, values, key }); await refreshDirectory?.(); });
                 saving = pending.catch(() => {});
                 try { await pending; }
                 catch (error) { if (field.type === 'toggle') input.checked = previous; else input.value = previous; selectControl?.sync(); status.textContent = error.message; }

@@ -59,6 +59,7 @@ function validatePackage(value) {
     if (m.network.origins.some(origin => origin.includes('*')) && compareVersions(m.minNoctuneVersion, '1.4.0') < 0) fail('Поддомены требуют minNoctuneVersion 1.4.0 или новее');
   } else if (m.network !== undefined) fail('Домены требуют разрешения network');
   if (m.settings !== undefined) settings.validate(m.settings);
+  if (Object.values(m.settings || {}).some(field => field.type === 'directory') && !grants.includes('downloads.write')) fail('Настройке папки нужно разрешение downloads.write');
   require('../../shared/addon-contributions').validate(m, grants);
   if (m.oauth !== undefined) {
     if (!object(m.oauth) || Object.keys(m.oauth).length > 8) fail('Некорректные провайдеры OAuth');

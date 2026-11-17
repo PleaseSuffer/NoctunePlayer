@@ -116,3 +116,9 @@ body.no-blur .addon-dropdown-menu { backdrop-filter: none; background: var(--bg-
 .provider-empty { color: var(--text-muted); cursor: default; }
 .provider-track:focus-visible, .service-playlist-card:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
 @media (max-width: 650px) { .service-playlist-grid { grid-template-columns: repeat(auto-fill,minmax(105px,1fr)); gap: 8px; } .service-tracks .track-meta { display: none; } }
+.addon-setting:has(.addon-directory) { flex-wrap: wrap; gap: 10px; }
+.addon-setting:has(.addon-directory) .addon-setting-info { flex-basis: 100%; }
+.addon-directory { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
+.addon-directory .addon-select { width: 100%; }
+.addon-directory-path { overflow-wrap: anywhere; }
+.addon-directory [hidden] { display: none; }

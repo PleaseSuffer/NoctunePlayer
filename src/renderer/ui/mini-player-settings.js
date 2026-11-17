@@ -58,8 +58,8 @@
         });
         wrapper.append(button, menu); r.append(wrapper);
     }
-    function range(key, title, min, max, unit) {
-        const r = row(title), wrapper = element('div', 'mini-settings-range'), input = element('input'), output = element('output');
+    function range(key, title, min, max, unit, description) {
+        const r = row(title, description), wrapper = element('div', 'mini-settings-range'), input = element('input'), output = element('output');
         input.type = 'range'; input.id = 'mini-setting-' + key; input.min = min; input.max = max; input.step = 1; input.setAttribute('aria-label', title); input.disabled = true;
         output.htmlFor = input.id;
         input.title = 'ПКМ — сбросить по умолчанию';
@@ -91,7 +91,7 @@
     range('width', 'Ширина', 300, 900, ' px');
     range('height', 'Высота', 64, 220, ' px');
     range('fontSize', 'Размер текста', 10, 20, ' px');
-    range('opacity', 'Непрозрачность', 30, 100, '%');
+    range('opacity', 'Непрозрачность', 30, 100, '%', 'При наведении окно становится полностью непрозрачным. Когда курсор уходит, возвращается выбранное значение.');
     select('colorMode', 'Цвет мини-плеера', [['custom', 'Свой цвет'], ['accent', 'От акцента'], ['theme', 'От темы']]);
     const colorRow = row('Свой цвет'), colorInput = element('input', 'mini-settings-color');
     colorInput.type = 'color'; colorInput.id = 'mini-setting-customColor'; colorInput.setAttribute('aria-label', 'Свой цвет мини-плеера');

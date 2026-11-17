@@ -6,14 +6,16 @@ const { Readable } = require('node:stream');
 const { createVault } = require('./vault');
 const { createOAuth } = require('./oauth');
 const { fetchText, httpsUrl } = require('./network');
-function createAddonServices({ store, directory, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog }) {
+function createAddonServices({ store, directory, downloadsPath, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog }) {
   const vault = createVault({ directory, safeStorage }), files = new Map(), streams = new Map();
   const requests = new Map(), artwork = new Map();
+  const downloads = require('./downloads').createAddonDownloads({ store, directory, downloadsPath, dialog, shell, getWindow, resource });
   const oauth = createOAuth({ vault, openExternal: url => shell.openExternal(url), assertActive: (id, hash) => store.context(id, hash), approve: async (name, config) => {
     const answer = await dialog.showMessageBox(getWindow(), { type: 'question', title: 'Авторизация расширения', message: `${name}: ${config.name}`, detail: config.deviceCode ? `Код: ${config.deviceCode}\n${config.verificationUri}` : `Сервис: ${new URL(config.tokenUrl).hostname}\nПрава: ${config.scopes.join(', ')}\nВход откроется в системном браузере.`, buttons: ['Продолжить', 'Отмена'], defaultId: 0, cancelId: 1 });
     return answer.response === 0;
   } });
   function cancel(id) {
+    downloads.cancel(id);
     oauth.cancel(id); credentialDialog?.cancel(id);
     for (const controller of requests.get(id) || []) controller.abort(); requests.delete(id);
     for (const [key, item] of files) if (item.id === id) files.delete(key);
@@ -66,6 +68,7 @@ function createAddonServices({ store, directory, safeStorage, shell, clipboard, 
     cancel, vault, oauth, grantFile,
     async remove(id) { cancel(id); await vault.remove(id); },
     async invoke(id, hash, method, args = {}) {
+      if (method.startsWith('downloads.')) return downloads.invoke(id, hash, method, args);
       const permission = method.startsWith('credentials.') ? method : { 'settings.get': 'settings.read', 'network.request': 'network.request', 'files.select': 'files.select', 'files.save': 'files.write', 'files.read': 'files.read', 'files.write': 'files.write', 'files.reveal': 'files.reveal', 'system.openFile': 'system.openFile', 'system.openExternal': 'system.openExternal', 'clipboard.read': 'clipboard.read', 'clipboard.write': 'clipboard.write', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'secrets.delete': 'secrets.delete', 'oauth.authorize': 'oauth.authorize', 'oauth.status': 'oauth.status', 'oauth.disconnect': 'oauth.disconnect', 'providers.stream': 'providers.play', 'providers.artwork':'catalog.register' }[method];
       const effectivePermission = method === 'artwork.fetch' ? 'artwork.provide' : permission;
       if (!effectivePermission) throw new Error('Неизвестный метод');

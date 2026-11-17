@@ -10,6 +10,8 @@ const { fetchText } = require('../../src/main/addons/network');
         dns.lookup = async () => [{ address, family: 4 }];
         const routes = new Map([
             ['/ok', { status: 200, text: '{"ok":true}' }],
+            ['/unreachable', { error: 'ENETUNREACH' }],
+            ['/stream-error', { status: 200 }],
             ['/private', { status: 302, location: 'https://127.0.0.1/ok' }],
             ['/other', { status: 302, location: 'https://other.example/ok' }],
             ['/redirect', { status: 302, location: '/ok' }],
@@ -23,20 +25,30 @@ const { fetchText } = require('../../src/main/addons/network');
             assert.equal(options.headers['Accept-Encoding'], 'identity');
             assert.equal(options.headers.Authorization, undefined);
             assert.equal(options.headers.Cookie, undefined);
-            options.lookup(url.hostname, {}, (error, pinned, family) => { assert.equal(error, null); assert.equal(pinned, address); assert.equal(family, 4); });
             const request = new EventEmitter();
             request.destroy = error => { if (error) request.emit('error', error); request.emit('close'); };
+            let constructing = true;
+            options.lookup(url.hostname, {}, (error, pinned, family) => {
+                assert.equal(constructing, false, 'DNS completion must wait for socket/request error handlers');
+                assert.equal(error, null); assert.equal(pinned, address); assert.equal(family, 4);
+                if (url.pathname === '/unreachable') request.destroy(Object.assign(new Error('connect ENETUNREACH'), { code: 'ENETUNREACH' }));
+            });
+            constructing = false;
             queueMicrotask(() => {
+                if (url.pathname === '/unreachable') return;
                 const route = routes.get(url.pathname), response = new EventEmitter();
                 response.statusCode = route.status; response.headers = { location: route.location, 'content-encoding': route.encoding };
-                response.resume = () => {}; response.destroy = () => {};
+                response.resume = () => {}; response.setTimeout = () => {}; response.destroy = () => queueMicrotask(() => response.emit('error', new Error('response disconnected')));
                 callback(response);
+                if (url.pathname === '/stream-error') { response.emit('error', new Error('early stream error')); request.emit('close'); return; }
                 if (route.text) response.emit('data', Buffer.from(route.text));
                 response.emit('end'); request.emit('close');
             });
             return request;
         };
         assert.equal(await fetchText('https://publisher.example/ok'), '{"ok":true}');
+        await assert.rejects(fetchText('https://publisher.example/unreachable'), error => error.code === 'ENETUNREACH');
+        assert((await fetchText('https://publisher.example/stream-error', { stream: true, detailed: true })).listenerCount('error') > 0);
         assert.equal(await fetchText('https://publisher.example/redirect'), '{"ok":true}');
         await assert.rejects(fetchText('https://publisher.example/redirect', { validateUrl: value => { if (new URL(value).pathname !== '/redirect') throw new Error('Route denied'); } }), /Route denied/, 'redirects cannot bypass operation routes');
         await assert.rejects(fetchText('https://publisher.example/private'), /адреса/);

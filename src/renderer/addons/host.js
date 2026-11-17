@@ -18,7 +18,7 @@
         const call = (method, args) => new Promise((resolve, reject) => {
             if (requests.size >= 24) return reject(new Error('Слишком много запросов SDK'));
             const id = ++sequence;
-            const timer = setTimeout(() => { requests.delete(id); reject(new Error('Время ожидания SDK истекло')); }, ['oauth.authorize','credentials.configure'].includes(method) ? 310000 : 20000);
+            const timer = setTimeout(() => { requests.delete(id); reject(new Error('Время ожидания SDK истекло')); }, ['oauth.authorize','credentials.configure','downloads.folder'].includes(method) ? 310000 : 20000);
             requests.set(id, { resolve, reject, timer });
             postMessage({ type: 'call', id, method, args });
         });
@@ -92,6 +92,7 @@
                         oauth: Object.fromEntries(['authorize','status','disconnect'].map(action => [action, provider => call('oauth.' + action, { provider })])),
                         secrets: { get: key => call('secrets.get', { key }), set: (key, value) => call('secrets.set', { key, value }), delete: key => call('secrets.delete', { key }) },
                         files: Object.fromEntries(['select','save','read','write','library','reveal'].map(action => [action, (args = {}) => call('files.' + action, args)])),
+                        downloads: Object.fromEntries(['folder','start','status','cancel'].map(action => [action, (args = {}) => call('downloads.' + action, args)])),
                         clipboard: { read: () => call('clipboard.read', {}), write: text => call('clipboard.write', { text }) },
                         system: { openExternal: url => call('system.openExternal', { url }), openFile: handle => call('system.openFile', { handle }) },
                         providers: {
@@ -245,7 +246,7 @@
                     value = await window.addonProviders[data.method === 'providers.openCollection' ? 'openServiceCollection' : data.method.split('.')[1]](m.id, args);
                 } else {
                     const permission = { 'catalog.browse': 'catalog.register', 'catalog.search': 'catalog.register', 'catalog.unregister':'catalog.register', 'settings.get': 'settings.read', 'secrets.get': 'secrets.read', 'secrets.set': 'secrets.write', 'files.save': 'files.write' }[data.method] || data.method;
-                    if (!grants.has(permission)) throw new Error('Нет разрешения: ' + permission);
+                    if (!grants.has(data.method.startsWith('downloads.') ? 'downloads.write' : permission)) throw new Error('Нет разрешения: ' + permission);
                     if (/^(appearance|catalog|servicePlaylists|artwork|lyrics|hotkeys)\./.test(data.method)) {
                         value = await window.addonContributions.invoke(m.id, pkg.digest, data.method, args, { manifest:m, grants, call:(action, value)=>providerCall((data.method==='lyrics.provide'?'@lyrics:':data.method==='artwork.provide'?'@artwork:':'@catalog:')+args.id,action,value) });
                     } else if (/^(playback|queue|playlists|themes|backgrounds|audio)\./.test(data.method) || data.method === 'files.library') value = await window.addonPlayer.invoke(m.id, pkg.digest, data.method, args);

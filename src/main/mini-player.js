@@ -26,7 +26,7 @@ function normalizeSettings(value = {}) {
     return result;
 }
 
-function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, getStore, icon, quit }) {
+function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, getStore, icon, quit, positioningSupported = true }) {
     let mini = null, settings = { ...DEFAULTS }, state = { playing: false }, storage;
     let automatic = false, dismissed = false, applyingBounds = false, saveTimer, destroyed = false;
     let applied = {};
@@ -43,9 +43,10 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
     const isMini = event => alive(mini) && event.sender === mini.webContents && event.senderFrame === mini.webContents.mainFrame;
     function persist() { storage?.set('mini-player', settings); }
     function wantsOnTop() { return settings.onTop === 'always' || settings.onTop === 'playing' && state.playing; }
+    function contentOpacity() { return process.platform === 'linux' ? settings.opacity / 100 : 1; }
     function publishState() {
         if (alive(mini)) mini.webContents.send('mini-player:state', { ...state,
-            onTopMode: settings.onTop, alwaysOnTop: mini.isAlwaysOnTop(), visible: mini.isVisible() });
+            onTopMode: settings.onTop, alwaysOnTop: mini.isAlwaysOnTop(), visible: mini.isVisible(), contentOpacity: contentOpacity() });
     }
     function notifySettings() {
         sendMain('mini-player:settings', settings);
@@ -63,7 +64,13 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
     function apply(resize = false) {
         if (!alive(mini)) return;
         const opacity = hovered ? 100 : settings.opacity;
-        if (applied.opacity !== opacity) { mini.setOpacity(opacity / 100); applied.opacity = opacity; }
+        if (applied.opacity !== opacity) {
+            // Electron's native window opacity is a no-op on Linux. Fade the
+            // rendered surface there; Windows/macOS keep their native opacity.
+            if (process.platform === 'linux') mini.webContents.send('mini-player:opacity', contentOpacity());
+            else mini.setOpacity(opacity / 100);
+            applied.opacity = opacity;
+        }
         if (applied.locked !== settings.locked) {
             mini.setMovable(!settings.locked); mini.setResizable(!settings.locked); applied.locked = settings.locked;
         }
@@ -84,10 +91,11 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
     }
     function watchHover() {
         clearInterval(hoverTimer); hoverTimer = null;
-        if (!alive(mini) || !mini.isVisible() || settings.opacity === 100) {
+        // Linux uses renderer hover: global X11 cursor coordinates can stay stale.
+        if (process.platform === 'linux' || !alive(mini) || !mini.isVisible() || settings.opacity === 100) {
             hovered = false; apply(); return;
         }
-        // Native cursor bounds also cover the draggable parts of the frameless window.
+        // Other platforms use native opacity, including over draggable regions.
         const check = () => {
             const point = screen.getCursorScreenPoint(), bounds = mini.getBounds();
             const inside = point.x >= bounds.x && point.x < bounds.x + bounds.width && point.y >= bounds.y && point.y < bounds.y + bounds.height;
@@ -95,20 +103,22 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
         };
         check(); hoverTimer = setInterval(check, 80);
     }
+    function saveBounds(notify = true) {
+        if (applyingBounds || !alive(mini)) return;
+        const { x, y, width, height } = mini.getBounds();
+        settings = normalizeSettings({ ...settings, width, height, ...(positioningSupported ? { x, y } : {}) });
+        // Persistence must never move the window again after a drag ends.
+        persist();
+        if (notify) notifySettings();
+    }
     function rememberBounds() {
         if (applyingBounds || !alive(mini)) return;
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-            if (!alive(mini)) return;
-            const bounds = mini.getBounds();
-            settings = normalizeSettings({ ...settings, ...bounds });
-            // Persistence must never move the window again after a drag ends.
-            persist(); notifySettings();
-        }, 180);
+        saveTimer = setTimeout(saveBounds, 180);
     }
     function moveWindow(event, bounds) {
         if (applyingBounds || !alive(mini)) return;
-        if (!settings.snap || settings.locked) { edgeSnap.reset(); dragOrigin = null; return; }
+        if (!positioningSupported || !settings.snap || settings.locked) { edgeSnap.reset(); dragOrigin = null; return; }
         let freeBounds = bounds;
         if (process.platform === 'win32') {
             const point = screen.getCursorScreenPoint();
@@ -169,7 +179,7 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
             if (wantsOnTop()) mini.moveTop();
             publishState(); visibility();
         });
-        mini.on('hide', () => { watchHover(); publishState(); visibility(); });
+        mini.on('hide', () => { clearTimeout(saveTimer); saveBounds(); watchHover(); publishState(); visibility(); });
         mini.on('focus', () => { apply(); publishState(); });
         mini.on('always-on-top-changed', (_event, value) => {
             applied.onTop = value;
@@ -245,6 +255,7 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
     function destroy() {
         if (destroyed) return;
         destroyed = true; clearTimeout(saveTimer); clearInterval(hoverTimer);
+        saveBounds(false);
         // A secondary process can quit before ready without ever attaching a window.
         // Even reading a method on Electron's lazy screen proxy would throw then.
         if (watchingDisplays) {

@@ -22,17 +22,27 @@
         register(id, hash, args, call) {
             if (!/^[a-z][a-z0-9-]{1,63}$/.test(args.id) || typeof args.name !== 'string' || args.name.length > 120 || providers.has(key(id, args.id))) throw new Error('Некорректный или повторный провайдер');
             if ([...providers.values()].filter(provider => provider.id === id).length >= 8) throw new Error('Не более восьми провайдеров на расширение');
-            providers.set(key(id, args.id), { id, hash, name: args.name, call, trackActions: args.trackActions === true, inlineActions: args.trackActions === true && args.inlineActions === true, revision: 0, offered: new Map(), pending: new Set() });
+            providers.set(key(id, args.id), { id, hash, name: args.name, call, trackActions: args.trackActions === true, inlineActions: args.trackActions === true && args.inlineActions === true, revision: 0, offered: new Map(), pending: new Map(), rows: new Map(), rowRequests: new Map() });
             document.dispatchEvent(new Event('addon-contributions-changed'));
         },
         async actions(entry, surface = 'menu', retries = 0) {
             const provider = get(entry);
             if (!provider.trackActions) return [];
+            const trackId = entry.trackId || entry.id;
+            if (surface === 'row' && retries === 0) {
+                const cached = provider.rows.get(trackId);
+                if (cached && !cached.dirty && cached.expires > Date.now()) return cached.actions;
+                if (provider.rowRequests.has(trackId)) return provider.rowRequests.get(trackId);
+                const pending = this.actions(entry, surface, 1);
+                provider.rowRequests.set(trackId, pending);
+                try { return await pending; }
+                finally { if (provider.rowRequests.get(trackId) === pending) provider.rowRequests.delete(trackId); }
+            }
             const revision = provider.revision;
             const result = await provider.call('trackActions', { trackId: entry.trackId || entry.id, surface });
             if (providers.get(key(entry.addonId, entry.providerId)) !== provider) throw new Error('Провайдер выключен или обновлён');
             if (revision !== provider.revision) {
-                if (retries < 2) return this.actions(entry, surface, retries + 1);
+                if (retries < 3) return this.actions(entry, surface, retries + 1);
                 throw new Error('Состояние трека изменилось');
             }
             if (!Array.isArray(result) || result.length > 16) throw new Error('Не более 16 действий трека');
@@ -44,13 +54,23 @@
             });
             provider.offered.set(entry.trackId || entry.id, { ids, expires: Date.now() + 60000 });
             while (provider.offered.size > 64) provider.offered.delete(provider.offered.keys().next().value);
+            if (surface === 'row') {
+                provider.rows.delete(trackId);
+                provider.rows.set(trackId, { actions, expires: Date.now() + 60000, dirty: false });
+                while (provider.rows.size > 512) provider.rows.delete(provider.rows.keys().next().value);
+            }
             return actions;
         },
+        cachedActions(entry) { return providers.get(key(entry.addonId, entry.providerId))?.rows.get(entry.trackId || entry.id)?.actions; },
         hasInline(entry) { return providers.get(key(entry.addonId, entry.providerId))?.inlineActions === true; },
         invalidate(id, { provider: providerId, trackIds }) {
             const provider = get({ addonId: id, providerId });
             if (trackIds !== undefined && (!Array.isArray(trackIds) || trackIds.length > 100 || trackIds.some(track => typeof track !== 'string' || !track || track.length > 300))) throw new Error('Не более 100 ID треков');
             provider.revision++;
+            for (const [track, pending] of provider.pending) if (!trackIds || trackIds.includes(track)) pending.invalidated = true;
+            for (const [track, cached] of provider.rows) if (!trackIds || trackIds.includes(track)) cached.dirty = true;
+            // New reads must not join an older request after an explicit change.
+            if (trackIds) for (const track of trackIds) provider.rowRequests.delete(track); else provider.rowRequests.clear();
             if (trackIds) for (const track of trackIds) provider.offered.delete(track); else provider.offered.clear();
             document.dispatchEvent(new CustomEvent('provider-track-actions-changed', { detail: { addonId: id, providerId, trackIds } }));
         },
@@ -58,8 +78,8 @@
             const provider = get(entry), trackId = entry.trackId || entry.id, offered = provider.offered.get(trackId);
             if (!provider.trackActions || !offered || offered.expires < Date.now() || !offered.ids.has(action)) throw new Error('Действие устарело. Откройте меню трека заново.');
             if (provider.pending.has(trackId)) throw new Error('Действие с треком уже выполняется');
-            provider.pending.add(trackId);
-            try { await provider.call('trackAction', { trackId, action }); if (providers.get(key(entry.addonId, entry.providerId)) === provider) this.invalidate(entry.addonId, { provider: entry.providerId, trackIds: [trackId] }); }
+            const pending = { invalidated: false }; provider.pending.set(trackId, pending);
+            try { await provider.call('trackAction', { trackId, action }); if (!pending.invalidated && providers.get(key(entry.addonId, entry.providerId)) === provider) this.invalidate(entry.addonId, { provider: entry.providerId, trackIds: [trackId] }); }
             finally { provider.pending.delete(trackId); provider.offered.delete(trackId); }
         },
         async search(id, args) { const provider = get({ addonId: id, providerId: args.provider }); const result = await provider.call('search', { query: String(args.query).slice(0, 300) }); if (!Array.isArray(result) || result.length > 100) throw new Error('Не более 100 результатов'); return result.map(track => { const item = validate(track); return { id: item.trackId, title: item.title, artist: item.artist, album: item.album }; }); },

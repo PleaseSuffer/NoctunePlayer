@@ -2,6 +2,7 @@
 type SettingField = { label: string; description?: string; visibleWhen?: { field: string; equals: string | number | boolean } } & (
     { type: 'toggle'; default: boolean } |
     { type: 'text'; default: string; maxLength?: number } |
+    { type: 'directory'; default: 'app' | 'downloads' | 'custom' } |
     { type: 'slider' | 'number'; default: number; min: number; max: number; step: number } |
     { type: 'select'; default: string; options: { value: string; label: string }[]; source?: 'appearance.schemes' | 'backgrounds' }
 );
@@ -37,6 +38,7 @@ interface ProviderTrack extends ServiceMedia { id: string; title: string; artist
 interface StreamDescriptor { url: string; transport?: 'direct'; oauth?: string; credential?: string; headers?: Record<string, string> }
 interface ProviderFailure { error: { code: 'AUTH_REQUIRED' | 'REGION_RESTRICTED' | 'SUBSCRIPTION_REQUIRED' | 'NOT_FOUND' | 'RATE_LIMITED' | 'NETWORK' | 'UNSUPPORTED_TRANSPORT'; message: string } }
 interface SelectedFile { handle: string; name: string; size: number }
+interface DownloadJob { id:string;state:'running'|'completed'|'failed'|'canceled';name:string;bytes:number;total:number|null;error?:string }
 type AppearanceMode = 'light'|'dark'|'system';
 type AppearancePalette = Partial<Record<'background'|'surface'|'text'|'muted'|'border'|'hover'|'accent'|'secondary',string>>;
 interface LocalPlaylist { id:string;name:string;type:string;revision:number;tracks:{trackId:string;title:string;entryId?:string}[] }
@@ -68,6 +70,12 @@ interface NoctuneAddonApi {
     assets: { read(file: string): { mime: string; base64: string; size: number }; url(file: string): string };
     storage: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
     settings: { get(): Promise<Record<string, unknown>> };
+    downloads: {
+        folder(args:{setting:string;action?:'status'|'choose'|'open'}):Promise<{location:'app'|'downloads'|'custom';path:string|null;canceled?:boolean}>;
+        start(args:{url:string;filename:string;folder:string}):Promise<DownloadJob>;
+        status(args:{id:string}):Promise<DownloadJob>;
+        cancel(args:{id:string}):Promise<DownloadJob>;
+    };
     notify(message: string, options?: {key?: string}): Promise<void>;
     player: {
         current(): Promise<TrackState>; play(options?: TrackContext & { trackId?: string }): Promise<void>;

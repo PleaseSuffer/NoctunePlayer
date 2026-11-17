@@ -182,22 +182,31 @@
     function drainInline(){while(inlineBusy<2&&inlineJobs.length){const control=inlineJobs.shift();inlineQueued.delete(control);if(!control.isConnected)continue;inlineBusy++;control._refresh().finally(()=>{inlineBusy--;drainInline();});}}
     const inlineObserver=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{for(const item of entries)if(item.isIntersecting){inlineObserver.unobserve(item.target);queueInline(item.target);}}):null;
     function inlineControls(entry){
-        const control=node('span','provider-inline-actions');control._entry=entry;let sequence=0;
+        const control=node('span','provider-inline-actions');control._entry=entry;let sequence=0,signature='',busy=false;
         control.addEventListener('click',event=>event.stopPropagation());
+        function paint(actions){
+            const visible=actions.filter(item=>item.inline).slice(0,3),next=JSON.stringify(visible);
+            if(signature===next){for(const button of control.querySelectorAll('button'))button.disabled=busy;return;}
+            signature=next;control.replaceChildren();
+            for(const action of visible){
+                const button=node('button','provider-inline-action'+(action.active?' is-active':''));button.type='button';button.disabled=busy;button.title=action.title;button.setAttribute('aria-label',action.title);button.setAttribute('aria-pressed',String(action.active));button.append(AddonPermissionView.icon(action.icon,'provider-track-icon'));
+                button.addEventListener('click',async()=>{
+                    if(busy)return;busy=true;for(const item of control.querySelectorAll('button'))item.disabled=true;
+                    try{
+                        // A cached icon is presentation only. Revalidate before executing.
+                        const current=await api.actions(entry),selected=current.find(item=>item.id===action.id);
+                        if(selected)await api.action(entry,selected.id);
+                    }catch(error){notifyError(error);}finally{busy=false;for(const item of control.querySelectorAll('button'))item.disabled=false;queueInline(control);}
+                });control.append(button);
+            }
+        }
+        const cached=api.cachedActions(entry);if(cached)paint(cached);
         control._refresh=async()=>{
             const serial=++sequence;
             try{
                 const actions=await api.actions(entry,'row');if(!control.isConnected||serial!==sequence)return;
-                control.replaceChildren();
-                for(const action of actions.filter(item=>item.inline).slice(0,3)){
-                    const button=node('button','provider-inline-action'+(action.active?' is-active':''));button.type='button';button.title=action.title;button.setAttribute('aria-label',action.title);button.setAttribute('aria-pressed',String(action.active));button.append(AddonPermissionView.icon(action.icon,'provider-track-icon'));
-                    button.addEventListener('click',async()=>{
-                        if(button.disabled)return;button.disabled=true;
-                        try{await api.actions(entry);await api.action(entry,action.id);}catch(error){notifyError(error);}finally{queueInline(control);}
-                    });control.append(button);
-                }
-                control.removeAttribute('title');
-            }catch(error){if(serial===sequence){control.replaceChildren();control.title=String(error.message||error);}}
+                paint(actions);control.removeAttribute('title');
+            }catch(error){if(serial===sequence){control.title=String(error.message||error);for(const button of control.querySelectorAll('button'))button.disabled=busy;}}
         };
         queueMicrotask(()=>{if(!control.isConnected)return;if(inlineObserver)inlineObserver.observe(control);else queueInline(control);});
         return control;
@@ -206,7 +215,6 @@
         const {addonId,providerId,trackIds}=event.detail;
         for(const control of document.querySelectorAll('.provider-inline-actions')){
             const entry=control._entry;if(!entry||entry.addonId!==addonId||entry.providerId!==providerId||trackIds&&!trackIds.includes(entry.trackId||entry.id))continue;
-            for(const button of control.querySelectorAll('button'))button.disabled=true;
             if(inlineObserver)inlineObserver.observe(control);else queueInline(control);
         }
     });

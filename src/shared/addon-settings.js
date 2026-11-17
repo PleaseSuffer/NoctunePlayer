@@ -15,7 +15,8 @@
                 if (!Number.isFinite(value) || value < field.min || value > field.max) throw new Error('Число вне диапазона: ' + name);
                 value = Number((field.min + Math.round((value - field.min) / field.step) * field.step).toPrecision(12));
                 value = Math.max(field.min, Math.min(field.max, value));
-            } else if (field.type === 'select') { if (!field.options.some(option => option.value === value) && !dynamicValue(field.source, value)) throw new Error('Неизвестное значение: ' + name); }
+            } else if (field.type === 'directory') { if (!['app','downloads','custom'].includes(value)) throw new Error('Неизвестная папка: ' + name); }
+            else if (field.type === 'select') { if (!field.options.some(option => option.value === value) && !dynamicValue(field.source, value)) throw new Error('Неизвестное значение: ' + name); }
             else if (typeof value !== 'string' || value.length > (field.maxLength || 500)) throw new Error('Некорректный текст: ' + name);
             result[name] = value;
         }
@@ -24,7 +25,7 @@
     function validate(schema) {
         if (!schema || typeof schema !== 'object' || Array.isArray(schema) || Object.keys(schema).length > 32) throw new Error('Некорректная схема настроек');
         for (const [name, field] of Object.entries(schema)) {
-            if (!key(name) || !field || typeof field !== 'object' || !['toggle','text','number','slider','select'].includes(field.type)) throw new Error('Неизвестный тип настройки');
+            if (!key(name) || !field || typeof field !== 'object' || !['toggle','text','number','slider','select','directory'].includes(field.type)) throw new Error('Неизвестный тип настройки');
             const allowed = ['type','label','description','default', 'visibleWhen', ...(['number','slider'].includes(field.type) ? ['min','max','step'] : field.type === 'select' ? ['options','source'] : field.type === 'text' ? ['maxLength'] : [])];
             if (Object.keys(field).some(k => !allowed.includes(k)) || typeof field.label !== 'string' || !field.label.trim() || field.label.length > 120 || (field.description !== undefined && (typeof field.description !== 'string' || field.description.length > 500))) throw new Error('Некорректное описание настройки');
             if (['slider','number'].includes(field.type) && (![field.min,field.max,field.step].every(Number.isFinite) || field.min >= field.max || field.step <= 0 || field.step > field.max - field.min)) throw new Error('Некорректный диапазон');

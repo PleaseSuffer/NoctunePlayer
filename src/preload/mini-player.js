@@ -4,4 +4,5 @@ contextBridge.exposeInMainWorld('miniPlayer', {
     command: (action, value) => ipcRenderer.send('mini-player:command', { action, value }),
     onState: callback => ipcRenderer.on('mini-player:state', (_event, state) => callback(state)),
     onSettings: callback => ipcRenderer.on('mini-player:settings', (_event, settings) => callback(settings)),
+    onOpacity: callback => ipcRenderer.on('mini-player:opacity', (_event, opacity) => callback(opacity)),
 });

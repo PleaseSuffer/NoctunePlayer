@@ -55,6 +55,7 @@
         'network.request': 'HTTPS-запросы к заявленным доменам', 'network.headers': 'Дополнительные заголовки запросов',
         'oauth.authorize': 'Вход в заявленные сервисы', 'oauth.status': 'Статус авторизации', 'oauth.disconnect': 'Выход из сервиса',
         'secrets.read': 'Чтение собственных секретов', 'secrets.write': 'Сохранение собственных секретов', 'secrets.delete': 'Удаление собственных секретов',
+        'downloads.write': 'Сохранение MP3 в папку приложения, загрузок или выбранную папку',
         'files.select': 'Выбор файлов пользователем', 'files.read': 'Чтение разрешённых файлов', 'files.write': 'Запись выбранных файлов',
         'files.library': 'Получение файлов треков медиатеки', 'files.reveal': 'Показ разрешённого файла в файловом менеджере',
         'clipboard.read': 'Чтение буфера обмена', 'clipboard.write': 'Запись в буфер обмена',
@@ -70,7 +71,7 @@
         }
         return [...result].sort();
     }
-    const namespaces = Object.freeze({ catalog: 'Каталог сервиса', servicePlaylists: 'Плейлисты сервиса', ui: 'Панели интерфейса', credentials: 'Ключи и токены', appearance: 'Цветовая схема', artwork: 'Обложки', lyrics: 'Тексты песен', hotkeys: 'Горячие клавиши', storage: 'Данные расширения', notifications: 'Уведомления', settings: 'Настройки расширения', playback: 'Воспроизведение', events: 'События плеера', queue: 'Очередь', playlists: 'Плейлисты', themes: 'Темы', backgrounds: 'Фоны', audio: 'Аудио', providers: 'Музыкальные провайдеры', network: 'Сеть', oauth: 'Авторизация', secrets: 'Защищённые секреты', files: 'Файлы', clipboard: 'Буфер обмена', system: 'Системные действия' });
+    const namespaces = Object.freeze({ catalog: 'Каталог сервиса', servicePlaylists: 'Плейлисты сервиса', ui: 'Панели интерфейса', credentials: 'Ключи и токены', appearance: 'Цветовая схема', artwork: 'Обложки', lyrics: 'Тексты песен', hotkeys: 'Горячие клавиши', storage: 'Данные расширения', notifications: 'Уведомления', settings: 'Настройки расширения', playback: 'Воспроизведение', events: 'События плеера', queue: 'Очередь', playlists: 'Плейлисты', themes: 'Темы', backgrounds: 'Фоны', audio: 'Аудио', providers: 'Музыкальные провайдеры', network: 'Сеть', oauth: 'Авторизация', secrets: 'Защищённые секреты', files: 'Файлы', downloads: 'Сохранение MP3', clipboard: 'Буфер обмена', system: 'Системные действия' });
     function grouped(values, approved) {
         const granted = approved || expand(values), result = [];
         for (const [namespace, title] of Object.entries(namespaces)) {

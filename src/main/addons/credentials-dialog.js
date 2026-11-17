@@ -22,7 +22,7 @@ function createCredentialDialog({ BrowserWindow, ipcMain }) {
     cancel(id) { for (const item of sessions.values()) if (item.id === id) item.window.destroy(); },
     open(id, details, save) {
       for (const item of sessions.values()) if (item.id === id) { if (JSON.stringify(item.details)!==JSON.stringify(details)) throw new Error('Завершите настройку открытого профиля'); item.window.focus(); return item.promise; }
-      const window = new BrowserWindow({ width: 560, height: 500, minWidth: 480, minHeight: 420, show: false, title: 'Ключ доступа — Noctune', autoHideMenuBar: true, backgroundColor: '#15151b', webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, '../../preload/addon-credential.js') } });
+      const window = new BrowserWindow({ width: 560, height: 620, minWidth: 480, minHeight: 420, show: false, title: 'Ключ доступа — Noctune', autoHideMenuBar: true, backgroundColor: '#15151b', webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, '../../preload/addon-credential.js') } });
       let resolve;
       const promise = new Promise(done => { resolve = done; });
       const item = { id, details, save, window, resolve, promise, saving: false };

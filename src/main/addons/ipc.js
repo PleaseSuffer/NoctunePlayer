@@ -2,10 +2,10 @@ const { createAddonStore } = require('./store');
 const { createAddonInstaller } = require('./installer');
 const { createAddonCatalog } = require('./catalog');
 
-function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory, appVersion, icon, safeStorage, shell, clipboard }) {
+function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory, downloadsPath, appVersion, icon, safeStorage, shell, clipboard }) {
   const store = createAddonStore({ directory, appVersion });
   const credentialDialog = require('./credentials-dialog').createCredentialDialog({ BrowserWindow, ipcMain });
-  const services = require('./services').createAddonServices({ store, directory, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog });
+  const services = require('./services').createAddonServices({ store, directory, downloadsPath, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog });
   const installer = createAddonInstaller({ BrowserWindow, ipcMain, store, icon });
   const catalog = createAddonCatalog({ directory, appVersion, store });
   const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, catalog, onInstalled: () => {

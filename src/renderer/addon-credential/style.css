@@ -1,4 +1,8 @@
 #form { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
-#secret { padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #20202b; color: #fff; font: inherit; }
-#secret:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
-#error { color: #fda4af; }
+#form label { font-size: 13px; font-weight: 600; }
+#form input { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #20202b; color: var(--text-color); font: inherit; font-size: 13px; }
+#form input:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+#origins { overflow-wrap: anywhere; }
+#error { color: #fda4af; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+#error:empty { display: none; }
+footer { flex-shrink: 0; }

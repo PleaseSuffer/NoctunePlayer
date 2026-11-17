@@ -253,6 +253,10 @@ contextBridge.exposeInMainWorld('noctune', {
 
   // ── Версия приложения ──
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  errors: {
+    onReport: callback => { const listener = (_event, error) => callback(error); ipcRenderer.on('app-errors:report', listener); return () => ipcRenderer.removeListener('app-errors:report', listener); },
+    ready: () => ipcRenderer.send('app-errors:ready'),
+  },
   getTechVersions: () => ipcRenderer.invoke('get-tech-versions'),
   systemIntegration: { apply: action => ipcRenderer.invoke('system-integration:apply', action) },
   audioFilesReady: () => ipcRenderer.send('audio-files:ready'),

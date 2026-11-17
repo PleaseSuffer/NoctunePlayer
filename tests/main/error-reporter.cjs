@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),{EventEmitter}=require('node:events');
+const {createMainErrorReporter}=require('../../src/main/error-reporter');
+const runtime=new EventEmitter(),ipcMain=new EventEmitter(),sent=[],logs=[];
+let win=null,loading=false,dead=false;
+const reporter=createMainErrorReporter({process:runtime,ipcMain,getWindow:()=>win,log:(...args)=>logs.push(args)});
+const error=Object.assign(new Error('connect ENETUNREACH fixture'),{code:'ENETUNREACH',address:'2001:4860:4860::8888',port:443});
+runtime.emit('uncaughtException',error,'uncaughtException');assert.equal(sent.length,0);
+const contents={mainFrame:{},send:(channel,value)=>sent.push({channel,value}),isDestroyed:()=>dead,isLoadingMainFrame:()=>loading};
+win={webContents:contents,isDestroyed:()=>dead};
+ipcMain.emit('app-errors:ready',{sender:{},senderFrame:{}});assert.equal(sent.length,0);
+ipcMain.emit('app-errors:ready',{sender:contents,senderFrame:{}});assert.equal(sent.length,0);
+ipcMain.emit('app-errors:ready',{sender:contents,senderFrame:contents.mainFrame});assert.equal(sent.length,1);assert.equal(sent[0].value.stack,error.stack);assert.equal(sent[0].value.code,'ENETUNREACH');assert.equal(sent[0].value.process,'main');
+runtime.emit('unhandledRejection','rejected text');assert.equal(sent.at(-1).value.message,'rejected text');assert.equal(sent.at(-1).value.origin,'unhandledRejection');
+loading=true;reporter.reset();reporter.report(new Error('during reload'));assert.equal(sent.length,2);loading=false;ipcMain.emit('app-errors:ready',{sender:contents,senderFrame:contents.mainFrame});assert.equal(sent.length,3);
+dead=true;for(let i=0;i<25;i++)reporter.report(new Error('queued '+i));dead=false;ipcMain.emit('app-errors:ready',{sender:contents,senderFrame:contents.mainFrame});assert.equal(sent.length,23);assert.equal(sent[3].value.message,'queued 5');
+reporter.dispose();assert.equal(runtime.listenerCount('uncaughtException'),0);assert.equal(runtime.listenerCount('unhandledRejection'),0);assert.equal(ipcMain.listenerCount('app-errors:ready'),0);assert.equal(logs.length,28);
+console.log('PASS: bounded main-error queue, exact stack/code serialization, main-frame-only handshake, reload buffering, uncaught/rejection routing and listener cleanup.');

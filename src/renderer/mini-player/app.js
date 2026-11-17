@@ -3,6 +3,7 @@
     let state = { volume: .8, duration: 0 }, settings = {}, seeking = false;
     const format = seconds => { const s = Math.max(0, Math.floor(seconds || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
     const paintRange = input => input.style.setProperty('--range-progress', ((Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100) + '%');
+    const renderOpacity = value => { $('floating-player').style.setProperty('--mini-opacity', String(Number.isFinite(value) ? Math.max(.3, Math.min(1, value)) : 1)); };
     function icon(action, name, label) {
         const button = document.querySelector(`[data-action="${action}"]`);
         if (button.dataset.icon !== name) { button.innerHTML = `<i data-lucide="${name}"></i>`; button.dataset.icon = name; lucide.createIcons({ root: button }); }
@@ -33,6 +34,7 @@
     }
     function render(value) {
         state = value;
+        renderOpacity(state.contentOpacity);
         renderPin();
         renderColors();
         $('title').textContent = state.title || 'Музыка не выбрана';
@@ -76,6 +78,7 @@
         } else if (event.code === 'Escape') { event.preventDefault(); miniPlayer.command('expand'); }
     });
     miniPlayer.onState(render); miniPlayer.onSettings(renderSettings);
+    miniPlayer.onOpacity(renderOpacity);
     miniPlayer.getSettings().then(renderSettings).catch(() => {});
     lucide.createIcons();
 })();

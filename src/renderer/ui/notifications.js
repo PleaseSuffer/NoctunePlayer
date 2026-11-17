@@ -302,3 +302,10 @@
                 showNotification(msg.substring(0, 200), 'warning');
             }
         };
+
+        // Main-process errors use the same setting, toast and copyable report as player errors.
+        if (window.noctune?.errors) {
+            noctune.errors.onReport(error => console.error('Основной процесс:', error));
+            if (document.readyState === 'complete') noctune.errors.ready();
+            else window.addEventListener('load', () => noctune.errors.ready(), { once: true });
+        }

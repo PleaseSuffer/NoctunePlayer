@@ -1,4 +1,7 @@
 const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker, safeStorage, clipboard, protocol, screen } = require('electron');
+let win = null;
+const mainErrors = require('./error-reporter').createMainErrorReporter({ ipcMain, getWindow: () => win });
+const windowBackend = require('./window-backend').configureWindowBackend({ app });
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
@@ -32,10 +35,9 @@ ipcMain.handle('lyrics:cancel', () => { lyricsClient.cancel(); return { ok: true
 app.commandLine.appendSwitch('hardware-media-key-handling');
 app.commandLine.appendSwitch('enable-features', 'MediaSessionService');
 
-let win = null;
 const { registerAddonIpc } = require('./addons/ipc');
 protocol.registerSchemesAsPrivileged([{ scheme: 'noctune-stream', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
-const addonStore = registerAddonIpc({ safeStorage, shell, clipboard, ipcMain, BrowserWindow, dialog, icon: iconPath, getWindow: () => win, directory: () => path.join(app.getPath('userData'), 'addons'), appVersion: app.getVersion() });
+const addonStore = registerAddonIpc({ safeStorage, shell, clipboard, ipcMain, BrowserWindow, dialog, icon: iconPath, getWindow: () => win, directory: () => path.join(app.getPath('userData'), 'addons'), downloadsPath: () => app.getPath('downloads'), appVersion: app.getVersion() });
 const { createSceneThemeStore } = require('./scene-themes');
 const sceneThemeRoot = path.join(__dirname, '../../themes');
 const sceneThemeStore = createSceneThemeStore({
@@ -77,7 +79,7 @@ const themeOpenQueue = createThemeOpenQueue(file => themeInstaller.open(file), r
   win.webContents.send('scene-themes:imported', result);
 });
 const addonOpenQueue = createAddonOpenQueue(file => addonStore.openFile(file), error => {
-  dialog.showMessageBox(win, { type:'error', title:'Расширение Noctune', message:'Не удалось открыть расширение', detail:String(error.message||error) }).catch(()=>{});
+  mainErrors.report(error, 'addon-open');
 }, file => { addonStore.openFile(file).catch(()=>{}); });
 app.on('open-file', (event, file) => {
   const files=addonFilesFromArgv(['Noctune',file]);
@@ -181,6 +183,7 @@ async function initStore() {
 
 const { createMiniPlayer } = require('./mini-player');
 const miniPlayerController = createMiniPlayer({ app, BrowserWindow, ipcMain, screen,
+  positioningSupported: windowBackend.positioningSupported,
   getMainWindow: () => win, getStore: initStore, icon: iconPath,
   quit: () => { isQuiting = true; app.quit(); },
 });
@@ -673,6 +676,7 @@ function createWindow() {
       keepAwake.setPlaying(false);
     }
   });
+  win.webContents.on('did-start-loading', () => mainErrors.reset());
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   
