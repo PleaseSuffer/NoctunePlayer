@@ -54,7 +54,15 @@
         if (manifest.credentials !== undefined) {
             if (!object(manifest.credentials) || Object.keys(manifest.credentials).length > 8) fail((globalThis.noctuneI18n?.t("addonContributions.atMostEightAuthorizationProfiles", {}) ?? "Не более восьми профилей авторизации"));
             for (const [id, profile] of Object.entries(manifest.credentials)) {
-                keys(profile, ['name','description','origins','header','scheme']);
+                keys(profile, ['name','description','origins','header','scheme','links']);
+                if (profile.links !== undefined) {
+                    if (!Array.isArray(profile.links) || profile.links.length > 4) fail('Invalid credential help links');
+                    for (const link of profile.links) {
+                        keys(link, ['label','url']);
+                        let url; try { url = new URL(link.url); } catch (_) { fail('Invalid credential help URL'); }
+                        if (typeof link.label !== 'string' || !link.label.trim() || link.label.length > 120 || typeof link.url !== 'string' || link.url.length > 2048 || /[\u0000-\u0020]/.test(link.url) || url.protocol !== 'https:' || url.username || url.password) fail('Invalid credential help link');
+                    }
+                }
                 if (!name(id) || typeof profile.name !== 'string' || !profile.name.trim() || profile.name.length > 120 || (profile.description !== undefined && (typeof profile.description !== 'string' || profile.description.length > 500)) || !Array.isArray(profile.origins) || !profile.origins.length || profile.origins.some(origin => !validOrigin(origin, false) || !manifest.network?.origins.includes(origin)) || !/^(Authorization|X-[a-z0-9-]{1,60})$/i.test(profile.header) || typeof profile.scheme !== 'string' || !/^[a-zA-Z0-9_-]{0,32}$/.test(profile.scheme)) fail((globalThis.noctuneI18n?.t("addonContributions.invalidAuthorizationProfile", {}) ?? "Некорректный профиль авторизации"));
             }
             if (!grants.includes('network.request')) fail((globalThis.noctuneI18n?.t("addonContributions.authorizationProfileRequiresNetworkRequest", {}) ?? "Профилю авторизации требуется network.request"));

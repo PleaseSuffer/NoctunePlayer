@@ -8,8 +8,8 @@ for (const [a,b,expected] of [['1.10.0','1.9.0',1],['1.0','1.0.0',0],['1.0.0','1
 (async()=>{
     const temporary=await fs.mkdtemp(path.join(os.tmpdir(),'noctune-theme-versions-'));
     try {
-        const store=createSceneThemeStore({directory:()=>temporary,builtinDirectory:path.resolve('themes/builtin'),presetsDirectory:path.resolve('themes/backgrounds'),sdkFile:path.resolve('src/renderer/effects/scene-sdk.js')});
-        const theme=await packDirectory(path.resolve('themes/builtin/03-rain-window'));
+        const store=createSceneThemeStore({directory:()=>temporary,builtinDirectory:path.resolve('themes/official'),presetsDirectory:path.resolve('themes/backgrounds'),sdkFile:path.resolve('src/renderer/effects/scene-sdk.js')});
+        const theme=await packDirectory(path.resolve('themes/official/03-rain-window'));
         assert.equal((await store.installationStatus(theme)).state,'installed','builtin themes participate in detection');
         theme.manifest.id='custom-version-test';theme.manifest.version='1.9.0';
         assert.equal((await store.installationStatus(theme)).state,'install');
@@ -24,15 +24,15 @@ for (const [a,b,expected] of [['1.10.0','1.9.0',1],['1.0','1.0.0',0],['1.0.0','1
         const other={...theme,manifest:{...theme.manifest,id:'concurrent-test'}};
         const results=await Promise.all([store.installPackage(other),store.installPackage(other)]);
         assert.equal(results.filter(t=>t.unchanged).length,1,'simultaneous installer windows cannot write duplicate installs');
-        const builtin=await packDirectory(path.resolve('themes/builtin/03-rain-window'));builtin.manifest.version='2.0.0';
+        const builtin=await packDirectory(path.resolve('themes/official/03-rain-window'));builtin.manifest.version='2.0.0';
         const override=await store.installPackage(builtin);assert.equal(override.id,'builtin-rain-window');
         const builtinEntries=(await store.list()).themes.filter(t=>t.packageId===builtin.manifest.id);assert.equal(builtinEntries.length,1);assert.equal(builtinEntries[0].version,'2.0.0');
         assert.equal((await store.read('builtin-rain-window')).manifest.version,'2.0.0','updated builtin retains its ID and reads the new package');
         const sources=path.join(temporary,'sources');await fs.mkdir(sources);
-        const folder=path.join(sources,'local-custom');await fs.cp(path.resolve('themes/builtin/03-rain-window'),folder,{recursive:true});
+        const folder=path.join(sources,'local-custom');await fs.cp(path.resolve('themes/official/03-rain-window'),folder,{recursive:true});
         const manifest=JSON.parse(await fs.readFile(path.join(folder,'manifest.json'),'utf8'));
         manifest.id='local-custom';manifest.version='1.0.0';await fs.writeFile(path.join(folder,'manifest.json'),JSON.stringify(manifest));
-        const makeStore=()=>createSceneThemeStore({directory:()=>path.join(temporary,'imports'),userThemesDirectory:sources,builtinDirectory:path.resolve('themes/builtin'),presetsDirectory:path.resolve('themes/backgrounds'),sdkFile:path.resolve('src/renderer/effects/scene-sdk.js')});
+        const makeStore=()=>createSceneThemeStore({directory:()=>path.join(temporary,'imports'),userThemesDirectory:sources,builtinDirectory:path.resolve('themes/official'),presetsDirectory:path.resolve('themes/backgrounds'),sdkFile:path.resolve('src/renderer/effects/scene-sdk.js')});
         const local=makeStore();const source=(await local.list()).themes.find(t=>t.packageId==='local-custom');
         assert.equal(source.removable,true,'source gallery entries have a remove control');
         const snapshot=await packDirectory(folder);const imported=await local.importPackage(snapshot);

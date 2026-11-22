@@ -10,4 +10,4 @@ contextBridge.exposeInMainWorld('noctuneLocale', {
     },
 });
 
-contextBridge.exposeInMainWorld('credentialDialog', { details: () => ipcRenderer.invoke('addon-credential:details'), save: value => ipcRenderer.invoke('addon-credential:save', value), cancel: () => ipcRenderer.send('addon-credential:cancel') });
+contextBridge.exposeInMainWorld('credentialDialog', { details: () => ipcRenderer.invoke('addon-credential:details'), expiry: seconds => ipcRenderer.invoke('addon-credential:expiry', seconds), openLink: index => ipcRenderer.invoke('addon-credential:open-link', index), save: value => ipcRenderer.invoke('addon-credential:save', value), cancel: () => ipcRenderer.send('addon-credential:cancel') });

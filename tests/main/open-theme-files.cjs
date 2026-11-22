@@ -11,13 +11,13 @@ const { packDirectory, createSceneThemeStore } = require('../../src/main/scene-t
     try {
         const file = path.join(temporary, 'Новая тема #1.NOCTHEME');
         const bad = path.join(temporary, 'broken.noctheme');
-        const theme = await packDirectory(path.join(root, 'themes/builtin/03-rain-window'));
+        const theme = await packDirectory(path.join(root, 'themes/official/03-rain-window'));
         await fs.writeFile(file, JSON.stringify(theme)); await fs.writeFile(bad, '{}');
         await fs.mkdir(path.join(temporary, 'directory.noctheme'));
         const argv = ['Noctune', file, pathToFileURL(file).href, bad, 'missing.noctheme', 'directory.noctheme', 'track.mp3', 'https://example.com/theme.noctheme'];
         assert.deepEqual(themeFilesFromArgv(argv, {cwd:temporary}), [file, bad]);
         assert.deepEqual(themeFilesFromArgv(['electron', 'app.noctheme', path.basename(file)], {cwd:temporary, defaultApp:true}), [file]);
-        const store = createSceneThemeStore({directory:() => path.join(temporary, 'imported'), builtinDirectory:path.join(root, 'themes/builtin'), presetsDirectory:path.join(root, 'themes/backgrounds')});
+        const store = createSceneThemeStore({directory:() => path.join(temporary, 'imported'), builtinDirectory:path.join(root, 'themes/official'), presetsDirectory:path.join(root, 'themes/backgrounds')});
         const reports = [];
         const queue = createThemeOpenQueue(file => store.importFile(file), result => reports.push(result));
         queue.enqueue([file]); queue.enqueue([file, bad]);

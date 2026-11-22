@@ -6,7 +6,7 @@ const { validatePackage, packDirectory, createSceneThemeStore, MAX_BYTES } = req
 (async () => {
     const root = path.resolve(__dirname, '../..'), temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-scenes-'));
     try {
-        const builtinDirectory = path.join(root, 'themes/builtin');
+        const builtinDirectory = path.join(root, 'themes/official');
         const valid = await packDirectory(path.join(builtinDirectory, '03-rain-window'));
         for(const id of ['02-night-hill','03-rain-window']){
             const scene=await packDirectory(path.join(builtinDirectory,id));assert.equal(scene.manifest.width,1920);assert.equal(scene.manifest.height,1080);

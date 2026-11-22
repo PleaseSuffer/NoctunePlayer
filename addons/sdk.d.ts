@@ -19,7 +19,7 @@ interface NoctuneAddonManifest {
     /** Noctune >=1.4.0: network origins/routes also accept https://*.example.com (subdomains only).
      * OAuth resourceOrigins and credential origins must still be exact HTTPS origins explicitly listed here. */
     network?: { origins: string[]; routes?: { origin: string; path: string; prefix?: boolean; methods: ('GET'|'HEAD'|'POST'|'PUT'|'PATCH'|'DELETE')[]; permission?: `servicePlaylists.${ServicePlaylistAction}` }[] };
-    credentials?: Record<string, {name:string;description?:string;origins:string[];header:string;scheme:string}>;
+    credentials?: Record<string, {name:string;description?:string;origins:string[];header:string;scheme:string;links?:{label:string;url:string}[]}>;
     ui?: {integrations:{title:string;description?:string;sections:{id:string;title:string;fields:string[]}[]}}; settings?: Record<string, SettingField>; oauth?: Record<string, OAuthProvider>;
     icon?: string; banner?: string;
     commands: { id: string; title: string }[]; update?: { url: string; channel: 'stable' }; homepage?: string;
@@ -73,7 +73,8 @@ interface NoctuneAddonApi {
     settings: { get(): Promise<Record<string, unknown>> };
     downloads: {
         folder(args:{setting:string;action?:'status'|'choose'|'open'}):Promise<{location:'app'|'downloads'|'custom';path:string|null;canceled?:boolean}>;
-        start(args:{url:string;filename:string;folder:string}):Promise<DownloadJob>;
+        /** MP3, PNG/JPEG/WebP or UTF-8 TXT/LRC/SRT/VTT. Inline text: at most 48 KiB. */
+        start(args:{filename:string;folder:string} & ({url:string;data?:never}|{data:string;url?:never})):Promise<DownloadJob>;
         status(args:{id:string}):Promise<DownloadJob>;
         cancel(args:{id:string}):Promise<DownloadJob>;
     };

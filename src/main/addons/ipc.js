@@ -2,13 +2,17 @@ const { createAddonStore } = require('./store');
 const { createAddonInstaller } = require('./installer');
 const { createAddonCatalog } = require('./catalog');
 
-function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory, downloadsPath, appVersion, icon, safeStorage, shell, clipboard }) {
+function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory, downloadsPath, appVersion, icon, safeStorage, shell, clipboard, themeStore, themeInstaller }) {
   const store = createAddonStore({ directory, appVersion });
-  const credentialDialog = require('./credentials-dialog').createCredentialDialog({ BrowserWindow, ipcMain });
+  const credentialDialog = require('./credentials-dialog').createCredentialDialog({ BrowserWindow, ipcMain, shell });
   const services = require('./services').createAddonServices({ store, directory, downloadsPath, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog });
   const installer = createAddonInstaller({ BrowserWindow, ipcMain, store, icon });
   const catalog = createAddonCatalog({ directory, appVersion, store });
-  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, catalog, onInstalled: () => {
+  const marketplace = themeStore && require('./marketplace').createMarketplaceCatalog({directory,appVersion,store,themeStore});
+  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, catalog, marketplace, themeInstaller, onThemeInstalled: theme => {
+    const window = getWindow();
+    if (window && !window.isDestroyed()) window.webContents.send('scene-themes:imported',{theme});
+  }, onInstalled: () => {
     const window = getWindow();
     if (window && !window.isDestroyed()) window.webContents.send('addons:changed');
   } });
@@ -56,7 +60,8 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   handle('rollback', async (_event, id) => { const result = await store.rollback(id); abort(id); return result; });
   handle('check-update', async (_event, id) => {
     const current = (await store.list()).find(item=>item.id===id);
-    return current?.verifiedPublisher === 'Noctune' ? catalog.checkUpdate(id) : store.checkUpdate(id);
+    if (current?.verifiedPublisher === 'Noctune') return catalog.checkUpdate(id);
+    return await marketplace?.checkUpdate(id) ?? store.checkUpdate(id);
   });
   handle('invoke', (_event, id, hash, method, args) => store.invoke(id, hash, method, args));
   handle('request', async (_event, id, hash, url) => {

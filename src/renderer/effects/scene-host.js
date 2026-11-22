@@ -176,6 +176,15 @@
         const element=document.getElementById('mini-player'), rect=element?.getBoundingClientRect();
         return rect && rect.width>0 && rect.height>0 ? {x:rect.x,y:rect.y,width:rect.width,height:rect.height} : null;
     }
+    function playbackState() {
+        const live = typeof isRadioMode !== 'undefined' && !!isRadioMode;
+        const media = live ? (typeof radioAudioElement !== 'undefined' ? radioAudioElement : null)
+            : (typeof localAudioElement !== 'undefined' ? localAudioElement : null);
+        const number = value => Number.isFinite(value) && value >= 0 ? value : null;
+        return { position: !live && media ? number(media.currentTime) : null,
+            duration: !live && media ? number(media.duration) : null,
+            playing: !!media && !media.paused && !media.ended, live };
+    }
     function tick(now) {
         queued = false; if (!current && !candidate) return;
         schedule();
@@ -185,6 +194,9 @@
         const motion = config.motion && !reducedMotion.matches;
         if (motion) time += dt;
         const overlay = document.getElementById('lyrics-modal')?.style.display === 'flex' || document.getElementById('settings-overlay')?.classList.contains('open');
+        const playback = playbackState();
+        // Static scenes still receive clock/transport changes, at most once per media second.
+        const playbackKey = JSON.stringify({ ...playback, position: playback.position === null ? null : Math.floor(playback.position) });
         for (const entry of [current, candidate]) {
             if (!entry?.ready) continue;
             if (entry.busy) {
@@ -204,14 +216,15 @@
             const animated = motion && entry.metadata.capabilities.motion;
             const reactive = playing && config.visualizer && entry.metadata.capabilities.visualizer !== 'none';
             if (reactive) entry.settleUntil = now + 2000;
-            if (!animated && !reactive && now >= (entry.settleUntil || 0) && !entry.dirty && entry.viewport === viewport && entry.staticFrame) continue;
+            if (!animated && !reactive && now >= (entry.settleUntil || 0) && !entry.dirty && entry.viewport === viewport && entry.staticFrame && entry.playbackKey === playbackKey) continue;
             entry.busy = true; entry.sentAt = now;
             const frameDt = entry.lastDraw ? Math.min((now - entry.lastDraw) / 1000, .08) : dt;
             entry.lastDraw = now; entry.viewport = viewport; entry.staticFrame = !animated && !reactive; entry.dirty = false;
             entry.frames = (entry.frames || 0) + 1;
+            entry.playbackKey = playbackKey;
             const settings = entry.settings;
             const audio = { spectrum, sampleRate, playing, frequencyMix: settings.frequencyMix, enabled: entry.metadata.capabilities.visualizer !== 'none' && config.visualizer, intensity: config.intensity };
-            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, reducedMotion: reducedMotion.matches, safeArea: safeArea(), pointer: { ...pointer }, parameters: settings, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
+            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, reducedMotion: reducedMotion.matches, safeArea: safeArea(), pointer: { ...pointer }, playback, parameters: settings, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
         }
     }
     function failure(entry, message) {
@@ -294,7 +307,7 @@
                 const entry = { frame, channel, metadata, resolve, reject, guard, ready: false, busy: false };
                 candidate = entry;
                 refreshConfig();
-                frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, reducedMotion: reducedMotion.matches, safeArea: safeArea(), pointer: { ...pointer }, parameters: entry.settings, lighting:{intensity:entry.settings.glowIntensity}, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
+                frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, reducedMotion: reducedMotion.matches, safeArea: safeArea(), pointer: { ...pointer }, playback: playbackState(), parameters: entry.settings, lighting:{intensity:entry.settings.glowIntensity}, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
                 document.body.prepend(frame);
                 entry.timer = setTimeout(() => { if (entry === candidate) failure(entry, (globalThis.noctuneI18n?.t("effects.sceneHost.couldNotStartTheme", {}) ?? "Не удалось запустить тему: ") + (entry.stage || (globalThis.noctuneI18n?.t("effects.sceneHost.loadingIframe", {}) ?? "загрузка iframe")) + (globalThis.noctuneI18n?.t("effects.sceneHost.timeoutDetail", {}) ?? " (тайм-аут 15 с)")); }, 15000);
                 schedule();

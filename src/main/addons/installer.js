@@ -9,13 +9,13 @@ function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
     return entry;
   }
   ipcMain.handle('addon-install:details', event => session(event).preview);
-  ipcMain.handle('addon-install:confirm', async event => {
+  ipcMain.handle('addon-install:confirm', async (event, acceptRotation) => {
     const entry = session(event);
     if (entry.installing) return { ok: false, error: (globalThis.noctuneI18n?.t("themeInstaller.installationAlreadyInProgress", {}) ?? "Установка уже выполняется") };
     if (entry.preview.state === 'installed') return { ok: true, installed: true };
     entry.installing = true;
     try {
-      const result = await store.confirm(entry.ticket);
+      const result = await store.confirm(entry.ticket, acceptRotation === true);
       entry.resolve(result);
       entry.window.destroy();
       return { ok: true };

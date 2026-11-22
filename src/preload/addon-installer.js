@@ -12,6 +12,6 @@ contextBridge.exposeInMainWorld('noctuneLocale', {
 
 contextBridge.exposeInMainWorld('addonInstaller', {
     details: () => ipcRenderer.invoke('addon-install:details'),
-    install: () => ipcRenderer.invoke('addon-install:confirm'),
+    install: acceptRotation => ipcRenderer.invoke('addon-install:confirm', acceptRotation === true),
     cancel: () => ipcRenderer.send('addon-install:cancel'),
 });

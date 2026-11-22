@@ -36,7 +36,14 @@ function validateCatalog(value, trustedPublisher = publisher) {
   if (trustedPublisher(identity) !== 'Noctune') throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.catalogIsNotSignedByATrustedNoctuneKey", {}) ?? "Каталог не подписан доверенным ключом Noctune"));
   const ids = new Set();
   for (const entry of value.entries) {
-    p.keys(entry, [...fields, 'publisher','sha256','packageUrl','published','artwork']);
+    p.keys(entry, [...fields, 'publisher','sha256','packageUrl','published','artwork','localized']);
+    if (entry.localized !== undefined) {
+      p.keys(entry.localized,['ru','en']);
+      for (const value of Object.values(entry.localized)) {
+        p.keys(value,['name','description']);
+        for (const field of ['name','description']) if (typeof value[field] !== 'string' || !value[field].trim() || value[field].length > (field === 'name' ? 120 : 1000)) fail();
+      }
+    }
     if (!p.id(entry.id) || ids.has(entry.id) || !p.version(entry.version) || !Number.isSafeInteger(entry.revision) || entry.revision < 1 || !p.version(entry.minNoctuneVersion) || (entry.maxNoctuneVersion !== undefined && (!p.version(entry.maxNoctuneVersion) || p.compareVersions(entry.maxNoctuneVersion, entry.minNoctuneVersion) < 0))) fail();
     ids.add(entry.id);
     for (const [field, max] of [['name',120],['description',1000],['author',120]]) if (typeof entry[field] !== 'string' || !entry[field].trim() || entry[field].length > max) fail();
@@ -101,10 +108,11 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
       const installed = await store.list();
       return { ...result, source, generatedAt: snapshot.generatedAt, catalogRevision: snapshot.revision, repositoryUrl: REPOSITORY_URL, submissionUrl: SUBMISSION_URL, entries: snapshot.entries.map(entry => {
         const current = installed.find(addon => addon.id === entry.id);
-        const samePublisher = current?.publisher === entry.publisher;
+        const samePublisher = current?.publisher === entry.publisher || publisher.canRotate(entry.id,current?.publisher,entry.publisher);
         const state = current ? !samePublisher ? 'conflict' : (current.maxRevision || current.revision) >= entry.revision ? 'installed' : 'update' : 'install';
         const { packageUrl, sha256, ...metadata } = entry;
-        return { ...metadata, artwork: artwork(entry.artwork), compatible: p.compatible(entry, appVersion), state, enabled: current?.enabled === true };
+        const locale = (globalThis.noctuneI18n?.locale || 'ru').startsWith('en') ? 'en' : 'ru';
+        return { ...metadata, ...entry.localized?.[locale], artwork: artwork(entry.artwork), compatible: p.compatible(entry, appVersion), state, enabled: current?.enabled === true };
       }) };
     },
     async checkUpdate(id) {
@@ -116,7 +124,7 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
       if (!current) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.extensionNotInstalled", {}) ?? "Расширение не установлено"));
       const entry = snapshot.entries.find(item=>item.id===id);
       if (!entry || !entry.published) return {state:'unavailable',message:(globalThis.noctuneI18n?.t("extensions.catalog.extensionIsNotYetAvailableInTheOfficialCatalog", {}) ?? "Расширение пока недоступно в официальном каталоге")};
-      if (current.publisher!==entry.publisher) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.differentExtensionPublisher", {}) ?? "Другой издатель расширения"));
+      if (current.publisher!==entry.publisher && !publisher.canRotate(id,current.publisher,entry.publisher)) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.differentExtensionPublisher", {}) ?? "Другой издатель расширения"));
       if (!p.compatible(entry,appVersion)) return {state:'incompatible',message:(globalThis.noctuneI18n?.t("extensions.catalog.updateRequiresAnotherNoctuneVersion", {}) ?? "Обновление требует другой версии Noctune")};
       if (entry.revision <= (current.maxRevision || current.revision)) return {state:'current',message:(globalThis.noctuneI18n?.t("extensions.catalog.noNewerRevisions", {}) ?? "Новых ревизий нет")};
       return this.prepare(id);
@@ -136,4 +144,4 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
     },
   };
 }
-module.exports = { CATALOG_URL, REPOSITORY_URL, SUBMISSION_URL, CATALOG_FIELDS: fields, validateCatalog, createAddonCatalog };
+module.exports = { CATALOG_URL, REPOSITORY_URL, SUBMISSION_URL, CATALOG_FIELDS: fields, artwork, validateCatalog, createAddonCatalog };

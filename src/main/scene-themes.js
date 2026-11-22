@@ -165,7 +165,10 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
     return {
         async list() {
             const themes = [];
-            for (const [id, folder] of Object.entries(BUILTINS)) themes.push(metadata(await packDirectory(path.join(builtinDirectory, folder)), id, true));
+            for (const [id, folder] of Object.entries(BUILTINS)) {
+                try { themes.push(metadata(await packDirectory(path.join(builtinDirectory, folder)), id, true)); }
+                catch (error) { if (error.code !== 'ENOENT') throw error; } // Legacy builds may still supply bundled scenes.
+            }
             const hidden = await hiddenThemes();
             for (const [id, entry] of await userEntries()) {
                 try {
@@ -194,12 +197,13 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
         async read(id) {
             let theme;
             if (Object.hasOwn(BUILTINS, id)) {
-                theme = await packDirectory(path.join(builtinDirectory, BUILTINS[id]));
+                try { theme = await packDirectory(path.join(builtinDirectory, BUILTINS[id])); }
+                catch (error) { if (error.code !== 'ENOENT') throw error; }
                 const hidden = await hiddenThemes();
                 for (const entry of (await userEntries()).values()) {
                     try {
                         const candidate = await (entry.isDirectory ? packDirectory(entry.file) : readPackage(entry.file));
-                        if (!hidden.has(candidate.manifest.id) && candidate.manifest.id === theme.manifest.id && compareThemeVersions(candidate.manifest.version, theme.manifest.version) > 0) theme = candidate;
+                        if (!hidden.has(candidate.manifest.id) && candidate.manifest.id === BUILTINS[id] && (!theme || compareThemeVersions(candidate.manifest.version, theme.manifest.version) > 0)) theme = candidate;
                     } catch (_) { /* Ignore damaged overrides as in the gallery. */ }
                 }
             }
@@ -209,6 +213,7 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
                 theme = await (entry.isDirectory ? packDirectory(entry.file) : readPackage(entry.file));
                 if ((await hiddenThemes()).has(theme.manifest.id)) fail((globalThis.noctuneI18n?.t("sceneThemes.themeRemovedFromGallery", {}) ?? "Тема удалена из галереи"));
             }
+            if (!theme) fail((globalThis.noctuneI18n?.t('sceneThemes.unknownTheme') ?? 'Неизвестная тема'));
             return { ...theme, sdk: await fs.readFile(sdkFile, 'utf8') };
         },
         async importFile(file) { return this.importPackage(await readPackage(file)); },

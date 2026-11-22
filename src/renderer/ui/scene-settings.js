@@ -22,6 +22,11 @@
     const backgrounds = gallery((globalThis.noctuneI18n?.t("ui.sceneSettings.builtInBackgrounds", {}) ?? "Встроенные фоны"), 'bg-presets-list', backgroundCollection);
     const builtins = gallery((globalThis.noctuneI18n?.t("ui.sceneSettings.builtInThemes", {}) ?? "Встроенные темы"), 'scene-builtins-list');
     const imports = gallery((globalThis.noctuneI18n?.t("ui.sceneSettings.addedThemes", {}) ?? "Добавленные темы"), 'scene-imported-list');
+    const shop = document.createElement('button'); shop.type = 'button'; shop.className = 'btn'; shop.id = 'scene-theme-store';
+    const shopIcon = document.createElement('i'); shopIcon.setAttribute('data-lucide', 'store'); shopIcon.setAttribute('aria-hidden', 'true');
+    const shopLabel = document.createElement('span'); shopLabel.textContent = globalThis.noctuneI18n?.t('marketplace.themeStore') ?? 'Магазин тем'; shop.append(shopIcon, shopLabel);
+    shop.addEventListener('click', () => noctune.addons.openStore({ section: 'themes', theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', accent: getComputedStyle(document.body).getPropertyValue('--accent-color').trim() }).catch(notifyError));
+    imports.parentElement.before(shop);
     const empty = document.createElement('p'); empty.className = 'settings-row-desc'; empty.textContent = (globalThis.noctuneI18n?.t("ui.sceneSettings.importANocthemeFileContainingASceneItsLayersAndAnimations", {}) ?? "Импортируйте файл .noctheme — он содержит сцену, её слои и анимации."); imports.after(empty);
     const options = document.createElement('div'); options.id = 'scene-theme-options'; options.hidden = true;
     const name = document.createElement('div'); name.className = 'settings-row-label';
@@ -195,6 +200,7 @@
     let themes = [];
     async function refresh() {
         const result = await noctune.sceneThemes.list(); themes = result.themes;
+        builtins.parentElement.hidden = !themes.some(theme => theme.builtin);
         backgrounds.replaceChildren(); builtins.replaceChildren(); imports.replaceChildren();
         result.presets.forEach(p => {
             const { button } = tile(backgrounds, p.name, noctune.fs.toFileUrl(p.path), () => { window.backgroundSettings.select(p.path); changed(null); status.textContent = ''; }); button.dataset.path = p.path;

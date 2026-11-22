@@ -1,14 +1,23 @@
-name: Extension catalog submission
-description: Submit a signed extension for review; the community catalog is not yet open.
-title: "[Extension] "
+name: Extension or theme catalog submission
+description: Submit an extension or theme for manual community catalog review.
+title: "[Catalog] "
 body:
   - type: markdown
     attributes:
-      value: "Community catalog submissions are reviewed manually. Submission does not publish an extension. Do not include private keys, tokens or user data."
+      value: "Submissions are reviewed manually. Submission does not publish a package or make it official. Do not include private keys, tokens or user data."
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Package type
+      options:
+        - Extension or integration (.noctaddon)
+        - Interactive theme (.noctheme)
+    validations:
+      required: true
   - type: input
     id: addon-id
     attributes:
-      label: Extension ID
+      label: Extension or theme ID
       placeholder: my-extension
     validations:
       required: true
@@ -22,14 +31,14 @@ body:
   - type: input
     id: package
     attributes:
-      label: Signed release asset URL
+      label: Release package URL (.noctaddon or .noctheme)
       placeholder: https://github.com/OWNER/REPOSITORY/releases/download/TAG/my-extension.noctaddon
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Version, revision and minimum Noctune version
+      label: Version, revision (extensions only) and minimum Noctune version
       placeholder: "1.0.0, revision 1, Noctune 1.4.0"
     validations:
       required: true
@@ -48,9 +57,7 @@ body:
   - type: input
     id: publisher
     attributes:
-      label: Publisher public key fingerprint (SHA-256 of Ed25519 SPKI)
-    validations:
-      required: true
+      label: Publisher public key fingerprint, if signed (SHA-256 of Ed25519 SPKI)
   - type: textarea
     id: description
     attributes:

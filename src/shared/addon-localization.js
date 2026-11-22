@@ -42,7 +42,10 @@
         for (const command of result.commands || []) fields(command, ['title']);
         for (const field of Object.values({ ...result.settings, ...result.parameterSchema })) { fields(field, ['label', 'description']); for (const option of field.options || []) fields(option, ['label']); }
         for (const provider of Object.values(result.oauth || {})) fields(provider, ['name']);
-        for (const profile of Object.values(result.credentials || {})) fields(profile, ['name', 'description']);
+        for (const profile of Object.values(result.credentials || {})) {
+            fields(profile, ['name', 'description']);
+            for (const link of profile.links || []) fields(link, ['label']);
+        }
         const panel = result.ui?.integrations;
         fields(panel, ['title', 'description']);
         for (const section of panel?.sections || []) fields(section, ['title']);

@@ -1,0 +1,327 @@
+{
+  "apiVersion": 1,
+  "author": "Noctune community",
+  "banner": "assets/banner.png",
+  "commands": [
+    {
+      "id": "history-status",
+      "title": "Проверить отправку и серверную историю"
+    },
+    {
+      "id": "toggle-like",
+      "title": "Текущий трек: нравится / не нравится"
+    },
+    {
+      "id": "dislike",
+      "title": "Текущий трек: поставить / отменить дизлайк"
+    },
+    {
+      "id": "save-mp3",
+      "title": "Сохранить текущий трек в MP3"
+    },
+    {
+      "id": "last-error",
+      "title": "Показать последнюю ошибку"
+    },
+    {
+      "id": "check",
+      "title": "Проверить подключение"
+    }
+  ],
+  "credentials": {
+    "yandex-token": {
+      "description": "Введите только токен с доступом к музыкальному API, без префикса OAuth. Пароль Яндекса сюда вводить не нужно. Noctune хранит токен зашифрованно; код расширения его не получает. Автоматическое обновление ручного токена недоступно.",
+      "header": "Authorization",
+      "name": "Личный OAuth-токен Яндекс Музыки",
+      "origins": [
+        "https://api.music.yandex.net",
+        "https://api.music.yandex.ru"
+      ],
+      "scheme": "OAuth",
+      "links": [
+        {
+          "label": "Получить токен в Яндексе",
+          "url": "https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd418abb4b39c32c41195d"
+        },
+        {
+          "label": "Инструкция по получению токена",
+          "url": "https://ym.marshal.dev/token/"
+        }
+      ]
+    }
+  },
+  "description": "Ваша музыка в Noctune: Моя волна, любимые треки, плейлисты и поиск. Независимая интеграция с Яндекс Музыкой.",
+  "entry": "main.js",
+  "homepage": "https://music.yandex.ru/",
+  "icon": "assets/icon.png",
+  "id": "yandex-music",
+  "minNoctuneVersion": "1.4.1",
+  "name": "Яндекс Музыка",
+  "network": {
+    "origins": [
+      "https://api.music.yandex.net",
+      "https://storage.mds.yandex.net",
+      "https://*.storage.yandex.net",
+      "https://avatars.yandex.net",
+      "https://avatars.mds.yandex.net",
+      "https://music-lyrics.s3-private.mds.yandex.net",
+      "https://api.music.yandex.ru"
+    ],
+    "routes": [
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/account/status"
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://music-lyrics.s3-private.mds.yandex.net",
+        "path": "/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "POST"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/plays"
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/music-history"
+      },
+      {
+        "methods": [
+          "POST"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/users/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/users/",
+        "permission": "servicePlaylists.read",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/tracks",
+        "permission": "servicePlaylists.read"
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/tracks/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/feed"
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/search"
+      },
+      {
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "origin": "https://api.music.yandex.net",
+        "path": "/rotor/station/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "origin": "https://storage.mds.yandex.net",
+        "path": "/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "origin": "https://*.storage.yandex.net",
+        "path": "/get-mp3/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "origin": "https://avatars.yandex.net",
+        "path": "/get-music-content/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET",
+          "HEAD"
+        ],
+        "origin": "https://avatars.mds.yandex.net",
+        "path": "/get-music-content/",
+        "prefix": true
+      },
+      {
+        "methods": [
+          "GET"
+        ],
+        "origin": "https://api.music.yandex.ru",
+        "path": "/tracks/",
+        "prefix": true
+      }
+    ]
+  },
+  "permissions": [
+    "ui.integrations",
+    "settings.read",
+    "settings.events",
+    "notifications.show",
+    "storage.read",
+    "storage.write",
+    "credentials.configure",
+    "credentials.status",
+    "credentials.use",
+    "credentials.disconnect",
+    "catalog.register",
+    "servicePlaylists.read",
+    "providers.register",
+    "providers.play",
+    "network.request",
+    "network.headers",
+    "system.openExternal",
+    "events.playback",
+    "events.progress",
+    "playback.read",
+    "playback.stop",
+    "hotkeys.register",
+    "lyrics.provide",
+    "clipboard.write",
+    "downloads.write"
+  ],
+  "revision": 21,
+  "settings": {
+    "autoWave": {
+      "default": true,
+      "description": "Заранее загружать следующие рекомендации и продолжать воспроизведение без повторного открытия плейлиста.",
+      "label": "Непрерывная Моя волна",
+      "type": "toggle"
+    },
+    "bitrate": {
+      "default": "192",
+      "description": "Выбирается ближайший доступный полный MP3. Зашифрованные потоки и preview исключены.",
+      "label": "Предпочтительный MP3-битрейт",
+      "options": [
+        {
+          "label": "128 кбит/с",
+          "value": "128"
+        },
+        {
+          "label": "192 кбит/с",
+          "value": "192"
+        },
+        {
+          "label": "320 кбит/с",
+          "value": "320"
+        }
+      ],
+      "type": "select"
+    },
+    "downloadFolder": {
+      "default": "app",
+      "description": "Место сохранения треков по команде «Сохранить MP3».",
+      "label": "Папка для MP3",
+      "type": "directory"
+    },
+    "downloadName": {
+      "default": "artist-title",
+      "description": "При совпадении имён добавляется номер; существующие файлы сохраняются.",
+      "label": "Имя MP3-файла",
+      "options": [
+        {
+          "label": "Исполнитель — Название",
+          "value": "artist-title"
+        },
+        {
+          "label": "Название трека",
+          "value": "title"
+        }
+      ],
+      "type": "select"
+    },
+    "feedback": {
+      "default": false,
+      "description": "Учитывает прослушивания и пропуски в рекомендациях Моей волны.",
+      "label": "Отправлять события прослушивания Моей волны",
+      "type": "toggle"
+    },
+    "history": {
+      "default": false,
+      "description": "Отправляет прослушивания в историю вашего аккаунта. Проверить результат можно командой расширения.",
+      "label": "Отправлять отчёты прослушивания в Яндекс Музыку",
+      "type": "toggle"
+    }
+  },
+  "type": "integration",
+  "ui": {
+    "integrations": {
+      "description": "Открывайте свою коллекцию, находите новые треки и слушайте Мою волну.",
+      "sections": [
+        {
+          "fields": [
+            "bitrate",
+            "autoWave"
+          ],
+          "id": "audio-settings",
+          "title": "Звук и очередь"
+        },
+        {
+          "fields": [
+            "history",
+            "feedback"
+          ],
+          "id": "account-settings",
+          "title": "История и рекомендации"
+        },
+        {
+          "fields": [
+            "downloadFolder",
+            "downloadName"
+          ],
+          "id": "downloads",
+          "title": "Сохранение треков"
+        }
+      ],
+      "title": "Яндекс Музыка"
+    }
+  },
+  "version": "0.3.13"
+}

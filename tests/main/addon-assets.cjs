@@ -37,6 +37,10 @@ const { createAddonStore } = require('../../src/main/addons/store');
         assert.deepEqual(groups.find(group => group.namespace === 'playback').used, ['playback.read','playback.seek']);
         assert.equal(permissions.grouped(permissions.expand(['themes.*']))[0].full, true, 'explicit complete list counts as full');
         assert.equal(permissions.grouped(['themes.*'], ['themes.list'])[0].full, false, 'frozen grants are authoritative');
+        const interaction=permissions.grouped(['ui.integrations','notifications.show','hotkeys.register']);
+        assert.equal(interaction.length,1);assert.equal(interaction[0].displayOnly,true);assert.equal(interaction[0].total,3);
+        assert.deepEqual(permissions.expand(['ui.*']),['ui.integrations'],'display grouping does not broaden wildcard grants');
+        assert.equal(permissions.grouped(['notifications.show'])[0].full,false);
         console.log('PASS: binary packaging/MIME/roundtrip/limits, canonical base64, artwork snapshots, signed asset integrity and full/partial permission grouping.');
     } finally { await fs.rm(directory, { recursive: true, force: true }); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

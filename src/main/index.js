@@ -38,7 +38,6 @@ app.commandLine.appendSwitch('enable-features', 'MediaSessionService');
 
 const { registerAddonIpc } = require('./addons/ipc');
 protocol.registerSchemesAsPrivileged([{ scheme: 'noctune-stream', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
-const addonStore = registerAddonIpc({ safeStorage, shell, clipboard, ipcMain, BrowserWindow, dialog, icon: iconPath, getWindow: () => win, directory: () => path.join(app.getPath('userData'), 'addons'), downloadsPath: () => app.getPath('downloads'), appVersion: app.getVersion() });
 const { createSceneThemeStore } = require('./scene-themes');
 const sceneThemeRoot = path.join(__dirname, '../../themes');
 const sceneThemeStore = createSceneThemeStore({
@@ -51,6 +50,7 @@ const sceneThemeStore = createSceneThemeStore({
 });
 const { createThemeInstaller } = require('./theme-installer');
 const themeInstaller = createThemeInstaller({ BrowserWindow, ipcMain, store: sceneThemeStore, icon: iconPath });
+const addonStore = registerAddonIpc({ safeStorage, shell, clipboard, ipcMain, BrowserWindow, dialog, icon: iconPath, getWindow: () => win, directory: () => path.join(app.getPath('userData'), 'addons'), downloadsPath: () => app.getPath('downloads'), appVersion: app.getVersion(), themeStore: sceneThemeStore, themeInstaller });
 function sceneSender(event) {
   if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
 }

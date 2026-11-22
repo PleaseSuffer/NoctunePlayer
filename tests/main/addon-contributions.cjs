@@ -30,11 +30,20 @@ const {createAddonServices}=require('../../src/main/addons/services');
         constructor(options){super();this.options=options;this.webContents=new EventEmitter();this.webContents.mainFrame={};this.webContents.setWindowOpenHandler=fn=>{this.navigation=fn;};windows.push(this);}
         setMenu(){}show(){}focus(){}loadFile(){return Promise.resolve();}destroy(){this.emit('closed');}close(){this.destroy();}
     }
-    const dialogs=createCredentialDialog({BrowserWindow:Window,ipcMain:{handle:(name,fn)=>handlers.set(name,fn),on:(name,fn)=>handlers.set(name,fn)}});
+    const opened=[];
+    const dialogs=createCredentialDialog({BrowserWindow:Window,shell:{openExternal:async url=>opened.push(url)},ipcMain:{handle:(name,fn)=>handlers.set(name,fn),on:(name,fn)=>handlers.set(name,fn)}});
     let saved;
-    let task=dialogs.open('demo',{name:'Profile',profile:'demo-key',origins:['https://api.example.com']},async value=>{saved=value;});
+    const link={label:'Get token',url:'https://auth.example.com/authorize?client_id=public&response_type=token'};
+    const withLinks=clone();withLinks.manifest.credentials['demo-key'].links=[link];validatePackage(withLinks);
+    for(const url of ['javascript:alert(1)','file:///tmp/token','http://auth.example.com','https://user:pass@auth.example.com','https://auth.example.com/\nsecret']) {
+        const invalid=clone();invalid.manifest.credentials['demo-key'].links=[{label:'Help',url}];assert.throws(()=>validatePackage(invalid));
+    }
+    let task=dialogs.open('demo',{name:'Profile',profile:'demo-key',origins:['https://api.example.com'],links:[link]},async value=>{saved=value;});
     let win=windows.at(-1),event={sender:win.webContents,senderFrame:win.webContents.mainFrame};
     assert.equal(win.options.webPreferences.sandbox,true);assert.equal(win.options.webPreferences.contextIsolation,true);
+    await handlers.get('addon-credential:open-link')(event,0);assert.deepEqual(opened,[link.url]);
+    await assert.rejects(handlers.get('addon-credential:open-link')({...event,senderFrame:{}},0));
+    for(const index of [-1,1,'https://evil.example.com',0.5])await assert.rejects(handlers.get('addon-credential:open-link')(event,index));
     assert.throws(()=>handlers.get('addon-credential:details')({...event,senderFrame:{}}));
     await assert.rejects(handlers.get('addon-credential:save')({sender:{},senderFrame:{}},{value:'secret'}));
     assert.equal((await handlers.get('addon-credential:save')(event,{value:'key\r\nInjected: true'})).ok,false);
@@ -53,6 +62,8 @@ const {createAddonServices}=require('../../src/main/addons/services');
         assert.equal((await invoke('credentials.status')).configured,false);await invoke('credentials.configure');assert.equal((await invoke('credentials.status')).configured,true);
         assert.equal(JSON.stringify(await invoke('credentials.status')).includes('private-api-token'),false);
         const credentialValue=await service.vault.get('demo-addon','credential:demo-key');
+        credential['demo-key'].links=[link];
+        assert.equal((await invoke('credentials.status')).configured,true,'adding presentation links keeps the saved token valid');
         await service.vault.set('demo-addon','credential:demo-key',{...credentialValue,expiresAt:Date.now()-1000});
         assert.equal((await invoke('credentials.status')).configured,false);
         await assert.rejects(invoke('network.request',{url:'https://api.example.com/profile',credential:'demo-key'}),/Настройте/,'expired keys are rejected before opening a connection');

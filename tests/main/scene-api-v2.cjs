@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { validatePackage, packDirectory } = require('../../src/main/scene-themes');
 const path = require('node:path');
 (async () => {
-    const v1 = await packDirectory(path.resolve(__dirname, '../../themes/builtin/02-night-hill'));
+    const v1 = await packDirectory(path.resolve(__dirname, '../../themes/official/02-night-hill'));
     const demo=await packDirectory(path.resolve(__dirname,'../../themes/examples/api-v2'));
     assert.equal(demo.apiVersion,2);assert.equal(demo.manifest.runtimeRequirements.dom,false);assert.equal(Object.keys(demo.assets).length,3);
     const v2 = structuredClone(v1); v2.apiVersion = v2.manifest.apiVersion = 2;

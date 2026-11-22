@@ -215,7 +215,7 @@
             if (performance.now() - item.windowStart > 1000) { item.windowStart = performance.now(); item.calls = 0; }
             if (++item.calls > 40) { failure((globalThis.noctuneI18n?.t("extensions.host.extensionIsSendingTooManyRequests", {}) ?? "Расширение отправляет слишком много запросов")); return; }
             try {
-                if (!Number.isSafeInteger(data.id) || data.id < 1 || JSON.stringify(data.args)?.length > (data.method === 'files.write' ? 6 * 1024 * 1024 : data.method === 'i18n.register' ? 520 * 1024 : 64 * 1024)) throw new Error((globalThis.noctuneI18n?.t("extensions.host.invalidSdkRequest", {}) ?? "Некорректный запрос SDK"));
+                if (!Number.isSafeInteger(data.id) || data.id < 1 || JSON.stringify(data.args)?.length > (data.method === 'files.write' ? 6 * 1024 * 1024 : data.method === 'downloads.start' ? 320 * 1024 : data.method === 'i18n.register' ? 520 * 1024 : 64 * 1024)) throw new Error((globalThis.noctuneI18n?.t("extensions.host.invalidSdkRequest", {}) ?? "Некорректный запрос SDK"));
                 const args = data.args || {}; let value = null;
                 if (data.method === 'i18n.register') {
                     if (m.apiVersion !== 2 || !grants.has('i18n.register')) throw new Error((globalThis.noctuneI18n?.t("language.errors.languagePackPermissionMissing") ?? "Language pack permission missing"));

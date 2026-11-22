@@ -2,16 +2,35 @@ const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { Readable } = require('node:stream');
 const { fetchText } = require('./network');
 
 const LIMIT = 256 * 1024 * 1024;
+const FORMATS = {
+  '.mp3': ['audio/mpeg', 'audio/mp3'],
+  '.png': ['image/png'], '.jpg': ['image/jpeg'], '.jpeg': ['image/jpeg'], '.webp': ['image/webp'],
+  '.txt': ['text/plain'], '.lrc': ['text/plain', 'application/x-subrip'],
+  '.srt': ['text/plain', 'application/x-subrip'], '.vtt': ['text/plain', 'text/vtt'],
+};
+const TEXT_LIMIT = 48 * 1024;
+const isText = ext => ['.txt', '.lrc', '.srt', '.vtt'].includes(ext);
+function validContent(ext, bytes) {
+  if (isText(ext)) {
+    try { new TextDecoder('utf-8', { fatal: true }).decode(bytes); return !bytes.includes(0); } catch (_) { return false; }
+  }
+  if (ext === '.mp3') return bytes.length >= 3 && (bytes.toString('ascii', 0, 3) === 'ID3' || bytes[0] === 255 && (bytes[1] & 0xe0) === 0xe0 && (bytes[1] & 6) === 2);
+  if (ext === '.png') return bytes.subarray(0, 8).toString('hex') === '89504e470d0a1a0a';
+  if (ext === '.webp') return bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
+  return bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+}
 function filename(value) {
-  if (typeof value !== 'string' || value.length > 1000 || !/\.mp3$/i.test(value)) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.filenameRequired") ?? "Требуется имя MP3-файла"));
-  let base = value.slice(0, -4).normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_').replace(/^[. ]+|[. ]+$/g, '');
+  const ext = typeof value === 'string' ? path.extname(value).toLowerCase() : '';
+  if (typeof value !== 'string' || value.length > 1000 || !Object.hasOwn(FORMATS, ext)) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.filenameRequired") ?? "Укажите имя аудиофайла, изображения или текста поддерживаемого формата"));
+  let base = value.slice(0, -ext.length).normalize('NFC').replace(/[<>:"/\\|?*\x00-\x1f\x7f]/g, '_').replace(/^[. ]+|[. ]+$/g, '');
   if (!base) base = 'track';
   if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(base)) base = '_' + base;
   while (Buffer.byteLength(base) > 180) base = Array.from(base).slice(0, -1).join('');
-  return base + '.mp3';
+  return base + ext;
 }
 function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, getWindow, resource, fetch = fetchText }) {
   const jobs = new Map(), choosing = new Set();
@@ -60,29 +79,37 @@ function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, 
     const timer = setTimeout(() => job.controller.abort(), 300000);
     try {
       file = await fs.open(temp, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW || 0), 0o600);
-      response = await fetch(options.url, { ...options, stream: true, detailed: true, signal: job.controller.signal });
-      if (response.statusCode !== 200 || !/^(audio\/(mpeg|mp3)|application\/octet-stream)(?:;|$)/i.test(response.headers['content-type'] || '')) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.incompleteResponse") ?? "Сервер не вернул полный MP3-файл"));
+      const ext = path.extname(job.name);
+      response = options.data !== undefined ? Object.assign(Readable.from([Buffer.from(options.data, 'utf8')]), { statusCode: 200, headers: { 'content-type': 'text/plain' } }) : await fetch(options.url, { ...options, stream: true, detailed: true, signal: job.controller.signal });
+      const mime = String(response.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+      if (response.statusCode !== 200 || ![...FORMATS[ext], 'application/octet-stream'].includes(mime)) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.incompleteResponse") ?? "Сервер вернул файл другого типа или неполный ответ"));
       const length = response.headers['content-length'];
       job.total = /^\d+$/.test(length || '') ? Number(length) : null;
-      if (job.total > LIMIT) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.sizeLimit") ?? "MP3 превышает 256 МБ"));
+      if (job.total > LIMIT) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.sizeLimit") ?? "Файл превышает 256 МБ"));
       let prefix = Buffer.alloc(0);
+      const decoder = isText(ext) ? new TextDecoder('utf-8', { fatal: true }) : null;
       for await (const chunk of response) {
         if (job.controller.signal.aborted) throw new Error((globalThis.noctuneI18n?.t("downloads.cancelled") ?? "Сохранение отменено"));
         job.bytes += chunk.length;
-        if (job.bytes > LIMIT) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.sizeLimit") ?? "MP3 превышает 256 МБ"));
-        if (prefix.length < 3) prefix = Buffer.concat([prefix, chunk]).subarray(0, 3);
+        if (job.bytes > LIMIT) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.sizeLimit") ?? "Файл превышает 256 МБ"));
+        if (prefix.length < 12) prefix = Buffer.concat([prefix, chunk]).subarray(0, 12);
+        if (decoder) {
+          try { decoder.decode(chunk, { stream: true }); if (chunk.includes(0)) throw new Error(); }
+          catch (_) { throw new Error(globalThis.noctuneI18n?.t('downloads.errors.invalidText') ?? 'Файл должен содержать корректный текст UTF-8 без нулевых байтов'); }
+        }
         await file.writeFile(chunk);
       }
-      if (job.bytes < 3 || (job.total !== null && job.bytes !== job.total) || !(prefix.toString('ascii') === 'ID3' || (prefix[0] === 255 && (prefix[1] & 0xe0) === 0xe0 && (prefix[1] & 6) === 2))) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.invalidMp3") ?? "Получен неполный или некорректный MP3-файл"));
+      if (decoder) { try { decoder.decode(); } catch (_) { throw new Error(globalThis.noctuneI18n?.t('downloads.errors.invalidText') ?? 'Файл должен содержать корректный текст UTF-8 без нулевых байтов'); } }
+      if (!job.bytes || (job.total !== null && job.bytes !== job.total) || !decoder && !validContent(ext, prefix)) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.invalidFile") ?? "Получен неполный файл или содержимое не соответствует расширению"));
       await file.sync(); await file.close(); file = null;
       await store.context(job.id, job.hash, 'downloads.write');
       const current = await fs.stat(folder.path);
       if (current.dev !== folder.dev || current.ino !== folder.ino || job.controller.signal.aborted) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.folderChangedOrCancelled") ?? "Папка изменилась или сохранение отменено"));
       // Publish a complete file without ever replacing an existing file or symlink.
-      const base = job.name.slice(0, -4);
+      const base = job.name.slice(0, -ext.length);
       for (let index = 0; ; index++) {
         if (index > 999) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.filenameCollisions") ?? "Слишком много файлов с одинаковым именем"));
-        const name = base + (index ? ' (' + index + ')' : '') + '.mp3';
+        const name = base + (index ? ' (' + index + ')' : '') + ext;
         try { await fs.link(temp, path.join(folder.path, name)); job.name = name; break; }
         catch (error) { if (error.code !== 'EEXIST') throw error; }
       }
@@ -105,7 +132,7 @@ function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, 
           if (choosing.has(id)) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.folderDialogOpen") ?? "Выбор папки уже открыт"));
           choosing.add(id);
           try {
-            const result = await dialog.showOpenDialog(getWindow(), { title: pkg.manifest.name + (globalThis.noctuneI18n?.t("downloads.folderDialogSuffix") ?? ": папка для MP3"), properties: ['openDirectory', 'createDirectory'], ...(value.path ? { defaultPath: value.path } : {}) });
+            const result = await dialog.showOpenDialog(getWindow(), { title: pkg.manifest.name + (globalThis.noctuneI18n?.t("downloads.folderDialogSuffix") ?? ": папка для загрузок"), properties: ['openDirectory', 'createDirectory'], ...(value.path ? { defaultPath: value.path } : {}) });
             await store.context(id, hash, 'downloads.write');
             if (result.canceled || !result.filePaths[0]) return { ...value, canceled: true };
             const real = await fs.realpath(result.filePaths[0]);
@@ -124,12 +151,14 @@ function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, 
         return value;
       }
       if (method === 'downloads.start') {
-        if (!pkg.grants.includes('network.request')) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.networkPermission") ?? "Для сохранения нужен доступ к сети"));
+        if ((args.url !== undefined) === (args.data !== undefined) || args.url !== undefined && typeof args.url !== 'string' || args.data !== undefined && typeof args.data !== 'string') throw new Error(globalThis.noctuneI18n?.t('downloads.errors.source') ?? 'Укажите ровно один источник: url или data');
+        if (args.url !== undefined && !pkg.grants.includes('network.request')) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.networkPermission") ?? "Для загрузки нужен доступ к сети"));
         for (const [key, job] of jobs) if (job.finished && Date.now() - job.finished > 600000) jobs.delete(key);
         if (jobs.size >= 128 || [...jobs.values()].filter(job => job.id === id && job.state === 'running').length >= 2) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.concurrency") ?? "Не более двух одновременных сохранений"));
         const name = filename(args.filename), folder = await destination(id, hash, args.folder, true);
-        // Audio export is public: caller headers and credential values never reach a CDN.
-        const options = await resource(id, hash, pkg, { url: args.url });
+        // Export requests are public: caller headers and credentials never reach a CDN.
+        if (args.data !== undefined && (!isText(path.extname(name)) || Buffer.byteLength(args.data, 'utf8') > TEXT_LIMIT)) throw new Error(globalThis.noctuneI18n?.t('downloads.errors.inlineText') ?? 'В data разрешён текст UTF-8 до 48 КиБ для TXT/LRC/SRT/VTT');
+        const options = args.data !== undefined ? { data: args.data } : await resource(id, hash, pkg, { url: args.url });
         await store.context(id, hash, 'downloads.write');
         if ([...jobs.values()].filter(job => job.id === id && job.state === 'running').length >= 2) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.concurrency") ?? "Не более двух одновременных сохранений"));
         const key = crypto.randomUUID(), job = { key, id, hash, name, state: 'running', bytes: 0, total: null, controller: new AbortController() };

@@ -6,6 +6,8 @@ const { Readable } = require('node:stream');
 const { createVault } = require('./vault');
 const { createOAuth } = require('./oauth');
 const { fetchText, httpsUrl } = require('./network');
+// Help links are presentation metadata; adding them must not invalidate saved keys.
+function credentialConfiguration(config) { const { links, ...authorization } = config; return JSON.stringify(authorization); }
 function createAddonServices({ store, directory, downloadsPath, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog }) {
   const vault = createVault({ directory, safeStorage }), files = new Map(), streams = new Map();
   const requests = new Map(), artwork = new Map();
@@ -39,7 +41,7 @@ function createAddonServices({ store, directory, downloadsPath, safeStorage, she
       const config = Object.hasOwn(pkg.manifest.credentials || {}, input.credential) ? pkg.manifest.credentials[input.credential] : null;
       if (!config?.origins.includes(url.origin)) throw new Error((globalThis.noctuneI18n?.t("extensions.services.profileIsNotAuthorizedForThisDomain", {}) ?? "Профиль не разрешён для домена"));
       const item = await vault.get(id, 'credential:' + input.credential);
-      if (!item || item.config !== JSON.stringify(config) || (item.expiresAt && item.expiresAt <= Date.now())) throw new Error((globalThis.noctuneI18n?.t("extensions.services.configureAuthorizationProfile", {}) ?? "Настройте профиль авторизации"));
+      if (!item || item.config !== credentialConfiguration(config) || (item.expiresAt && item.expiresAt <= Date.now())) throw new Error((globalThis.noctuneI18n?.t("extensions.services.configureAuthorizationProfile", {}) ?? "Настройте профиль авторизации"));
       headers[config.header] = (config.scheme ? config.scheme + ' ' : '') + item.value;
     }
     if (input.oauth) {
@@ -99,11 +101,11 @@ function createAddonServices({ store, directory, downloadsPath, safeStorage, she
         const key = 'credential:' + args.profile;
         if (method === 'credentials.status') {
           if (!vault.available()) return { configured: false, secureStorage: false };
-          const item = await vault.get(id, key); return { configured: !!item && item.config === JSON.stringify(config) && (!item.expiresAt || item.expiresAt > Date.now()), secureStorage: true, expiresAt:item?.expiresAt||null };
+          const item = await vault.get(id, key); return { configured: !!item && item.config === credentialConfiguration(config) && (!item.expiresAt || item.expiresAt > Date.now()), secureStorage: true, expiresAt:item?.expiresAt||null };
         }
         if (method === 'credentials.disconnect') { await vault.set(id, key, null); return; }
         if (method !== 'credentials.configure' || !credentialDialog || !vault.available()) throw new Error((globalThis.noctuneI18n?.t("extensions.services.secureInputUnavailable", {}) ?? "Защищённый ввод недоступен"));
-        return credentialDialog.open(id, { addon: pkg.manifest.name, profile:args.profile, ...config }, async ({value,expiresAt}) => { await store.context(id, hash, 'credentials.configure'); await vault.set(id, key, { config: JSON.stringify(config), value, expiresAt }); });
+        return credentialDialog.open(id, { addon: pkg.manifest.name, profile:args.profile, ...config }, async ({value,expiresAt}) => { await store.context(id, hash, 'credentials.configure'); await vault.set(id, key, { config: credentialConfiguration(config), value, expiresAt }); });
       }
       if (method === 'settings.get') return store.settings(id);
       if (method.startsWith('oauth.')) {

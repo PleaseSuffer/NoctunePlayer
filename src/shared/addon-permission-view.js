@@ -1,6 +1,7 @@
 (function () {
     const notes = {
-        downloads: (globalThis.noctuneI18n?.t("permissions.downloads.description") ?? "Сохранение полного MP3 по заявленным HTTPS-маршрутам. Выбранную папку подтверждает пользователь. Существующие файлы не перезаписываются."),
+        interface: (globalThis.noctuneI18n?.t('permissions.interface.description') ?? 'Карточка интеграции, уведомления и команды горячих клавиш. Каждое действие требует указанного ниже права. Сочетания клавиш назначает пользователь.'),
+        downloads: (globalThis.noctuneI18n?.t("permissions.downloads.description") ?? "Сохранение аудио, изображений и текстов по заявленным HTTPS-маршрутам или готового текста. Папку выбирает пользователь. Существующие файлы не перезаписываются."),
         servicePlaylists: (globalThis.noctuneI18n?.t("permissions.servicePlaylists.description") ?? "Операции с плейлистами аккаунта на сервере. Сетевые маршруты проверяются отдельно; права самого сервиса также обязательны."),
         credentials: (globalThis.noctuneI18n?.t("permissions.credentials.description") ?? "Только заявленные профили этого расширения. Форма ввода и подстановка ключа работают в плеере; право использования не выдаёт значение коду расширения."),
         appearance: (globalThis.noctuneI18n?.t("permissions.appearance.description") ?? "Режим и семантические цвета интерфейса. Временные изменения снимаются при остановке; сохранение требует отдельного права."),
@@ -24,7 +25,7 @@
     function element(tag, className, text) {
         const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node;
     }
-    const icons = { catalog:'Library',servicePlaylists:'ListMusic',ui:'PanelsTopLeft',credentials:'KeyRound',appearance:'Palette',artwork:'Image',lyrics:'Text',hotkeys:'Keyboard',storage: 'Database', notifications: 'Bell', settings: 'Settings2', playback: 'Music2', events: 'Activity', queue: 'ListMusic', playlists: 'Library', themes: 'Palette', backgrounds: 'Image', audio: 'AudioLines', providers: 'Radio', network: 'Globe', oauth: 'LogIn', secrets: 'KeyRound', files: 'Folder', clipboard: 'Clipboard', system: 'Monitor' };
+    const icons = { downloads:'Download', catalog:'Library',servicePlaylists:'ListMusic',ui:'PanelsTopLeft',credentials:'KeyRound',appearance:'Palette',artwork:'Image',lyrics:'Text',hotkeys:'Keyboard',storage: 'Database', notifications: 'Bell', settings: 'Settings2', playback: 'Music2', events: 'Activity', queue: 'ListMusic', playlists: 'Library', themes: 'Palette', backgrounds: 'Image', audio: 'AudioLines', providers: 'Radio', network: 'Globe', oauth: 'LogIn', secrets: 'KeyRound', files: 'Folder', clipboard: 'Clipboard', system: 'Monitor' };
     function icon(name, className) {
         const shape = window.lucide?.icons?.[name];
         const node = shape ? window.lucide.createElement(shape, { 'aria-hidden': 'true' }) : element('span');
@@ -78,7 +79,8 @@
                 details.dataset.namespace = group.namespace;
                 const heading = element('span', 'permission-group-heading'), title = element('span', 'permission-group-title');
                 title.append(element('span', 'permission-group-name', group.title));
-                heading.append(title, element('code', '', `[${group.namespace}${group.full ? '.*' : ''}]`));
+                heading.append(title);
+                if (!group.displayOnly) heading.append(element('code', '', `[${group.namespace}${group.full ? '.*' : ''}]`));
                 summary.append(icon(icons[group.namespace], 'permission-group-icon'), heading);
                 const badge = element('span', 'permission-access-badge', group.full ? (globalThis.noctuneI18n?.t("addonPermissionView.fullAccess", {}) ?? "Полный доступ") : (globalThis.noctuneI18n?.t("addonPermissionView.partialAccess", {p0: (group.used.length), p1: (group.total)}) ?? "Частичный доступ · {p0}/{p1}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (group.used.length), p1: (group.total)})[k] ?? "{"+k+"}")));
                 title.append(badge);
@@ -86,7 +88,8 @@
                 summary.append(icon('ChevronDown', 'addon-disclosure-chevron'));
                 details.append(summary);
                 const content = element('div', 'permission-group-content');
-                if (notes[group.namespace]) content.append(element('p', 'permission-description', notes[group.namespace]));
+                const note = notes[group.displayOnly ? 'interface' : group.namespace];
+                if (note) content.append(element('p', 'permission-description', note));
                 const children = element('ul', 'permission-children');
                 for (const permission of group.used) {
                     const child = element('li', added.has(permission) ? 'is-new' : '');

@@ -21,6 +21,8 @@ if (process.argv.includes('--full-app')) {
     fullAppWindow = new Promise(resolve => app.on('browser-window-created', (_event, win) => win.webContents.on('did-finish-load', () => {
         if (win.webContents.getURL().endsWith('/src/renderer/index.html')) resolve(win);
     })));
+    const scenes=require('../src/main/scene-themes'),createStore=scenes.createSceneThemeStore;
+    scenes.createSceneThemeStore=options=>createStore({...options,directory:()=>path.join(userData,'themes/user'),userThemesDirectory:path.join(userData,'themes/sources'),builtinDirectory:path.join(root,'themes/official')});
     require('../src/main/index.js');
 }
 app.whenReady().then(async () => {
@@ -104,7 +106,7 @@ app.whenReady().then(async () => {
         })()`);
         assert.ok(Object.values(modes).every(Boolean),'recent images remain visible and switch modes, scene resumes, background toggle disables scene');
         const recentLimit=await win.webContents.executeJavaScript(`(async()=>{
-            const gallery=await noctune.sceneThemes.list(),paths=[...gallery.presets.map(p=>p.path),...${JSON.stringify(['02-night-hill','03-rain-window','05-obsessed-over-camera'].map(id=>path.join(root,'themes/builtin',id,'assets/preview.png')))}];
+            const gallery=await noctune.sceneThemes.list(),paths=[...gallery.presets.map(p=>p.path),...${JSON.stringify(['02-night-hill','03-rain-window','05-obsessed-over-camera'].map(id=>path.join(root,'themes/official',id,'assets/preview.png')))}];
             for(const path of paths){backgroundSettings.select(path);const end=Date.now()+8000;while(JSON.parse(appStorage.getItem('setting_bg_recent_list')||'[]')[0]?.path!==path&&Date.now()<end)await new Promise(r=>setTimeout(r,30));}
             const list=JSON.parse(appStorage.getItem('setting_bg_recent_list')||'[]');
             await sceneThemes.activate(gallery.themes[0]);return {length:list.length,newest:list[0].path,last:paths.at(-1)};
@@ -155,7 +157,7 @@ app.whenReady().then(async () => {
         await win.loadFile(harnessFile);
         const sdk = await fs.readFile(path.join(root, 'src/renderer/effects/scene-sdk.js'), 'utf8');
         const definitions = [];
-        for (const [id, directory] of [['builtin-rain-window', 'themes/builtin/03-rain-window'], ['builtin-night-hill', 'themes/builtin/02-night-hill'], ['builtin-obsessed-over-camera', 'themes/builtin/05-obsessed-over-camera']]) {
+        for (const [id, directory] of [['builtin-rain-window', 'themes/official/03-rain-window'], ['builtin-night-hill', 'themes/official/02-night-hill'], ['builtin-obsessed-over-camera', 'themes/official/05-obsessed-over-camera']]) {
             const pkg = await packDirectory(path.join(root, directory));
             definitions.push({ id, pkg: { ...pkg, sdk }, metadata: { ...pkg.manifest, id, builtin: id.startsWith('builtin'), preview: pkg.assets.preview } });
         }
@@ -204,7 +206,7 @@ app.whenReady().then(async () => {
                     api.begin({width:1920,height:1080,dpr:1,dt:0,time:0,motion:false,lighting:{intensity:1},audio:{spectrum:[],sampleRate:44100,playing:false,enabled:false,intensity:1}});__noctuneScene.render(api,{});
                     const thumb=document.createElement('canvas');thumb.width=320;thumb.height=180;thumb.getContext('2d').drawImage(canvas,0,0,320,180);return {thumb:thumb.toDataURL('image/png').slice(22),full:canvas.toDataURL('image/png').slice(22)};
                 })()`);
-                if(process.argv.includes('--update-previews'))await fs.writeFile(path.join(root,'themes/builtin',def.pkg.manifest.id,'assets/preview.png'),Buffer.from(preview.thumb,'base64'));
+                if(process.argv.includes('--update-previews'))await fs.writeFile(path.join(root,'themes/official',def.pkg.manifest.id,'assets/preview.png'),Buffer.from(preview.thumb,'base64'));
                 if(process.argv.includes('--update-backgrounds')&&['02-night-hill','03-rain-window'].includes(def.pkg.manifest.id))await fs.writeFile(path.join(root,'themes/backgrounds',def.pkg.manifest.id+'.png'),Buffer.from(preview.full,'base64'));
             }
             const rendered = await frame.executeJavaScript(`(async()=>{

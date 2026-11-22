@@ -6,3 +6,9 @@
 #error { color: #fda4af; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 #error:empty { display: none; }
 footer { flex-shrink: 0; }
+#help-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+#help-links:empty { display: none; }
+#help-links button { padding: 9px 12px; font-size: 12px; }
+#expiry-preview { margin: 0; }
+#expiry-preview:empty { display: none; }
+#expiry-preview.invalid { color: #fda4af; }

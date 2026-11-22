@@ -9,7 +9,7 @@ const { createThemeInstaller } = require('../../src/main/theme-installer');
     const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-install-window-'));
     try {
         const file = path.join(temporary, 'theme.noctheme');
-        const theme = await packDirectory(path.resolve('themes/builtin/03-rain-window'));
+        const theme = await packDirectory(path.resolve('themes/official/03-rain-window'));
         const handlers = new Map(), windows = [], installed = [];
         const waitForWindow = async count => {for(let i=0;i<300&&windows.length<count;i++)await new Promise(resolve=>setTimeout(resolve,10));assert.equal(windows.length,count);};
         class Window extends EventEmitter {

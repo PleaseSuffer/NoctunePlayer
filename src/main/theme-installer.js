@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { readPackage } = require('./scene-themes');
+const { readPackage, validatePackage } = require('./scene-themes');
 
 function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
     const sessions = new Map();
@@ -36,9 +36,10 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
         if (!entry.installing) entry.window.close();
     });
     return {
-        async open(file) {
+        async open(file) { return this.openPackage(await readPackage(file)); },
+        async openPackage(value) {
             // Preview the validated snapshot only; scene code runs only after the user selects an installed theme.
-            const theme = await readPackage(file);
+            const theme = validatePackage(JSON.parse(JSON.stringify(value)));
             return new Promise((resolve, reject) => {
                 const window = new BrowserWindow({
                     title: (globalThis.noctuneI18n?.t("themeInstall.installThemeNoctune", {}) ?? "Установка темы — Noctune"), width: 640, height: 740,

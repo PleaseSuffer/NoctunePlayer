@@ -40,7 +40,7 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
   }
   async function read(id, entry, hash = entry.current) {
     const pkg = await p.readPackage(packagePath(id, hash));
-    if (pkg.manifest.id !== id || digest(pkg) !== hash || p.signingIdentity(pkg) !== entry.publisher) throw new Error((globalThis.noctuneI18n?.t("extensions.store.installedExtensionContentHasChanged", {}) ?? "Содержимое установленного расширения изменено"));
+    if (pkg.manifest.id !== id || digest(pkg) !== hash || p.signingIdentity(pkg) !== (hash === entry.previous ? entry.previousPublisher ?? entry.publisher : entry.publisher)) throw new Error((globalThis.noctuneI18n?.t("extensions.store.installedExtensionContentHasChanged", {}) ?? "Содержимое установленного расширения изменено"));
     return pkg;
   }
   function details(pkg, extra = {}) {
@@ -50,13 +50,15 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
   function validateInstall(pkg, current, existing) {
     if (!p.compatible(pkg.manifest, appVersion)) throw new Error((globalThis.noctuneI18n?.t("extensions.store.extensionIsIncompatibleWithNoctune", {p0: (appVersion)}) ?? "Расширение несовместимо с Noctune {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (appVersion)})[k] ?? "{"+k+"}")));
     if (!existing) return;
-    if (existing.publisher !== p.signingIdentity(pkg)) throw new Error((globalThis.noctuneI18n?.t("extensions.store.publisherDiffersFromTheInstalledExtension", {}) ?? "Издатель не совпадает с установленным расширением"));
+    if (existing.publisher !== p.signingIdentity(pkg) && !verifiedPublisher.canRotate(pkg.manifest.id, existing.publisher, p.signingIdentity(pkg))) throw new Error((globalThis.noctuneI18n?.t("extensions.store.publisherDiffersFromTheInstalledExtension", {}) ?? "Издатель не совпадает с установленным расширением"));
     if (digest(pkg) === existing.current) return;
     if (pkg.manifest.revision <= existing.maxRevision || p.compareVersions(pkg.manifest.version, current.manifest.version) < 0) throw new Error((globalThis.noctuneI18n?.t("extensions.install.revisionConflict", {}) ?? "Установлена такая же или более новая ревизия; для возврата используйте откат"));
   }
   async function prepare(pkg, source = 'file') {
     pkg = p.validatePackage(JSON.parse(JSON.stringify(pkg)));
-    if (source !== 'file') p.signingIdentity(pkg, true);
+    // Community catalog packages are pinned by the separately verified curator index.
+    // This internal source is never accepted from renderer IPC or arbitrary URLs.
+    if (source !== 'file' && source !== 'community-catalog') p.signingIdentity(pkg, true);
     const state = await registry(), existing = state.installed[pkg.manifest.id];
     if (!existing && Object.keys(state.installed).length >= 32) throw new Error((globalThis.noctuneI18n?.t("extensions.store.atMost32ExtensionsCanBeInstalled", {}) ?? "Можно установить не более 32 расширений"));
     const current = existing ? await read(pkg.manifest.id, existing) : null;
@@ -65,6 +67,7 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
     if (pending.size >= 64) throw new Error((globalThis.noctuneI18n?.t("extensions.store.closePreviousInstallationPreviews", {}) ?? "Закройте предыдущие предложения установки"));
     const ticket = crypto.randomUUID();
     const preview = { ticket, ...details(pkg), grants: permissions.expand(pkg.manifest.permissions), source, state: existing ? digest(pkg) === existing.current ? 'installed' : 'update' : 'install', installedVersion: current?.manifest.version,
+      publisherRotation: existing && existing.publisher !== p.signingIdentity(pkg) ? {from:existing.publisher,to:p.signingIdentity(pkg)} : null,
       addedPermissions: permissions.expand(pkg.manifest.permissions).filter(value => !(existing?.grants || permissions.expand(current?.manifest.permissions || [])).includes(value)),
       addedOrigins: (pkg.manifest.network?.origins || []).filter(value => !current?.manifest.network?.origins.includes(value)),
     };
@@ -106,7 +109,7 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
       if (!item || item.expires < Date.now()) throw new Error((globalThis.noctuneI18n?.t("extensions.store.installationPreviewExpiredSelectThePackageAgain", {}) ?? "Предложение установки истекло. Выберите пакет снова"));
       return JSON.parse(JSON.stringify(item.preview));
     },
-    confirm(ticket) {
+    confirm(ticket, acceptPublisherRotation = false) {
       return serial(async () => {
         const item = pending.get(ticket);
         if (!item || item.expires < Date.now()) throw new Error((globalThis.noctuneI18n?.t("extensions.store.installationPreviewExpiredSelectThePackageAgain", {}) ?? "Предложение установки истекло. Выберите пакет снова"));
@@ -115,10 +118,11 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
         if ((existing?.current ?? null) !== item.base) throw new Error((globalThis.noctuneI18n?.t("extensions.store.extensionHasAlreadyChangedRetryInstallation", {}) ?? "Расширение уже изменилось. Повторите установку"));
         const current = existing ? await read(id, existing) : null;
         validateInstall(pkg, current, existing);
+        if (existing && existing.publisher !== p.signingIdentity(pkg) && acceptPublisherRotation !== true) throw new Error(globalThis.noctuneI18n?.t("rotation.required") ?? "Подтвердите смену ключа издателя");
         const hash = digest(pkg);
         if (hash !== existing?.current) {
           await atomic(packagePath(id, hash), pkg);
-          state.installed[id] = { current: hash, previous: existing?.current ?? null, grants: permissions.expand(pkg.manifest.permissions), previousGrants: existing?.grants || permissions.expand(current?.manifest.permissions || []), publisher: p.signingIdentity(pkg), maxRevision: pkg.manifest.revision, enabled: existing?.enabled === true };
+          state.installed[id] = { current: hash, previous: existing?.current ?? null, previousPublisher: existing?.publisher ?? null, grants: permissions.expand(pkg.manifest.permissions), previousGrants: existing?.grants || permissions.expand(current?.manifest.permissions || []), publisher: p.signingIdentity(pkg), maxRevision: pkg.manifest.revision, enabled: existing?.enabled === true };
           await save(state);
         }
         pending.delete(ticket);
@@ -149,7 +153,7 @@ function createAddonStore({ directory, appVersion, fetchText = defaultFetch }) {
         if (!entry?.previous) throw new Error((globalThis.noctuneI18n?.t("extensions.store.previousVersionUnavailable", {}) ?? "Предыдущая версия отсутствует"));
         const pkg = await read(id, entry, entry.previous);
         if (!p.compatible(pkg.manifest, appVersion)) throw new Error((globalThis.noctuneI18n?.t("extensions.store.previousVersionIsIncompatibleWithNoctune", {}) ?? "Предыдущая версия несовместима с Noctune"));
-        entry.current = entry.previous; entry.previous = null; entry.grants = entry.previousGrants || []; delete entry.previousGrants;
+        entry.publisher = p.signingIdentity(pkg); delete entry.previousPublisher; entry.current = entry.previous; entry.previous = null; entry.grants = entry.previousGrants || []; delete entry.previousGrants;
         await save(state);
         return details(pkg);
       });

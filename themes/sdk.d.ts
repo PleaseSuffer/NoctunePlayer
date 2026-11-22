@@ -40,6 +40,8 @@ declare namespace NoctuneScene {
         safeArea: Rect | null;
         /** Viewport-normalized cursor (-1..1). Optional on older hosts; inactive outside the window. */
         pointer?: { x: number; y: number; active: boolean };
+        /** Media seconds, independent of scene motion/FFT. Null for missing media or radio; optional on older hosts. */
+        playback?: { position: number | null; duration: number | null; playing: boolean; live: boolean };
         audio: Audio;
     }
     type Surface = HTMLCanvasElement | OffscreenCanvas;

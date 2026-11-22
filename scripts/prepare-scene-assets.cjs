@@ -8,7 +8,7 @@ app.whenReady().then(async()=>{
     const [sky,outside]=process.argv.slice(2);
     if(!sky||!outside)throw new Error('Provide the two imagegen output paths');
     for(const [id,replacement] of [['02-night-hill',sky],['03-rain-window',outside]]){
-        const dir=path.join(root,'themes/builtin',id),manifestPath=path.join(dir,'manifest.json');
+        const dir=path.join(root,'themes/official',id),manifestPath=path.join(dir,'manifest.json');
         const manifest=JSON.parse(await fs.readFile(manifestPath,'utf8'));
         for(const [key,relative] of Object.entries(manifest.assets)){
             if(key==='preview')continue;

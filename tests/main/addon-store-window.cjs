@@ -14,7 +14,7 @@ const { createAddonStoreWindow } = require('../../src/main/addons/store-window')
     await shop.open({theme:'light',accent:'invalid'});
     let window=windows[0]; const event=()=>({sender:window.webContents,senderFrame:window.webContents.mainFrame});
     assert.equal(window.options.webPreferences.sandbox,true);assert.equal(window.options.webPreferences.nodeIntegration,false);assert.equal(window.options.webPreferences.contextIsolation,true);
-    assert.deepEqual(window.query,{theme:'light',accent:'#ac91ee'});
+    assert.deepEqual(window.query,{theme:'light',accent:'#ac91ee',section:'extensions'});
     shop.open();assert.equal(windows.length,1);assert(window.focused);assert.deepEqual(window.sent,['addon-store:refresh']);
     for(const handler of handlers.values()) {
         await assert.rejects(async()=>handler({sender:{},senderFrame:window.webContents.mainFrame}),/Недоступно/);

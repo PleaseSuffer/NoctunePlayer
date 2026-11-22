@@ -53,6 +53,13 @@ addonInstaller.details().then(addon => {
     document.getElementById('publisher-details').hidden = !addon.publisher;
     if (addon.publisher) text('publisher', addon.publisher);
     text('activation-note', state === 'install' ? (globalThis.noctuneI18n?.t("extensions.install.enableHint", {}) ?? "После установки расширение появится в настройках. Включите его в карточке, когда будете готовы.") : state === 'update' ? (globalThis.noctuneI18n?.t("extensions.install.updateHint", {}) ?? "Настройки расширения сохранятся. При необходимости вы сможете вернуть предыдущую версию.") : (globalThis.noctuneI18n?.t("addonInstall.app.thisExtensionVersionIsAlreadyInstalled", {}) ?? "Эта версия расширения уже установлена."));
+    if (addon.publisherRotation) {
+        const row=document.createElement('label'); row.className='consent';
+        const check=document.createElement('input');check.type='checkbox';check.id='publisher-rotation-consent';
+        const label=document.createElement('span');label.textContent=globalThis.noctuneI18n?.t('rotation.consent') ?? 'Подтверждаю переход на новый ключ издателя Noctune';
+        row.append(check,label);document.getElementById('consent-row').before(row);
+        const fingerprints=document.createElement('p');fingerprints.className='permission-description';fingerprints.textContent=addon.publisherRotation.from+' → '+addon.publisherRotation.to;row.after(fingerprints);
+    }
     document.getElementById('consent-row').hidden = state === 'installed';
     text('consent-label', state === 'update' ? (globalThis.noctuneI18n?.t("addonInstall.app.allowTheUpdateWithTheListedAccess", {}) ?? "Разрешить обновление с указанным доступом") : (globalThis.noctuneI18n?.t("addonInstall.iTrustTheAuthorAndAllowTheListedAccess", {}) ?? "Доверяю автору и разрешаю указанный доступ"));
     if (state === 'installed') cancel.textContent = (globalThis.noctuneI18n?.t("player.interface.close", {}) ?? "Закрыть");
@@ -63,7 +70,9 @@ install.addEventListener('click', async () => {
     loading = true; install.disabled = cancel.disabled = consent.disabled = true;
     install.textContent = state === 'update' ? (globalThis.noctuneI18n?.t("addonInstall.app.updating", {}) ?? "Обновление…") : (globalThis.noctuneI18n?.t("addonInstall.app.installing", {}) ?? "Установка…"); status.textContent = '';
     try {
-        const result = await addonInstaller.install();
+        const rotation=document.getElementById('publisher-rotation-consent');
+        if(rotation && !rotation.checked) throw new Error(globalThis.noctuneI18n?.t('rotation.required') ?? 'Подтвердите смену ключа издателя');
+        const result = await addonInstaller.install(rotation?.checked === true);
         if (!result.ok) throw new Error(result.error);
         if (result.installed) { state = 'installed'; cancel.textContent = (globalThis.noctuneI18n?.t("player.interface.close", {}) ?? "Закрыть"); }
     } catch (error) { status.textContent = error.message || (globalThis.noctuneI18n?.t("extensions.installer.couldNotInstallExtension", {}) ?? "Не удалось установить расширение"); }

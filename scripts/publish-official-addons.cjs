@@ -29,6 +29,10 @@ async function publishOfficialAddons({ root = path.resolve(__dirname, '..'), pri
         catch (error) { if (error.code!=='ENOENT') throw error; }
         const entry = Object.fromEntries(CATALOG_FIELDS.filter(field=>m[field]!==undefined).map(field=>[field,m[field]]));
         Object.assign(entry,{publisher:fingerprint,sha256,published:true,packageUrl:'https://raw.githubusercontent.com/PleaseSuffer/NoctunePlayer/main/'+relative,artwork:{}});
+        entry.localized = Object.fromEntries(['ru','en'].map(locale=>{
+            const display=require('../src/shared/addon-localization').manifest(m,locale,pkg.files);
+            return [locale,{name:display.name,description:display.description}];
+        }));
         for (const kind of ['icon','banner']) if (m[kind]) entry.artwork[kind]={mime:'image/png',data:await thumbnail(Buffer.from(pkg.files[m[kind]].data,'base64'),kind==='icon'?128:640)};
         entries.push(entry);packages.push({output,bytes});
     }
