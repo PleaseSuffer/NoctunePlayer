@@ -148,7 +148,11 @@
           "appearance.list",
           "appearance.select",
           "backgrounds.override",
-          "audio.gain"
+          "audio.gain",
+          "ui.elements",
+          "notifications.dismiss",
+          "hotkeys.list",
+          "hotkeys.unregister"
         ]
       }
     },

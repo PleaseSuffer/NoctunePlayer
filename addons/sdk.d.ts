@@ -78,6 +78,8 @@ interface NoctuneAddonApi {
         status(args:{id:string}):Promise<DownloadJob>;
         cancel(args:{id:string}):Promise<DownloadJob>;
     };
+    ui: {set(args:{id:string;label:string;value:string;progress?:number}):Promise<void>;remove(args:{id:string}):Promise<boolean>};
+    notifications: {show(message:string,options?:{key?:string}):Promise<void>;dismiss(args:{key:string}):Promise<boolean>};
     notify(message: string, options?: {key?: string}): Promise<void>;
     player: {
         current(): Promise<TrackState>; play(options?: TrackContext & { trackId?: string }): Promise<void>;
@@ -129,7 +131,7 @@ interface NoctuneAddonApi {
         provide(source:{id:string;resolve(track:{title:string;artist:string;album:string;duration:number;sessionId:string|null}):Promise<{status:'found';url:string}|{status:'missing'|'error'}>|{status:'found';url:string}|{status:'missing'|'error'}}):Promise<void>;
     };
     lyrics:{read(context?:TrackContext):Promise<AddonLyrics>;provide(source:{id:string;resolve(track:{title:string;artist:string;album:string;duration:number;sessionId:string|null}):Promise<AddonLyrics>|AddonLyrics}):Promise<void>};
-    hotkeys:{register(args:{command:string}):Promise<void>};
+    hotkeys:{register(args:{command:string}):Promise<void>;list():Promise<Array<{command:string;title:string}>>;unregister(args:{command:string}):Promise<boolean>};
     themes: { /** Temporary accent overlay, automatically released on disable/error. null releases this owner's overlay. */ accent(args: { color: string | null }): Promise<void>; list(): Promise<{ id: string; name: string; parameters: Record<string, unknown> }[]>; switch(args: TrackContext & { id: string | null }): Promise<void>; apply(args: TrackContext & { parameters?: Record<string, unknown>; palette?: { accent: string; gradient: [string, string, string] } }): Promise<void> };
     backgrounds: { list(): Promise<{ id: string; name: string; video: boolean }[]>; switch(args: TrackContext & { id: string }): Promise<void>; override(args:TrackContext&{id:string|null}):Promise<void>; apply(args: TrackContext & { enabled?: boolean; fit?: 'cover' | 'contain' | 'fill'; blur?: number; threshold?: number }): Promise<void> };
     audio: {

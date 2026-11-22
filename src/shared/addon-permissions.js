@@ -4,6 +4,10 @@
     else root.AddonPermissions = api;
 })(globalThis, function () {
     const labels = {
+        'ui.elements': globalThis.noctuneI18n?.t('permissions.ui.elements') ?? 'Собственные информационные блоки и прогресс',
+        'notifications.dismiss': globalThis.noctuneI18n?.t('permissions.notifications.dismiss') ?? 'Закрытие собственных уведомлений',
+        'hotkeys.list': globalThis.noctuneI18n?.t('permissions.hotkeys.list') ?? 'Список собственных зарегистрированных команд',
+        'hotkeys.unregister': globalThis.noctuneI18n?.t('permissions.hotkeys.unregister') ?? 'Удаление собственных команд горячих клавиш',
         'i18n.register': (globalThis.noctuneI18n?.t('language.permission') ?? 'Добавление языковых пакетов интерфейса'),
         'playlists.addTracks': (globalThis.noctuneI18n?.t("addonPermissions.addTracksToALocalPlaylist") ?? "Добавление треков в локальный плейлист"),
         'playlists.removeTracks': (globalThis.noctuneI18n?.t("addonPermissions.removeTrackEntriesFromALocalPlaylist") ?? "Удаление вхождений треков из локального плейлиста"),
@@ -76,11 +80,9 @@
     function grouped(values, approved) {
         const granted = approved || expand(values), result = [];
         for (const [namespace, title] of Object.entries(namespaces)) {
-            if (['hotkeys', 'notifications'].includes(namespace)) continue;
-            const interfaceGroup = namespace === 'ui';
-            const all = Object.keys(labels).filter(key => interfaceGroup ? /^(ui|hotkeys|notifications)\./.test(key) : key.startsWith(namespace + '.'));
+            const all = Object.keys(labels).filter(key => key.startsWith(namespace + '.'));
             const used = all.filter(key => granted.includes(key));
-            if (used.length) result.push({ namespace, title: interfaceGroup ? (globalThis.noctuneI18n?.t('permissions.interface.title') ?? 'Взаимодействие с интерфейсом') : title, full: used.length === all.length, used, total: all.length, ...(interfaceGroup ? { displayOnly: true } : {}) });
+            if (used.length) result.push({ namespace, title, full: used.length === all.length, used, total: all.length });
         }
         return result;
     }

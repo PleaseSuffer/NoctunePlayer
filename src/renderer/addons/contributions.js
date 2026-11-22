@@ -169,6 +169,7 @@
             if(hadArtwork)document.dispatchEvent(new Event('addon-artwork-sources-changed'));
         },
         async invoke(owner, hash, method, args, context) {
+            if(method.startsWith('hotkeys.')&&!context.grants?.has(method))throw new Error((globalThis.noctuneI18n?.t('extensions.host.permissionMissing') ?? 'Нет разрешения: ')+method);
             if(args.sessionId!==undefined&&args.sessionId!==window.addonEvents.snapshot().sessionId)throw new Error((globalThis.noctuneI18n?.t("extensions.contributions.trackSessionHasChanged", {}) ?? "Сеанс трека уже изменился"));
             if (method.startsWith('appearance.')) {
                 const action = method.split('.')[1];
@@ -238,6 +239,14 @@
                 const image=window.addonLyrics?.artwork(); if (!image || !/^data:image\/(png|jpeg|webp);base64,/.test(image)) return null;
                 const bitmap = new Image(); bitmap.src = image; await bitmap.decode();
                 try { if(sessionId!==window.addonEvents.snapshot().sessionId)throw new Error((globalThis.noctuneI18n?.t("extensions.contributions.trackSessionHasChanged", {}) ?? "Сеанс трека уже изменился")); const canvas=document.createElement('canvas'),scale=Math.min(1,256/Math.max(bitmap.width,bitmap.height));canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);return {sessionId,dataUrl:canvas.toDataURL('image/png'),width:canvas.width,height:canvas.height}; } finally {bitmap.src='';}
+            }
+            if (method === 'hotkeys.list') {
+                if(!context.grants.has('hotkeys.list')) throw new Error('Permission denied: hotkeys.list');
+                return [...hotkeys.values()].filter(item=>item.owner===owner).map(item=>({command:item.key.slice(('addon:'+owner+':').length),title:item.title}));
+            }
+            if (method === 'hotkeys.unregister') {
+                if(!context.grants.has('hotkeys.unregister')||!context.manifest.commands.some(command=>command.id===args.command))throw new Error('Permission denied: hotkeys.unregister');
+                const removed=hotkeys.delete('addon:'+owner+':'+args.command);document.dispatchEvent(new Event('addon-contributions-changed'));return removed;
             }
             if (method === 'hotkeys.register') {
                 if (!context.manifest.commands.some(command=>command.id===args.command)) throw new Error((globalThis.noctuneI18n?.t("extensions.contributions.aCommandFromTheManifestIsRequired", {}) ?? "Нужна команда из manifest"));

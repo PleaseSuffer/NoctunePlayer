@@ -1,0 +1,37 @@
+const {app,BrowserWindow}=require('electron'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..'),profile=fs.mkdtempSync(path.join(os.tmpdir(),'noctune-interface-native-'));
+app.setPath('userData',profile);BrowserWindow.prototype.show=function(){};BrowserWindow.prototype.showInactive=function(){};
+const {protocol}=require('electron');
+const schemes=[{scheme:'noctune-stream',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true}}];
+protocol.registerSchemesAsPrivileged(schemes);
+protocol.registerSchemesAsPrivileged=value=>assert.deepEqual(value,schemes);
+let main;const windows=[];app.on('browser-window-created',(_event,window)=>windows.push(window));
+const wait=async fn=>{for(let i=0;i<300;i++){try{if(await fn())return;}catch(_){}await new Promise(r=>setTimeout(r,50));}throw Error('Interface probe timeout');};
+const run=code=>main.webContents.executeJavaScript(code);
+(async()=>{
+ const {createAddonStore}=require('../src/main/addons/store');const store=createAddonStore({directory:path.join(profile,'addons'),appVersion:'1.4.1'});
+ const pkg={format:'noctune-addon',formatVersion:1,manifest:{id:'interface-probe',name:'Interface probe',description:'Native SDK test',author:'Tests',version:'1.0.0',revision:1,apiVersion:1,minNoctuneVersion:'1.4.1',type:'extension',entry:'main.js',permissions:['ui.elements','notifications.show','notifications.dismiss','hotkeys.register','hotkeys.list','hotkeys.unregister'],commands:[{id:'probe',title:'Probe'}]},files:{'main.js':`NoctuneAddon.define(async api=>{api.onCommand('probe',async()=>{
+ await api.ui.set({id:'status',label:'SDK status',value:'<img src=x onerror=alert(1)>',progress:0.5});
+ await api.notifications.show('SDK notification',{key:'probe'});
+ if(!await api.notifications.dismiss({key:'probe'}))throw Error('Notification not dismissed');
+ await api.hotkeys.register({command:'probe'});
+ const keys=await api.hotkeys.list();if(keys.length!==1||keys[0].command!=='probe')throw Error('Wrong own hotkeys');
+ if(!await api.hotkeys.unregister({command:'probe'}))throw Error('Hotkey not removed');
+ });});`}};
+ await store.confirm((await store.preparePackage(pkg)).ticket);await store.setEnabled('interface-probe',true);
+ const scenes=require('../src/main/scene-themes'),create=scenes.createSceneThemeStore;
+ scenes.createSceneThemeStore=options=>create({...options,directory:()=>path.join(profile,'themes'),userThemesDirectory:path.join(profile,'source-themes'),builtinDirectory:path.join(profile,'absent')});
+ require('../src/main/index');
+ await wait(()=>{main=windows.find(window=>!window.isDestroyed()&&window.webContents.getURL().endsWith('/renderer/index.html'));return main&&!main.webContents.isLoading()&&run(`!!window.addonHost && !!document.querySelector('#addons-list [data-addon-id="interface-probe"]')`);});
+ await wait(()=>run(`window.addonHost.command('interface-probe','probe').then(()=>true)`));
+ assert.equal(await run(`document.querySelector('[data-addon-elements="interface-probe"] span').textContent`),'<img src=x onerror=alert(1)>');
+ assert.equal(await run(`document.querySelector('[data-addon-elements="interface-probe"] progress').value`),0.5);
+ assert.equal(await run(`!!document.querySelector('[data-addon-elements="interface-probe"] img')`),false);
+ for(const group of ['ui','notifications','hotkeys'])assert.equal(await run(`!!document.querySelector('#addons-list [data-addon-id="interface-probe"] [data-namespace="${group}"]')`),true);
+ await run(`noctune.addons.setEnabled('interface-probe',false)`);
+ await run(`window.addonHost.refresh()`);
+ assert.equal(await run(`!!document.querySelector('[data-addon-elements="interface-probe"]')`),false);
+ console.log('PASS: real Worker SDK bridge, safe UI/progress, own notification dismissal, hotkey list/unregister, separate permission cards and stop cleanup.');
+ if(process.env.NOCTUNE_TEST_CLEANUP)fs.writeFileSync(process.env.NOCTUNE_TEST_CLEANUP,JSON.stringify([profile]));app.exit(0);
+})().catch(error=>{console.error(error);if(process.env.NOCTUNE_TEST_CLEANUP)fs.writeFileSync(process.env.NOCTUNE_TEST_CLEANUP,JSON.stringify([profile]));app.exit(1);});
+setTimeout(()=>app.exit(1),45000);

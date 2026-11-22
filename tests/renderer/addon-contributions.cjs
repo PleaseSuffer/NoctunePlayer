@@ -81,7 +81,14 @@ const api=context.addonContributions;
     await provide('stale-cover',()=>new Promise(resolve=>{finishCover=resolve;}));
     const oldCover=api.artwork({title:'Old'});await Promise.resolve();api.cleanup('stale-cover');finishCover({status:'found',url:'https://images.example.com/old.png'});
     assert.equal(await oldCover,null);assert.equal(fetched.length,1,'disabled source cannot initiate a late download');
-    await api.invoke('keys','','hotkeys.register',{command:'show-state'},{manifest:{name:'Demo',commands:[{id:'show-state',title:'Show state'}]}});assert.equal(api.hotkeys()[0].id,'addon:keys:show-state');api.cleanup('keys');assert.equal(api.hotkeys().length,0);
+    const keyContext={manifest:{name:'Demo',commands:[{id:'show-state',title:'Show state'}]},grants:new Set(['hotkeys.register','hotkeys.list','hotkeys.unregister'])};
+    await api.invoke('keys','','hotkeys.register',{command:'show-state'},keyContext);assert.equal(api.hotkeys()[0].id,'addon:keys:show-state');
+    assert.equal((await api.invoke('other','','hotkeys.list',{},keyContext)).length,0);
+    assert.equal((await api.invoke('keys','','hotkeys.list',{},keyContext))[0].command,'show-state');
+    await assert.rejects(api.invoke('keys','','hotkeys.unregister',{command:'show-state'},{...keyContext,grants:new Set()}));
+    assert.equal(await api.invoke('other','','hotkeys.unregister',{command:'show-state'},keyContext),false);
+    assert.equal(await api.invoke('keys','','hotkeys.unregister',{command:'show-state'},keyContext),true);assert.equal(api.hotkeys().length,0);
+    await api.invoke('keys','','hotkeys.register',{command:'show-state'},keyContext);api.cleanup('keys');assert.equal(api.hotkeys().length,0);
     let committed=false,remoteChanges=0;
     await api.invoke('retry','','catalog.register',{id:'retry-library',providerId:'audio-provider',accountId:'account-2',name:'Retry',capabilities:['read','rename']},{grants:new Set(['servicePlaylists.read','servicePlaylists.rename']),call:async(action)=>{
         if(action==='read')return {id:'playlist',name:'Test',revision:'1',tracks:[]};

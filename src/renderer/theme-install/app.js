@@ -5,7 +5,7 @@ let installState = 'install';
 function applyInstallState(state) {
     installState = state;
     install.className = state === 'install' ? 'primary' : state;
-    install.textContent = state === 'installed' ? (globalThis.noctuneI18n?.t("addonInstall.app.installed", {}) ?? "Установлено") : state === 'update' ? (globalThis.noctuneI18n?.t("addonStore.refresh", {}) ?? "Обновить") : (globalThis.noctuneI18n?.t("addonInstall.install", {}) ?? "Установить");
+    install.textContent = state === 'installed' ? (globalThis.noctuneI18n?.t("addonInstall.app.installed", {}) ?? "Установлено") : state === 'update' ? (globalThis.noctuneI18n?.t("addonStore.updatePackage", {}) ?? "Обновить") : (globalThis.noctuneI18n?.t("addonInstall.install", {}) ?? "Установить");
     install.disabled = state === 'installed';
 }
 cancel.addEventListener('click', () => themeInstaller.cancel());

@@ -839,8 +839,8 @@
   "permissions.downloads.description": "Save audio, images and text from declared HTTPS routes, or save text supplied by the extension. The user chooses the folder. Existing files are never overwritten.",
   "permissions.downloads.write": "Save audio, artwork and text to the app, downloads or a user-selected folder",
   "permissions.events.description": "The extension receives player changes, such as track changes, pauses, seeks or queue changes.",
-  "permissions.hotkeys.description": "Only the extension's declared commands. The user assigns shortcuts; the extension does not receive keystrokes.",
-  "permissions.integrations.description": "A card with native settings in the integrations tab, without arbitrary HTML or custom windows.",
+  "permissions.hotkeys.description": "Register, list and remove only your own commands. The user assigns key bindings; keystrokes are never exposed.",
+  "permissions.integrations.description": "Integration cards and own text/progress blocks. Each capability requires its own permission; arbitrary HTML is unavailable.",
   "permissions.interface.description": "Integration cards, notifications and hotkey commands. Each action requires its own permission below. The user assigns key combinations.",
   "permissions.interface.title": "Interface interaction",
   "permissions.lyrics.description": "Current lyrics or the extension's own lyrics source. Does not grant library file access.",
@@ -1688,5 +1688,11 @@
   "marketplace.noThemes": "There are no themes in this section yet.",
   "marketplace.noExtensions": "There are no extensions in this section yet.",
   "rotation.required": "Confirm the publisher key change",
-  "rotation.consent": "I approve switching to the new Noctune publisher key"
+  "rotation.consent": "I approve switching to the new Noctune publisher key",
+  "addonStore.updatePackage": "Update",
+  "permissions.ui.elements": "Own information blocks and progress",
+  "permissions.notifications.dismiss": "Dismiss own notifications",
+  "permissions.hotkeys.list": "List own registered hotkey commands",
+  "permissions.hotkeys.unregister": "Unregister own hotkey commands",
+  "permissions.interface.invalid": "Invalid interface request or missing permission"
 }

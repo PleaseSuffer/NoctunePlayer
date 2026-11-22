@@ -41,6 +41,8 @@
                         readText(file) { if (!Object.hasOwn(data.files, file) || typeof data.files[file] !== 'string') throw new Error((globalThis.noctuneI18n?.t("extensions.host.fileMissingFromPackage", {}) ?? "Файл отсутствует в пакете")); return data.files[file]; },
                         storage: Object.freeze({ get: key => call('storage.get', { key }), set: (key, value) => call('storage.set', { key, value }) }),
                         notify: (message, options = {}) => call('notify', { message, key: options.key }),
+                        notifications: { show: (message, options = {}) => call('notify', {message,key:options.key}), dismiss: args => call('notifications.dismiss',args) },
+                        ui: {set: args => call('ui.set',args),remove: args => call('ui.remove',args)},
                         player: Object.freeze({ current: () => call('playback.read', {}) }),
                         network: Object.freeze({ text: url => call('network', { url }), json: async url => JSON.parse(await call('network', { url })) }),
                     });
@@ -89,7 +91,7 @@
                             read: (args = {}) => call('lyrics.read', args),
                             async provide(source) { if (!source || typeof source.resolve !== 'function' || providers.has('@lyrics:'+source.id)) throw new Error((globalThis.noctuneI18n?.t("extensions.host.aNewResolveSourceIsRequired", {}) ?? "Нужен новый источник resolve"));providers.set('@lyrics:'+source.id, source);try{return await call('lyrics.provide',{id:source.id});}catch(error){providers.delete('@lyrics:'+source.id);throw error;} },
                         },
-                        hotkeys: { register: args => call('hotkeys.register', args) },
+                        hotkeys: { register: args => call('hotkeys.register', args), list: () => call('hotkeys.list',{}), unregister: args => call('hotkeys.unregister',args) },
                         oauth: Object.fromEntries(['authorize','status','disconnect'].map(action => [action, provider => call('oauth.' + action, { provider })])),
                         secrets: { get: key => call('secrets.get', { key }), set: (key, value) => call('secrets.set', { key, value }), delete: key => call('secrets.delete', { key }) },
                         files: Object.fromEntries(['select','save','read','write','library','reveal'].map(action => [action, (args = {}) => call('files.' + action, args)])),
@@ -175,7 +177,7 @@
             running.delete(id); window.removeEventListener('message', item.listener);
             clearTimeout(item.startup); clearInterval(item.heartbeat);
             for (const task of [...item.commands.values(), ...item.providers.values()]) { clearTimeout(task.timer); task.reject(new Error((globalThis.noctuneI18n?.t("extensions.host.extensionStopped", {}) ?? "Расширение остановлено"))); }
-            item.unsubscribe?.(); window.addonPlayer?.cleanup(id); window.addonProviders?.cleanup(id); item.frame.remove(); window.noctuneI18n?.unregister(id);
+            item.unsubscribe?.(); window.addonInterface?.cleanup(id); window.addonPlayer?.cleanup(id); window.addonProviders?.cleanup(id); item.frame.remove(); window.noctuneI18n?.unregister(id);
             noctune.addons.cancelRequests(id).catch(() => {});
         }
         changed(id, state);
@@ -220,6 +222,8 @@
                 if (data.method === 'i18n.register') {
                     if (m.apiVersion !== 2 || !grants.has('i18n.register')) throw new Error((globalThis.noctuneI18n?.t("language.errors.languagePackPermissionMissing") ?? "Language pack permission missing"));
                     value = window.noctuneI18n.register(m.id, args.pack);
+                } else if (['ui.set','ui.remove','notifications.dismiss'].includes(data.method)) {
+                    value = window.addonInterface.invoke(m.id,data.method,args,grants);
                 } else if (data.method === 'notify') {
                     if (!grants.has('notifications.show') || typeof args.message !== 'string' || args.message.length > 500) throw new Error((globalThis.noctuneI18n?.t("extensions.host.notificationPermissionMissing", {}) ?? "Уведомление не разрешено"));
                     if (args.key !== undefined && (typeof args.key !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(args.key))) throw new Error((globalThis.noctuneI18n?.t("extensions.host.invalidNotificationKey", {}) ?? "Некорректный ключ уведомления"));

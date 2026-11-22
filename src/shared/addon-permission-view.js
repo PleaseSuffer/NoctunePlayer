@@ -1,6 +1,5 @@
 (function () {
     const notes = {
-        interface: (globalThis.noctuneI18n?.t('permissions.interface.description') ?? 'Карточка интеграции, уведомления и команды горячих клавиш. Каждое действие требует указанного ниже права. Сочетания клавиш назначает пользователь.'),
         downloads: (globalThis.noctuneI18n?.t("permissions.downloads.description") ?? "Сохранение аудио, изображений и текстов по заявленным HTTPS-маршрутам или готового текста. Папку выбирает пользователь. Существующие файлы не перезаписываются."),
         servicePlaylists: (globalThis.noctuneI18n?.t("permissions.servicePlaylists.description") ?? "Операции с плейлистами аккаунта на сервере. Сетевые маршруты проверяются отдельно; права самого сервиса также обязательны."),
         credentials: (globalThis.noctuneI18n?.t("permissions.credentials.description") ?? "Только заявленные профили этого расширения. Форма ввода и подстановка ключа работают в плеере; право использования не выдаёт значение коду расширения."),
@@ -80,7 +79,7 @@
                 const heading = element('span', 'permission-group-heading'), title = element('span', 'permission-group-title');
                 title.append(element('span', 'permission-group-name', group.title));
                 heading.append(title);
-                if (!group.displayOnly) heading.append(element('code', '', `[${group.namespace}${group.full ? '.*' : ''}]`));
+                heading.append(element('code', '', `[${group.namespace}${group.full ? '.*' : ''}]`));
                 summary.append(icon(icons[group.namespace], 'permission-group-icon'), heading);
                 const badge = element('span', 'permission-access-badge', group.full ? (globalThis.noctuneI18n?.t("addonPermissionView.fullAccess", {}) ?? "Полный доступ") : (globalThis.noctuneI18n?.t("addonPermissionView.partialAccess", {p0: (group.used.length), p1: (group.total)}) ?? "Частичный доступ · {p0}/{p1}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (group.used.length), p1: (group.total)})[k] ?? "{"+k+"}")));
                 title.append(badge);
@@ -88,7 +87,7 @@
                 summary.append(icon('ChevronDown', 'addon-disclosure-chevron'));
                 details.append(summary);
                 const content = element('div', 'permission-group-content');
-                const note = notes[group.displayOnly ? 'interface' : group.namespace];
+                const note = notes[group.namespace];
                 if (note) content.append(element('p', 'permission-description', note));
                 const children = element('ul', 'permission-children');
                 for (const permission of group.used) {

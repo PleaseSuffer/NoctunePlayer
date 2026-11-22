@@ -5,7 +5,7 @@ const status = document.getElementById('status');
 let state = 'install', loading = true;
 function applyState() {
     install.className = state === 'install' ? 'primary' : state;
-    install.textContent = state === 'installed' ? (globalThis.noctuneI18n?.t("addonInstall.app.installed", {}) ?? "Установлено") : state === 'update' ? (globalThis.noctuneI18n?.t("addonStore.refresh", {}) ?? "Обновить") : (globalThis.noctuneI18n?.t("addonInstall.install", {}) ?? "Установить");
+    install.textContent = state === 'installed' ? (globalThis.noctuneI18n?.t("addonInstall.app.installed", {}) ?? "Установлено") : state === 'update' ? (globalThis.noctuneI18n?.t("addonStore.updatePackage", {}) ?? "Обновить") : (globalThis.noctuneI18n?.t("addonInstall.install", {}) ?? "Установить");
     install.disabled = loading || state === 'installed' || !consent.checked;
 }
 const publisherDetails = document.getElementById('publisher-details');
