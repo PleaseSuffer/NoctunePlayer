@@ -11,7 +11,7 @@ const {createSceneThemeStore}=require('../../src/main/scene-themes');
    const file=entry.packageUrl.slice(prefix.length);assert(!file.includes('..'));files.set(entry.packageUrl,file);
   }
   const requested=new Set();
-  const fetch=async(url,options)=>{assert(files.has(url),'unexpected publication URL');const bytes=await fs.readFile(files.get(url),'utf8');assert(Buffer.byteLength(bytes)<=options.limit);requested.add(url);return bytes;};
+  const fetch=async(url,options)=>{assert(files.has(url),'unexpected publication URL');if(/\.noct(?:addon|heme)$/.test(url)){const remaining=options.deadline-Date.now();assert(remaining>110000&&remaining<=120000,'package downloads have a bounded two-minute deadline');}const bytes=await fs.readFile(files.get(url),'utf8');assert(Buffer.byteLength(bytes)<=options.limit);requested.add(url);return bytes;};
   const store=createAddonStore({directory:path.join(root,'addons'),appVersion:'1.4.1'});
   const themeStore=createSceneThemeStore({directory:()=>path.join(root,'themes'),builtinDirectory:path.join(root,'absent'),presetsDirectory:path.resolve('themes/backgrounds'),sdkFile:path.resolve('src/renderer/effects/scene-sdk.js')});
   const a=official.createAddonCatalog({directory:root,appVersion:'1.4.1',store,fetch});

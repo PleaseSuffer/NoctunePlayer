@@ -136,7 +136,7 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
       const entry = snapshot.entries.find(candidate => candidate.id === id);
       if (!entry || !entry.published) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.packageIsNotYetPublishedInTheOfficialCatalog", {}) ?? "Пакет ещё не опубликован в официальном каталоге"));
       if (!p.compatible(entry, appVersion)) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.extensionIsIncompatibleWithThisNoctuneVersion", {}) ?? "Расширение несовместимо с этой версией Noctune"));
-      const bytes = await fetch(entry.packageUrl, { limit: p.MAX_BYTES });
+      const bytes = await fetch(entry.packageUrl, { limit: p.MAX_BYTES, deadline: Date.now() + 120000 });
       if (hash(bytes) !== entry.sha256) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.packageChecksumDiffersFromTheCatalog", {}) ?? "Контрольная сумма пакета не совпадает с каталогом"));
       const pkg = p.validatePackage(JSON.parse(bytes));
       if (p.signingIdentity(pkg, true) !== entry.publisher || fields.some(field => p.canonical(pkg.manifest[field]) !== p.canonical(entry[field]))) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.packageDoesNotMatchTheStoreListing", {}) ?? "Пакет не соответствует карточке магазина"));

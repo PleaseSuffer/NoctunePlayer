@@ -101,7 +101,7 @@ function createMarketplaceCatalog({ directory, appVersion, store, themeStore, fe
       await initialize(); await update();
       const entry = snapshot.entries.find(item=>item.id===id && item.kind===kind && (channel===undefined || item.channel===channel));
       if (!entry || !p.compatible(entry,appVersion)) throw new Error('Пакет недоступен для этой версии Noctune');
-      const bytes = await fetch(entry.packageUrl,{limit:kind==='theme'?themes.MAX_BYTES:p.MAX_BYTES});
+      const bytes = await fetch(entry.packageUrl,{limit:kind==='theme'?themes.MAX_BYTES:p.MAX_BYTES,deadline:Date.now()+120000});
       if (digest(bytes)!==entry.sha256) throw new Error('Контрольная сумма пакета не совпадает с каталогом');
       if (kind === 'theme') {
         const theme = themes.validatePackage(JSON.parse(bytes));
