@@ -185,7 +185,7 @@
                 const list = document.getElementById('pl-editor-list');
                 list.innerHTML = '';
                 if (!userPlaylists || userPlaylists.length === 0) {
-                    list.innerHTML = '<li style="color:var(--text-muted);font-size:12px;padding:8px;">Нет плейлистов</li>';
+                    list.innerHTML = ("<li style=\"color:var(--text-muted);font-size:12px;padding:8px;\">" + (globalThis.noctuneI18n?.t("player.interface.noPlaylists", {}) ?? "Нет плейлистов") + "</li>");
                     return;
                 }
                 userPlaylists.forEach((pl, idx) => {
@@ -195,19 +195,29 @@
                     li.dataset.idx = idx;
                     const isRadio = pl.type === 'radio';
                     const isService = pl.type === 'provider';
-                    li.innerHTML = `
-                        <span class="pl-drag-handle"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg></span>
-                        <span class="pl-name"></span>
-                        <span class="pl-type-badge ${isRadio ? 'radio' : ''}">${isService ? (pl.service?.continuous?'Поток':'Сервис') : isRadio ? 'Радио' : 'Папка'}</span>
-                        <button type="button" class="actions-btn pl-export-btn" data-idx="${idx}" title="Экспортировать в .m3u" style="flex-shrink:0;">
-                            <i data-lucide="download" style="width:14px;height:14px;"></i>
-                        </button>
-                    `;
-                    li.querySelector('.pl-name').textContent=pl.name||'Без названия';
-                    if(isService){li.querySelector('.pl-export-btn').disabled=true;li.querySelector('.pl-export-btn').title='Сервисный плейлист не экспортируется в M3U';}
+                    li.innerHTML = ("\n                        <span class=\"pl-drag-handle\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"8\" y1=\"6\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"12\" x2=\"16\" y2=\"12\"/><line x1=\"8\" y1=\"18\" x2=\"16\" y2=\"18\"/></svg></span>\n                        <span class=\"pl-name\"></span>\n                        <span class=\"pl-type-badge " + (isRadio ? 'radio' : '') + "\">" + (isService ? (pl.service?.continuous?'Поток':'Сервис') : isRadio ? 'Радио' : 'Папка') + "</span>\n                        <button type=\"button\" class=\"actions-btn pl-export-btn\" data-idx=\"" + (idx) + "\" title=\"" + (globalThis.noctuneI18n?.legacyHtml("ui.settings.exportToM3u", {p0: (isRadio ? 'radio' : ''), p1: (isService ? (pl.service?.continuous?'Поток':'Сервис') : isRadio ? 'Радио' : 'Папка'), p2: (idx)}) ?? "Экспортировать в .m3u".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (isRadio ? 'radio' : ''), p1: (isService ? (pl.service?.continuous?'Поток':'Сервис') : isRadio ? 'Радио' : 'Папка'), p2: (idx)})[i])) + "\" style=\"flex-shrink:0;\">\n                            <i data-lucide=\"download\" style=\"width:14px;height:14px;\"></i>\n                        </button>\n                    ");
+                    li.dataset.playlistId = pl.id;
+                    const actions = document.createElement('div'); actions.className = 'pl-editor-actions';
+                    actions.appendChild(li.querySelector('.pl-export-btn')); li.appendChild(actions);
+                    function action(className, icon, key, fallback, callback) {
+                        const button = document.createElement('button');
+                        button.type = 'button'; button.className = 'actions-btn ' + className;
+                        button.title = globalThis.noctuneI18n?.t(key) ?? fallback;
+                        button.setAttribute('aria-label', button.title);
+                        button.innerHTML = '<i data-lucide="' + icon + '" style="width:14px;height:14px;"></i>';
+                        button.addEventListener('click', event => { event.stopPropagation(); callback(); });
+                        actions.appendChild(button); return button;
+                    }
+                    const rename = action('pl-rename-btn', 'edit-3', 'player.interface.renamePlaylist', 'Переименовать плейлист', () => window.openPlaylistRename(pl.id));
+                    rename.disabled = isService;
+                    const remove = action('pl-delete-btn', 'trash-2', isService ? 'library.playlists.closeServicePlaylist' : 'player.interface.deletePlaylist', isService ? 'Закрыть сервисный плейлист' : 'Удалить плейлист', () => window.openPlaylistDelete(pl.id));
+                    remove.style.color = '#e74c3c';
+                    li.addEventListener('pointerdown', event => { li.draggable = !event.target.closest('button'); });
+                    li.querySelector('.pl-name').textContent=pl.name||(globalThis.noctuneI18n?.t("preload.untitled", {}) ?? "Без названия");
+                    if(isService){li.querySelector('.pl-export-btn').disabled=true;li.querySelector('.pl-export-btn').title=(globalThis.noctuneI18n?.t("ui.settings.servicePlaylistsCannotBeExportedToM3u", {}) ?? "Сервисный плейлист не экспортируется в M3U");}
                     li.querySelector('.pl-export-btn').addEventListener('click', (e) => {
                         e.stopPropagation();
-                        if (window.exportPlaylistToM3U) window.exportPlaylistToM3U(userPlaylists[idx]);
+                        if (window.exportPlaylistToM3U) window.exportPlaylistToM3U(pl);
                     });
                     // Drag-and-drop reorder
                     li.addEventListener('dragstart', (e) => {
@@ -275,14 +285,14 @@
 
             crossfadeOutSlider.addEventListener('input', () => {
                 crossfadeOutDuration = parseFloat(crossfadeOutSlider.value);
-                crossfadeOutLabel.textContent = crossfadeOutDuration.toFixed(1) + 'с';
+                crossfadeOutLabel.textContent = crossfadeOutDuration.toFixed(1) + (globalThis.noctuneI18n?.t("ui.settings.s", {}) ?? "с");
                 appStorage.setItem('setting_crossfade_out', crossfadeOutDuration);
                 applyTrackEndFade();
             });
 
             crossfadeInSlider.addEventListener('input', () => {
                 crossfadeInDuration = parseFloat(crossfadeInSlider.value);
-                crossfadeInLabel.textContent = crossfadeInDuration.toFixed(1) + 'с';
+                crossfadeInLabel.textContent = crossfadeInDuration.toFixed(1) + (globalThis.noctuneI18n?.t("ui.settings.s", {}) ?? "с");
                 appStorage.setItem('setting_crossfade_in', crossfadeInDuration);
             });
 
@@ -355,12 +365,12 @@
 
             limiterThresholdSlider.addEventListener('input', () => {
                 const v = parseFloat(limiterThresholdSlider.value);
-                limiterThresholdLabel.textContent = `${v} дБ`;
+                limiterThresholdLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.db", {p0: (v)}) ?? "{p0} дБ".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (v)})[k] ?? "{"+k+"}"));
                 setLimiterParam('threshold', 'setting_limiter_threshold', v, x => x);
             });
             limiterKneeSlider.addEventListener('input', () => {
                 const v = parseFloat(limiterKneeSlider.value);
-                limiterKneeLabel.textContent = `${v} дБ`;
+                limiterKneeLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.db", {p0: (v)}) ?? "{p0} дБ".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (v)})[k] ?? "{"+k+"}"));
                 setLimiterParam('knee', 'setting_limiter_knee', v, x => x);
             });
             limiterRatioSlider.addEventListener('input', () => {
@@ -370,12 +380,12 @@
             });
             limiterAttackSlider.addEventListener('input', () => {
                 const v = parseFloat(limiterAttackSlider.value);
-                limiterAttackLabel.textContent = `${v} мс`;
+                limiterAttackLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.ms", {p0: (v)}) ?? "{p0} мс".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (v)})[k] ?? "{"+k+"}"));
                 setLimiterParam('attack', 'setting_limiter_attack', v, x => x / 1000);
             });
             limiterReleaseSlider.addEventListener('input', () => {
                 const v = parseFloat(limiterReleaseSlider.value);
-                limiterReleaseLabel.textContent = `${v} мс`;
+                limiterReleaseLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.ms", {p0: (v)}) ?? "{p0} мс".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (v)})[k] ?? "{"+k+"}"));
                 setLimiterParam('release', 'setting_limiter_release', v, x => x / 1000);
             });
 
@@ -478,8 +488,8 @@
                 document.getElementById('viz-orbit-mode-row').hidden = style !== 'orbits';
                 document.getElementById('viz-orbit-spacing-row').hidden = style !== 'orbits';
                 const innerRow = document.getElementById('setting-viz-inner').closest('.settings-row');
-                innerRow.querySelector('.settings-row-label').textContent = style === 'orbits' ? 'Заполнение орбит' : 'Внутренний визуализатор';
-                innerRow.querySelector('.settings-row-desc').textContent = style === 'orbits' ? 'Мягкое заполнение внутри колец' : 'Размытое свечение внутри круга';
+                innerRow.querySelector('.settings-row-label').textContent = style === 'orbits' ? (globalThis.noctuneI18n?.t("ui.settings.orbitFill", {}) ?? "Заполнение орбит") : (globalThis.noctuneI18n?.t("settings.appearance.innerVisualizer", {}) ?? "Внутренний визуализатор");
+                innerRow.querySelector('.settings-row-desc').textContent = style === 'orbits' ? (globalThis.noctuneI18n?.t("ui.settings.softFillInsideRings", {}) ?? "Мягкое заполнение внутри колец") : (globalThis.noctuneI18n?.t("settings.appearance.blurredGlowInsideTheCircle", {}) ?? "Размытое свечение внутри круга");
                 document.getElementById('setting-viz-ribbon-scroll-grad').closest('.settings-row').hidden = window.vizColorMode !== 'gradient';
                 document.getElementById('viz-settings-waveform').classList.toggle('visible', groups.includes('waveform'));
                 document.getElementById('viz-settings-gradient').classList.toggle('visible', groups.includes('gradient') && window.vizColorMode === 'gradient');
@@ -697,9 +707,9 @@
             const fwTrailLabel      = document.getElementById('setting-fw-trail-label');
 
             const FW_COLOR_MODES = {
-                random: { label: 'Случайный',     icon: 'shuffle' },
-                accent: { label: 'Акцентный цвет', icon: 'droplet' },
-                custom: { label: 'Свой цвет',      icon: 'pipette' },
+                random: { label: (globalThis.noctuneI18n?.t("settings.appearance.random", {}) ?? "Случайный"),     icon: 'shuffle' },
+                accent: { label: (globalThis.noctuneI18n?.t("settings.appearance.accentColor", {}) ?? "Акцентный цвет"), icon: 'droplet' },
+                custom: { label: (globalThis.noctuneI18n?.t("settings.appearance.effects.customColor", {}) ?? "Свой цвет"),      icon: 'pipette' },
             };
 
             function selectFwColorMode(mode) {
@@ -962,15 +972,15 @@
                 let msg = '';
 
                 if (heavyLines && heavyTrail) {
-                    msg = `Высокая нагрузка: ${lines} линий + след ${duration.toFixed(2)} с. Возможны просадки FPS.`;
+                    msg = (globalThis.noctuneI18n?.t("ui.settings.highLoadLinesSTrailFrameRateMayDrop", {p0: (lines), p1: (duration.toFixed(2))}) ?? "Высокая нагрузка: {p0} линий + след {p1} с. Возможны просадки FPS.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (lines), p1: (duration.toFixed(2))})[k] ?? "{"+k+"}"));
                 } else if (heavyLines) {
-                    msg = `${lines} линий могут снизить производительность на слабых устройствах.`;
+                    msg = (globalThis.noctuneI18n?.t("ui.settings.linesMayReducePerformanceOnSlowerDevices", {p0: (lines)}) ?? "{p0} линий могут снизить производительность на слабых устройствах.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (lines)})[k] ?? "{"+k+"}"));
                 } else if (heavyTrail) {
-                    msg = `Длинный след (${duration.toFixed(2)} с) увеличивает количество прорисовок. Возможны просадки FPS.`;
+                    msg = (globalThis.noctuneI18n?.t("ui.settings.aLongTrailSIncreasesRenderingWorkFrameRateMayDrop", {p0: (duration.toFixed(2))}) ?? "Длинный след ({p0} с) увеличивает количество прорисовок. Возможны просадки FPS.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (duration.toFixed(2))})[k] ?? "{"+k+"}"));
                 } else if (mediumLines && mediumTrail) {
-                    msg = `${lines} линий + след ${duration.toFixed(2)} с — умеренная нагрузка на GPU.`;
+                    msg = (globalThis.noctuneI18n?.t("ui.settings.linesSTrailModerateGpuLoad", {p0: (lines), p1: (duration.toFixed(2))}) ?? "{p0} линий + след {p1} с — умеренная нагрузка на GPU.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (lines), p1: (duration.toFixed(2))})[k] ?? "{"+k+"}"));
                 } else if (mediumLines && anyTrail) {
-                    msg = `${lines} линий с угасающим следом — умеренная нагрузка на GPU.`;
+                    msg = (globalThis.noctuneI18n?.t("ui.settings.linesWithFadingTrailsModerateGpuLoad", {p0: (lines)}) ?? "{p0} линий с угасающим следом — умеренная нагрузка на GPU.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (lines)})[k] ?? "{"+k+"}"));
                 }
 
                 const show = msg.length > 0;
@@ -1059,7 +1069,7 @@
 
             speedSlider.addEventListener('input', () => applyPlaybackSpeed(parseFloat(speedSlider.value)));
             [speedSlider, document.getElementById('main-speed-slider')].forEach(slider => {
-                slider.title = 'Скорость воспроизведения. ПКМ — сбросить до 1.0×';
+                slider.title = (globalThis.noctuneI18n?.t("ui.settings.playbackSpeedRightClickToResetTo10", {}) ?? "Скорость воспроизведения. ПКМ — сбросить до 1.0×");
                 slider.addEventListener('contextmenu', event => {
                     event.preventDefault();
                     applyPlaybackSpeed(1);
@@ -1095,11 +1105,11 @@
             const pbModeLabel = document.getElementById('pb-mode-label');
 
             const PB_MODE_NAMES = {
-                'stereo': 'Стерео',
-                'mono':   'Моно',
-                'left':   'Только левый канал',
-                'right':  'Только правый канал',
-                'swap':   'Инвертированное стерео',
+                'stereo': (globalThis.noctuneI18n?.t("settings.player.stereo", {}) ?? "Стерео"),
+                'mono':   (globalThis.noctuneI18n?.t("settings.player.mono", {}) ?? "Моно"),
+                'left':   (globalThis.noctuneI18n?.t("settings.player.leftChannelOnly", {}) ?? "Только левый канал"),
+                'right':  (globalThis.noctuneI18n?.t("settings.player.rightChannelOnly", {}) ?? "Только правый канал"),
+                'swap':   (globalThis.noctuneI18n?.t("settings.player.swapStereoChannels", {}) ?? "Инвертированное стерео"),
             };
             const PB_MODE_ICONS = {
                 'stereo': 'headphones',
@@ -1173,7 +1183,7 @@
             });
             autoRefreshSlider.addEventListener('input', () => {
                 const v = parseInt(autoRefreshSlider.value);
-                autoRefreshLabel.textContent = v + 'с';
+                autoRefreshLabel.textContent = v + (globalThis.noctuneI18n?.t("ui.settings.s", {}) ?? "с");
                 appStorage.setItem('setting_auto_refresh_interval', v);
                 if (settingAutoRefresh.checked) startAutoRefresh(v);
             });
@@ -1183,7 +1193,7 @@
             const savedAutoRefreshInterval = parseInt(appStorage.getItem('setting_auto_refresh_interval') || '30');
             if (!isNaN(savedAutoRefreshInterval)) {
                 autoRefreshSlider.value = savedAutoRefreshInterval;
-                autoRefreshLabel.textContent = savedAutoRefreshInterval + 'с';
+                autoRefreshLabel.textContent = savedAutoRefreshInterval + (globalThis.noctuneI18n?.t("ui.settings.s", {}) ?? "с");
             }
             if (savedAutoRefresh === '1') {
                 settingAutoRefresh.checked = true;
@@ -1361,13 +1371,13 @@
 
             // ── Spawn mode dropdown ────────────────────────────────────────
             const CONFETTI_SPAWN_MODES = {
-                top:       { label: 'Сверху',          icon: 'arrow-down'      },
-                bottom:    { label: 'Снизу',           icon: 'arrow-up'        },
-                sides:     { label: 'С краёв',         icon: 'arrow-left-right'},
-                center:    { label: 'Из центра',       icon: 'crosshair'       },
-                corners:   { label: 'Из углов',        icon: 'maximize-2'      },
-                random:    { label: 'Случайно',        icon: 'shuffle'         },
-                sprinkler: { label: 'Разбрызгиватель', icon: 'sparkles'        },
+                top:       { label: (globalThis.noctuneI18n?.t("settings.appearance.top", {}) ?? "Сверху"),          icon: 'arrow-down'      },
+                bottom:    { label: (globalThis.noctuneI18n?.t("settings.appearance.bottom", {}) ?? "Снизу"),           icon: 'arrow-up'        },
+                sides:     { label: (globalThis.noctuneI18n?.t("settings.appearance.fromEdges", {}) ?? "С краёв"),         icon: 'arrow-left-right'},
+                center:    { label: (globalThis.noctuneI18n?.t("settings.appearance.fromCenter", {}) ?? "Из центра"),       icon: 'crosshair'       },
+                corners:   { label: (globalThis.noctuneI18n?.t("settings.appearance.fromCorners", {}) ?? "Из углов"),        icon: 'maximize-2'      },
+                random:    { label: (globalThis.noctuneI18n?.t("settings.appearance.randomly", {}) ?? "Случайно"),        icon: 'shuffle'         },
+                sprinkler: { label: (globalThis.noctuneI18n?.t("settings.appearance.sprinkler", {}) ?? "Разбрызгиватель"), icon: 'sparkles'        },
             };
             const spawnDropBtn    = document.getElementById('confetti-spawn-dropdown-btn');
             const spawnDropMenu   = document.getElementById('confetti-spawn-dropdown-menu');
@@ -1768,7 +1778,7 @@
 
                     const removeBtn = document.createElement('button');
                     removeBtn.type = 'button';
-                    removeBtn.title = 'Удалить из недавних';
+                    removeBtn.title = (globalThis.noctuneI18n?.t("ui.settings.removeFromRecent", {}) ?? "Удалить из недавних");
                     // Тёмный полупрозрачный фон + белая иконка — как у бейджа видео выше,
                     // намеренно НЕ завязано на тему/акцент (var(--bg-secondary)/var(--text-primary)
                     // раньше не существовали в палитре, из-за чего в светлой теме крестик
@@ -1784,7 +1794,7 @@
                     cell.addEventListener('click', async () => {
                         try {
                             if (!(await noctune.fs.exists(item.path))) {
-                                showNotification('Файл фона больше не найден на диске', 'error');
+                                showNotification((globalThis.noctuneI18n?.t("ui.settings.backgroundFileNoLongerFoundOnDisk", {}) ?? "Файл фона больше не найден на диске"), 'error');
                                 removeRecentBackground(item.path);
                                 return;
                             }
@@ -1910,7 +1920,7 @@
                     window.imageEffects?.select(filePath);
                     window.addonEvents?.emit('backgrounds.changed');
                 } catch (e) {
-                    console.error('Не удалось установить фон:', e);
+                    console.error((globalThis.noctuneI18n?.t("ui.settings.couldNotSetBackground", {}) ?? "Не удалось установить фон:"), e);
                 }
             }
 
@@ -1927,7 +1937,7 @@
                 customBgVideoEl.load();
                 customBgVideoEl.style.display = 'none';
                 bgImageThumb.style.backgroundImage = '';
-                bgImageFilename.textContent = 'Файл не выбран';
+                bgImageFilename.textContent = (globalThis.noctuneI18n?.t("settings.appearance.noFileSelected", {}) ?? "Файл не выбран");
                 btnRemoveBgImage.style.display = 'none';
                 window.bgImagePath = null;
                 window.bgImageIsVideo = false;
@@ -1944,7 +1954,7 @@
                     const filePath = await noctune.dialogOpenImage();
                     if (filePath) applyBgImagePath(filePath, true);
                 } catch (e) {
-                    console.error('Ошибка выбора изображения:', e);
+                    console.error((globalThis.noctuneI18n?.t("ui.settings.imageSelectionError", {}) ?? "Ошибка выбора изображения:"), e);
                 }
             });
             btnRemoveBgImage.addEventListener('click', clearBgImage);
@@ -2070,11 +2080,11 @@
             // Цвет всегда подставляется снаружи (акцент или свой) — стиль лишь
             // задаёт форму/направление света.
             const BG_GLOW_STYLES = {
-                center: { label: 'Из центра', icon: 'sun',           css: (c) => `radial-gradient(circle at 50% 50%, ${c} 0%, transparent 68%)` },
-                edges:  { label: 'По краям',   icon: 'square',        css: (c) => `radial-gradient(circle at 50% 50%, transparent 38%, ${c} 115%)` },
-                top:    { label: 'Сверху',     icon: 'arrow-down',    css: (c) => `linear-gradient(to bottom, ${c} 0%, transparent 65%)` },
-                bottom: { label: 'Снизу',      icon: 'arrow-up',      css: (c) => `linear-gradient(to top, ${c} 0%, transparent 65%)` },
-                ring:   { label: 'Кольцом',    icon: 'circle-dashed', css: (c) => `radial-gradient(circle at 50% 50%, transparent 30%, ${c} 55%, transparent 80%)` },
+                center: { label: (globalThis.noctuneI18n?.t("settings.appearance.fromCenter", {}) ?? "Из центра"), icon: 'sun',           css: (c) => `radial-gradient(circle at 50% 50%, ${c} 0%, transparent 68%)` },
+                edges:  { label: (globalThis.noctuneI18n?.t("settings.appearance.aroundEdges", {}) ?? "По краям"),   icon: 'square',        css: (c) => `radial-gradient(circle at 50% 50%, transparent 38%, ${c} 115%)` },
+                top:    { label: (globalThis.noctuneI18n?.t("settings.appearance.top", {}) ?? "Сверху"),     icon: 'arrow-down',    css: (c) => `linear-gradient(to bottom, ${c} 0%, transparent 65%)` },
+                bottom: { label: (globalThis.noctuneI18n?.t("settings.appearance.bottom", {}) ?? "Снизу"),      icon: 'arrow-up',      css: (c) => `linear-gradient(to top, ${c} 0%, transparent 65%)` },
+                ring:   { label: (globalThis.noctuneI18n?.t("settings.appearance.ring", {}) ?? "Кольцом"),    icon: 'circle-dashed', css: (c) => `radial-gradient(circle at 50% 50%, transparent 30%, ${c} 55%, transparent 80%)` },
             };
 
             function applyBgGlowStyle() {
@@ -2165,14 +2175,14 @@
             const waveformColorModeDesc  = document.getElementById('waveform-color-mode-desc');
 
             const WAVEFORM_MODES = {
-                full:   { label: 'Полностью', icon: 'align-center',    desc: 'Вся форма волны сразу, заливается по мере воспроизведения' },
-                scroll: { label: 'Прокрутка',  icon: 'move-horizontal', desc: 'Небольшой отрезок вокруг текущего момента, плавно едет по треку' },
+                full:   { label: (globalThis.noctuneI18n?.t("settings.appearance.full", {}) ?? "Полностью"), icon: 'align-center',    desc: (globalThis.noctuneI18n?.t("settings.appearance.showTheEntireWaveformFillingItAsTheTrackPlays", {}) ?? "Вся форма волны сразу, заливается по мере воспроизведения") },
+                scroll: { label: (globalThis.noctuneI18n?.t("settings.appearance.scrolling", {}) ?? "Прокрутка"),  icon: 'move-horizontal', desc: (globalThis.noctuneI18n?.t("ui.settings.aSmallSegmentAroundTheCurrentPositionScrollsSmoothlyThroughTheTrack", {}) ?? "Небольшой отрезок вокруг текущего момента, плавно едет по треку") },
             };
             const WAVEFORM_COLOR_MODES = {
-                adaptive: { label: 'Адаптивный', icon: 'wand-2',  desc: 'Текущий акцент; без своего фона — нейтральный цвет от темы' },
-                accent:   { label: 'От акцента', icon: 'pipette', desc: 'Следует текущему акцентному цвету приложения, в том числе без своего фона' },
-                theme:    { label: 'От темы',    icon: 'sun-moon', desc: 'Светлый в тёмной теме и тёмный в светлой, независимо от акцента и фона' },
-                custom:   { label: 'Свой цвет',  icon: 'palette', desc: 'Один и тот же цвет независимо от темы, акцента и фона' },
+                adaptive: { label: (globalThis.noctuneI18n?.t("settings.appearance.adaptive", {}) ?? "Адаптивный"), icon: 'wand-2',  desc: (globalThis.noctuneI18n?.t("ui.settings.currentAccentWithoutACustomBackgroundANeutralThemeColor", {}) ?? "Текущий акцент; без своего фона — нейтральный цвет от темы") },
+                accent:   { label: (globalThis.noctuneI18n?.t("settings.appearance.accent", {}) ?? "От акцента"), icon: 'pipette', desc: (globalThis.noctuneI18n?.t("ui.settings.followTheApplicationSCurrentAccentColorIncludingWithoutACustomBackground", {}) ?? "Следует текущему акцентному цвету приложения, в том числе без своего фона") },
+                theme:    { label: (globalThis.noctuneI18n?.t("settings.appearance.theme", {}) ?? "От темы"),    icon: 'sun-moon', desc: (globalThis.noctuneI18n?.t("ui.settings.lightInDarkModeAndDarkInLightModeIndependentOfAccentAndBackground", {}) ?? "Светлый в тёмной теме и тёмный в светлой, независимо от акцента и фона") },
+                custom:   { label: (globalThis.noctuneI18n?.t("settings.appearance.effects.customColor", {}) ?? "Свой цвет"),  icon: 'palette', desc: (globalThis.noctuneI18n?.t("ui.settings.theSameColorRegardlessOfThemeAccentOrBackground", {}) ?? "Один и тот же цвет независимо от темы, акцента и фона") },
             };
 
             function reloadWaveformForCurrentTrack() {
@@ -2452,18 +2462,18 @@
                 window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
 
                 if (enabled) {
-                    setDiscordRpcStatusPill('idle', 'Подключение…');
+                    setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("ui.settings.connecting", {}) ?? "Подключение…"));
                     const res = await noctune.discordRpcConnect(getDiscordRpcClientId());
                     if (res && res.ok) {
                         pushDiscordActivity();
                     } else if (res && res.error === 'not-installed') {
-                        setDiscordRpcStatusPill('error', 'Не установлен @xhayper/discord-rpc');
+                        setDiscordRpcStatusPill('error', (globalThis.noctuneI18n?.t("ui.settings.xhayperDiscordRpcIsNotInstalled", {}) ?? "Не установлен @xhayper/discord-rpc"));
                     } else {
-                        setDiscordRpcStatusPill('error', 'Discord не найден');
+                        setDiscordRpcStatusPill('error', (globalThis.noctuneI18n?.t("ui.settings.discordNotFound", {}) ?? "Discord не найден"));
                     }
                 } else {
                     await noctune.discordRpcDisconnect();
-                    setDiscordRpcStatusPill('idle', 'Отключено');
+                    setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("settings.integrations.disconnected", {}) ?? "Отключено"));
                 }
             });
 
@@ -2473,7 +2483,7 @@
             discordRpcClientIdInput.addEventListener('change', async () => {
                 appStorage.setItem('setting_discord_rpc_client_id', discordRpcClientIdInput.value.trim());
                 if (window.discordRPCEnabled && settingDiscordRpcManual.checked) {
-                    setDiscordRpcStatusPill('idle', 'Подключение…');
+                    setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("ui.settings.connecting", {}) ?? "Подключение…"));
                     const res = await noctune.discordRpcConnect(getDiscordRpcClientId());
                     if (res && res.ok) pushDiscordActivity();
                 }
@@ -2496,7 +2506,7 @@
                 // и redirect-URL — переподключаемся и пересчитываем кнопку "Слушать".
                 window.discordRPCRedirectBase = getDiscordRpcRedirectBase();
                 if (window.discordRPCEnabled) {
-                    setDiscordRpcStatusPill('idle', 'Подключение…');
+                    setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("ui.settings.connecting", {}) ?? "Подключение…"));
                     const res = await noctune.discordRpcConnect(getDiscordRpcClientId());
                     if (res && res.ok) pushDiscordActivity();
                 }
@@ -2510,9 +2520,9 @@
             });
 
             noctune.onDiscordRpcStatus((status) => {
-                if (status.connected) setDiscordRpcStatusPill('connected', 'Подключено');
-                else if (status.error) setDiscordRpcStatusPill('error', 'Ошибка подключения');
-                else setDiscordRpcStatusPill('idle', 'Отключено');
+                if (status.connected) setDiscordRpcStatusPill('connected', (globalThis.noctuneI18n?.t("ui.settings.connected", {}) ?? "Подключено"));
+                else if (status.error) setDiscordRpcStatusPill('error', (globalThis.noctuneI18n?.t("ui.settings.connectionError", {}) ?? "Ошибка подключения"));
+                else setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("settings.integrations.disconnected", {}) ?? "Отключено"));
             });
 
             // ====================================================
@@ -2545,13 +2555,13 @@
             // Подключить/Отключить, как раньше).
             function refreshLastfmCardUI(connected, username) {
                 window.lastfmConnected = connected;
-                btnLastfmAuth.textContent = connected ? 'Отключить' : 'Авторизовать';
+                btnLastfmAuth.textContent = connected ? (globalThis.noctuneI18n?.t("ui.settings.disconnect", {}) ?? "Отключить") : (globalThis.noctuneI18n?.t("settings.integrations.authorize", {}) ?? "Авторизовать");
                 if (connected) {
-                    setLastfmStatusPill('connected', username ? `@${username}` : 'Подключено');
-                    lastfmCardDesc.textContent = 'История прослушиваний и обложки песен';
+                    setLastfmStatusPill('connected', username ? `@${username}` : (globalThis.noctuneI18n?.t("ui.settings.connected", {}) ?? "Подключено"));
+                    lastfmCardDesc.textContent = (globalThis.noctuneI18n?.t("settings.integrations.listeningHistoryAndTrackArtwork", {}) ?? "История прослушиваний и обложки песен");
                 } else {
-                    setLastfmStatusPill('idle', 'Не авторизовано');
-                    lastfmCardDesc.textContent = 'История прослушиваний и обложки песен';
+                    setLastfmStatusPill('idle', (globalThis.noctuneI18n?.t("settings.integrations.notSignedIn", {}) ?? "Не авторизовано"));
+                    lastfmCardDesc.textContent = (globalThis.noctuneI18n?.t("settings.integrations.listeningHistoryAndTrackArtwork", {}) ?? "История прослушиваний и обложки песен");
                 }
             }
 
@@ -2562,7 +2572,7 @@
 
             async function lastfmBeginAuthFlow() {
                 btnLastfmAuth.disabled = true;
-                setLastfmStatusPill('idle', 'Открываем браузер для подтверждения…');
+                setLastfmStatusPill('idle', (globalThis.noctuneI18n?.t("ui.settings.openingBrowserForConfirmation", {}) ?? "Открываем браузер для подтверждения…"));
 
                 let res;
                 try { res = await noctune.lastfm.beginAuth(); }
@@ -2570,8 +2580,8 @@
 
                 if (!res || !res.ok || !res.token) {
                     btnLastfmAuth.disabled = false;
-                    setLastfmStatusPill('error', 'Не удалось начать авторизацию');
-                    showNotification('Не удалось связаться с Last.fm — проверьте API key/secret и интернет-соединение', 'error');
+                    setLastfmStatusPill('error', (globalThis.noctuneI18n?.t("ui.settings.couldNotStartAuthorization", {}) ?? "Не удалось начать авторизацию"));
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotContactLastFmCheckApiKeySecretAndInternetConnection", {}) ?? "Не удалось связаться с Last.fm — проверьте API key/secret и интернет-соединение"), 'error');
                     return;
                 }
 
@@ -2589,14 +2599,14 @@
                         stopLastfmAuthPoll();
                         btnLastfmAuth.disabled = false;
                         refreshLastfmCardUI(true, auth.username);
-                        showNotification(`Last.fm подключён — аккаунт ${auth.username}`, 'info', 'Скробблинг включён');
+                        showNotification((globalThis.noctuneI18n?.t("ui.settings.lastFmConnectedAccount", {p0: (auth.username)}) ?? "Last.fm подключён — аккаунт {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (auth.username)})[k] ?? "{"+k+"}")), 'info', (globalThis.noctuneI18n?.t("ui.settings.scrobblingEnabled", {}) ?? "Скробблинг включён"));
                         return;
                     }
                     if (attemptsLeft <= 0) {
                         stopLastfmAuthPoll();
                         btnLastfmAuth.disabled = false;
-                        setLastfmStatusPill('error', 'Время ожидания истекло');
-                        showNotification('Не удалось подтвердить доступ к Last.fm — попробуйте ещё раз', 'error');
+                        setLastfmStatusPill('error', (globalThis.noctuneI18n?.t("ui.settings.timedOut", {}) ?? "Время ожидания истекло"));
+                        showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotAuthorizeLastFmTryAgain", {}) ?? "Не удалось подтвердить доступ к Last.fm — попробуйте ещё раз"), 'error');
                     }
                 }, 3000);
             }
@@ -2605,7 +2615,7 @@
                 stopLastfmAuthPoll();
                 try { await noctune.lastfm.disconnect(); } catch (e) {}
                 refreshLastfmCardUI(false, null);
-                if (!silent) showNotification('Аккаунт Last.fm отключён', 'info');
+                if (!silent) showNotification((globalThis.noctuneI18n?.t("ui.settings.lastFmAccountDisconnected", {}) ?? "Аккаунт Last.fm отключён"), 'info');
             }
 
             // Одна кнопка вместо пары «Подключить» / «Отключить» — действие
@@ -2642,7 +2652,7 @@
                 appStorage.setItem('setting_lastfm_manual', settingLastfmManual.checked ? '1' : '0');
                 if (window.lastfmConnected) {
                     await lastfmDoDisconnect(true);
-                    showNotification('Учётные данные Last.fm изменились — авторизуйтесь заново', 'warning');
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.lastFmCredentialsChangedSignInAgain", {}) ?? "Учётные данные Last.fm изменились — авторизуйтесь заново"), 'warning');
                 }
             });
             async function onLastfmManualCredsChanged() {
@@ -2650,7 +2660,7 @@
                 appStorage.setItem('setting_lastfm_manual_secret', lastfmManualSecretInput.value.trim());
                 if (window.lastfmConnected) {
                     await lastfmDoDisconnect(true);
-                    showNotification('Ключ Last.fm изменился — авторизуйтесь заново', 'warning');
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.lastFmKeyChangedSignInAgain", {}) ?? "Ключ Last.fm изменился — авторизуйтесь заново"), 'warning');
                 }
             }
             lastfmManualKeyInput.addEventListener('change', onLastfmManualCredsChanged);
@@ -2692,16 +2702,16 @@
             // ГОРЯЧИЕ КЛАВИШИ
             // ====================================================
             const HOTKEY_DEFS = [
-                { id: 'togglePlay', label: 'Пауза / Воспроизведение' },
-                { id: 'seekBack10', label: 'Перемотка назад на 10 сек' },
-                { id: 'seekFwd10',  label: 'Перемотка вперёд на 10 сек' },
-                { id: 'mute',       label: 'Выключить звук' },
-                { id: 'prevTrack',  label: 'Предыдущий трек' },
-                { id: 'nextTrack',  label: 'Следующий трек' },
-                { id: 'volumeUp',   label: 'Громче на 5%' },
-                { id: 'volumeDown', label: 'Тише на 5%' },
-                { id: 'seekBack5',  label: 'Перемотка назад на 5 сек' },
-                { id: 'seekFwd5',   label: 'Перемотка вперёд на 5 сек' },
+                { id: 'togglePlay', label: (globalThis.noctuneI18n?.t("ui.settings.pausePlay", {}) ?? "Пауза / Воспроизведение") },
+                { id: 'seekBack10', label: (globalThis.noctuneI18n?.t("ui.settings.seekBack10Seconds", {}) ?? "Перемотка назад на 10 сек") },
+                { id: 'seekFwd10',  label: (globalThis.noctuneI18n?.t("ui.settings.seekForward10Seconds", {}) ?? "Перемотка вперёд на 10 сек") },
+                { id: 'mute',       label: (globalThis.noctuneI18n?.t("player.interface.mute", {}) ?? "Выключить звук") },
+                { id: 'prevTrack',  label: (globalThis.noctuneI18n?.t("miniPlayer.previousTrack", {}) ?? "Предыдущий трек") },
+                { id: 'nextTrack',  label: (globalThis.noctuneI18n?.t("miniPlayer.nextTrack", {}) ?? "Следующий трек") },
+                { id: 'volumeUp',   label: (globalThis.noctuneI18n?.t("ui.settings.volumeUp5", {}) ?? "Громче на 5%") },
+                { id: 'volumeDown', label: (globalThis.noctuneI18n?.t("ui.settings.volumeDown5", {}) ?? "Тише на 5%") },
+                { id: 'seekBack5',  label: (globalThis.noctuneI18n?.t("ui.settings.seekBack5Seconds", {}) ?? "Перемотка назад на 5 сек") },
+                { id: 'seekFwd5',   label: (globalThis.noctuneI18n?.t("ui.settings.seekForward5Seconds", {}) ?? "Перемотка вперёд на 5 сек") },
             ];
             const HOTKEY_DISPLAY_MAP = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: 'Space' };
             const HOTKEY_MODIFIER_NAMES = { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Win' };
@@ -2725,11 +2735,7 @@
                 [...HOTKEY_DEFS, ...(window.addonContributions?.hotkeys() || [])].forEach(def => {
                     const row = document.createElement('div');
                     row.className = 'hotkey-row';
-                    row.innerHTML = `
-                        <span class="hotkey-label"></span>
-                        <div class="hotkey-controls">
-                            <span class="hotkey-chip" data-action="${def.id}" title="Нажмите, чтобы изменить">${formatComboForDisplay(window.hotkeyBindings[def.id])}</span>
-                        </div>`;
+                    row.innerHTML = ("\n                        <span class=\"hotkey-label\"></span>\n                        <div class=\"hotkey-controls\">\n                            <span class=\"hotkey-chip\" data-action=\"" + (def.id) + "\" title=\"" + (globalThis.noctuneI18n?.legacyHtml("ui.settings.clickToChange", {p0: (def.id), p1: (formatComboForDisplay(window.hotkeyBindings[def.id]))}) ?? "Нажмите, чтобы изменить".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (def.id), p1: (formatComboForDisplay(window.hotkeyBindings[def.id]))})[i])) + "\">" + (formatComboForDisplay(window.hotkeyBindings[def.id])) + "</span>\n                        </div>");
                     row.querySelector('.hotkey-label').textContent = def.label;
                     hotkeysListEl.appendChild(row);
                 });
@@ -2746,7 +2752,7 @@
                 const chip = hotkeysListEl.querySelector(`.hotkey-chip[data-action="${actionId}"]`);
                 if (!chip) return;
                 window._hotkeyCaptureActive = true;
-                chip.textContent = 'Нажмите клавишу…';
+                chip.textContent = (globalThis.noctuneI18n?.t("ui.settings.pressAKey", {}) ?? "Нажмите клавишу…");
                 chip.classList.add('listening');
 
                 const captureHandler = (e) => {
@@ -2764,7 +2770,7 @@
                     if (conflictId) {
                         delete window.hotkeyBindings[conflictId];
                         const conflictLabel = HOTKEY_DEFS.find(d => d.id === conflictId)?.label || conflictId;
-                        showNotification(`«${formatComboForDisplay(combo)}» было снято с действия «${conflictLabel}»`, 'info');
+                        showNotification((globalThis.noctuneI18n?.t("ui.settings.wasRemovedFromAction", {p0: (formatComboForDisplay(combo)), p1: (conflictLabel)}) ?? "«{p0}» было снято с действия «{p1}»".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (formatComboForDisplay(combo)), p1: (conflictLabel)})[k] ?? "{"+k+"}")), 'info');
                     }
                     saveHotkeyBindings();
                     cleanup();
@@ -2782,7 +2788,7 @@
                 window.hotkeyBindings = Object.assign({}, DEFAULT_HOTKEYS);
                 saveHotkeyBindings();
                 renderHotkeysList();
-                showNotification('Горячие клавиши сброшены на стандартные', 'success');
+                showNotification((globalThis.noctuneI18n?.t("ui.settings.hotkeysRestoredToDefaults", {}) ?? "Горячие клавиши сброшены на стандартные"), 'success');
             });
 
             renderHotkeysList();
@@ -2900,7 +2906,7 @@
                     const img = await loadImageForExtraction(match[1]);
                     return extractPaletteFromSource(img);
                 } catch (e) {
-                    console.error('Не удалось получить палитру из фона:', e);
+                    console.error((globalThis.noctuneI18n?.t("ui.settings.couldNotExtractBackgroundPalette", {}) ?? "Не удалось получить палитру из фона:"), e);
                     return null;
                 }
             }
@@ -2910,7 +2916,7 @@
                 const palette = await computeAdaptivePalette();
                 if (window.sceneThemes?.active || appStorage.getItem('setting_scene_enabled') === '1') return;
                 if (!palette || !palette.length) {
-                    showNotification('Не удалось определить цвета фона для адаптивной палитры', 'warning');
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotDetectBackgroundColorsForAdaptivePalette", {}) ?? "Не удалось определить цвета фона для адаптивной палитры"), 'warning');
                     return;
                 }
                 window._adaptivePalette = palette;
@@ -3173,7 +3179,7 @@
                     if (typeof payload.bg.cte === 'boolean') setCheckedAndFire(settingBgCursorTilt, payload.bg.cte);
                     setValueAndFire(bgCursorTiltIntensitySlider, payload.bg.cti);
                     if (typeof payload.bg.ctv === 'boolean') setCheckedAndFire(settingBgCursorTiltInvert, payload.bg.ctv);
-                    showNotification('Настройки фона применены — само изображение/видео тема не переносит, выберите его вручную', 'info');
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.backgroundSettingsAppliedTheThemeDoesNotTransferTheImageOrVideoSelectItManually", {}) ?? "Настройки фона применены — само изображение/видео тема не переносит, выберите его вручную"), 'info');
                 }
 
                 window.imageEffects?.applyAppearance(payload.imageEffects);
@@ -3264,19 +3270,19 @@
                     const code = encodeTheme(payload);
                     if (themeImportInput) themeImportInput.value = code;
 
-                    const announceCopied = () => showNotification('Код темы скопирован в буфер обмена', 'info', 'Тема экспортирована');
+                    const announceCopied = () => showNotification((globalThis.noctuneI18n?.t("ui.settings.themeCodeCopiedToClipboard", {}) ?? "Код темы скопирован в буфер обмена"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeExported", {}) ?? "Тема экспортирована"));
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(code).then(announceCopied).catch(() => {
                             if (themeImportInput) themeImportInput.select();
-                            showNotification('Код темы готов — скопируйте его из поля ниже', 'info', 'Тема экспортирована');
+                            showNotification((globalThis.noctuneI18n?.t("ui.settings.themeCodeReadyCopyItFromTheFieldBelow", {}) ?? "Код темы готов — скопируйте его из поля ниже"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeExported", {}) ?? "Тема экспортирована"));
                         });
                     } else if (themeImportInput) {
                         themeImportInput.select();
-                        showNotification('Код темы готов — скопируйте его из поля ниже', 'info', 'Тема экспортирована');
+                        showNotification((globalThis.noctuneI18n?.t("ui.settings.themeCodeReadyCopyItFromTheFieldBelow", {}) ?? "Код темы готов — скопируйте его из поля ниже"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeExported", {}) ?? "Тема экспортирована"));
                     }
                 } catch (e) {
-                    console.error('Не удалось экспортировать тему:', e);
-                    showNotification('Не удалось экспортировать тему', 'error');
+                    console.error((globalThis.noctuneI18n?.t("ui.settings.couldNotExportTheme", {}) ?? "Не удалось экспортировать тему:"), e);
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotExportTheme.label", {}) ?? "Не удалось экспортировать тему"), 'error');
                 }
             });
 
@@ -3287,15 +3293,15 @@
                     payload = decodeTheme(themeImportInput.value);
                     if (!payload || typeof payload !== 'object') throw new Error('empty');
                 } catch (e) {
-                    showNotification('Некорректный код темы. Проверьте, что он начинается с «noctune:» и скопирован полностью', 'error');
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.invalidThemeCodeCheckThatItStartsWithNoctuneAndWasCopiedInFull", {}) ?? "Некорректный код темы. Проверьте, что он начинается с «noctune:» и скопирован полностью"), 'error');
                     return;
                 }
                 try {
                     await applyThemePayload(payload);
-                    showNotification('Тема успешно применена', 'info', 'Тема импортирована');
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.themeAppliedSuccessfully", {}) ?? "Тема успешно применена"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeImported", {}) ?? "Тема импортирована"));
                 } catch (e) {
-                    console.error('Не удалось применить тему:', e);
-                    showNotification('Не удалось применить тему', 'error');
+                    console.error((globalThis.noctuneI18n?.t("ui.settings.couldNotApplyTheme", {}) ?? "Не удалось применить тему:"), e);
+                    showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotApplyTheme.label", {}) ?? "Не удалось применить тему"), 'error');
                 }
             });
 
@@ -3574,7 +3580,7 @@
                     const el = document.getElementById('setting-crossfade-out');
                     const lb = document.getElementById('setting-crossfade-out-label');
                     if (el) el.value = crossfadeOutDuration;
-                    if (lb) lb.textContent = crossfadeOutDuration.toFixed(1) + 'с';
+                    if (lb) lb.textContent = crossfadeOutDuration.toFixed(1) + (globalThis.noctuneI18n?.t("ui.settings.s", {}) ?? "с");
                 }
                 const savedCFIn = appStorage.getItem('setting_crossfade_in');
                 if (savedCFIn !== null) {
@@ -3582,7 +3588,7 @@
                     const el = document.getElementById('setting-crossfade-in');
                     const lb = document.getElementById('setting-crossfade-in-label');
                     if (el) el.value = crossfadeInDuration;
-                    if (lb) lb.textContent = crossfadeInDuration.toFixed(1) + 'с';
+                    if (lb) lb.textContent = crossfadeInDuration.toFixed(1) + (globalThis.noctuneI18n?.t("ui.settings.s", {}) ?? "с");
                 }
 
                 // ReplayGain
@@ -3595,11 +3601,11 @@
                 // напрямую, см. audio-engine.js)
                 const limT = appStorage.getItem('setting_limiter_threshold');
                 limiterThresholdSlider.value = limT !== null ? parseFloat(limT) : LIMITER_DEFAULTS.threshold;
-                limiterThresholdLabel.textContent = `${limiterThresholdSlider.value} дБ`;
+                limiterThresholdLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.db", {p0: (limiterThresholdSlider.value)}) ?? "{p0} дБ".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (limiterThresholdSlider.value)})[k] ?? "{"+k+"}"));
 
                 const limK = appStorage.getItem('setting_limiter_knee');
                 limiterKneeSlider.value = limK !== null ? parseFloat(limK) : LIMITER_DEFAULTS.knee;
-                limiterKneeLabel.textContent = `${limiterKneeSlider.value} дБ`;
+                limiterKneeLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.db", {p0: (limiterKneeSlider.value)}) ?? "{p0} дБ".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (limiterKneeSlider.value)})[k] ?? "{"+k+"}"));
 
                 const limR = appStorage.getItem('setting_limiter_ratio');
                 limiterRatioSlider.value = limR !== null ? parseFloat(limR) : LIMITER_DEFAULTS.ratio;
@@ -3607,11 +3613,11 @@
 
                 const limA = appStorage.getItem('setting_limiter_attack');
                 limiterAttackSlider.value = limA !== null ? parseFloat(limA) : LIMITER_DEFAULTS.attack;
-                limiterAttackLabel.textContent = `${limiterAttackSlider.value} мс`;
+                limiterAttackLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.ms", {p0: (limiterAttackSlider.value)}) ?? "{p0} мс".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (limiterAttackSlider.value)})[k] ?? "{"+k+"}"));
 
                 const limRel = appStorage.getItem('setting_limiter_release');
                 limiterReleaseSlider.value = limRel !== null ? parseFloat(limRel) : LIMITER_DEFAULTS.release;
-                limiterReleaseLabel.textContent = `${limiterReleaseSlider.value} мс`;
+                limiterReleaseLabel.textContent = (globalThis.noctuneI18n?.t("ui.settings.ms", {p0: (limiterReleaseSlider.value)}) ?? "{p0} мс".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (limiterReleaseSlider.value)})[k] ?? "{"+k+"}"));
 
                 // Включён ли лимитер вообще
                 const savedLimiterEnabled = appStorage.getItem('setting_limiter_enabled');
@@ -3917,11 +3923,11 @@
 
                 if (savedDiscordRpcEnabled) {
                     noctune.discordRpcStatus().then((s) => {
-                        if (s && s.connected) setDiscordRpcStatusPill('connected', 'Подключено');
-                        else setDiscordRpcStatusPill('idle', 'Подключение…');
+                        if (s && s.connected) setDiscordRpcStatusPill('connected', (globalThis.noctuneI18n?.t("ui.settings.connected", {}) ?? "Подключено"));
+                        else setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("ui.settings.connecting", {}) ?? "Подключение…"));
                     });
                 } else {
-                    setDiscordRpcStatusPill('idle', 'Отключено');
+                    setDiscordRpcStatusPill('idle', (globalThis.noctuneI18n?.t("settings.integrations.disconnected", {}) ?? "Отключено"));
                 }
 
                 // Last.fm — статус подключения (сессия персистится в main-процессе)
@@ -4104,12 +4110,12 @@
                     }
                 },
                 apply(options) {
-                    if (options.enabled !== undefined) { if (typeof options.enabled !== 'boolean') throw new Error('Нужен переключатель'); this.enable(options.enabled); }
-                    if (options.fit !== undefined) { if (!['cover','contain','fill'].includes(options.fit)) throw new Error('Неизвестный режим фона'); selectBgFit(options.fit); }
+                    if (options.enabled !== undefined) { if (typeof options.enabled !== 'boolean') throw new Error((globalThis.noctuneI18n?.t("extensions.playerApi.booleanRequired", {}) ?? "Нужен переключатель")); this.enable(options.enabled); }
+                    if (options.fit !== undefined) { if (!['cover','contain','fill'].includes(options.fit)) throw new Error((globalThis.noctuneI18n?.t("ui.settings.unknownBackgroundMode", {}) ?? "Неизвестный режим фона")); selectBgFit(options.fit); }
                     for (const [key, id] of Object.entries({ blur: 'setting-bg-blur-intensity', threshold: 'setting-bg-blur-threshold' })) {
                         if (options[key] === undefined) continue;
                         const input = document.getElementById(id), value = options[key];
-                        if (!Number.isFinite(value) || value < Number(input.min) || value > Number(input.max)) throw new Error('Параметр фона вне диапазона');
+                        if (!Number.isFinite(value) || value < Number(input.min) || value > Number(input.max)) throw new Error((globalThis.noctuneI18n?.t("ui.settings.backgroundParameterOutOfRange", {}) ?? "Параметр фона вне диапазона"));
                         input.value = value; input.dispatchEvent(new Event('input'));
                     }
                     window.addonEvents?.emit('backgrounds.changed');

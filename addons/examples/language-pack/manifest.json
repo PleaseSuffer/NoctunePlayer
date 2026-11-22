@@ -1,0 +1,23 @@
+{
+  "id": "language-pack-demo",
+  "name": "extension.name",
+  "description": "extension.description",
+  "author": "Noctune",
+  "version": "1.0.0",
+  "revision": 1,
+  "apiVersion": 2,
+  "minNoctuneVersion": "1.4.0",
+  "type": "extension",
+  "entry": "main.js",
+  "permissions": [
+    "i18n.register"
+  ],
+  "commands": [],
+  "localization": {
+    "defaultLocale": "en",
+    "files": {
+      "ru": "locales/ru_RU.json",
+      "en": "locales/en_US.json"
+    }
+  }
+}

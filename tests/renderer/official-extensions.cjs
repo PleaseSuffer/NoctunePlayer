@@ -1,11 +1,12 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 async function activate(slug,values={},initial=new Date(2026,9,22,12).getTime()) {
     const manifest=JSON.parse(fs.readFileSync(`addons/official/noctune-${slug}/manifest.json`,'utf8'));
+const messages = Object.fromEntries(Object.entries(manifest.localization.files).map(([locale, filename]) => [locale, JSON.parse(fs.readFileSync(`addons/official/noctune-${slug}/`+filename, 'utf8'))]));
     let settings=Object.fromEntries(Object.entries(manifest.settings).map(([key,field])=>[key,field.default]));settings={...settings,...values};
     let now=initial,start,serial=0,pauses=0;const timers=new Map(),events={},commands={},gains=[],themes=[],walls=[],registered=[],notices=[];
     const available=[{id:'light'},{id:'dark'},{id:'system'},{id:'scheme:other-provider:graphite'}],backgrounds=[{id:'background:'+'a'.repeat(64)}];
     class Clock extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
-    const api={settings:{get:async()=>settings},on:(name,fn)=>{events[name]=fn;},onCommand:(name,fn)=>{commands[name]=fn;},
+    const api={version:2,i18n:{locale:'ru',t:(key,args={})=>messages.ru[key].replace(/\{(\w+)\}/g,(all,name)=>Object.hasOwn(args,name)?String(args[name]):all)},settings:{get:async()=>settings},on:(name,fn)=>{events[name]=fn;},onCommand:(name,fn)=>{commands[name]=fn;},
         hotkeys:{register:async()=>{}},notify:async text=>{notices.push(text);},player:{pause:async()=>{pauses++;}},audio:{gain:async args=>{gains.push(args);}},
         appearance:{list:async()=>available,select:async({id})=>{themes.push(id);},register:async item=>{registered.push(item);},switch:async({id})=>{themes.push(id);}},
         backgrounds:{list:async()=>backgrounds,override:async({id})=>{walls.push(id);}},

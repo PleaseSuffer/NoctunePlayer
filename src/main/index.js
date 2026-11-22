@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, po
 let win = null;
 const mainErrors = require('./error-reporter').createMainErrorReporter({ ipcMain, getWindow: () => win });
 const windowBackend = require('./window-backend').configureWindowBackend({ app });
+const appI18n = require('./i18n').installI18n({ app, ipcMain, BrowserWindow, getStore: () => initStore(), getMainWindow: () => win });
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const { audioOpenRequestFromArgv, createAudioOpenQueue } = require('./open-audio-files');
@@ -51,14 +52,14 @@ const sceneThemeStore = createSceneThemeStore({
 const { createThemeInstaller } = require('./theme-installer');
 const themeInstaller = createThemeInstaller({ BrowserWindow, ipcMain, store: sceneThemeStore, icon: iconPath });
 function sceneSender(event) {
-  if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Недоступно для этого окна');
+  if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
 }
 ipcMain.handle('scene-themes:list', event => { sceneSender(event); return sceneThemeStore.list(); });
 ipcMain.handle('scene-themes:read', (event, id) => { sceneSender(event); return sceneThemeStore.read(id); });
 ipcMain.handle('scene-themes:remove', (event, id) => { sceneSender(event); return sceneThemeStore.remove(id); });
 ipcMain.handle('scene-themes:import', async event => {
   sceneSender(event);
-  const result = await dialog.showOpenDialog(win, { title: 'Импортировать интерактивную тему', properties: ['openFile'], filters: [{ name: 'Noctune Scene', extensions: ['noctheme'] }] });
+  const result = await dialog.showOpenDialog(win, { title: (globalThis.noctuneI18n?.t("index.importInteractiveTheme", {}) ?? "Импортировать интерактивную тему"), properties: ['openFile'], filters: [{ name: 'Noctune Scene', extensions: ['noctheme'] }] });
   if (result.canceled || !result.filePaths[0]) return null;
   return themeInstaller.open(result.filePaths[0]);
 });
@@ -143,7 +144,7 @@ function parseDeepLinkUrl(rawUrl) {
     const name = u.searchParams.get('name');
     const url = u.searchParams.get('url');
     if (!url) return null;
-    return { name: name ? decodeURIComponent(name) : 'Радиостанция', url };
+    return { name: name ? decodeURIComponent(name) : (globalThis.noctuneI18n?.t("index.radioStation", {}) ?? "Радиостанция"), url };
   } catch (e) {
     return null;
   }
@@ -353,7 +354,7 @@ function lastfmRequest(params, httpMethod = 'GET', signal) {
             reject(error);
           }
           else resolve(json);
-        } catch (e) { reject(new Error('Некорректный ответ Last.fm')); }
+        } catch (e) { reject(new Error((globalThis.noctuneI18n?.t("index.invalidLastFmResponse", {}) ?? "Некорректный ответ Last.fm"))); }
       });
     });
     req.on('error', reject);
@@ -720,7 +721,7 @@ function createWindow() {
         if (Notification.isSupported()) {
           new Notification({
             title: 'Noctune Player',
-            body: 'Приложение свёрнуто в трей и продолжает воспроизведение.',
+            body: (globalThis.noctuneI18n?.t("index.theApplicationIsMinimizedToTheTrayAndContinuesPlaying", {}) ?? "Приложение свёрнуто в трей и продолжает воспроизведение."),
             icon: iconPath
           }).show();
         }
@@ -800,8 +801,8 @@ ipcMain.handle('updater:check', async (_e, silent) => {
         onSilentAvailable = (info) => {
             if (isUpdateVersionSkipped(info.version)) return;
             const notif = new Notification({
-                title: 'Доступно обновление!',
-                body: `Версия ${info.version} доступна. Нажмите, чтобы открыть Noctune и скачать.`,
+                title: (globalThis.noctuneI18n?.t("index.updateAvailable", {}) ?? "Доступно обновление!"),
+                body: (globalThis.noctuneI18n?.t("updates.available.notification", {p0: (info.version)}) ?? "Версия {p0} доступна. Нажмите, чтобы открыть Noctune и скачать.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (info.version)})[k] ?? "{"+k+"}")),
                 icon: iconPath
             });
             notif.on('click', () => { if (win) { win.show(); win.focus(); } });
@@ -885,7 +886,7 @@ ipcMain.handle('dialog:openFiles', async () => {
     const result = await dialog.showOpenDialog(win, {
         properties: ['openFile', 'multiSelections'],
         filters: [
-            { name: 'Аудиофайлы', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }
+            { name: (globalThis.noctuneI18n?.t("index.audioFiles", {}) ?? "Аудиофайлы"), extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }
         ]
     });
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -910,9 +911,9 @@ ipcMain.handle('dialog:openImage', async () => {
     const result = await dialog.showOpenDialog(win, {
         properties: ['openFile'],
         filters: [
-            { name: 'Изображения и видео', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'] },
-            { name: 'Изображения', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] },
-            { name: 'Видео', extensions: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'] }
+            { name: (globalThis.noctuneI18n?.t("index.imagesAndVideos", {}) ?? "Изображения и видео"), extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'] },
+            { name: (globalThis.noctuneI18n?.t("index.images", {}) ?? "Изображения"), extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] },
+            { name: (globalThis.noctuneI18n?.t("index.videos", {}) ?? "Видео"), extensions: ['mp4', 'webm', 'mkv', 'mov', 'm4v', 'ogv', 'avi'] }
         ]
     });
     if (result.canceled || result.filePaths.length === 0) return null;
@@ -923,7 +924,7 @@ ipcMain.handle('dialog:openImage', async () => {
 ipcMain.handle('dialog:openM3U', async () => {
     const result = await dialog.showOpenDialog(win, {
         properties: ['openFile'],
-        filters: [{ name: 'Плейлисты M3U', extensions: ['m3u', 'm3u8'] }]
+        filters: [{ name: (globalThis.noctuneI18n?.t("index.m3uPlaylists", {}) ?? "Плейлисты M3U"), extensions: ['m3u', 'm3u8'] }]
     });
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
@@ -932,7 +933,7 @@ ipcMain.handle('dialog:openM3U', async () => {
 ipcMain.handle('dialog:saveM3U', async (_e, defaultName) => {
     const result = await dialog.showSaveDialog(win, {
         defaultPath: (defaultName || 'playlist') + '.m3u',
-        filters: [{ name: 'Плейлисты M3U', extensions: ['m3u'] }]
+        filters: [{ name: (globalThis.noctuneI18n?.t("index.m3uPlaylists", {}) ?? "Плейлисты M3U"), extensions: ['m3u'] }]
     });
     if (result.canceled || !result.filePath) return null;
     return result.filePath;
@@ -1003,7 +1004,7 @@ function performTrayUpdateCheck() {
     if (Notification.isSupported()) {
         new Notification({
             title: 'Noctune Player',
-            body: 'Проверяем наличие обновлений...',
+            body: (globalThis.noctuneI18n?.t("index.checkingForUpdates", {}) ?? "Проверяем наличие обновлений..."),
             icon: iconPath
         }).show();
     }
@@ -1012,8 +1013,8 @@ function performTrayUpdateCheck() {
         cleanup();
         if (!Notification.isSupported()) return;
         const notif = new Notification({
-            title: 'Доступно обновление!',
-            body: `Версия ${info.version} доступна. Нажмите, чтобы открыть Noctune и скачать.`,
+            title: (globalThis.noctuneI18n?.t("index.updateAvailable", {}) ?? "Доступно обновление!"),
+            body: (globalThis.noctuneI18n?.t("updates.available.notification", {p0: (info.version)}) ?? "Версия {p0} доступна. Нажмите, чтобы открыть Noctune и скачать.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (info.version)})[k] ?? "{"+k+"}")),
             icon: iconPath
         });
         notif.on('click', () => { if (win) { win.show(); win.focus(); } });
@@ -1024,7 +1025,7 @@ function performTrayUpdateCheck() {
         if (Notification.isSupported()) {
             new Notification({
                 title: 'Noctune Player',
-                body: `У вас установлена актуальная версия (v${getDisplayVersion()}).`,
+                body: (globalThis.noctuneI18n?.t("index.youAreRunningTheLatestVersionV", {p0: (getDisplayVersion())}) ?? "У вас установлена актуальная версия (v{p0}).".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (getDisplayVersion())})[k] ?? "{"+k+"}")),
                 icon: iconPath
             }).show();
         }
@@ -1034,7 +1035,7 @@ function performTrayUpdateCheck() {
         if (Notification.isSupported()) {
             new Notification({
                 title: 'Noctune Player',
-                body: 'Не удалось проверить обновления. Проверьте подключение к сети.',
+                body: (globalThis.noctuneI18n?.t("index.couldNotCheckForUpdatesCheckYourNetworkConnection", {}) ?? "Не удалось проверить обновления. Проверьте подключение к сети."),
                 icon: iconPath
             }).show();
         }
@@ -1115,7 +1116,7 @@ ipcMain.handle('lastfm-cover-cache-clear', async (_event, payload) => {
 ipcMain.handle('lastfm-cover-cache-choose-folder', async () => {
     try {
         const result = await dialog.showOpenDialog(win, {
-            title: 'Папка для кэша обложек', properties: ['openDirectory', 'createDirectory'],
+            title: (globalThis.noctuneI18n?.t("index.artworkCacheFolder", {}) ?? "Папка для кэша обложек"), properties: ['openDirectory', 'createDirectory'],
             defaultPath: store?.get('setting_lastfm_cover_cache_custom_path') || app.getPath('userData'),
         });
         if (result.canceled || !result.filePaths.length) return { canceled: true };
@@ -1198,7 +1199,7 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     protocol.handle('noctune-stream', request => addonStore.stream(request));
     initStore().then(() => {
-      console.log('Store инициализирован');
+      console.log((globalThis.noctuneI18n?.t("index.storeInitialized", {}) ?? "Store инициализирован"));
       lastfmLoadSession();
     });
     createWindow();
@@ -1209,7 +1210,7 @@ if (!gotTheLock) {
 
     // Состояние воспроизведения для отображения в трее
     let trayIsPlaying = false;
-    let trayTrackTitle = 'Ничего не играет';
+    let trayTrackTitle = (globalThis.noctuneI18n?.t("index.nothingPlaying", {}) ?? "Ничего не играет");
     let trayPrevEnabled = false;
     let trayNextEnabled = false;
 
@@ -1217,35 +1218,35 @@ if (!gotTheLock) {
       const visible = win.isVisible();
       return Menu.buildFromTemplate([
         {
-          label: visible ? 'Свернуть' : 'Развернуть',
+          label: visible ? (globalThis.noctuneI18n?.t("player.interface.minimize", {}) ?? "Свернуть") : (globalThis.noctuneI18n?.t("player.interface.expand", {}) ?? "Развернуть"),
           click: () => {
             if (visible && !win.isMinimized()) win.hide();
             else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
           }
         },
         {
-          label: 'Мини-плеер',
+          label: (globalThis.noctuneI18n?.t("settings.player.miniPlayer", {}) ?? "Мини-плеер"),
           enabled: miniPlayerController.getSettings().enabled,
           click: () => miniPlayerController.open()
         },
         { type: 'separator' },
         { type: 'separator' },
         {
-          label: 'Воспроизведение',
+          label: (globalThis.noctuneI18n?.t("settings.player.playback", {}) ?? "Воспроизведение"),
           sublabel: trayTrackTitle,
           submenu: [
             {
-              label: trayIsPlaying ? 'Пауза' : 'Воспроизвести',
+              label: trayIsPlaying ? (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза") : (globalThis.noctuneI18n?.t("player.interface.play", {}) ?? "Воспроизвести"),
               click: () => win.webContents.send('tray-cmd', 'toggle')
             },
             { type: 'separator' },
             {
-              label: 'Следующая песня',
+              label: (globalThis.noctuneI18n?.t("player.interface.nextTrack", {}) ?? "Следующая песня"),
               enabled: trayNextEnabled,
               click: () => win.webContents.send('tray-cmd', 'next')
             },
             {
-              label: 'Предыдущая песня',
+              label: (globalThis.noctuneI18n?.t("player.interface.previousTrack", {}) ?? "Предыдущая песня"),
               enabled: trayPrevEnabled,
               click: () => win.webContents.send('tray-cmd', 'prev')
             },
@@ -1253,16 +1254,16 @@ if (!gotTheLock) {
         },
         { type: 'separator' },
         {
-          label: 'О приложении',
+          label: (globalThis.noctuneI18n?.t("index.about", {}) ?? "О приложении"),
           submenu: [
             { label: 'Noctune Player v' + getDisplayVersion(), enabled: false },
-            { label: 'Проверить обновления', click: () => performTrayUpdateCheck() },
+            { label: (globalThis.noctuneI18n?.t("settings.addons.checkForUpdates", {}) ?? "Проверить обновления"), click: () => performTrayUpdateCheck() },
             { label: 'GitHub', click: () => shell.openExternal('https://github.com/PleaseSuffer/NoctunePlayer') },
           ]
         },
         { type: 'separator' },
         {
-          label: 'Закрыть приложение',
+          label: (globalThis.noctuneI18n?.t("index.quitApplication", {}) ?? "Закрыть приложение"),
           click: () => { isQuiting = true; app.quit(); }
         }
       ]);
@@ -1271,6 +1272,8 @@ if (!gotTheLock) {
     function refreshTrayMenu() {
       tray.setContextMenu(buildTrayMenu());
     }
+
+    appI18n.onChange(refreshTrayMenu);
 
     // Обновление состояния трея из рендерера
     ipcMain.on('tray-state-update', (_e, state) => {

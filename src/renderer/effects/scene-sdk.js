@@ -598,7 +598,7 @@
         }
     }
     window.NoctuneScene = {
-        define(scene) { if (!scene || typeof scene.render !== 'function') throw new Error('Тема должна объявить render(api, frame)'); window.__noctuneScene = scene; },
+        define(scene) { if (!scene || typeof scene.render !== 'function') throw new Error((globalThis.noctuneI18n?.t("effects.sceneSdk.themeMustDeclareRenderApiFrame", {}) ?? "Тема должна объявить render(api, frame)")); window.__noctuneScene = scene; },
         create(canvas, manifest, images, apiVersion = manifest.apiVersion || 1, runtime) {
             if (![1,2].includes(apiVersion)) throw new Error('Unsupported Scene API version: ' + apiVersion);
             return apiVersion === 2 ? new SceneAPIv2(canvas, manifest, images, runtime) : new SceneAPI(canvas, manifest, images);

@@ -1,11 +1,11 @@
 {
   "id": "noctune-dusk",
   "name": "Noctune Dusk",
-  "description": "Оформление по расписанию: дневная и ночная схемы, палитры других расширений и смена обоев по желанию. Официальное расширение Noctune.",
+  "description": "extension.description",
   "author": "Noctune",
   "version": "1.0.0",
-  "revision": 1,
-  "apiVersion": 1,
+  "revision": 2,
+  "apiVersion": 2,
   "minNoctuneVersion": "1.4.0",
   "type": "extension",
   "entry": "main.js",
@@ -25,85 +25,85 @@
   "commands": [
     {
       "id": "apply-now",
-      "title": "Применить расписание сейчас"
+      "title": "commands.applyNow.title"
     },
     {
       "id": "schedule-status",
-      "title": "Текущее состояние расписания"
+      "title": "commands.scheduleStatus.title"
     }
   ],
   "settings": {
     "automatic": {
       "type": "toggle",
-      "label": "Оформление по расписанию",
+      "label": "settings.automatic.label",
       "default": true
     },
     "dayStart": {
       "type": "text",
-      "label": "Начало дня · ЧЧ:ММ",
+      "label": "settings.dayStart.label",
       "default": "07:00",
       "maxLength": 5
     },
     "nightStart": {
       "type": "text",
-      "label": "Начало ночи · ЧЧ:ММ",
+      "label": "settings.nightStart.label",
       "default": "21:00",
       "maxLength": 5
     },
     "dayTheme": {
       "type": "select",
-      "label": "Дневная схема",
+      "label": "settings.dayTheme.label",
       "default": "light",
       "options": [
         {
           "value": "light",
-          "label": "Светлая"
+          "label": "settings.dayTheme.options.light"
         },
         {
           "value": "dark",
-          "label": "Тёмная"
+          "label": "settings.dayTheme.options.dark"
         },
         {
           "value": "system",
-          "label": "Как в системе"
+          "label": "settings.dayTheme.options.system"
         }
       ],
       "source": "appearance.schemes",
-      "description": "Схемы других расширений появляются после их включения."
+      "description": "settings.dayTheme.description"
     },
     "nightTheme": {
       "type": "select",
-      "label": "Ночная схема",
+      "label": "settings.nightTheme.label",
       "default": "dark",
       "options": [
         {
           "value": "light",
-          "label": "Светлая"
+          "label": "settings.dayTheme.options.light"
         },
         {
           "value": "dark",
-          "label": "Тёмная"
+          "label": "settings.dayTheme.options.dark"
         },
         {
           "value": "system",
-          "label": "Как в системе"
+          "label": "settings.dayTheme.options.system"
         }
       ],
       "source": "appearance.schemes"
     },
     "wallpapers": {
       "type": "toggle",
-      "label": "Менять обои вместе со схемой",
+      "label": "settings.wallpapers.label",
       "default": false
     },
     "dayWallpaper": {
       "type": "select",
-      "label": "Дневные обои",
+      "label": "settings.dayWallpaper.label",
       "default": "",
       "options": [
         {
           "value": "",
-          "label": "Оставить обои плеера"
+          "label": "settings.dayWallpaper.options.keepCurrent"
         }
       ],
       "source": "backgrounds",
@@ -114,12 +114,12 @@
     },
     "nightWallpaper": {
       "type": "select",
-      "label": "Ночные обои",
+      "label": "settings.nightWallpaper.label",
       "default": "",
       "options": [
         {
           "value": "",
-          "label": "Оставить обои плеера"
+          "label": "settings.dayWallpaper.options.keepCurrent"
         }
       ],
       "source": "backgrounds",
@@ -127,6 +127,13 @@
         "field": "wallpapers",
         "equals": true
       }
+    }
+  },
+  "localization": {
+    "defaultLocale": "ru",
+    "files": {
+      "ru": "locales/ru_RU.json",
+      "en": "locales/en_US.json"
     }
   }
 }

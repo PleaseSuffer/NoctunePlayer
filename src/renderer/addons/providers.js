@@ -1,27 +1,27 @@
 (function () {
     const providers = new Map(), collections = new Map();
     const key = (id, provider) => id + ':' + provider;
-    function get(entry) { const provider = providers.get(key(entry.addonId, entry.providerId)); if (!provider) throw new Error('Провайдер выключен'); return provider; }
+    function get(entry) { const provider = providers.get(key(entry.addonId, entry.providerId)); if (!provider) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.providerDisabled", {}) ?? "Провайдер выключен")); return provider; }
     function validate(track) {
-        if (!track || typeof track.id !== 'string' || !track.id || track.id.length > 300 || typeof track.title !== 'string' || !track.title || track.title.length > 300 || (track.artist !== undefined && (typeof track.artist !== 'string' || track.artist.length > 300))) throw new Error('Некорректный трек провайдера');
+        if (!track || typeof track.id !== 'string' || !track.id || track.id.length > 300 || typeof track.title !== 'string' || !track.title || track.title.length > 300 || (track.artist !== undefined && (typeof track.artist !== 'string' || track.artist.length > 300))) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.invalidProviderTrack", {}) ?? "Некорректный трек провайдера"));
         return { kind: 'provider', trackId: track.id, name: track.title, title: track.title, artist: track.artist || '', album: typeof track.album === 'string' ? track.album.slice(0, 300) : '' };
     }
     window.addonProviders = {
         has(id, provider) {return providers.has(key(id,provider));},
         async collection(id, args, entryId) {
             get({addonId:id,providerId:args.provider});
-            if(!Array.isArray(args.tracks)||args.tracks.length>10000)throw new Error('Не более 10000 загруженных треков');
+            if(!Array.isArray(args.tracks)||args.tracks.length>10000)throw new Error((globalThis.noctuneI18n?.t("extensions.providers.atMost10000LoadedTracks", {}) ?? "Не более 10000 загруженных треков"));
             const collectionKey=JSON.stringify([id,args.provider,args.accountId,args.id]);
             let playlistId=collections.get(collectionKey);if(!playlistId){playlistId='provider_'+crypto.randomUUID();collections.set(collectionKey,playlistId);}
             const tracks=args.tracks.map(track=>({...validate(track),entryId:track.entryId,addonId:id,providerId:args.provider}));
             let pl=userPlaylists.find(pl=>pl.id===playlistId);if(!pl){pl={id:playlistId,type:'provider',addonId:id};userPlaylists.push(pl);}
             pl.name=String(args.name).slice(0,300);pl.tracks=tracks;pl.accountId=args.accountId;
             renderPlaylistsDropdown();await selectPlaylist(playlistId);
-            if(entryId!==undefined){const index=tracks.findIndex(track=>track.entryId===entryId);if(index<0)throw new Error('Трек больше не находится в плейлисте');return playTrack(index);}
+            if(entryId!==undefined){const index=tracks.findIndex(track=>track.entryId===entryId);if(index<0)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.trackIsNoLongerInThePlaylist", {}) ?? "Трек больше не находится в плейлисте"));return playTrack(index);}
         },
         register(id, hash, args, call) {
-            if (!/^[a-z][a-z0-9-]{1,63}$/.test(args.id) || typeof args.name !== 'string' || args.name.length > 120 || providers.has(key(id, args.id))) throw new Error('Некорректный или повторный провайдер');
-            if ([...providers.values()].filter(provider => provider.id === id).length >= 8) throw new Error('Не более восьми провайдеров на расширение');
+            if (!/^[a-z][a-z0-9-]{1,63}$/.test(args.id) || typeof args.name !== 'string' || args.name.length > 120 || providers.has(key(id, args.id))) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.invalidOrDuplicateProvider") ?? "Некорректный или повторный провайдер"));
+            if ([...providers.values()].filter(provider => provider.id === id).length >= 8) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.atMostEightProvidersPerExtension") ?? "Не более восьми провайдеров на расширение"));
             providers.set(key(id, args.id), { id, hash, name: args.name, call, trackActions: args.trackActions === true, inlineActions: args.trackActions === true && args.inlineActions === true, revision: 0, offered: new Map(), pending: new Map(), rows: new Map(), rowRequests: new Map() });
             document.dispatchEvent(new Event('addon-contributions-changed'));
         },
@@ -40,15 +40,15 @@
             }
             const revision = provider.revision;
             const result = await provider.call('trackActions', { trackId: entry.trackId || entry.id, surface });
-            if (providers.get(key(entry.addonId, entry.providerId)) !== provider) throw new Error('Провайдер выключен или обновлён');
+            if (providers.get(key(entry.addonId, entry.providerId)) !== provider) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.providerDisabledOrUpdated", {}) ?? "Провайдер выключен или обновлён"));
             if (revision !== provider.revision) {
                 if (retries < 3) return this.actions(entry, surface, retries + 1);
-                throw new Error('Состояние трека изменилось');
+                throw new Error((globalThis.noctuneI18n?.t("extensions.providers.trackStateChanged") ?? "Состояние трека изменилось"));
             }
-            if (!Array.isArray(result) || result.length > 16) throw new Error('Не более 16 действий трека');
+            if (!Array.isArray(result) || result.length > 16) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.atMost16TrackActions", {}) ?? "Не более 16 действий трека"));
             const ids = new Set();
             const actions = result.map(action => {
-                if (!action || typeof action.id !== 'string' || !/^[a-z][a-z0-9-]{1,63}$/.test(action.id) || ids.has(action.id) || typeof action.title !== 'string' || !action.title.trim() || action.title.length > 120) throw new Error('Некорректное действие трека');
+                if (!action || typeof action.id !== 'string' || !/^[a-z][a-z0-9-]{1,63}$/.test(action.id) || ids.has(action.id) || typeof action.title !== 'string' || !action.title.trim() || action.title.length > 120) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.invalidTrackAction", {}) ?? "Некорректное действие трека"));
                 ids.add(action.id);
                 return { id: action.id, title: action.title, icon: typeof action.icon === 'string' && /^[A-Z][A-Za-z0-9]{0,63}$/.test(action.icon) ? action.icon : 'Circle', inline: provider.inlineActions && action.inline === true, active: action.active === true };
             });
@@ -65,7 +65,7 @@
         hasInline(entry) { return providers.get(key(entry.addonId, entry.providerId))?.inlineActions === true; },
         invalidate(id, { provider: providerId, trackIds }) {
             const provider = get({ addonId: id, providerId });
-            if (trackIds !== undefined && (!Array.isArray(trackIds) || trackIds.length > 100 || trackIds.some(track => typeof track !== 'string' || !track || track.length > 300))) throw new Error('Не более 100 ID треков');
+            if (trackIds !== undefined && (!Array.isArray(trackIds) || trackIds.length > 100 || trackIds.some(track => typeof track !== 'string' || !track || track.length > 300))) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.atMost100TrackIds", {}) ?? "Не более 100 ID треков"));
             provider.revision++;
             for (const [track, pending] of provider.pending) if (!trackIds || trackIds.includes(track)) pending.invalidated = true;
             for (const [track, cached] of provider.rows) if (!trackIds || trackIds.includes(track)) cached.dirty = true;
@@ -76,16 +76,16 @@
         },
         async action(entry, action) {
             const provider = get(entry), trackId = entry.trackId || entry.id, offered = provider.offered.get(trackId);
-            if (!provider.trackActions || !offered || offered.expires < Date.now() || !offered.ids.has(action)) throw new Error('Действие устарело. Откройте меню трека заново.');
-            if (provider.pending.has(trackId)) throw new Error('Действие с треком уже выполняется');
+            if (!provider.trackActions || !offered || offered.expires < Date.now() || !offered.ids.has(action)) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.actionExpiredReopenTheTrackMenu") ?? "Действие устарело. Откройте меню трека заново."));
+            if (provider.pending.has(trackId)) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.trackActionAlreadyInProgress") ?? "Действие с треком уже выполняется"));
             const pending = { invalidated: false }; provider.pending.set(trackId, pending);
             try { await provider.call('trackAction', { trackId, action }); if (!pending.invalidated && providers.get(key(entry.addonId, entry.providerId)) === provider) this.invalidate(entry.addonId, { provider: entry.providerId, trackIds: [trackId] }); }
             finally { provider.pending.delete(trackId); provider.offered.delete(trackId); }
         },
-        async search(id, args) { const provider = get({ addonId: id, providerId: args.provider }); const result = await provider.call('search', { query: String(args.query).slice(0, 300) }); if (!Array.isArray(result) || result.length > 100) throw new Error('Не более 100 результатов'); return result.map(track => { const item = validate(track); return { id: item.trackId, title: item.title, artist: item.artist, album: item.album }; }); },
+        async search(id, args) { const provider = get({ addonId: id, providerId: args.provider }); const result = await provider.call('search', { query: String(args.query).slice(0, 300) }); if (!Array.isArray(result) || result.length > 100) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.atMost100Results", {}) ?? "Не более 100 результатов")); return result.map(track => { const item = validate(track); return { id: item.trackId, title: item.title, artist: item.artist, album: item.album }; }); },
         enqueue(id, args) {
             get({ addonId: id, providerId: args.provider }); validate(args.track);
-            if (externalAudioQueue.length >= 500) throw new Error('Очередь заполнена');
+            if (externalAudioQueue.length >= 500) throw new Error((globalThis.noctuneI18n?.t("extensions.collections.queueIsFull", {}) ?? "Очередь заполнена"));
             const queueId = crypto.randomUUID(); externalAudioQueue.push({ queueId, provider: { addonId: id, providerId: args.provider, track: args.track } });
             addonEvents.emit('queue.changed'); return queueId;
         },
@@ -105,9 +105,9 @@
         },
         async resolve(entry, token, reason = 'play') {
             const provider = get(entry), descriptor = await provider.call('resolve', { trackId: entry.trackId, reason, sessionId: window.addonEvents.snapshot().sessionId });
-            if (token !== _loadToken) throw new Error('Трек уже переключён');
-            if (descriptor?.error) { const error = new Error(String(descriptor.error.message || 'Поток недоступен').slice(0, 240)); error.code = descriptor.error.code; throw error; }
-            if (!descriptor || typeof descriptor.url !== 'string' || (descriptor.transport && descriptor.transport !== 'direct')) throw new Error('Поддерживаются прямые аудиопотоки без DRM');
+            if (token !== _loadToken) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.trackHasAlreadyChanged", {}) ?? "Трек уже переключён"));
+            if (descriptor?.error) { const error = new Error(String(descriptor.error.message || (globalThis.noctuneI18n?.t("extensions.providers.streamUnavailable", {}) ?? "Поток недоступен")).slice(0, 240)); error.code = descriptor.error.code; throw error; }
+            if (!descriptor || typeof descriptor.url !== 'string' || (descriptor.transport && descriptor.transport !== 'direct')) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.directAudioStreamsWithoutDrmAreSupported", {}) ?? "Поддерживаются прямые аудиопотоки без DRM"));
             return noctune.addons.services(entry.addonId, provider.hash, 'providers.stream', { url: descriptor.url, oauth: descriptor.oauth, credential: descriptor.credential, headers: descriptor.headers });
         },
         watch(element, entry, token) {
@@ -121,10 +121,10 @@
             };
             element.addEventListener('error', async () => {
                 if (token !== _loadToken) return;
-                if (retried) { failure(new Error('Не удалось воспроизвести поток после обновления ссылки')); return; }
+                if (retried) { failure(new Error((globalThis.noctuneI18n?.t("extensions.providers.couldNotPlayStreamAfterRefreshingTheUrl", {}) ?? "Не удалось воспроизвести поток после обновления ссылки"))); return; }
                 retried = true; element._noctuneRecovering = true;
                 const position = element.currentTime || 0, paused = element.paused && !isPlaying;
-                statusText.textContent = 'Обновление ссылки на поток…';
+                statusText.textContent = (globalThis.noctuneI18n?.t("extensions.providers.refreshingStreamUrl", {}) ?? "Обновление ссылки на поток…");
                 try {
                     const url = await this.resolve(entry, token, 'refresh'); if (token !== _loadToken) return;
                     element.src = url;
@@ -132,7 +132,7 @@
                         if (token !== _loadToken) return;
                         element._noctuneRecovering = false;
                         if (position && Number.isFinite(element.duration)) element.currentTime = Math.min(position, element.duration);
-                        if (!paused) element.play().then(() => { if (token === _loadToken) statusText.textContent = 'Воспроизведение'; }).catch(error => { if (error.name !== 'AbortError') failure(error); });
+                        if (!paused) element.play().then(() => { if (token === _loadToken) statusText.textContent = (globalThis.noctuneI18n?.t("settings.player.playback", {}) ?? "Воспроизведение"); }).catch(error => { if (error.name !== 'AbortError') failure(error); });
                     }, { once: true });
                     element.load();
                 } catch (error) { failure(error); }

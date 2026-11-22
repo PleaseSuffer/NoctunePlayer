@@ -8,7 +8,7 @@ const CACHE_FILE = /^[a-f0-9]{64}\.json$/;
 function coverHash(payload) {
     const value = name => typeof payload?.[name] === 'string' ? payload[name].trim().slice(0, 300).toLowerCase() : '';
     const artist = value('artist'), album = value('album'), title = value('title');
-    if (!artist || artist === 'неизвестный исполнитель' || (!album && !title)) return null;
+    if (!artist || artist === (globalThis.noctuneI18n?.t("integrations.lastfm.coverService.unknownArtist", {}) ?? "неизвестный исполнитель") || (!album && !title)) return null;
     return createHash('sha256').update(JSON.stringify([artist, album, album ? '' : title])).digest('hex');
 }
 function coverUrl(images) {
@@ -155,7 +155,7 @@ function createLastfmCoverClient({ request, settings, cacheDirectory, fetchImpl 
             let artist = typeof payload?.artist === 'string' ? payload.artist.trim().slice(0, 300) : '';
             const title = typeof payload?.title === 'string' ? payload.title.trim().slice(0, 300) : '';
             const album = typeof payload?.album === 'string' ? payload.album.trim().slice(0, 300) : '';
-            if ((!artist && !(transient && title)) || artist === 'Неизвестный исполнитель' || (!album && !title)) return { status: 'invalid' };
+            if ((!artist && !(transient && title)) || artist === (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель") || (!album && !title)) return { status: 'invalid' };
             const controller = transient ? new AbortController() : null;
             if (transient) { cancelRadio(); radioController = controller; }
             const jobGeneration = generation;

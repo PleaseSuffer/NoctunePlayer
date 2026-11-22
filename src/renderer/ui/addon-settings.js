@@ -17,7 +17,7 @@
             else if (field.source === 'backgrounds') available = (await window.addonPlayer.listBackgrounds()).map(item=>({value:item.id,label:item.name}));
         } catch (_) { /* Keep saved selections if a source is temporarily unavailable. */ }
         const options = [...field.options,...available].filter((item,index,items)=>items.findIndex(other=>other.value===item.value)===index);
-        if (!options.some(item=>item.value===value)) options.push({value,label:field.source==='backgrounds'?'Выбранные обои недоступны':'Выбранная схема недоступна',disabled:true});
+        if (!options.some(item=>item.value===value)) options.push({value,label:field.source==='backgrounds'?(globalThis.noctuneI18n?.t("ui.addonSettings.selectedWallpaperUnavailable", {}) ?? "Выбранные обои недоступны"):(globalThis.noctuneI18n?.t("ui.addonSettings.selectedSchemeUnavailable", {}) ?? "Выбранная схема недоступна"),disabled:true});
         return options;
     }
     let sourceTimer;
@@ -129,15 +129,15 @@
         if (busy) return;
         busy = true; panel.setAttribute('aria-busy', 'true');
         try { await action(); }
-        catch (error) { status.textContent = error.message || 'Не удалось выполнить действие'; document.getElementById('addon-integrations-status').textContent = status.textContent; }
+        catch (error) { status.textContent = error.message || (globalThis.noctuneI18n?.t("ui.addonSettings.couldNotPerformAction", {}) ?? "Не удалось выполнить действие"); document.getElementById('addon-integrations-status').textContent = status.textContent; }
         finally { busy = false; panel.setAttribute('aria-busy', 'false'); }
     }
     function runtimeStatus(addon) {
-        if (addon.broken) return 'Повреждённый пакет';
-        if (!addon.compatible) return 'Требуется другая версия Noctune';
-        if (!addon.enabled) return 'Выключено';
+        if (addon.broken) return (globalThis.noctuneI18n?.t("ui.addonSettings.corruptedPackage", {}) ?? "Повреждённый пакет");
+        if (!addon.compatible) return (globalThis.noctuneI18n?.t("ui.addonSettings.anotherNoctuneVersionIsRequired", {}) ?? "Требуется другая версия Noctune");
+        if (!addon.enabled) return (globalThis.noctuneI18n?.t("ui.addonSettings.disabled", {}) ?? "Выключено");
         const state = window.addonHost?.state(addon.id);
-        return state?.status === 'error' ? state.message : state?.status === 'running' ? 'Работает' : 'Запускается…';
+        return state?.status === 'error' ? state.message : state?.status === 'running' ? (globalThis.noctuneI18n?.t("ui.addonSettings.running", {}) ?? "Работает") : (globalThis.noctuneI18n?.t("ui.addonSettings.starting", {}) ?? "Запускается…");
     }
     function updateRuntime() {
         for (const addon of addons) {
@@ -152,24 +152,24 @@
         const sequence = ++reloadSequence, nextAddons = await api.list();
         const nextList = document.createDocumentFragment(), nextIntegrations = document.createDocumentFragment();
         const nextControls = new Set();
-        if (!nextAddons.length) nextList.append(node('div', 'settings-card addons-empty', 'Расширений пока нет. Добавьте пакет из файла или по ссылке.'));
+        if (!nextAddons.length) nextList.append(node('div', 'settings-card addons-empty', (globalThis.noctuneI18n?.t("ui.addonSettings.noExtensionsYetAddAPackageFromAFileOrLink", {}) ?? "Расширений пока нет. Добавьте пакет из файла или по ссылке.")));
         for (const addon of nextAddons) {
             const card = node('article', 'settings-card addon-card'); card.dataset.addonId = addon.id;
             const header = node('div', 'addon-card-header');
             const info = node('div', 'addon-card-info');
             if (addon.artwork?.banner) { const banner = node('img', 'addon-banner'); banner.src = addon.artwork.banner; banner.alt = ''; banner.addEventListener('error', () => banner.remove()); card.append(banner); }
             if (addon.artwork?.icon) { const icon = node('img', 'addon-icon'); icon.src = addon.artwork.icon; icon.alt = ''; icon.addEventListener('error', () => icon.remove()); header.append(icon); }
-            info.append(node('h3', 'addon-name', addon.name), node('div', 'settings-row-desc', addon.broken ? addon.id : `${addon.type === 'integration' ? 'Интеграция' : 'Дополнение'} · ${addon.version} · ${addon.author}`));
+            info.append(node('h3', 'addon-name', addon.name), node('div', 'settings-row-desc', addon.broken ? addon.id : `${addon.type === 'integration' ? (globalThis.noctuneI18n?.t("addonInstall.app.integration", {}) ?? "Интеграция") : (globalThis.noctuneI18n?.t("addonInstall.app.addOn", {}) ?? "Дополнение")} · ${addon.version} · ${addon.author}`));
             if (addon.verifiedPublisher) {
-                const badge = node('span', 'addon-verified-publisher', 'Официальное расширение');
+                const badge = node('span', 'addon-verified-publisher', (globalThis.noctuneI18n?.t("addonStore.app.officialExtension", {}) ?? "Официальное расширение"));
                 badge.prepend(AddonPermissionView.icon('BadgeCheck', 'addon-verified-icon'));
-                badge.title = `Подпись ${addon.verifiedPublisher} проверена по ключу, встроенному в Noctune`;
+                badge.title = (globalThis.noctuneI18n?.t("ui.addonSettings.signatureVerifiedUsingTheKeyBundledWithNoctune", {p0: (addon.verifiedPublisher)}) ?? "Подпись {p0} проверена по ключу, встроенному в Noctune".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (addon.verifiedPublisher)})[k] ?? "{"+k+"}"));
                 info.append(badge);
             }
             header.append(info);
             if (!addon.broken) {
                 const toggle = node('label', 'toggle-switch'), input = node('input'); input.type = 'checkbox'; input.checked = addon.enabled; input.disabled = !addon.compatible;
-                input.setAttribute('aria-label', 'Включить ' + addon.name);
+                input.setAttribute('aria-label', (globalThis.noctuneI18n?.t("ui.addonSettings.enable", {}) ?? "Включить ") + addon.name);
                 input.addEventListener('change', () => {
                     const enabled = input.checked;
                     if (busy) { input.checked = !enabled; return; }
@@ -184,41 +184,41 @@
                     const control = button(command.title, () => window.addonHost.command(addon.id, command.id), actions);
                     control.dataset.addonCommand = command.id;
                 }
-                if (addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune')) button('Проверить обновление', () => check(addon), actions);
-                if (updates.has(addon.id)) button('Обновить до ' + updates.get(addon.id).version, () => showReview(updates.get(addon.id)), actions);
-                if (addon.rollbackAvailable) button('Вернуть предыдущую версию', async () => {
-                    if (!window.confirm(`Вернуть предыдущую версию «${addon.name}»?`)) return;
-                    await api.rollback(addon.id); await changed(); status.textContent = 'Предыдущая версия восстановлена';
+                if (addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune')) button((globalThis.noctuneI18n?.t("ui.addonSettings.checkForUpdate", {}) ?? "Проверить обновление"), () => check(addon), actions);
+                if (updates.has(addon.id)) button((globalThis.noctuneI18n?.t("ui.addonSettings.updateTo", {}) ?? "Обновить до ") + updates.get(addon.id).version, () => showReview(updates.get(addon.id)), actions);
+                if (addon.rollbackAvailable) button((globalThis.noctuneI18n?.t("ui.addonSettings.restorePreviousVersion", {}) ?? "Вернуть предыдущую версию"), async () => {
+                    if (!window.confirm((globalThis.noctuneI18n?.t("ui.addonSettings.restoreThePreviousVersionOf", {p0: (addon.name)}) ?? "Вернуть предыдущую версию «{p0}»?".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (addon.name)})[k] ?? "{"+k+"}")))) return;
+                    await api.rollback(addon.id); await changed(); status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.previousVersionRestored", {}) ?? "Предыдущая версия восстановлена");
                 }, actions);
             }
-            button('Удалить', async () => {
-                if (!window.confirm(`Удалить «${addon.name}» и его настройки?`)) return;
-                await api.remove(addon.id); await changed(); status.textContent = 'Расширение удалено';
+            button((globalThis.noctuneI18n?.t("player.interface.delete", {}) ?? "Удалить"), async () => {
+                if (!window.confirm((globalThis.noctuneI18n?.t("ui.addonSettings.removeAndItsSettings", {p0: (addon.name)}) ?? "Удалить «{p0}» и его настройки?".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (addon.name)})[k] ?? "{"+k+"}")))) return;
+                await api.remove(addon.id); await changed(); status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.extensionRemoved", {}) ?? "Расширение удалено");
             }, actions);
             card.append(actions);
             if (!addon.broken) {
-                const detail = node('details', 'addon-details addon-disclosure'); detail.append(AddonPermissionView.summary('Разрешения и обновления', 'ShieldCheck'));
+                const detail = node('details', 'addon-details addon-disclosure'); detail.append(AddonPermissionView.summary((globalThis.noctuneI18n?.t("ui.addonSettings.permissionsAndUpdates", {}) ?? "Разрешения и обновления"), 'ShieldCheck'));
                 const permissions = node('ul', 'addon-permission-list');
                 AddonPermissionView.render(permissions, addon);
                 if (addon.permissions.length) detail.append(permissions);
-                if (!addon.permissions.length) detail.append(node('div', 'settings-row-desc', 'Дополнительные разрешения не запрашиваются'));
+                if (!addon.permissions.length) detail.append(node('div', 'settings-row-desc', (globalThis.noctuneI18n?.t("ui.addonSettings.noAdditionalPermissionsRequested", {}) ?? "Дополнительные разрешения не запрашиваются")));
                 if (addon.network?.origins.length) {
                     const origins = node('ul', 'addon-permission-list');
                     AddonPermissionView.renderNetwork(origins, addon);
                     detail.append(origins);
                 }
-                detail.append(node('div', 'settings-row-desc', addon.signed ? 'Пакет подписан издателем' : 'Локальный пакет без подписи'));
-                detail.append(node('div', 'settings-row-desc', addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune') ? 'Обновления проверяются вручную' : 'Обновление: установите новый пакет из файла'));
+                detail.append(node('div', 'settings-row-desc', addon.signed ? (globalThis.noctuneI18n?.t("ui.addonSettings.packageSignedByPublisher", {}) ?? "Пакет подписан издателем") : (globalThis.noctuneI18n?.t("ui.addonSettings.unsignedLocalPackage", {}) ?? "Локальный пакет без подписи")));
+                detail.append(node('div', 'settings-row-desc', addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune') ? (globalThis.noctuneI18n?.t("ui.addonSettings.updatesAreCheckedManually", {}) ?? "Обновления проверяются вручную") : (globalThis.noctuneI18n?.t("ui.addonSettings.updateByInstallingANewPackageFromAFile", {}) ?? "Обновление: установите новый пакет из файла")));
                 card.append(detail);
             }
             if (!addon.broken && hasPanel(addon)) {
-                button('Настроить интеграцию', () => { document.querySelector('[data-panel="panel-integrations"]').click(); document.getElementById('integration-addon-'+addon.id)?.scrollIntoView({block:'start'}); }, actions);
+                button((globalThis.noctuneI18n?.t("ui.addonSettings.configureIntegration", {}) ?? "Настроить интеграцию"), () => { document.querySelector('[data-panel="panel-integrations"]').click(); document.getElementById('integration-addon-'+addon.id)?.scrollIntoView({block:'start'}); }, actions);
                 const integration = node('article','settings-card integration-card addon-card'); integration.id='integration-addon-'+addon.id; integration.dataset.addonId=addon.id;
                 if(addon.artwork?.banner){const banner=node('img','addon-banner');banner.src=addon.artwork.banner;banner.alt='';banner.addEventListener('error',()=>banner.remove());integration.append(banner);}
                 const heading=node('div','addon-card-header'),info=node('div','addon-card-info');
                 if(addon.artwork?.icon){const icon=node('img','addon-icon');icon.src=addon.artwork.icon;icon.alt='';icon.addEventListener('error',()=>icon.remove());heading.append(icon);}
                 info.append(node('h3','addon-name',addon.ui.integrations.title),node('p','addon-runtime-status settings-row-desc',runtimeStatus(addon)));
-                const toggle=node('label','toggle-switch'),enabled=node('input');enabled.type='checkbox';enabled.checked=addon.enabled;enabled.disabled=!addon.compatible;enabled.setAttribute('aria-label','Включить '+addon.name);
+                const toggle=node('label','toggle-switch'),enabled=node('input');enabled.type='checkbox';enabled.checked=addon.enabled;enabled.disabled=!addon.compatible;enabled.setAttribute('aria-label',(globalThis.noctuneI18n?.t("ui.addonSettings.enable", {}) ?? "Включить ")+addon.name);
                 enabled.addEventListener('change',()=>task(async()=>{await api.setEnabled(addon.id,enabled.checked);await changed();}));toggle.append(enabled,node('span','slider-round'));heading.append(info,toggle);
                 integration.append(heading,node('p','settings-row-desc',addon.ui.integrations.description||addon.description));
                 const controls=node('div','addons-toolbar');
@@ -226,7 +226,7 @@
                 if(profile&&addon.enabled){
                     const pkg=(await api.runtime()).find(item=>item.manifest.id===addon.id);
                     if(pkg){const state=await api.services(addon.id,pkg.digest,'credentials.status',{profile}).catch(()=>({configured:false}));
-                        if(!state.configured)button('Подключить',async()=>{const result=await api.services(addon.id,pkg.digest,'credentials.configure',{profile});if(result.configured){window.addonEvents.emit('settings.credentials',{addonId:addon.id,profile,configured:true});await reload();}},controls);}
+                        if(!state.configured)button((globalThis.noctuneI18n?.t("ui.addonSettings.connect", {}) ?? "Подключить"),async()=>{const result=await api.services(addon.id,pkg.digest,'credentials.configure',{profile});if(result.configured){window.addonEvents.emit('settings.credentials',{addonId:addon.id,profile,configured:true});await reload();}},controls);}
                 }
                 const library=node('div','integration-library-slot');library.dataset.librarySlot=addon.id;
                 integration.append(controls,library); await renderConfiguration(addon,integration,nextControls); nextIntegrations.append(integration);
@@ -251,7 +251,7 @@
         document.dispatchEvent(new Event('addon-integrations-rendered'));
     }
     async function renderConfiguration(addon, card, controls) {
-        const section = node('details', 'addon-configuration addon-disclosure'); section.append(AddonPermissionView.summary(hasPanel(addon)?'Подключение и параметры':'Настройки расширения', 'Settings2'));
+        const section = node('details', 'addon-configuration addon-disclosure'); section.append(AddonPermissionView.summary(hasPanel(addon)?(globalThis.noctuneI18n?.t("ui.addonSettings.connectionAndOptions", {}) ?? "Подключение и параметры"):(globalThis.noctuneI18n?.t("addonPermissions.extensionSettings", {}) ?? "Настройки расширения"), 'Settings2'));
         if(hasPanel(addon)&&addon.commands.length){const actions=node('div','addons-toolbar');for(const command of addon.commands){const control=button(command.title,()=>window.addonHost.command(addon.id,command.id),actions);control.dataset.addonCommand=command.id;}section.append(actions);}
         let values = await api.settings(addon.id), saving = Promise.resolve();
         const visibility = () => { for (const row of section.querySelectorAll('[data-setting-key]')) { const when=addon.settings[row.dataset.settingKey].visibleWhen; row.hidden=!!when && values[when.field]!==when.equals; } };
@@ -270,7 +270,7 @@
             if (field.type === 'toggle') {
                 wrapper = node('label', 'toggle-switch'); input = node('input'); input.type = 'checkbox'; input.checked = values[key]; wrapper.append(input, node('span', 'slider-round'));
             } else if (field.type === 'select' || field.type === 'directory') {
-                const selectField = field.type === 'directory' ? {...field,options:[{value:'app',label:'В папку приложения'},{value:'downloads',label:'В папку загрузок'},{value:'custom',label:'Выбранная папка'}]} : field.source ? {...field,options:await sourceOptions(field,values[key])} : field;
+                const selectField = field.type === 'directory' ? {...field,options:[{value:'app',label:(globalThis.noctuneI18n?.t("downloads.locations.application") ?? "В папку приложения")},{value:'downloads',label:(globalThis.noctuneI18n?.t("downloads.locations.downloads") ?? "В папку загрузок")},{value:'custom',label:(globalThis.noctuneI18n?.t("downloads.locations.custom") ?? "Выбранная папка")}]} : field.source ? {...field,options:await sourceOptions(field,values[key])} : field;
                 selectControl = dropdown(selectField, values[key], controlId);
                 if (field.source) controls.add({field,control:selectControl});
                 input = selectControl.input; wrapper = selectControl.wrapper;
@@ -279,15 +279,15 @@
                     const path = node('div', 'settings-row-desc addon-directory-path'), actions = node('div', 'addons-toolbar');
                     const call = async action => {
                         const pkg = (await api.runtime()).find(pkg => pkg.manifest.id === addon.id);
-                        if (!pkg) throw new Error('Включите расширение для настройки папки');
+                        if (!pkg) throw new Error((globalThis.noctuneI18n?.t("downloads.enableExtension") ?? "Включите расширение для настройки папки"));
                         return api.services(addon.id, pkg.digest, 'downloads.folder', {setting:key,action});
                     };
-                    const choose = button('Выбрать папку', async () => { const result = await call('choose'); if (!result.canceled) path.textContent = result.path; }, actions, !addon.enabled);
-                    button('Открыть папку', () => call('open'), actions, !addon.enabled);
+                    const choose = button((globalThis.noctuneI18n?.t("downloads.selectFolder") ?? "Выбрать папку"), async () => { const result = await call('choose'); if (!result.canceled) path.textContent = result.path; }, actions, !addon.enabled);
+                    button((globalThis.noctuneI18n?.t("downloads.openFolder") ?? "Открыть папку"), () => call('open'), actions, !addon.enabled);
                     refreshDirectory = async () => {
                         choose.hidden = values[key] !== 'custom';
-                        if (!addon.enabled) { path.textContent = 'Включите расширение для настройки папки'; return; }
-                        try { const result = await call('status'); path.textContent = result.path || 'Папка не выбрана'; }
+                        if (!addon.enabled) { path.textContent = (globalThis.noctuneI18n?.t("downloads.enableExtension") ?? "Включите расширение для настройки папки"); return; }
+                        try { const result = await call('status'); path.textContent = result.path || (globalThis.noctuneI18n?.t("downloads.noFolder") ?? "Папка не выбрана"); }
                         catch (error) { path.textContent = error.message; }
                     };
                     wrapper.append(path, actions); await refreshDirectory();
@@ -313,33 +313,33 @@
         }
         visibility();
         for (const [profile, config] of Object.entries(addon.credentials || {})) {
-            const row=node('div','settings-row addon-setting'),info=node('div','addon-setting-info'),controls=node('div','addons-toolbar'),message=node('p','settings-row-desc',addon.enabled?'Статус ключа не проверен':'Включите расширение для настройки');
+            const row=node('div','settings-row addon-setting'),info=node('div','addon-setting-info'),controls=node('div','addons-toolbar'),message=node('p','settings-row-desc',addon.enabled?(globalThis.noctuneI18n?.t("ui.addonSettings.keyStatusNotChecked", {}) ?? "Статус ключа не проверен"):(globalThis.noctuneI18n?.t("ui.addonSettings.enableTheExtensionToConfigureIt", {}) ?? "Включите расширение для настройки"));
             info.append(node('div','settings-row-label',config.name),message); row.append(info,controls);
             const grants=addon.grants||AddonPermissions.expand(addon.permissions);
             async function credential(action) {
-                const pkg=(await api.runtime()).find(pkg=>pkg.manifest.id===addon.id); if(!pkg)throw new Error('Включите расширение');
+                const pkg=(await api.runtime()).find(pkg=>pkg.manifest.id===addon.id); if(!pkg)throw new Error((globalThis.noctuneI18n?.t("ui.addonSettings.enableExtension", {}) ?? "Включите расширение"));
                 const result=await api.services(addon.id,pkg.digest,'credentials.'+action,{profile});
-                if(action==='status')message.textContent=result.configured?'Ключ сохранён':result.secureStorage?'Ключ не настроен':'Защищённое хранилище ОС недоступно';
+                if(action==='status')message.textContent=result.configured?(globalThis.noctuneI18n?.t("ui.addonSettings.keySaved", {}) ?? "Ключ сохранён"):result.secureStorage?(globalThis.noctuneI18n?.t("ui.addonSettings.keyNotConfigured", {}) ?? "Ключ не настроен"):(globalThis.noctuneI18n?.t("ui.addonSettings.osSecureStorageUnavailable", {}) ?? "Защищённое хранилище ОС недоступно");
                 else {if(grants.includes('credentials.status'))await credential('status');if(action==='disconnect'||result.configured===true)window.addonEvents.emit('settings.credentials',{addonId:addon.id,profile,configured:action==='configure'&&result.configured===true});}
             }
-            if(grants.includes('credentials.configure'))button('Настроить ключ',()=>credential('configure'),controls,!addon.enabled);
-            if(grants.includes('credentials.disconnect'))button('Удалить ключ',()=>credential('disconnect'),controls,!addon.enabled);
+            if(grants.includes('credentials.configure'))button((globalThis.noctuneI18n?.t("ui.addonSettings.configureKey", {}) ?? "Настроить ключ"),()=>credential('configure'),controls,!addon.enabled);
+            if(grants.includes('credentials.disconnect'))button((globalThis.noctuneI18n?.t("ui.addonSettings.deleteKey", {}) ?? "Удалить ключ"),()=>credential('disconnect'),controls,!addon.enabled);
             if(addon.enabled&&grants.includes('credentials.status'))await credential('status').catch(error=>{message.textContent=error.message;});
             section.append(row);
         }
         for (const [provider, config] of Object.entries(addon.oauth || {})) {
-            const row = node('div', 'settings-row addon-setting'), info = node('div', 'addon-setting-info'), controls = node('div', 'addons-toolbar'), message = node('p', 'settings-row-desc', addon.enabled ? 'Статус входа не проверен' : 'Включите расширение для входа');
+            const row = node('div', 'settings-row addon-setting'), info = node('div', 'addon-setting-info'), controls = node('div', 'addons-toolbar'), message = node('p', 'settings-row-desc', addon.enabled ? (globalThis.noctuneI18n?.t("ui.addonSettings.signInStatusNotChecked", {}) ?? "Статус входа не проверен") : (globalThis.noctuneI18n?.t("ui.addonSettings.enableTheExtensionToSignIn", {}) ?? "Включите расширение для входа"));
             info.append(node('div', 'settings-row-label', config.name), message); row.append(info, controls);
             async function auth(action) {
                 const packages = await api.runtime(), pkg = packages.find(pkg => pkg.manifest.id === addon.id);
-                if (!pkg) throw new Error('Включите расширение');
+                if (!pkg) throw new Error((globalThis.noctuneI18n?.t("ui.addonSettings.enableExtension", {}) ?? "Включите расширение"));
                 const result = await api.services(addon.id, pkg.digest, 'oauth.' + action, { provider });
-                if (action === 'status') message.textContent = result.connected ? 'Вход выполнен' : result.secureStorage === false ? 'Защищённое хранилище ОС недоступно' : 'Вход не выполнен';
-                else { if ((addon.grants||AddonPermissions.expand(addon.permissions)).includes('oauth.status')) await auth('status'); else message.textContent=action==='authorize'?'Вход выполнен':'Локальный доступ удалён'; window.addonEvents.emit('settings.oauth', { addonId: addon.id, provider, connected: action === 'authorize' }); }
+                if (action === 'status') message.textContent = result.connected ? (globalThis.noctuneI18n?.t("ui.addonSettings.signedIn", {}) ?? "Вход выполнен") : result.secureStorage === false ? (globalThis.noctuneI18n?.t("ui.addonSettings.osSecureStorageUnavailable", {}) ?? "Защищённое хранилище ОС недоступно") : (globalThis.noctuneI18n?.t("ui.addonSettings.notSignedIn", {}) ?? "Вход не выполнен");
+                else { if ((addon.grants||AddonPermissions.expand(addon.permissions)).includes('oauth.status')) await auth('status'); else message.textContent=action==='authorize'?(globalThis.noctuneI18n?.t("ui.addonSettings.signedIn", {}) ?? "Вход выполнен"):(globalThis.noctuneI18n?.t("ui.addonSettings.localAccessRemoved", {}) ?? "Локальный доступ удалён"); window.addonEvents.emit('settings.oauth', { addonId: addon.id, provider, connected: action === 'authorize' }); }
             }
             const authGrants=addon.grants||AddonPermissions.expand(addon.permissions);
-            if(authGrants.includes('oauth.authorize'))button('Войти', () => auth('authorize'), controls, !addon.enabled);
-            if(authGrants.includes('oauth.disconnect'))button('Выйти', () => auth('disconnect'), controls, !addon.enabled);
+            if(authGrants.includes('oauth.authorize'))button((globalThis.noctuneI18n?.t("ui.addonSettings.signIn", {}) ?? "Войти"), () => auth('authorize'), controls, !addon.enabled);
+            if(authGrants.includes('oauth.disconnect'))button((globalThis.noctuneI18n?.t("ui.addonSettings.signOut", {}) ?? "Выйти"), () => auth('disconnect'), controls, !addon.enabled);
             if (addon.enabled&&authGrants.includes('oauth.status')) await auth('status').catch(error => { message.textContent = error.message; });
             section.append(row);
         }
@@ -355,11 +355,11 @@
             const installed = await api.openInstaller(candidate.ticket);
             if (installed) {
                 await changed();
-                status.textContent = candidate.state === 'update' ? 'Расширение обновлено' : 'Расширение установлено. Включите его в карточке.';
+                status.textContent = candidate.state === 'update' ? (globalThis.noctuneI18n?.t("ui.addonSettings.extensionUpdated", {}) ?? "Расширение обновлено") : (globalThis.noctuneI18n?.t("ui.addonSettings.extensionInstalledEnableItOnItsCard", {}) ?? "Расширение установлено. Включите его в карточке.");
             } else {
                 updates.delete(candidate.id);
                 await reload();
-                status.textContent = candidate.state === 'installed' ? 'Эта версия расширения уже установлена' : 'Установка отменена';
+                status.textContent = candidate.state === 'installed' ? (globalThis.noctuneI18n?.t("ui.addonSettings.thisExtensionVersionIsAlreadyInstalled", {}) ?? "Эта версия расширения уже установлена") : (globalThis.noctuneI18n?.t("addonStore.app.installationCanceled", {}) ?? "Установка отменена");
             }
         } catch (error) {
             updates.delete(candidate.id);
@@ -368,14 +368,14 @@
         }
     }
     async function check(addon, open = true) {
-        status.textContent = 'Проверяем обновление «' + addon.name + '»…';
+        status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.checkingForUpdatesTo", {}) ?? "Проверяем обновление «") + addon.name + '»…';
         if (updates.has(addon.id)) await api.discard(updates.get(addon.id).ticket);
         updates.delete(addon.id);
         const result = await api.checkUpdate(addon.id);
         if (result.ticket) {
             updates.set(addon.id, result); await reload();
             if (open) { await showReview(result); return; }
-            status.textContent = 'Доступно обновление «' + addon.name + '»';
+            status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.updateAvailableFor", {}) ?? "Доступно обновление «") + addon.name + '»';
         }
         else status.textContent = result.message;
         return result;
@@ -390,18 +390,18 @@
     });
     document.getElementById('addons-import').addEventListener('click', () => task(async () => showReview(await api.prepareFile())));
     document.getElementById('addons-url-form').addEventListener('submit', event => {
-        event.preventDefault(); task(async () => { status.textContent = 'Загружаем пакет…'; await showReview(await api.prepareUrl(document.getElementById('addons-url').value.trim())); });
+        event.preventDefault(); task(async () => { status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.downloadingPackage", {}) ?? "Загружаем пакет…"); await showReview(await api.prepareUrl(document.getElementById('addons-url').value.trim())); });
     });
     document.getElementById('addons-check-all').addEventListener('click', () => task(async () => {
         const eligible = addons.filter(addon => !addon.broken && addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune'));
-        if (!eligible.length) { status.textContent = 'Нет расширений с обновлениями по сети. Новую версию можно установить из файла.'; return; }
+        if (!eligible.length) { status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.noExtensionsWithOnlineUpdatesInstallANewVersionFromAFile", {}) ?? "Нет расширений с обновлениями по сети. Новую версию можно установить из файла."); return; }
         const failures = [];
         for (const addon of eligible) {
             try { const result=await check(addon,false); if (['unavailable','incompatible'].includes(result?.state)) failures.push(addon.name+': '+result.message); }
             catch (_) { failures.push(addon.name); }
         }
         await reload();
-        status.textContent = (updates.size ? `Доступно обновлений: ${updates.size}. Выберите обновление в карточке.` : failures.length ? 'Проверка обновлений завершена не полностью.' : 'Новых обновлений нет.') + (failures.length ? ' Не удалось проверить: ' + failures.join(', ') : '');
+        status.textContent = (updates.size ? (globalThis.noctuneI18n?.t("ui.addonSettings.updatesAvailableSelectAnUpdateOnItsCard", {p0: (updates.size)}) ?? "Доступно обновлений: {p0}. Выберите обновление в карточке.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (updates.size)})[k] ?? "{"+k+"}")) : failures.length ? (globalThis.noctuneI18n?.t("ui.addonSettings.updateCheckPartiallyCompleted", {}) ?? "Проверка обновлений завершена не полностью.") : (globalThis.noctuneI18n?.t("ui.addonSettings.noNewUpdates", {}) ?? "Новых обновлений нет.")) + (failures.length ? (globalThis.noctuneI18n?.t("ui.addonSettings.couldNotCheck", {}) ?? " Не удалось проверить: ") + failures.join(', ') : '');
     }));
     document.addEventListener('addons-runtime-changed', updateRuntime);
     reload().catch(error => { status.textContent = error.message; });

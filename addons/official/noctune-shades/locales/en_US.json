@@ -1,0 +1,16 @@
+{
+  "commands.applySelected.title": "Apply selected scheme",
+  "commands.releaseColors.title": "Restore player appearance",
+  "extension.description": "Calm color schemes: graphite, slate, cocoa and three light palettes. An official Noctune extension.",
+  "settings.applySelected.description": "Disable to provide schemes only for Dusk and appearance selection.",
+  "settings.applySelected.label": "Apply selected scheme",
+  "settings.keepAccent.description": "Use the accent from player settings; Chroma retains priority for its accent.",
+  "settings.keepAccent.label": "Keep custom accent",
+  "settings.scheme.label": "Color scheme",
+  "settings.scheme.options.cocoa": "Cocoa",
+  "settings.scheme.options.graphite": "Graphite",
+  "settings.scheme.options.ivory": "Ivory",
+  "settings.scheme.options.mist": "Mist",
+  "settings.scheme.options.rose": "Rose",
+  "settings.scheme.options.slate": "Slate"
+}

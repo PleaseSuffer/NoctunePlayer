@@ -1,0 +1,16 @@
+{
+  "commands.applySelected.title": "Применить выбранную схему",
+  "commands.releaseColors.title": "Вернуть оформление плеера",
+  "extension.description": "Спокойные цветовые схемы: графит, сланец, какао и три светлые палитры. Официальное расширение Noctune.",
+  "settings.applySelected.description": "Отключите, чтобы только предоставлять схемы для Dusk и выбора во внешнем виде.",
+  "settings.applySelected.label": "Применять выбранную схему",
+  "settings.keepAccent.description": "Использовать акцент из настроек плеера; Chroma сохраняет приоритет своего акцента.",
+  "settings.keepAccent.label": "Сохранять собственный акцент",
+  "settings.scheme.label": "Цветовая схема",
+  "settings.scheme.options.cocoa": "Какао",
+  "settings.scheme.options.graphite": "Графит",
+  "settings.scheme.options.ivory": "Слоновая кость",
+  "settings.scheme.options.mist": "Туман",
+  "settings.scheme.options.rose": "Пудра",
+  "settings.scheme.options.slate": "Сланец"
+}

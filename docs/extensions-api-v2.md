@@ -1,0 +1,118 @@
+# SDK расширений Noctune · v2
+
+API v2 сохраняет возможности [API v1](extensions-api-v1.md) и добавляет локализацию.
+Версия SDK задаётся в `manifest.apiVersion`; это отдельное значение от версии приложения.
+Сборка с поддержкой только SDK v1 отклоняет пакет API v2.
+
+## Отдельные файлы переводов
+
+```json
+{
+  "apiVersion": 2,
+  "name": "extension.name",
+  "description": "extension.description",
+  "localization": {
+    "defaultLocale": "en",
+    "files": {
+      "ru": "locales/ru_RU.json",
+      "en": "locales/en_US.json"
+    }
+  }
+}
+```
+
+`locales/en_US.json`:
+
+```json
+{
+  "extension.description": "An example integration",
+  "extension.name": "My extension",
+  "notifications.greeting": "Hello, {name}!"
+}
+```
+
+`locales/ru_RU.json`:
+
+```json
+{
+  "extension.description": "Пример интеграции",
+  "extension.name": "Моё расширение",
+  "notifications.greeting": "Привет, {name}!"
+}
+```
+
+Файлы — JSON-объекты UTF-8. Ключи именуются по назначению: `settings.timer.label`,
+`commands.startTimer.title`, `notifications.timerFinished`. Имена файлов используют
+`язык_РЕГИОН.json`; публичные коды локалей — `ru`, `en`, `en-GB`.
+
+Все файлы включаются в `.noctaddon` как обычные текстовые ресурсы. Загрузчик читает
+только объявленные пути `locales/язык_РЕГИОН.json` из `package.files`, без файловой
+системы и сетевых запросов. Отсутствующие файлы и некорректный JSON отклоняются до установки.
+Исходные manifest и файлы сохраняются без изменения; подпись проверяется по исходному пакету.
+Worker и интерфейс получают отдельную локализованную проекцию.
+
+Поддерживается также встроенный формат `localization.messages`, содержащий объект
+`{ "ru": { … }, "en": { … } }`. `files` и `messages` взаимно исключают друг друга.
+Для тем API v2 доступен встроенный `messages`; ссылки на файлы относятся к пакетам расширений.
+
+## Перевод метаданных
+
+Значения `name`, `description`, `commands[].title`, названия OAuth/credential-профилей,
+подписи и описания настроек, подписи вариантов select и заголовки секций интеграции
+могут содержать ключи словаря. Обычные строки тоже допустимы. ID, значения вариантов,
+значения по умолчанию, сетевые адреса, автор и пользовательские данные не переводятся.
+
+```javascript
+NoctuneAddon.define(async api => {
+    if (api.version !== 2) return;
+    // notify требует notifications.show.
+    await api.notify(api.i18n.t('notifications.greeting', { name: 'Alex' }));
+});
+```
+
+`api.i18n.locale` — снимок выбранного языка на запуск. При смене языка Worker запускается
+заново. `t(key, args)` возвращает текст, без HTML. Порядок выбора: точная локаль, базовый
+язык, `defaultLocale`; отсутствующая строка берётся из основного языка расширения.
+Неизвестный ключ возвращается как текст ключа, неизвестный параметр остаётся `{name}`.
+Параметры принимают строки, числа и boolean. Набор параметров сообщения между языками
+должен совпадать. Лимиты: 32 языка, 2000 сообщений на язык, 12000 символов на сообщение,
+512×1024 символов JSON (по `String.length`); также действуют общие лимиты файлов пакета.
+
+## Языковые пакеты приложения
+
+Расширение API v2 с разрешением `i18n.register` регистрирует язык из своего JSON:
+
+```javascript
+await api.i18n.register({
+    locale: 'en-GB',
+    name: 'English (UK)',
+    messages: JSON.parse(api.readText('locales/en_GB.json'))
+});
+```
+
+Содержимое `locales/en_GB.json`:
+
+```json
+{
+  "appearance.accent.label": "Accent colour",
+  "language.select": "Interface language"
+}
+```
+
+Язык доступен в настройках после включения расширения. Пример:
+[addons/examples/language-pack](../addons/examples/language-pack/manifest.json).
+Ключи приложения находятся в [ru_RU.json](../src/shared/locales/ru_RU.json)
+и [en_US.json](../src/shared/locales/en_US.json).
+
+Ограничения реестра:
+
+- Встроенные `ru` и `en` и язык другого расширения заменить нельзя.
+- До 3000 строк, 12000 символов на строку и 512×1024 символов JSON (по `String.length`).
+- HTML экранируется. Параметры известных сообщений должны совпадать с базовым каталогом.
+- Неполный пакет использует базовый язык, затем английский и русский fallback.
+- Выбор сохраняет проверенный снимок пакета. Остановка, отключение или удаление
+  предоставляющего расширения удаляет регистрацию и сохраняет английский fallback.
+- Право регистрации языка не даёт доступа к сети, файлам пользователя или токенам.
+
+API v1 не получает `api.i18n` и не может запрашивать `i18n.register`.
+Типы находятся в [addons/sdk.d.ts](../addons/sdk.d.ts).

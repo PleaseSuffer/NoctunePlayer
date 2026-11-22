@@ -7,16 +7,16 @@
             trackCoverMenuInfo = null;
             button.style.display = entry && entry.kind !== 'radio' ? 'flex' : 'none';
             button.disabled = true;
-            button.querySelector('span').textContent = 'Обновить обложку';
+            button.querySelector('span').textContent = (globalThis.noctuneI18n?.t("player.interface.refreshArtwork", {}) ?? "Обновить обложку");
             if (!entry || entry.kind === 'radio') return;
             try {
                 const info = await window.getTrackCoverCacheInfo(index, entry);
                 if (serial !== trackCoverMenuSerial || fileEntries[index] !== entry) return;
                 trackCoverMenuInfo = info;
-                button.querySelector('span').textContent = info.cached ? 'Удалить кэш обложки' : 'Обновить обложку';
+                button.querySelector('span').textContent = info.cached ? (globalThis.noctuneI18n?.t("library.playlists.deleteArtworkCache", {}) ?? "Удалить кэш обложки") : (globalThis.noctuneI18n?.t("player.interface.refreshArtwork", {}) ?? "Обновить обложку");
                 button.disabled = false;
             } catch (_) {
-                if (serial === trackCoverMenuSerial) button.querySelector('span').textContent = 'Обложка недоступна';
+                if (serial === trackCoverMenuSerial) button.querySelector('span').textContent = (globalThis.noctuneI18n?.t("library.playlists.artworkUnavailable", {}) ?? "Обложка недоступна");
             }
         }
 
@@ -26,9 +26,9 @@
             trackCoverMenuInfo = null;
             try {
                 await window.changeTrackCover(info.payload, info.cached);
-                if (info.cached) showNotification('Кэш обложки удалён.', 'info', 'Обложка трека');
+                if (info.cached) showNotification((globalThis.noctuneI18n?.t("library.playlists.artworkCacheDeleted", {}) ?? "Кэш обложки удалён."), 'info', (globalThis.noctuneI18n?.t("miniPlayer.trackArtwork", {}) ?? "Обложка трека"));
             } catch (error) {
-                showNotification('Не удалось изменить обложку.', 'error', 'Обложка трека', String(error && error.message || error));
+                showNotification((globalThis.noctuneI18n?.t("library.playlists.couldNotChangeArtwork", {}) ?? "Не удалось изменить обложку."), 'error', (globalThis.noctuneI18n?.t("miniPlayer.trackArtwork", {}) ?? "Обложка трека"), String(error && error.message || error));
             }
         });
 
@@ -51,7 +51,7 @@
         });
 
         document.getElementById('btn-choose-folder').addEventListener('click', async () => {
-            const name = document.getElementById('playlist-name-input').value.trim() || "Новый плейлист";
+            const name = document.getElementById('playlist-name-input').value.trim() || (globalThis.noctuneI18n?.t("library.openAudioFiles.newPlaylist", {}) ?? "Новый плейлист");
             document.getElementById('playlist-modal').style.display = 'none';
             
             const newPl = {
@@ -70,7 +70,7 @@
         });
 
         document.getElementById('btn-choose-radio').addEventListener('click', () => {
-            const name = document.getElementById('playlist-name-input').value.trim() || "Интернет Радио";
+            const name = document.getElementById('playlist-name-input').value.trim() || (globalThis.noctuneI18n?.t("library.playlists.internetRadio", {}) ?? "Интернет Радио");
             document.getElementById('playlist-modal').style.display = 'none';
             
             const newPl = {
@@ -90,8 +90,8 @@
         function renderPlaylistsDropdown() {
             playlistsDropdownMenu.innerHTML = '';
             if (userPlaylists.length === 0) {
-                playlistsDropdownMenu.innerHTML = '<div class="pd-menu-empty">Нет плейлистов</div>';
-                pdSelectedLabel.textContent = 'Нет плейлистов';
+                playlistsDropdownMenu.innerHTML = ("<div class=\"pd-menu-empty\">" + (globalThis.noctuneI18n?.t("player.interface.noPlaylists", {}) ?? "Нет плейлистов") + "</div>");
+                pdSelectedLabel.textContent = (globalThis.noctuneI18n?.t("player.interface.noPlaylists", {}) ?? "Нет плейлистов");
                 pdSelectedIcon.innerHTML = '<i data-lucide="list-music" style="width:15px;height:15px;"></i>';
                 btnEditPlaylist.disabled = true;
                 btnDeletePlaylist.disabled = true;
@@ -113,7 +113,7 @@
                     <span class="pd-item-label"></span>
                 `;
                 item.querySelector('.pd-item-label').textContent=pl.name;
-                if(pl.type==='provider'){const badge=document.createElement('span');badge.className='pd-service-type';badge.textContent=pl.service?.continuous?'Поток':'Сервис';item.append(badge);item.title=(pl.serviceName||'Интеграция')+' · '+pl.name;}
+                if(pl.type==='provider'){const badge=document.createElement('span');badge.className='pd-service-type';badge.textContent=pl.service?.continuous?(globalThis.noctuneI18n?.t("library.playlists.stream", {}) ?? "Поток"):(globalThis.noctuneI18n?.t("library.playlists.service", {}) ?? "Сервис");item.append(badge);item.title=(pl.serviceName||(globalThis.noctuneI18n?.t("addonInstall.app.integration", {}) ?? "Интеграция"))+' · '+pl.name;}
                 item.addEventListener('click', () => {
                     selectPlaylist(pl.id);
                     playlistsDropdownMenu.classList.remove('open');
@@ -134,7 +134,7 @@
             const iconName = getPlaylistIcon(pl);
             pdSelectedLabel.textContent = pl.name;
             btnEditPlaylist.disabled=pl.type==='provider';btnDeletePlaylist.disabled=false;
-            btnDeletePlaylist.title=pl.type==='provider'?'Закрыть сервисный плейлист':'Удалить плейлист';
+            btnDeletePlaylist.title=pl.type==='provider'?(globalThis.noctuneI18n?.t("library.playlists.closeServicePlaylist", {}) ?? "Закрыть сервисный плейлист"):(globalThis.noctuneI18n?.t("player.interface.deletePlaylist", {}) ?? "Удалить плейлист");
             pdSelectedIcon.innerHTML = `<i data-lucide="${iconName}" style="width:15px;height:15px;"></i>`;
             // Update active state in menu
             playlistsDropdownMenu.querySelectorAll('.pd-menu-item').forEach(item => {
@@ -143,39 +143,46 @@
             lucide.createIcons();
         }
 
-        btnEditPlaylist.addEventListener('click', () => {
-            if (!currentPlaylistId) return;
-            const pl = userPlaylists.find(p => p.id === currentPlaylistId);
-            if (!pl) return;
+        let renamePlaylistId = null, deletePlaylistId = null;
+        function openPlaylistRename(id = currentPlaylistId) {
+            const pl = userPlaylists.find(p => p.id === id);
+            if (!pl || pl.type === 'provider') return;
+            renamePlaylistId = id;
 
             document.getElementById('playlist-rename-input').value = pl.name;
             document.getElementById('rename-modal').style.display = 'flex';
-        });
+            document.getElementById('playlist-rename-input').focus();
+        }
+        window.openPlaylistRename = openPlaylistRename;
+        btnEditPlaylist.addEventListener('click', () => openPlaylistRename());
 
         document.getElementById('btn-save-rename').addEventListener('click', () => {
             const newName = document.getElementById('playlist-rename-input').value.trim();
-            if (!newName || !currentPlaylistId) return;
+            if (!newName || !renamePlaylistId) return;
 
-            const pl = userPlaylists.find(p => p.id === currentPlaylistId);
+            const pl = userPlaylists.find(p => p.id === renamePlaylistId);
             if (pl) {
                 pl.name = newName;
                 savePlaylistsToStorage();
                 renderPlaylistsDropdown();
+                window.renderPlEditor?.();
             }
             document.getElementById('rename-modal').style.display = 'none';
         });
 
-        btnDeletePlaylist.addEventListener('click', () => {
-            if (!currentPlaylistId) return;
-            const pl = userPlaylists.find(p => p.id === currentPlaylistId);
+        function openPlaylistDelete(id = currentPlaylistId) {
+            const pl = userPlaylists.find(p => p.id === id);
             if (!pl) return;
-            if(pl.type==='provider'){window.addonProviders.closeCollection(pl.id);return;}
+            if(pl.type==='provider'){window.addonProviders.closeCollection(pl.id);window.renderPlEditor?.();return;}
+            deletePlaylistId = id;
             const prefix = pl.type === 'folder' ? '📁' : '📻';
             document.getElementById('delete-playlist-modal-msg').textContent =
-                `Вы уверены, что хотите удалить плейлист ${prefix} «${pl.name}»? Это действие нельзя отменить.`;
+                (globalThis.noctuneI18n?.t("library.playlists.areYouSureYouWantToDeleteThePlaylistThisCannotBeUndone", {p0: (prefix), p1: (pl.name)}) ?? "Вы уверены, что хотите удалить плейлист {p0} «{p1}»? Это действие нельзя отменить.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (prefix), p1: (pl.name)})[k] ?? "{"+k+"}"));
             document.getElementById('delete-playlist-modal').style.display = 'flex';
             lucide.createIcons();
-        });
+        }
+        window.openPlaylistDelete = openPlaylistDelete;
+        btnDeletePlaylist.addEventListener('click', () => openPlaylistDelete());
 
         function closeDeleteModal() {
             document.getElementById('delete-playlist-modal').style.display = 'none';
@@ -186,7 +193,10 @@
 
         document.getElementById('btn-delete-modal-confirm').addEventListener('click', () => {
             closeDeleteModal();
-            const deletedId = currentPlaylistId;
+            const deletedId = deletePlaylistId;
+            deletePlaylistId = null;
+            if (!userPlaylists.some(pl => pl.id === deletedId)) return;
+            const wasSelected = deletedId === currentPlaylistId;
             const wasActivePlaying = (deletedId === activePlaylistId);
 
             userPlaylists = userPlaylists.filter(p => p.id !== deletedId);
@@ -199,6 +209,12 @@
                 activePlaylistId = null;
             }
 
+            window.renderPlEditor?.();
+            if (!wasSelected) {
+                renderPlaylistsDropdown();
+                if (wasActivePlaying && currentPlaylistId) selectPlaylist(currentPlaylistId);
+                return;
+            }
             if (userPlaylists.length > 0) {
                 currentPlaylistId = userPlaylists[0].id;
                 renderPlaylistsDropdown();
@@ -206,8 +222,8 @@
             } else {
                 currentPlaylistId = null;
                 renderPlaylistsDropdown();
-                playlistElem.innerHTML = '<li style="color: gray; font-style: italic; pointer-events: none;">Создайте плейлист</li>';
-                statusText.textContent = 'Нет списков воспроизведения';
+                playlistElem.innerHTML = ("<li style=\"color: gray; font-style: italic; pointer-events: none;\">" + (globalThis.noctuneI18n?.t("library.playlists.createAPlaylist", {}) ?? "Создайте плейлист") + "</li>");
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.noPlaylists", {}) ?? "Нет списков воспроизведения");
             }
         });
 
@@ -225,8 +241,8 @@
                     fileEntries = [];
                     playlistOrder = [];
                     parsedMetadataCache = {};
-                    playlistElem.innerHTML = '<li style="color:var(--text-muted);font-style:italic;pointer-events:none;">Добавьте файлы или папку через кнопки выше</li>';
-                    statusText.textContent = 'Плейлист пуст';
+                    playlistElem.innerHTML = ("<li style=\"color:var(--text-muted);font-style:italic;pointer-events:none;\">" + (globalThis.noctuneI18n?.t("library.playlists.addFilesOrAFolderUsingTheButtonsAbove", {}) ?? "Добавьте файлы или папку через кнопки выше") + "</li>");
+                    statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.playlistIsEmpty", {}) ?? "Плейлист пуст");
                 } else if (!pl.path && pl.files && pl.files.length > 0) {
                     // Playlist has individually added files — restore them
                     await loadMusicFromFiles(pl.files);
@@ -255,14 +271,11 @@
             addLi.style.position = 'sticky';
             addLi.style.top = '0';
             addLi.style.zIndex = '2';
-            addLi.innerHTML = `
-                <i data-lucide="plus-circle" style="width: 16px; height: 16px; margin-right: 8px; flex-shrink:0;"></i>
-                <span>Добавить радиостанцию...</span>
-            `;
+            addLi.innerHTML = ("\n                <i data-lucide=\"plus-circle\" style=\"width: 16px; height: 16px; margin-right: 8px; flex-shrink:0;\"></i>\n                <span>" + (globalThis.noctuneI18n?.legacyHtml("library.playlists.addRadioStation", {}) ?? "Добавить радиостанцию...".replace(/\{p(\d+)\}/g, (_, i) => Object.values({})[i])) + "</span>\n            ");
             addLi.addEventListener('click', () => {
                 editingRadioIndex = -1;
-                document.querySelector('#radio-modal h3').textContent = 'Добавить Радиостанцию';
-                document.getElementById('btn-save-radio').textContent = 'Добавить';
+                document.querySelector('#radio-modal h3').textContent = (globalThis.noctuneI18n?.t("player.interface.addRadioStation", {}) ?? "Добавить Радиостанцию");
+                document.getElementById('btn-save-radio').textContent = (globalThis.noctuneI18n?.t("player.interface.add", {}) ?? "Добавить");
                 document.getElementById('radio-name-input').value = '';
                 document.getElementById('radio-url-input').value = '';
                 document.querySelectorAll('.radio-tab').forEach(t => t.classList.remove('active'));
@@ -285,14 +298,7 @@
 
                     const li = document.createElement('li');
                     li.setAttribute('data-id', index);
-                    li.innerHTML = `
-                        <div class="track-name-block">
-                            <div class="track-title-item">${station.name}</div>
-                            <div class="track-artist-item">Поток Радио</div>
-                        </div>
-                        <span class="radio-status-badge checking" id="radio-status-${index}" title="Нажмите, чтобы проверить ещё раз">...</span>
-                        <button class="actions-btn radio-item-action" data-id="${index}"><i data-lucide="more-vertical"></i></button>
-                    `;
+                    li.innerHTML = ("\n                        <div class=\"track-name-block\">\n                            <div class=\"track-title-item\">" + (station.name) + "</div>\n                            <div class=\"track-artist-item\">" + (globalThis.noctuneI18n?.legacyHtml("player.interface.radioStream", {p0: (station.name), p1: (index), p2: (index)}) ?? "Поток Радио".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (station.name), p1: (index), p2: (index)})[i])) + "</div>\n                        </div>\n                        <span class=\"radio-status-badge checking\" id=\"radio-status-" + (index) + "\" title=\"" + (globalThis.noctuneI18n?.legacyHtml("library.playlists.clickToCheckAgain", {p0: (station.name), p1: (index), p2: (index)}) ?? "Нажмите, чтобы проверить ещё раз".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (station.name), p1: (index), p2: (index)})[i])) + "\">...</span>\n                        <button class=\"actions-btn radio-item-action\" data-id=\"" + (index) + "\"><i data-lucide=\"more-vertical\"></i></button>\n                    ");
 
                     li.addEventListener('click', (e) => {
                         if (e.target.closest('.actions-btn')) return;
@@ -331,7 +337,7 @@
                 });
             });
 
-            statusText.textContent = `Доступно станций: ${fileEntries.length}`;
+            statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.availableStations", {p0: (fileEntries.length)}) ?? "Доступно станций: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (fileEntries.length)})[k] ?? "{"+k+"}"));
 
             // Start pinging stations in background (batch of 3)
             checkRadioStations(playlistObj.stations);
@@ -398,8 +404,8 @@
 
             editingRadioIndex = -1;
 
-            document.querySelector('#radio-modal h3').textContent = 'Добавить Радиостанцию';
-            document.getElementById('btn-save-radio').textContent = 'Добавить';
+            document.querySelector('#radio-modal h3').textContent = (globalThis.noctuneI18n?.t("player.interface.addRadioStation", {}) ?? "Добавить Радиостанцию");
+            document.getElementById('btn-save-radio').textContent = (globalThis.noctuneI18n?.t("player.interface.add", {}) ?? "Добавить");
 
             document.getElementById('radio-modal').style.display = 'none';
         });
@@ -423,7 +429,7 @@
                 const files = await noctune.fs.readDir(targetDir);
                 const existingPaths = new Set(fileEntries.map(e => e.path));
                 const newFiles = files.filter(f => isAudioFile(f) && !existingPaths.has(noctune.fs.joinPath(targetDir, f)));
-                if (newFiles.length === 0) { if (isManual) statusText.textContent = 'Новых файлов не найдено'; return; }
+                if (newFiles.length === 0) { if (isManual) statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.noNewFilesFound", {}) ?? "Новых файлов не найдено"); return; }
 
                 for (const fileName of newFiles) {
                     const fullPath = noctune.fs.joinPath(targetDir, fileName);
@@ -434,18 +440,7 @@
                     const fallbackName = fileName.replace(/\.[^/.]+$/, '');
                     const li = document.createElement('li');
                     li.setAttribute('data-id', trackIndex);
-                    li.innerHTML = `
-                        <img class="track-cover-thumb" id="cover-${trackIndex}" alt="">
-                        <div class="track-cover-placeholder" id="cover-ph-${trackIndex}">
-                            <i data-lucide="music" style="width:16px;height:16px;"></i>
-                        </div>
-                        <div class="track-name-block">
-                            <div class="track-title-item" id="title-${trackIndex}">${fallbackName}</div>
-                            <div class="track-artist-item" id="artist-${trackIndex}">Загрузка...</div>
-                        </div>
-                        <div class="track-meta" id="meta-${trackIndex}">--:--</div>
-                        <button class="actions-btn track-item-action" data-id="${trackIndex}"><i data-lucide="more-vertical"></i></button>
-                    `;
+                    li.innerHTML = ("\n                        <img class=\"track-cover-thumb\" id=\"cover-" + (trackIndex) + "\" alt=\"\">\n                        <div class=\"track-cover-placeholder\" id=\"cover-ph-" + (trackIndex) + "\">\n                            <i data-lucide=\"music\" style=\"width:16px;height:16px;\"></i>\n                        </div>\n                        <div class=\"track-name-block\">\n                            <div class=\"track-title-item\" id=\"title-" + (trackIndex) + "\">" + (fallbackName) + "</div>\n                            <div class=\"track-artist-item\" id=\"artist-" + (trackIndex) + "\">" + (globalThis.noctuneI18n?.legacyHtml("library.playlists.loading", {p0: (trackIndex), p1: (trackIndex), p2: (trackIndex), p3: (fallbackName), p4: (trackIndex), p5: (trackIndex), p6: (trackIndex)}) ?? "Загрузка...".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (trackIndex), p1: (trackIndex), p2: (trackIndex), p3: (fallbackName), p4: (trackIndex), p5: (trackIndex), p6: (trackIndex)})[i])) + "</div>\n                        </div>\n                        <div class=\"track-meta\" id=\"meta-" + (trackIndex) + "\">--:--</div>\n                        <button class=\"actions-btn track-item-action\" data-id=\"" + (trackIndex) + "\"><i data-lucide=\"more-vertical\"></i></button>\n                    ");
                     li.addEventListener('click', (e) => {
                         if (e.target.closest('.actions-btn')) return;
                         playTrack(playlistOrder.indexOf(trackIndex));
@@ -465,7 +460,7 @@
                 }
 
                 lucide.createIcons();
-                statusText.textContent = `Загружено треков: ${fileEntries.length}`;
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.tracksLoaded", {p0: (fileEntries.length)}) ?? "Загружено треков: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (fileEntries.length)})[k] ?? "{"+k+"}"));
 
                 // Обработка метаданных только для новых треков
                 const startIdx = fileEntries.length - newFiles.length;
@@ -503,9 +498,9 @@
                             window.updateTrackArtwork(trackIndex, meta, filePath);
 
                         } catch(e) {
-                            console.warn(`Ошибка парсинга файла ${entry.name}:`, e);
+                            console.warn((globalThis.noctuneI18n?.t("library.playlists.errorParsingFile", {p0: (entry.name)}) ?? "Ошибка парсинга файла {p0}:".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (entry.name)})[k] ?? "{"+k+"}")), e);
                             const artistElem = document.getElementById(`artist-${trackIndex}`);
-                            if (artistElem) artistElem.textContent = 'Неизвестный исполнитель';
+                            if (artistElem) artistElem.textContent = (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель");
                         }
                     }));
                 }
@@ -531,7 +526,7 @@
             try {
                 if (!validated) filePaths = await validatedAudioPaths(filePaths);
                 if (!filePaths.length) {
-                    statusText.textContent = 'Нет доступных аудиофайлов MP3, WAV, OGG, M4A или FLAC';
+                    statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.noAvailableMp3WavOggM4aOrFlacAudioFiles", {}) ?? "Нет доступных аудиофайлов MP3, WAV, OGG, M4A или FLAC");
                     return [];
                 }
                 if (!userPlaylists.includes(pl)) return [];
@@ -542,7 +537,7 @@
                 const existingPaths = new Set(fileEntries.map(e => e.path));
                 const newPaths = filePaths.filter(p => !existingPaths.has(p));
                 if (newPaths.length === 0) {
-                    statusText.textContent = 'Файлы уже в плейлисте';
+                    statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.filesAreAlreadyInThePlaylist", {}) ?? "Файлы уже в плейлисте");
                     return [];
                 }
 
@@ -559,18 +554,7 @@
                     const fallbackName = fileName.replace(/\.[^/.]+$/, '');
                     const li = document.createElement('li');
                     li.setAttribute('data-id', trackIndex);
-                    li.innerHTML = `
-                        <img class="track-cover-thumb" id="cover-${trackIndex}" alt="">
-                        <div class="track-cover-placeholder" id="cover-ph-${trackIndex}">
-                            <i data-lucide="music" style="width:16px;height:16px;"></i>
-                        </div>
-                        <div class="track-name-block">
-                            <div class="track-title-item" id="title-${trackIndex}"></div>
-                            <div class="track-artist-item" id="artist-${trackIndex}">Загрузка...</div>
-                        </div>
-                        <div class="track-meta" id="meta-${trackIndex}">--:--</div>
-                        <button class="actions-btn track-item-action" data-id="${trackIndex}"><i data-lucide="more-vertical"></i></button>
-                    `;
+                    li.innerHTML = ("\n                        <img class=\"track-cover-thumb\" id=\"cover-" + (trackIndex) + "\" alt=\"\">\n                        <div class=\"track-cover-placeholder\" id=\"cover-ph-" + (trackIndex) + "\">\n                            <i data-lucide=\"music\" style=\"width:16px;height:16px;\"></i>\n                        </div>\n                        <div class=\"track-name-block\">\n                            <div class=\"track-title-item\" id=\"title-" + (trackIndex) + "\"></div>\n                            <div class=\"track-artist-item\" id=\"artist-" + (trackIndex) + "\">" + (globalThis.noctuneI18n?.legacyHtml("library.playlists.loading", {p0: (trackIndex), p1: (trackIndex), p2: (trackIndex), p3: (trackIndex), p4: (trackIndex), p5: (trackIndex)}) ?? "Загрузка...".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (trackIndex), p1: (trackIndex), p2: (trackIndex), p3: (trackIndex), p4: (trackIndex), p5: (trackIndex)})[i])) + "</div>\n                        </div>\n                        <div class=\"track-meta\" id=\"meta-" + (trackIndex) + "\">--:--</div>\n                        <button class=\"actions-btn track-item-action\" data-id=\"" + (trackIndex) + "\"><i data-lucide=\"more-vertical\"></i></button>\n                    ");
                     li.querySelector('.track-title-item').textContent = fallbackName;
                     li.addEventListener('click', (e) => {
                         if (e.target.closest('.actions-btn')) return;
@@ -591,7 +575,7 @@
                 }
 
                 lucide.createIcons();
-                statusText.textContent = `Загружено треков: ${fileEntries.length}`;
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.tracksLoaded", {p0: (fileEntries.length)}) ?? "Загружено треков: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (fileEntries.length)})[k] ?? "{"+k+"}"));
                 if (isShuffle) buildShuffleList();
 
                 // Process metadata for added files
@@ -621,14 +605,14 @@
                         } catch(e) {
                             if (fileEntries !== targetEntries) return;
                             const artistElem = document.getElementById(`artist-${i + bIdx}`);
-                            if (artistElem) artistElem.textContent = 'Неизвестный исполнитель';
+                            if (artistElem) artistElem.textContent = (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель");
                         }
                     }));
                 }
                 return newPaths;
             } catch(e) {
                 console.error('Add files error:', e);
-                statusText.textContent = 'Ошибка добавления файлов';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.couldNotAddFiles", {}) ?? "Ошибка добавления файлов");
                 return [];
             }
         }
@@ -641,7 +625,7 @@
                 if (files?.length) await addFilesToPlaylist(files, playlistId);
             } catch (error) {
                 console.error('Open files dialog:', error);
-                statusText.textContent = 'Ошибка открытия диалога файлов';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.couldNotOpenFileDialog", {}) ?? "Ошибка открытия диалога файлов");
             }
         });
 
@@ -662,7 +646,7 @@
                 await appendNewTracksFromDirectory(dirPath, true);
             } catch(e) {
                 console.error('Add folder error:', e);
-                statusText.textContent = 'Ошибка добавления папки';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.couldNotAddFolder", {}) ?? "Ошибка добавления папки");
             }
         });
 
@@ -674,7 +658,7 @@
         async function loadMusicFromDirectory(dirPath) {
             try {
                 if (!(await noctune.fs.exists(dirPath))) {
-                    statusText.textContent = `Нет доступа к папке`;
+                    statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.folderAccessDenied", {}) ?? "Нет доступа к папке");
                     return;
                 }
 
@@ -683,7 +667,7 @@
                 parsedMetadataCache = {};
                 shuffleList = []; currentShufflePos = -1;
                 playlistElem.innerHTML = '';
-                statusText.textContent = 'Импорт треков...';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.importingTracks", {}) ?? "Импорт треков...");
 
                 const files = await noctune.fs.readDir(dirPath);
                 let count = 0;
@@ -699,18 +683,7 @@
 
                         const li = document.createElement('li');
                         li.setAttribute('data-id', currentCount);
-                        li.innerHTML = `
-                            <img class="track-cover-thumb" id="cover-${currentCount}" alt="">
-                            <div class="track-cover-placeholder" id="cover-ph-${currentCount}">
-                                <i data-lucide="music" style="width:16px;height:16px;"></i>
-                            </div>
-                            <div class="track-name-block">
-                                <div class="track-title-item" id="title-${currentCount}">${fallbackName}</div>
-                                <div class="track-artist-item" id="artist-${currentCount}">Загрузка...</div>
-                            </div>
-                            <div class="track-meta" id="meta-${currentCount}">--:--</div>
-                            <button class="actions-btn track-item-action" data-id="${currentCount}"><i data-lucide="more-vertical"></i></button>
-                        `;
+                        li.innerHTML = ("\n                            <img class=\"track-cover-thumb\" id=\"cover-" + (currentCount) + "\" alt=\"\">\n                            <div class=\"track-cover-placeholder\" id=\"cover-ph-" + (currentCount) + "\">\n                                <i data-lucide=\"music\" style=\"width:16px;height:16px;\"></i>\n                            </div>\n                            <div class=\"track-name-block\">\n                                <div class=\"track-title-item\" id=\"title-" + (currentCount) + "\">" + (fallbackName) + "</div>\n                                <div class=\"track-artist-item\" id=\"artist-" + (currentCount) + "\">" + (globalThis.noctuneI18n?.legacyHtml("library.playlists.loading", {p0: (currentCount), p1: (currentCount), p2: (currentCount), p3: (fallbackName), p4: (currentCount), p5: (currentCount), p6: (currentCount)}) ?? "Загрузка...".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (currentCount), p1: (currentCount), p2: (currentCount), p3: (fallbackName), p4: (currentCount), p5: (currentCount), p6: (currentCount)})[i])) + "</div>\n                            </div>\n                            <div class=\"track-meta\" id=\"meta-" + (currentCount) + "\">--:--</div>\n                            <button class=\"actions-btn track-item-action\" data-id=\"" + (currentCount) + "\"><i data-lucide=\"more-vertical\"></i></button>\n                        ");
 
                         li.addEventListener('click', (e) => {
                             if (e.target.closest('.actions-btn')) return;
@@ -744,16 +717,16 @@
                 });
 
                 if (fileEntries.length === 0) {
-                    playlistElem.innerHTML = '<li>Аудиофайлы не найдены</li>';
-                    statusText.textContent = 'Пусто';
+                    playlistElem.innerHTML = ("<li>" + (globalThis.noctuneI18n?.t("library.playlists.audioFilesNotFound", {}) ?? "Аудиофайлы не найдены") + "</li>");
+                    statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.empty", {}) ?? "Пусто");
                     return;
                 }
 
-                statusText.textContent = `Загружено треков: ${fileEntries.length}`;
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.tracksLoaded", {p0: (fileEntries.length)}) ?? "Загружено треков: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (fileEntries.length)})[k] ?? "{"+k+"}"));
                 if (isShuffle) buildShuffleList();
                 processMetadataSequentially();
             } catch (err) {
-                statusText.textContent = 'Ошибка импорта';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.importError", {}) ?? "Ошибка импорта");
             }
         }
 
@@ -775,7 +748,7 @@
                         const titleElem = document.getElementById(`title-${trackIndex}`);
                         const artistElem = document.getElementById(`artist-${trackIndex}`);
                         if (titleElem) titleElem.textContent = meta.title || entry.name.replace(/\.[^/.]+$/, "");
-                        if (artistElem) artistElem.textContent = meta.artist || "Неизвестный исполнитель";
+                        if (artistElem) artistElem.textContent = meta.artist || (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель");
 
                         window.updateTrackArtwork(trackIndex, meta, filePath);
 
@@ -796,7 +769,7 @@
             parsedMetadataCache = {};
             shuffleList = []; currentShufflePos = -1;
             playlistElem.innerHTML = '';
-            statusText.textContent = 'Загрузка треков...';
+            statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.loadingTracks", {}) ?? "Загрузка треков...");
 
             let count = 0;
             for (const fullPath of filePaths) {
@@ -807,18 +780,7 @@
                 const fallbackName = fileName.replace(/\.[^/.]+$/, '');
                 const li = document.createElement('li');
                 li.setAttribute('data-id', count);
-                li.innerHTML = `
-                    <img class="track-cover-thumb" id="cover-${count}" alt="">
-                    <div class="track-cover-placeholder" id="cover-ph-${count}">
-                        <i data-lucide="music" style="width:16px;height:16px;"></i>
-                    </div>
-                    <div class="track-name-block">
-                        <div class="track-title-item" id="title-${count}"></div>
-                        <div class="track-artist-item" id="artist-${count}">Загрузка...</div>
-                    </div>
-                    <div class="track-meta" id="meta-${count}">--:--</div>
-                    <button class="actions-btn track-item-action" data-id="${count}"><i data-lucide="more-vertical"></i></button>
-                `;
+                li.innerHTML = ("\n                    <img class=\"track-cover-thumb\" id=\"cover-" + (count) + "\" alt=\"\">\n                    <div class=\"track-cover-placeholder\" id=\"cover-ph-" + (count) + "\">\n                        <i data-lucide=\"music\" style=\"width:16px;height:16px;\"></i>\n                    </div>\n                    <div class=\"track-name-block\">\n                        <div class=\"track-title-item\" id=\"title-" + (count) + "\"></div>\n                        <div class=\"track-artist-item\" id=\"artist-" + (count) + "\">" + (globalThis.noctuneI18n?.legacyHtml("library.playlists.loading", {p0: (count), p1: (count), p2: (count), p3: (count), p4: (count), p5: (count)}) ?? "Загрузка...".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (count), p1: (count), p2: (count), p3: (count), p4: (count), p5: (count)})[i])) + "</div>\n                    </div>\n                    <div class=\"track-meta\" id=\"meta-" + (count) + "\">--:--</div>\n                    <button class=\"actions-btn track-item-action\" data-id=\"" + (count) + "\"><i data-lucide=\"more-vertical\"></i></button>\n                ");
                 li.querySelector('.track-title-item').textContent = fallbackName;
                 const idx = count;
                 li.addEventListener('click', (e) => {
@@ -846,12 +808,12 @@
             });
 
             if (fileEntries.length === 0) {
-                playlistElem.innerHTML = '<li style="color:var(--text-muted);font-style:italic;pointer-events:none;">Добавьте файлы или папку через кнопки выше</li>';
-                statusText.textContent = 'Плейлист пуст';
+                playlistElem.innerHTML = ("<li style=\"color:var(--text-muted);font-style:italic;pointer-events:none;\">" + (globalThis.noctuneI18n?.t("library.playlists.addFilesOrAFolderUsingTheButtonsAbove", {}) ?? "Добавьте файлы или папку через кнопки выше") + "</li>");
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.playlistIsEmpty", {}) ?? "Плейлист пуст");
                 return;
             }
 
-            statusText.textContent = `Загружено треков: ${fileEntries.length}`;
+            statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.tracksLoaded", {p0: (fileEntries.length)}) ?? "Загружено треков: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (fileEntries.length)})[k] ?? "{"+k+"}"));
             if (isShuffle) buildShuffleList();
             processMetadataSequentially();
         }
@@ -863,7 +825,7 @@
         document.getElementById('menu-play-next').addEventListener('click', () => {
             if (selectedTrackIndexInMenu !== -1) {
                 playNextIndex = selectedTrackIndexInMenu;
-                statusText.textContent = 'Следующий трек назначен';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.nextTrackSet", {}) ?? "Следующий трек назначен");
             }
         });
 
@@ -894,8 +856,8 @@
             document.getElementById('radio-name-input').value = station.name;
             document.getElementById('radio-url-input').value = station.url;
 
-            document.querySelector('#radio-modal h3').textContent = 'Редактировать Радиостанцию';
-            document.getElementById('btn-save-radio').textContent = 'Сохранить';
+            document.querySelector('#radio-modal h3').textContent = (globalThis.noctuneI18n?.t("library.playlists.editRadioStation", {}) ?? "Редактировать Радиостанцию");
+            document.getElementById('btn-save-radio').textContent = (globalThis.noctuneI18n?.t("player.interface.save", {}) ?? "Сохранить");
 
             document.querySelectorAll('.radio-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.radio-tab-content').forEach(c => c.classList.remove('active'));
@@ -927,9 +889,9 @@
                         currentIndex = -1;
                         isRadioMode = false;
                         updatePlayIcons(false);
-                        trackTitle.textContent = 'Удалено';
+                        trackTitle.textContent = (globalThis.noctuneI18n?.t("library.playlists.deleted", {}) ?? "Удалено");
                         trackArtist.textContent = '';
-                        miniTrackTitle.textContent = 'Удалено';
+                        miniTrackTitle.textContent = (globalThis.noctuneI18n?.t("library.playlists.deleted", {}) ?? "Удалено");
                         triggerMiniMarquee();
                         if (window.discordRPCEnabled) noctune.discordRpcClearActivity();
                     } else if (currentIndex > orderIdx) {

@@ -34,13 +34,13 @@
     const expandedCoverWrap = document.getElementById('lyrics-cover-wrap');
     let artworkRequestId = null;
     function setArtworkState(phase, progress = null) {
-        const labels = { searching: 'Поиск обложки…', downloading: 'Обложка найдена · загрузка…', decoding: 'Обложка загружена…', ready: 'Обложка загружена', missing: 'Обложка не найдена', error: 'Не удалось загрузить обложку', idle: '' };
+        const labels = { searching: (globalThis.noctuneI18n?.t("integrations.lyrics.searchingForArtwork", {}) ?? "Поиск обложки…"), downloading: (globalThis.noctuneI18n?.t("integrations.lyrics.artworkFoundDownloading", {}) ?? "Обложка найдена · загрузка…"), decoding: (globalThis.noctuneI18n?.t("integrations.lyrics.artworkDownloaded", {}) ?? "Обложка загружена…"), ready: (globalThis.noctuneI18n?.t("integrations.lyrics.artworkLoaded", {}) ?? "Обложка загружена"), missing: (globalThis.noctuneI18n?.t("integrations.lyrics.artworkNotFound", {}) ?? "Обложка не найдена"), error: (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotLoadArtwork", {}) ?? "Не удалось загрузить обложку"), idle: '' };
         for (const wrapper of [mainCoverWrap, expandedCoverWrap]) {
             wrapper.setAttribute('data-artwork-state', phase);
             wrapper.style.setProperty('--cover-progress', Number.isFinite(progress) ? progress : 0);
             wrapper.classList.toggle('artwork-indeterminate', !Number.isFinite(progress));
         }
-        mainPlaceholder.setAttribute('aria-label', labels[phase] || 'Нет обложки');
+        mainPlaceholder.setAttribute('aria-label', labels[phase] || (globalThis.noctuneI18n?.t("integrations.lyrics.noArtwork", {}) ?? "Нет обложки"));
     }
     function displayArtwork(image) {
         for (const element of [cover, mainCover]) {
@@ -94,7 +94,7 @@
         const metadata = parsedMetadataCache[index] || await readFileMetadata(entry.path, entry.name);
         const payload = { artist: metadata.artist, title: metadata.title, album: metadata.album, filePath: entry.path };
         const result = await noctune.lastfm.trackCoverCacheStatus(payload);
-        if (!result.ok) throw new Error('Не удалось проверить кэш обложки');
+        if (!result.ok) throw new Error((globalThis.noctuneI18n?.t("integrations.lyrics.couldNotCheckArtworkCache", {}) ?? "Не удалось проверить кэш обложки"));
         return { payload, cached: result.cached };
     };
     let coverActionSerial = 0;
@@ -103,7 +103,7 @@
         const identity = coverIdentity(payload);
         if (!track?.radio && coverIdentity(track) === identity) artworkSerial++;
         const cleared = await noctune.lastfm.removeTrackCoverCache(payload);
-        if (!cleared.ok) throw new Error('Не удалось удалить кэш обложки');
+        if (!cleared.ok) throw new Error((globalThis.noctuneI18n?.t("integrations.lyrics.couldNotDeleteArtworkCache", {}) ?? "Не удалось удалить кэш обложки"));
         for (const [path, saved] of trackArtwork) {
             const [artist, title, album] = JSON.parse(saved.identity);
             if (coverIdentity({ artist, title, album, filePath: path }) === identity) trackArtwork.delete(path);
@@ -120,9 +120,9 @@
         const result = await noctune.lastfm.cover(payload);
         if (actionSerial !== coverActionSerial) return;
         if (result.status !== 'found') {
-            const message = result.status === 'disabled' ? 'Включите загрузку обложек Last.fm в настройках.'
-                : result.status === 'missing' || result.status === 'invalid' ? 'Обложка не найдена.' : 'Не удалось обновить обложку.';
-            showNotification(message, 'info', 'Обложка трека');
+            const message = result.status === 'disabled' ? (globalThis.noctuneI18n?.t("integrations.lyrics.enableLastFmArtworkDownloadsInSettings", {}) ?? "Включите загрузку обложек Last.fm в настройках.")
+                : result.status === 'missing' || result.status === 'invalid' ? (globalThis.noctuneI18n?.t("integrations.lyrics.artworkNotFound.message", {}) ?? "Обложка не найдена.") : (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotRefreshArtwork", {}) ?? "Не удалось обновить обложку.");
+            showNotification(message, 'info', (globalThis.noctuneI18n?.t("miniPlayer.trackArtwork", {}) ?? "Обложка трека"));
             return;
         }
         const thumbnail = noctune.metadata?.thumbnail ? await noctune.metadata.thumbnail(result.dataUrl) : result.dataUrl;
@@ -180,14 +180,14 @@
     cacheLimit.value = Math.max(10, Math.min(300, Number(appStorage.getItem('setting_lastfm_cover_cache_limit')) || 30));
     function updateCacheControls() {
         cacheOptions.style.display = coverCacheToggle.checked ? 'block' : 'none';
-        document.getElementById('lastfm-cover-cache-limit-label').textContent = cacheLimit.value + ' МБ';
-        document.getElementById('cover-cache-location-label').textContent = { music: 'В папке с музыкой', custom: 'Своя папка', app: 'Кэш приложения' }[cacheLocation];
+        document.getElementById('lastfm-cover-cache-limit-label').textContent = cacheLimit.value + (globalThis.noctuneI18n?.t("integrations.lyrics.mb", {}) ?? " МБ");
+        document.getElementById('cover-cache-location-label').textContent = { music: (globalThis.noctuneI18n?.t("settings.integrations.musicFolder", {}) ?? "В папке с музыкой"), custom: (globalThis.noctuneI18n?.t("settings.integrations.customFolder", {}) ?? "Своя папка"), app: (globalThis.noctuneI18n?.t("settings.integrations.applicationCache", {}) ?? "Кэш приложения") }[cacheLocation];
         document.getElementById('cover-cache-custom-row').style.display = cacheLocation === 'custom' ? 'flex' : 'none';
-        document.getElementById('cover-cache-custom-path').textContent = customCachePath || 'Папка не выбрана';
+        document.getElementById('cover-cache-custom-path').textContent = customCachePath || (globalThis.noctuneI18n?.t("settings.integrations.noFolderSelected", {}) ?? "Папка не выбрана");
         document.getElementById('cover-cache-location-hint').textContent = {
-            music: 'В каждой папке с музыкой создаётся свой кэш .noctune-cache/covers. Размер и очистка относятся к папке текущего трека. Лимит действует отдельно для каждой папки.',
-            custom: 'Обложки всех плейлистов сохраняются в выбранной папке. При заполнении кэша старые обложки удаляются.',
-            app: 'Обложки сохраняются в локальном кэше приложения. При заполнении кэша старые обложки удаляются.',
+            music: (globalThis.noctuneI18n?.t("artwork.cache.musicFolderDescription", {}) ?? "В каждой папке с музыкой создаётся свой кэш .noctune-cache/covers. Размер и очистка относятся к папке текущего трека. Лимит действует отдельно для каждой папки."),
+            custom: (globalThis.noctuneI18n?.t("artwork.cache.customFolderDescription", {}) ?? "Обложки всех плейлистов сохраняются в выбранной папке. При заполнении кэша старые обложки удаляются."),
+            app: (globalThis.noctuneI18n?.t("artwork.cache.applicationDescription", {}) ?? "Обложки сохраняются в локальном кэше приложения. При заполнении кэша старые обложки удаляются."),
         }[cacheLocation];
         locationOptions.forEach(option => {
             const selected = option.getAttribute('data-location') === cacheLocation;
@@ -200,7 +200,7 @@
         try {
             const result = await (configure ? noctune.lastfm.configureCoverCache(cachePayload()) : noctune.lastfm.coverCacheStats(cachePayload()));
             if (serial !== cacheStatsSerial) return;
-            document.getElementById('lastfm-cover-cache-usage').textContent = result.ok ? 'Занято: ' + (result.bytes / 1024 / 1024).toFixed(1) + ' МБ из ' + result.limitMB + ' МБ' : 'Не удалось определить размер кэша.';
+            document.getElementById('lastfm-cover-cache-usage').textContent = result.ok ? (globalThis.noctuneI18n?.t("integrations.lyrics.used", {}) ?? "Занято: ") + (result.bytes / 1024 / 1024).toFixed(1) + (globalThis.noctuneI18n?.t("integrations.lyrics.mbOf", {}) ?? " МБ из ") + result.limitMB + (globalThis.noctuneI18n?.t("integrations.lyrics.mb", {}) ?? " МБ") : (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotDetermineCacheSize", {}) ?? "Не удалось определить размер кэша.");
             document.getElementById('lastfm-cover-cache-path').textContent = result.ok ? result.directory : '';
         } catch (_) {}
     }
@@ -222,11 +222,11 @@
         try {
             const result = await noctune.lastfm.chooseCoverCacheFolder();
             if (result.canceled) return;
-            if (!result.ok) { message.textContent = 'Не удалось выбрать папку.'; return; }
+            if (!result.ok) { message.textContent = (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotSelectFolder", {}) ?? "Не удалось выбрать папку."); return; }
             customCachePath = result.directory;
             appStorage.setItem('setting_lastfm_cover_cache_custom_path', customCachePath);
             message.textContent = ''; await applyCacheLocation('custom');
-        } catch (_) { message.textContent = 'Не удалось выбрать папку.'; }
+        } catch (_) { message.textContent = (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotSelectFolder", {}) ?? "Не удалось выбрать папку."); }
         finally { chooseCacheFolderButton.disabled = false; }
     }
     locationOptions.forEach(option => option.addEventListener('click', async () => {
@@ -240,8 +240,8 @@
         const message = document.getElementById('lastfm-cover-cache-status');
         try {
             const result = await noctune.lastfm.openCoverCacheFolder(cachePayload());
-            message.textContent = result.ok ? '' : 'Не удалось открыть папку обложек.';
-        } catch (_) { message.textContent = 'Не удалось открыть папку обложек.'; }
+            message.textContent = result.ok ? '' : (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotOpenArtworkFolder", {}) ?? "Не удалось открыть папку обложек.");
+        } catch (_) { message.textContent = (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotOpenArtworkFolder", {}) ?? "Не удалось открыть папку обложек."); }
     });
     document.addEventListener('click', event => { if (!locationDropdown.contains(event.target)) setLocationMenu(false); });
     locationMenu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); setLocationMenu(false); locationButton.focus(); } });
@@ -326,12 +326,12 @@
         message.textContent = '';
         try {
             const result = await noctune.lastfm.clearCoverCache(cachePayload());
-            message.textContent = result.ok ? 'Кэш обложек очищен.' : 'Не удалось очистить кэш.';
+            message.textContent = result.ok ? (globalThis.noctuneI18n?.t("integrations.lyrics.artworkCacheCleared", {}) ?? "Кэш обложек очищен.") : (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotClearCache", {}) ?? "Не удалось очистить кэш.");
             if (result.ok) {
                 artworkSerial++; artworkKey = ''; artworkRequestId = null;
                 setArtworkState(mainCover.classList.contains('loaded') ? 'ready' : 'idle'); updateCacheStats();
             }
-        } catch (_) { message.textContent = 'Не удалось очистить кэш.'; }
+        } catch (_) { message.textContent = (globalThis.noctuneI18n?.t("integrations.lyrics.couldNotClearCache", {}) ?? "Не удалось очистить кэш."); }
         finally { clearCacheButton.disabled = false; }
     });
     if (noctune.lastfm?.onCoverProgress) noctune.lastfm.onCoverProgress(progress => {
@@ -344,7 +344,7 @@
         modal.classList.toggle('lyrics-expanded', value);
         document.body.classList.toggle('lyrics-expanded', opened && value);
         viewToggle.setAttribute('aria-pressed', String(value));
-        viewToggle.title = value ? 'Обычное окно' : 'Большой вид';
+        viewToggle.title = value ? (globalThis.noctuneI18n?.t("integrations.lyrics.normalWindow", {}) ?? "Обычное окно") : (globalThis.noctuneI18n?.t("player.interface.largeView", {}) ?? "Большой вид");
         viewToggle.setAttribute('aria-label', viewToggle.title);
         viewToggle.innerHTML = '<i data-lucide="' + (value ? 'shrink' : 'expand') + '"></i>';
         lucide.createIcons();
@@ -357,8 +357,8 @@
         document.getElementById('lyrics-seek-row').hidden = radio;
         const station = document.getElementById('lyrics-radio-station');
         station.hidden = !radio;
-        station.textContent = radio ? track.stationName || 'Радиостанция' : '';
-        document.getElementById('lyrics-song-title').textContent = track?.title || (radio ? 'Прямой эфир' : 'Музыка не выбрана');
+        station.textContent = radio ? track.stationName || (globalThis.noctuneI18n?.t("index.radioStation", {}) ?? "Радиостанция") : '';
+        document.getElementById('lyrics-song-title').textContent = track?.title || (radio ? (globalThis.noctuneI18n?.t("integrations.lyrics.live", {}) ?? "Прямой эфир") : (globalThis.noctuneI18n?.t("player.interface.noMusicSelected", {}) ?? "Музыка не выбрана"));
         document.getElementById('lyrics-song-artist').textContent = track?.artist || '';
         const image = track?.coverDataUrl || (remoteArtworkVisible(remoteCoverOwner) ? remoteCover : '') || '';
         displayArtwork(image);
@@ -372,7 +372,7 @@
         }
         if (lastRepeat !== repeatMode) {
             lastRepeat = repeatMode;
-            const title = ['Повтор выключен', 'Повторять этот трек', 'Повторять плейлист'][repeatMode];
+            const title = [(globalThis.noctuneI18n?.t("playback.repeat.off", {}) ?? "Повтор выключен"), (globalThis.noctuneI18n?.t("playback.repeat.track", {}) ?? "Повторять этот трек"), (globalThis.noctuneI18n?.t("playback.repeat.playlist", {}) ?? "Повторять плейлист")][repeatMode];
             repeatButton.innerHTML = '<i data-lucide="' + ['repeat-off', 'repeat-1', 'repeat'][repeatMode] + '"></i>';
             repeatButton.classList.toggle('active', repeatMode > 0);
             repeatButton.title = title;
@@ -390,7 +390,7 @@
         if (lastVolumeIcon !== volumeIcon) {
             lastVolumeIcon = volumeIcon;
             document.getElementById('lyrics-volume-icon').setAttribute('data-lucide', volumeIcon);
-            document.getElementById('lyrics-volume-button').setAttribute('aria-label', isMuted || volume <= 0 ? 'Включить звук' : 'Выключить звук');
+            document.getElementById('lyrics-volume-button').setAttribute('aria-label', isMuted || volume <= 0 ? (globalThis.noctuneI18n?.t("integrations.lyrics.unmute", {}) ?? "Включить звук") : (globalThis.noctuneI18n?.t("player.interface.mute", {}) ?? "Выключить звук"));
             lucide.createIcons();
         }
         const duration = isRadioMode ? 0 : (currentTrackDuration || localAudioElement?.duration || 0);
@@ -405,7 +405,7 @@
         if (totalTime.textContent !== totalText) totalTime.textContent = totalText;
         if (lastPlaying !== isPlaying) {
             lastPlaying = isPlaying;
-            playButton.setAttribute('aria-label', isPlaying ? 'Пауза' : 'Воспроизвести');
+            playButton.setAttribute('aria-label', isPlaying ? (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза") : (globalThis.noctuneI18n?.t("player.interface.play", {}) ?? "Воспроизвести"));
             playButton.innerHTML = '<i data-lucide="' + (isPlaying ? 'pause' : 'play') + '"></i>';
             lucide.createIcons();
         }
@@ -422,8 +422,8 @@
     const colorMenu = document.getElementById('lyrics-color-menu');
     const colorOptions = [...colorMenu.querySelectorAll('.lyrics-color-option')];
     const colorModes = {
-        adaptive: { label: 'Адаптивный', icon: 'wand-2' }, accent: { label: 'Из акцента', icon: 'pipette' },
-        custom: { label: 'Свой цвет', icon: 'palette' }, light: { label: 'Светлый', icon: 'sun' }, dark: { label: 'Тёмный', icon: 'moon' },
+        adaptive: { label: (globalThis.noctuneI18n?.t("settings.appearance.adaptive", {}) ?? "Адаптивный"), icon: 'wand-2' }, accent: { label: (globalThis.noctuneI18n?.t("settings.appearance.fromAccent", {}) ?? "Из акцента"), icon: 'pipette' },
+        custom: { label: (globalThis.noctuneI18n?.t("settings.appearance.effects.customColor", {}) ?? "Свой цвет"), icon: 'palette' }, light: { label: (globalThis.noctuneI18n?.t("settings.appearance.light", {}) ?? "Светлый"), icon: 'sun' }, dark: { label: (globalThis.noctuneI18n?.t("settings.appearance.dark", {}) ?? "Тёмный"), icon: 'moon' },
     };
     function setColorMenuOpen(open) {
         colorMenu.classList.toggle('open', open);
@@ -523,7 +523,7 @@
             option.classList.toggle('active', selected);
             option.setAttribute('aria-selected', String(selected));
         });
-        const scrollbarMode = { auto: { label: 'Автоматически', icon: 'wand-2' }, always: { label: 'Всегда', icon: 'scroll-text' }, hidden: { label: 'Скрыта', icon: 'eye-off' } }[appearance.scrollbar];
+        const scrollbarMode = { auto: { label: (globalThis.noctuneI18n?.t("settings.appearance.automatic", {}) ?? "Автоматически"), icon: 'wand-2' }, always: { label: (globalThis.noctuneI18n?.t("settings.appearance.always", {}) ?? "Всегда"), icon: 'scroll-text' }, hidden: { label: (globalThis.noctuneI18n?.t("settings.appearance.hidden", {}) ?? "Скрыта"), icon: 'eye-off' } }[appearance.scrollbar];
         document.getElementById('lyrics-scrollbar-label').textContent = scrollbarMode.label;
         document.getElementById('lyrics-scrollbar-icon').innerHTML = '<i data-lucide="' + scrollbarMode.icon + '" style="width:14px;height:14px;"></i>';
         scrollbarOptions.forEach(option => {
@@ -595,7 +595,7 @@
         const dots = document.createElement('div');
         dots.className = 'lyrics-loading-dots';
         dots.setAttribute('role', 'status');
-        dots.setAttribute('aria-label', 'Ищем текст песни');
+        dots.setAttribute('aria-label', (globalThis.noctuneI18n?.t("integrations.lyrics.searchingForLyrics", {}) ?? "Ищем текст песни"));
         for (let i = 0; i < 4; i++) {
             const dot = document.createElement('span');
             dot.setAttribute('aria-hidden', 'true');
@@ -626,7 +626,7 @@
         clear(); addonLyricsSnapshot = {status:'missing',lines:[],plain:''};
         if (!enabled || !opened) return;
         if (!track || track.radio) {
-            status.textContent = track?.radio ? 'Текст для радиопотока недоступен.' : 'Выберите песню для поиска текста.';
+            status.textContent = track?.radio ? (globalThis.noctuneI18n?.t("integrations.lyrics.lyricsUnavailableForRadioStreams", {}) ?? "Текст для радиопотока недоступен.") : (globalThis.noctuneI18n?.t("integrations.lyrics.selectASongToSearchForLyrics", {}) ?? "Выберите песню для поиска текста.");
             return;
         }
         const requestSerial = serial;
@@ -647,13 +647,13 @@
         if (requestSerial !== serial || !opened || !enabled) return;
         setLyricsLoading(false);
         if (result.status === 'cancelled') return;
-        const source = typeof result.source==='string'&&result.source.trim()?result.source.trim().slice(0,120):'Расширение';
+        const source = typeof result.source==='string'&&result.source.trim()?result.source.trim().slice(0,120):(globalThis.noctuneI18n?.t("extensions.contributions.extension", {}) ?? "Расширение");
         addonLyricsSnapshot = {status:result.status,lines:result.lines||[],plain:result.plain||'',...(result.status==='found'?{source}:{})};
         const messages = {
-            missing: 'Текст этой песни не найден.', instrumental: 'Инструментальная композиция — без текста.',
-            invalid: 'Для поиска нужны название песни и исполнитель. Проверьте теги файла.',
-            error: 'Текст временно недоступен.',
-            'rate-limit': 'Сервис временно ограничил запросы. Попробуйте позже.',
+            missing: (globalThis.noctuneI18n?.t("integrations.lyrics.lyricsNotFoundForThisSong", {}) ?? "Текст этой песни не найден."), instrumental: (globalThis.noctuneI18n?.t("integrations.lyrics.instrumentalTrackNoLyrics", {}) ?? "Инструментальная композиция — без текста."),
+            invalid: (globalThis.noctuneI18n?.t("integrations.lyrics.songTitleAndArtistAreRequiredCheckFileTags", {}) ?? "Для поиска нужны название песни и исполнитель. Проверьте теги файла."),
+            error: (globalThis.noctuneI18n?.t("integrations.lyrics.lyricsTemporarilyUnavailable", {}) ?? "Текст временно недоступен."),
+            'rate-limit': (globalThis.noctuneI18n?.t("integrations.lyrics.theServiceIsRateLimitingRequestsTryAgainLater", {}) ?? "Сервис временно ограничил запросы. Попробуйте позже."),
         };
         if (result.status !== 'found') {
             status.textContent = messages[result.status] || messages.error;
@@ -662,9 +662,9 @@
             return;
         }
         setLyricsAvailability(false);
-        if(sourceLabel){sourceLabel.textContent='Тексты: '+source;sourceLabel.hidden=false;}
+        if(sourceLabel){sourceLabel.textContent=(globalThis.noctuneI18n?.t("integrations.lyrics.lyrics", {}) ?? "Тексты: ")+source;sourceLabel.hidden=false;}
         if (result.lines.length) {
-            status.textContent = 'Синхронизированный текст · нажмите строку для перемотки';
+            status.textContent = (globalThis.noctuneI18n?.t("integrations.lyrics.synchronizedLyricsClickALineToSeek", {}) ?? "Синхронизированный текст · нажмите строку для перемотки");
             status.classList.toggle('lyrics-synced-hint', true);
             const firstTextIndex = result.lines.findIndex(line => line.text?.trim());
             const lines = firstTextIndex > 0 ? result.lines.slice(firstTextIndex) : result.lines;
@@ -672,7 +672,7 @@
                 intro = document.createElement('div');
                 intro.className = 'lyrics-intro';
                 intro.setAttribute('role', 'img');
-                intro.setAttribute('aria-label', 'Музыкальное вступление');
+                intro.setAttribute('aria-label', (globalThis.noctuneI18n?.t("integrations.lyrics.instrumentalIntro", {}) ?? "Музыкальное вступление"));
                 const wave = document.createElement('span');
                 wave.className = 'lyrics-intro-wave';
                 wave.setAttribute('aria-hidden', 'true');

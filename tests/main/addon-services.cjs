@@ -1,3 +1,4 @@
+const { trySymlink } = require('../helpers/symlink.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
@@ -31,23 +32,26 @@ const { expand } = require('../../src/shared/addon-permissions');
         await invoke('system.openExternal', { url: 'https://example.com/path' }); assert.equal(opened, 'https://example.com/path');
         await assert.rejects(invoke('network.request', { url: 'https://example.com/path', headers: { Authorization: 'spoofed' } }));
         await assert.rejects(invoke('network.request', { url: 'https://evil.example/path' }));
-        await fs.rename(filename, filename + '.old'); await fs.symlink(filename + '.old', filename);
-        // POSIX rejects the link itself. Windows has no O_NOFOLLOW; the
-        // descriptor identity still limits access to the originally granted file.
-        if (constants.O_NOFOLLOW) await assert.rejects(invoke('files.read', { handle: chosen.handle }), /ELOOP|изменился/);
-        else assert.equal((await invoke('files.read', { handle: chosen.handle })).data, 'new');
-        const other = path.join(directory, 'not-selected.txt');
-        await fs.writeFile(other, 'not authorized');
-        await fs.unlink(filename); await fs.symlink(other, filename);
-        for (const [method, args] of [
-            ['files.read', { handle: chosen.handle }],
-            ['files.write', { handle: saved.handle, data: 'must not be written' }],
-            ['files.reveal', { handle: chosen.handle }],
-            ['system.openFile', { handle: chosen.handle }],
-        ]) await assert.rejects(invoke(method, args), /ELOOP|изменился/, method + ' rejects a link to an unselected file');
-        assert.equal(await fs.readFile(other, 'utf8'), 'not authorized');
-        assert.equal(opened, 'https://example.com/path', 'rejected shell actions never reach the shell');
-        await fs.unlink(filename); await fs.writeFile(filename, 'replacement');
+        await fs.rename(filename, filename + '.old');
+        if (await trySymlink(filename + '.old', filename)) {
+            // POSIX rejects the link itself. Windows has no O_NOFOLLOW; the
+            // descriptor identity still limits access to the originally granted file.
+            if (constants.O_NOFOLLOW) await assert.rejects(invoke('files.read', { handle: chosen.handle }), /ELOOP|изменился/);
+            else assert.equal((await invoke('files.read', { handle: chosen.handle })).data, 'new');
+            const other = path.join(directory, 'not-selected.txt');
+            await fs.writeFile(other, 'not authorized');
+            await fs.unlink(filename); await fs.symlink(other, filename);
+            for (const [method, args] of [
+                ['files.read', { handle: chosen.handle }],
+                ['files.write', { handle: saved.handle, data: 'must not be written' }],
+                ['files.reveal', { handle: chosen.handle }],
+                ['system.openFile', { handle: chosen.handle }],
+            ]) await assert.rejects(invoke(method, args), /ELOOP|изменился/, method + ' rejects a link to an unselected file');
+            assert.equal(await fs.readFile(other, 'utf8'), 'not authorized');
+            assert.equal(opened, 'https://example.com/path', 'rejected shell actions never reach the shell');
+            await fs.unlink(filename);
+        }
+        await fs.writeFile(filename, 'replacement');
         await assert.rejects(invoke('files.read', { handle: chosen.handle }), /изменился/, 'regular file replacement also invalidates the grant');
         await assert.rejects(invoke('files.write', { handle: saved.handle, data: 'must not be written' }), /изменился/);
         assert.equal(await fs.readFile(filename, 'utf8'), 'replacement');

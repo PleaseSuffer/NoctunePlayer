@@ -1552,7 +1552,8 @@
         .pl-editor-item:active { cursor: grabbing; }
         .pl-editor-item.dragging { opacity: 0.4; }
         .pl-editor-item .pl-drag-handle { color: var(--text-muted); cursor: grab; flex-shrink: 0; }
-        .pl-editor-item .pl-name { flex: 1; font-weight: 600; }
+        .pl-editor-item .pl-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pl-editor-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
         .pl-editor-item .pl-type-badge {
             font-size: 10px;
             padding: 2px 8px;
@@ -1595,6 +1596,11 @@
         .viz-type-menu-item:hover { background: var(--track-hover); }
         .viz-type-menu-item.active { background: var(--accent-color); color: #fff; }
         .viz-type-menu-item.active i { color: #fff !important; }
+        button.viz-type-menu-item {
+            width: 100%; border: 0; background: none; text-align: left; font-family: inherit;
+        }
+        .viz-type-menu-item:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
+        #language-menu { max-height: min(280px, 45vh); overflow-y: auto; }
 
         /* Блоки настроек под конкретный тип */
         .viz-settings-block { display: none; flex-direction: column; gap: 0; }

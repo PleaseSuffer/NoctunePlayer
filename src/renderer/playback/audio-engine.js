@@ -271,7 +271,7 @@
             currentSelectedPresetName = name;
             
             document.querySelectorAll('.preset-btn').forEach(b => {
-                b.classList.toggle('active', b.textContent.trim() === name);
+                b.classList.toggle('active', b.dataset.preset === name);
             });
 
             const preampVal = values[0];
@@ -345,7 +345,7 @@
                 const metaInt = parseInt(response.headers.get('icy-metaint'));
 
                 if (!metaInt) {
-                    console.log('ICY metadata не поддерживается');
+                    console.log((globalThis.noctuneI18n?.t("playback.audioEngine.icyMetadataUnsupported", {}) ?? "ICY metadata не поддерживается"));
                     return;
                 }
 
@@ -411,7 +411,7 @@
                                     triggerMiniMarquee();
 
                                     statusText.textContent =
-                                        'Сейчас играет на радио';
+                                        (globalThis.noctuneI18n?.t("playback.audioEngine.nowPlayingOnRadio", {}) ?? "Сейчас играет на радио");
 
                                     if ('mediaSession' in navigator) {
                                         navigator.mediaSession.metadata = new MediaMetadata({
@@ -431,7 +431,7 @@
 
             } catch (err) {
                 if (err.name !== 'AbortError') {
-                    console.error('Ошибка ICY metadata:', err);
+                    console.error((globalThis.noctuneI18n?.t("playback.audioEngine.icyMetadataError", {}) ?? "Ошибка ICY metadata:"), err);
                 }
             }
         }
@@ -648,9 +648,9 @@
             if (entry.kind === 'radio') {
                 isRadioMode = true;
                 if (window.setLyricsTrack) window.setLyricsTrack({ radio: true, stationName: entry.name, artist: '', title: '' }, myToken);
-                statusText.textContent = 'Подключение к потоку...';
+                statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.connectingToStream", {}) ?? "Подключение к потоку...");
                 trackTitle.textContent = entry.name;
-                trackArtist.textContent = "Интернет Радиостанция";
+                trackArtist.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.internetRadioStation", {}) ?? "Интернет Радиостанция");
                 miniTrackTitle.textContent = `Radio — ${entry.name}`;
                 triggerMiniMarquee();
 
@@ -666,7 +666,7 @@
                 if ('mediaSession' in navigator) {
                     navigator.mediaSession.metadata = new MediaMetadata({
                         title: entry.name,
-                        artist: "Интернет Радио",
+                        artist: (globalThis.noctuneI18n?.t("library.playlists.internetRadio", {}) ?? "Интернет Радио"),
                         album: 'Noctune Radio'
                     });
                 }
@@ -718,12 +718,12 @@
                         if (myToken !== _loadToken) return;
                         stopTrack();
                         updatePlayIcons(false);
-                        statusText.textContent = 'Ошибка потока';
+                        statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.streamError", {}) ?? "Ошибка потока");
                         console.error(err);
                     });
                     isPlaying = true;
                     updatePlayIcons(true);
-                    statusText.textContent = 'Трансляция';
+                    statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.broadcast", {}) ?? "Трансляция");
                     startProgressUpdater();
                     btnRepeat.classList.add('btn-disabled');
                     miniBtnRepeat.classList.add('btn-disabled');
@@ -732,7 +732,7 @@
                     // Disable speed control for radio
                     document.getElementById('speed-zone').classList.add('speed-control-disabled');
                 } catch(err) {
-                    statusText.textContent = 'Ошибка потока';
+                    statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.streamError", {}) ?? "Ошибка потока");
                 }
 
             } else {
@@ -740,7 +740,7 @@
 
                 _trackLoading = true;
 
-                statusText.textContent = 'Загрузка...';
+                statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.loading", {}) ?? "Загрузка...");
                 
                 try {
                     const provider = entry.kind === 'provider';
@@ -756,7 +756,7 @@
                             if (m.fileSize) entry._fileSize = m.fileSize;
                             return m;
                         } catch(e) {
-                            return { title: entry.name.replace(/\.[^/.]+$/, ""), artist: "Неизвестный исполнитель" };
+                            return { title: entry.name.replace(/\.[^/.]+$/, ""), artist: (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель") };
                         }
                     })();
 
@@ -927,8 +927,8 @@
                     }
                 } catch (e) {
                     if (myToken === _loadToken) {
-                        const message = String(e.message || 'Ошибка загрузки').replace(/https?:\/\/\S+/g, '[адрес потока скрыт]').slice(0, 240);
-                        statusText.textContent = entry.kind === 'provider' ? message : 'Ошибка загрузки';
+                        const message = String(e.message || (globalThis.noctuneI18n?.t("playback.audioEngine.downloadError", {}) ?? "Ошибка загрузки")).replace(/https?:\/\/\S+/g, (globalThis.noctuneI18n?.t("playback.audioEngine.streamAddressHidden", {}) ?? "[адрес потока скрыт]")).slice(0, 240);
+                        statusText.textContent = entry.kind === 'provider' ? message : (globalThis.noctuneI18n?.t("playback.audioEngine.downloadError", {}) ?? "Ошибка загрузки");
                         globalThis.addonEvents?.emit('playback.error', { error: { code: e.code || 'LOAD_FAILED', message } });
                     }
                 } finally {
@@ -1026,8 +1026,8 @@
                 if (playingElement._noctuneProvider && (playingElement.error || playingElement._noctuneRecovering || err.name === 'NotSupportedError')) return;
                 stopTrack();
                 updatePlayIcons(false);
-                statusText.textContent = 'Ошибка воспроизведения';
-                console.error("Ошибка воспроизведения:", err);
+                statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.playbackError", {}) ?? "Ошибка воспроизведения");
+                console.error((globalThis.noctuneI18n?.t("playback.audioEngine.playbackError.detail", {}) ?? "Ошибка воспроизведения:"), err);
             });
 
             startTime = audioCtx.currentTime;
@@ -1037,14 +1037,14 @@
 
             updateSMTCPosition(position);
             updatePlayIcons(true);
-            statusText.textContent = 'Воспроизведение';
+            statusText.textContent = (globalThis.noctuneI18n?.t("settings.player.playback", {}) ?? "Воспроизведение");
             startProgressUpdater();
             sendTrayState();
         }
 
         function sendTrayState() {
             try {
-                const title = document.getElementById('track-title')?.textContent || 'Ничего не играет';
+                const title = document.getElementById('track-title')?.textContent || (globalThis.noctuneI18n?.t("index.nothingPlaying", {}) ?? "Ничего не играет");
                 const hasPlaylist = playlistOrder.length > 0;
                 noctune.sendTrayState({
                     isPlaying,
@@ -1065,10 +1065,10 @@
         let _discordRadioStartedAt = null;
 
         function buildDiscordActivity() {
-            const title = (trackTitle?.textContent || '').trim() || 'Без названия';
+            const title = (trackTitle?.textContent || '').trim() || (globalThis.noctuneI18n?.t("preload.untitled", {}) ?? "Без названия");
             const artist = (trackArtist?.textContent || '').trim();
             const pl = userPlaylists.find(p => p.id === activePlaylistId);
-            const plName = pl ? pl.name : (isRadioMode ? 'Радио' : 'Без плейлиста');
+            const plName = pl ? pl.name : (isRadioMode ? (globalThis.noctuneI18n?.t("playback.audioEngine.radio", {}) ?? "Радио") : (globalThis.noctuneI18n?.t("playback.audioEngine.noPlaylist", {}) ?? "Без плейлиста"));
 
             const activity = {
                 type: 2, // Listening — «Слушает Noctune Player»
@@ -1076,7 +1076,7 @@
                 largeImageKey: 'logo',
                 largeImageText: plName.slice(0, 128),
                 smallImageKey: isPlaying ? 'play' : 'pause',
-                smallImageText: isPlaying ? 'Воспроизведение' : 'Пауза',
+                smallImageText: isPlaying ? (globalThis.noctuneI18n?.t("settings.player.playback", {}) ?? "Воспроизведение") : (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза"),
                 instance: false,
             };
             if (artist) activity.state = artist.slice(0, 128);
@@ -1122,7 +1122,7 @@
                         buttonUrl = entry.path; // без редиректа — просто открыть поток в браузере
                     }
                     if (/^https?:\/\//i.test(buttonUrl)) {
-                        activity.buttons = [{ label: 'Слушать', url: buttonUrl }];
+                        activity.buttons = [{ label: (globalThis.noctuneI18n?.t("playback.audioEngine.listen", {}) ?? "Слушать"), url: buttonUrl }];
                     }
                 }
             }
@@ -1257,7 +1257,7 @@
                 stopTrack();
                 currentIndex = -1;
                 updatePlayIcons(false);
-                statusText.textContent = 'Окончено';
+                statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.ended", {}) ?? "Окончено");
                 return;
             }
 
@@ -1304,14 +1304,14 @@
             }
             if (window._msKeepAlive) window._msKeepAlive.pause();
             updatePlayIcons(false);
-            statusText.textContent = 'Окончено';
+            statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.ended", {}) ?? "Окончено");
         }
 
         function togglePlayback() {
             if (_trackLoading) {
                 stopTrack();
                 updatePlayIcons(false);
-                statusText.textContent = 'Остановлено';
+                statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.stopped", {}) ?? "Остановлено");
                 return;
             }
             if (isRadioMode && radioAudioElement && radioAudioElement.getAttribute('src')) {
@@ -1319,12 +1319,12 @@
                     radioAudioElement.pause();
                     isPlaying = false;
                     updatePlayIcons(false);
-                    statusText.textContent = 'Пауза';
+                    statusText.textContent = (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза");
                 } else {
                     radioAudioElement.play().catch(err => { if (err.name !== 'AbortError') console.error(err); });
                     isPlaying = true;
                     updatePlayIcons(true);
-                    statusText.textContent = 'Трансляция';
+                    statusText.textContent = (globalThis.noctuneI18n?.t("playback.audioEngine.broadcast", {}) ?? "Трансляция");
                 }
                 return;
             }
@@ -1359,7 +1359,7 @@
                 isPlaying = false;
                 updateSMTCPosition(pausedAt);
                 updatePlayIcons(false);
-                statusText.textContent = 'Пауза';
+                statusText.textContent = (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза");
                 // Save position on pause
                 const remToggle = document.getElementById('setting-remember-track');
                 if (!remToggle || remToggle.checked) {
@@ -1407,7 +1407,7 @@
                 playTrack(nextIdx);
             } else {
                 const playlist=userPlaylists.find(item=>item.id===activePlaylistId);
-                if(playlist?.service?.continuous){stopTrack();updatePlayIcons(false);statusText.textContent='Сервис пока не вернул новые треки';return;}
+                if(playlist?.service?.continuous){stopTrack();updatePlayIcons(false);statusText.textContent=(globalThis.noctuneI18n?.t("playback.audioEngine.serviceHasNotReturnedNewTracksYet", {}) ?? "Сервис пока не вернул новые треки");return;}
                 // Список закончился — при ручном нажатии Next переходим на начало
                 playTrack(0);
             }

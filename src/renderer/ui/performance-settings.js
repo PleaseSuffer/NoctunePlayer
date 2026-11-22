@@ -50,21 +50,21 @@
         toggle.checked = enabled;
         notice.hidden = !state.restartRequired;
         restart.hidden = !state.restartRequired;
-        status.textContent = state.restartRequired ? 'Настройка сохранена. Применится после перезапуска.' : '';
+        status.textContent = state.restartRequired ? (globalThis.noctuneI18n?.t("ui.performanceSettings.settingSavedTakesEffectAfterRestart", {}) ?? "Настройка сохранена. Применится после перезапуска.") : '';
     }
     function showError(message) { notice.hidden = false; restart.hidden = true; status.textContent = message; }
     noctune.performance.getHardwareAcceleration().then(showState).catch(() => {
-        showError('Не удалось загрузить настройку.');
+        showError((globalThis.noctuneI18n?.t("ui.performanceSettings.couldNotLoadSetting", {}) ?? "Не удалось загрузить настройку."));
     }).finally(() => { toggle.disabled = false; });
     toggle.addEventListener('change', async () => {
         toggle.disabled = true;
         try { showState(await noctune.performance.setHardwareAcceleration(toggle.checked)); }
-        catch (_) { toggle.checked = enabled; showError('Не удалось сохранить настройку.'); }
+        catch (_) { toggle.checked = enabled; showError((globalThis.noctuneI18n?.t("ui.performanceSettings.couldNotSaveSetting", {}) ?? "Не удалось сохранить настройку.")); }
         finally { toggle.disabled = false; }
     });
     restart.addEventListener('click', async () => {
         restart.disabled = true;
         try { await noctune.performance.restart(); }
-        catch (_) { status.textContent = 'Не удалось перезапустить приложение.'; restart.disabled = false; }
+        catch (_) { status.textContent = (globalThis.noctuneI18n?.t("ui.performanceSettings.couldNotRestartApplication", {}) ?? "Не удалось перезапустить приложение."); restart.disabled = false; }
     });
 })();

@@ -9,7 +9,7 @@
                         }
                     });
                     Object.assign(presets, parsed);
-                } catch(e) { console.error("Ошибка загрузки пресетов", e); }
+                } catch(e) { console.error((globalThis.noctuneI18n?.t("playback.equalizer.couldNotLoadPresets", {}) ?? "Ошибка загрузки пресетов"), e); }
             }
         }
         loadUserPresets();
@@ -74,13 +74,18 @@
         }
 
         const SYSTEM_PRESETS = ['Обычный', 'Усиление НЧ', 'Усиление ВЧ', 'Поп', 'Рок', 'Акустика'];
+        const PRESET_LABELS = { 'Обычный': 'equalizer.presets.normal', 'Усиление НЧ': 'equalizer.presets.bassBoost', 'Усиление ВЧ': 'equalizer.presets.trebleBoost', 'Поп': 'equalizer.presets.pop', 'Рок': 'equalizer.presets.rock', 'Акустика': 'equalizer.presets.acoustic' };
         let _presetsPage = 0;
 
         function _buildPresetButton(name, isSystem, savedState) {
             const btn = document.createElement('button');
             btn.className = 'preset-btn';
             if (savedState && savedState.selectedPreset === name) btn.classList.add('active');
-            btn.innerHTML = `<span>${name}</span>${!isSystem ? '<i data-lucide="x"></i>' : ''}`;
+            btn.dataset.preset = name;
+            const label = document.createElement('span');
+            label.textContent = isSystem ? (globalThis.noctuneI18n?.t(PRESET_LABELS[name]) ?? name) : name;
+            btn.appendChild(label);
+            if (!isSystem) { const icon = document.createElement('i'); icon.dataset.lucide = 'x'; btn.appendChild(icon); }
 
             btn.addEventListener('click', (e) => {
                 if (e.target.closest('[data-lucide="x"]')) {
@@ -92,7 +97,7 @@
                     // Активную подсветку снимаем/ставим сразу везде — кнопка с
                     // этим именем встречается в обоих контейнерах (модал + Настройки).
                     document.querySelectorAll('.preset-btn').forEach(b => {
-                        b.classList.toggle('active', b.textContent.trim() === name);
+                        b.classList.toggle('active', b.dataset.preset === name);
                     });
                 }
             });
@@ -240,8 +245,8 @@
             }
             renderPresetButtons();
             const activeBtn = document.querySelector('.preset-btn.active');
-            if (!activeBtn || activeBtn.textContent.trim() === name) {
-                applyPreset("Обычный");
+            if (!activeBtn || activeBtn.dataset.preset === name) {
+                applyPreset('Обычный');
             }
         }
 

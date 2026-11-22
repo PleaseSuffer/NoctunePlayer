@@ -14,7 +14,7 @@
         const status = document.getElementById('mini-player-settings-status');
         pending = pending.then(async () => {
             try { render(await noctune.miniPlayer.setSettings({ [key]: value })); status.textContent = ''; }
-            catch (_) { status.textContent = 'Не удалось сохранить настройку мини-плеера.'; if (settings) render(settings); }
+            catch (_) { status.textContent = (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.couldNotSaveMiniPlayerSetting", {}) ?? "Не удалось сохранить настройку мини-плеера."); if (settings) render(settings); }
         });
         return pending;
     }
@@ -62,7 +62,7 @@
         const r = row(title, description), wrapper = element('div', 'mini-settings-range'), input = element('input'), output = element('output');
         input.type = 'range'; input.id = 'mini-setting-' + key; input.min = min; input.max = max; input.step = 1; input.setAttribute('aria-label', title); input.disabled = true;
         output.htmlFor = input.id;
-        input.title = 'ПКМ — сбросить по умолчанию';
+        input.title = (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.rightClickToResetToDefault", {}) ?? "ПКМ — сбросить по умолчанию");
         // Null lets normalizeSettings use the authoritative defaults in the main process.
         input.addEventListener('contextmenu', async event => {
             event.preventDefault();
@@ -74,32 +74,32 @@
         input.addEventListener('change', () => save(key, Number(input.value)));
         wrapper.append(input, output); r.append(wrapper);
     }
-    toggle('enabled', 'Отдельное окно мини-плеера', 'Компактное окно для свёрнутого приложения. Встроенный мини-плеер внутри приложения работает отдельно.');
-    toggle('onMinimize', 'Показывать при сворачивании приложения');
-    toggle('onTrayHover', 'Показывать при наведении на значок в трее', 'Когда основное окно скрыто или свёрнуто.');
-    select('onMainClose', 'При закрытии основного окна', [['playing', 'Мини-плеер, если играет музыка'], ['always', 'Всегда открывать мини-плеер'], ['default', 'Обычное поведение приложения']]);
-    toggle('hideOnRestore', 'Скрывать при разворачивании приложения');
-    select('onClose', 'При закрытии мини-плеера', [['restore', 'Развернуть основной плеер'], ['quit', 'Закрыть плеер'], ['hide', 'Скрыть мини-плеер']]);
-    select('onTop', 'Поверх других окон', [['always', 'Всегда'], ['playing', 'Во время воспроизведения'], ['never', 'Выключено']]);
-    toggle('rememberPosition', 'Запоминать положение окна');
-    toggle('snap', 'Привязывать к краям экрана', 'Окно прилипает при приближении к краю. Чтобы оторвать его, отведите дальше от края.');
-    toggle('locked', 'Закрепить положение и размер', 'Отключает перемещение и изменение размера мышью.');
+    toggle('enabled', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.separateMiniPlayerWindow", {}) ?? "Отдельное окно мини-плеера"), (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.aCompactWindowForTheMinimizedApplicationTheEmbeddedMiniPlayerWorksIndependently", {}) ?? "Компактное окно для свёрнутого приложения. Встроенный мини-плеер внутри приложения работает отдельно."));
+    toggle('onMinimize', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.showWhenMinimizingApplication", {}) ?? "Показывать при сворачивании приложения"));
+    toggle('onTrayHover', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.showWhenHoveringOverTrayIcon", {}) ?? "Показывать при наведении на значок в трее"), (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.whenTheMainWindowIsHiddenOrMinimized", {}) ?? "Когда основное окно скрыто или свёрнуто."));
+    select('onMainClose', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.whenClosingMainWindow", {}) ?? "При закрытии основного окна"), [['playing', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.miniPlayerIfMusicIsPlaying", {}) ?? "Мини-плеер, если играет музыка")], ['always', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.alwaysOpenMiniPlayer", {}) ?? "Всегда открывать мини-плеер")], ['default', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.normalApplicationBehavior", {}) ?? "Обычное поведение приложения")]]);
+    toggle('hideOnRestore', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.hideWhenRestoringApplication", {}) ?? "Скрывать при разворачивании приложения"));
+    select('onClose', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.whenClosingMiniPlayer", {}) ?? "При закрытии мини-плеера"), [['restore', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.restoreMainPlayer", {}) ?? "Развернуть основной плеер")], ['quit', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.quitPlayer", {}) ?? "Закрыть плеер")], ['hide', (globalThis.noctuneI18n?.t("miniPlayer.hideMiniPlayer", {}) ?? "Скрыть мини-плеер")]]);
+    select('onTop', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.aboveOtherWindows", {}) ?? "Поверх других окон"), [['always', (globalThis.noctuneI18n?.t("settings.appearance.always", {}) ?? "Всегда")], ['playing', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.duringPlayback", {}) ?? "Во время воспроизведения")], ['never', (globalThis.noctuneI18n?.t("ui.addonSettings.disabled", {}) ?? "Выключено")]]);
+    toggle('rememberPosition', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.rememberWindowPosition", {}) ?? "Запоминать положение окна"));
+    toggle('snap', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.snapToScreenEdges", {}) ?? "Привязывать к краям экрана"), (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.theWindowSnapsWhenNearAnEdgeMoveItFartherFromTheEdgeToDetach", {}) ?? "Окно прилипает при приближении к краю. Чтобы оторвать его, отведите дальше от края."));
+    toggle('locked', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.lockPositionAndSize", {}) ?? "Закрепить положение и размер"), (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.disableMovingAndResizingWithTheMouse", {}) ?? "Отключает перемещение и изменение размера мышью."));
     container = document.getElementById('mini-player-appearance-settings');
-    toggle('hoverControls', 'Показывать кнопки при наведении', 'Без наведения видны название и исполнитель; при наведении — управление воспроизведением.');
-    toggle('cover', 'Показывать обложку');
-    toggle('progress', 'Показывать прогресс и время');
-    range('width', 'Ширина', 300, 900, ' px');
-    range('height', 'Высота', 64, 220, ' px');
-    range('fontSize', 'Размер текста', 10, 20, ' px');
-    range('opacity', 'Непрозрачность', 30, 100, '%', 'При наведении окно становится полностью непрозрачным. Когда курсор уходит, возвращается выбранное значение.');
-    select('colorMode', 'Цвет мини-плеера', [['custom', 'Свой цвет'], ['accent', 'От акцента'], ['theme', 'От темы']]);
-    const colorRow = row('Свой цвет'), colorInput = element('input', 'mini-settings-color');
-    colorInput.type = 'color'; colorInput.id = 'mini-setting-customColor'; colorInput.setAttribute('aria-label', 'Свой цвет мини-плеера');
+    toggle('hoverControls', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.showControlsOnHover") ?? "Показывать кнопки при наведении"), (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.showTitleAndArtistNormallyShowPlaybackControlsOnHover") ?? "Без наведения видны название и исполнитель; при наведении — управление воспроизведением."));
+    toggle('cover', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.showArtwork") ?? "Показывать обложку"));
+    toggle('progress', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.showProgressAndTime") ?? "Показывать прогресс и время"));
+    range('width', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.width") ?? "Ширина"), 300, 900, ' px');
+    range('height', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.height") ?? "Высота"), 64, 220, ' px');
+    range('fontSize', (globalThis.noctuneI18n?.t("settings.appearance.textSize") ?? "Размер текста"), 10, 20, ' px');
+    range('opacity', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.opacity") ?? "Непрозрачность"), 30, 100, '%', (globalThis.noctuneI18n?.t("miniPlayer.opacity.description") ?? "При наведении окно становится полностью непрозрачным. Когда курсор уходит, возвращается выбранное значение."));
+    select('colorMode', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.miniPlayerColor") ?? "Цвет мини-плеера"), [['custom', (globalThis.noctuneI18n?.t("settings.appearance.effects.customColor") ?? "Свой цвет")], ['accent', (globalThis.noctuneI18n?.t("settings.appearance.accent") ?? "От акцента")], ['theme', (globalThis.noctuneI18n?.t("settings.appearance.theme") ?? "От темы")]]);
+    const colorRow = row((globalThis.noctuneI18n?.t("settings.appearance.effects.customColor") ?? "Свой цвет")), colorInput = element('input', 'mini-settings-color');
+    colorInput.type = 'color'; colorInput.id = 'mini-setting-customColor'; colorInput.setAttribute('aria-label', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.customMiniPlayerColor") ?? "Свой цвет мини-плеера"));
     colorInput.addEventListener('input', () => save('customColor', colorInput.value));
     colorRow.append(colorInput);
     controls.set('customColor', value => { colorInput.value = value; });
-    const actions = row('Предпросмотр', 'Настройки применяются сразу. Окно можно перетаскивать за название, обложку или верхний край.');
-    const preview = element('button', 'btn', 'Предпросмотр'); preview.type = 'button'; preview.id = 'mini-player-preview'; preview.disabled = true;
+    const actions = row((globalThis.noctuneI18n?.t("ui.miniPlayerSettings.preview", {}) ?? "Предпросмотр"), (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.settingsApplyImmediatelyDragTheWindowByItsTitleArtworkOrTopEdge", {}) ?? "Настройки применяются сразу. Окно можно перетаскивать за название, обложку или верхний край."));
+    const preview = element('button', 'btn', (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.preview", {}) ?? "Предпросмотр")); preview.type = 'button'; preview.id = 'mini-player-preview'; preview.disabled = true;
     preview.addEventListener('click', () => window.floatingMiniPlayer.open(false)); actions.append(preview);
     function render(value) {
         settings = value;
@@ -113,7 +113,7 @@
         }
     }
     window.addEventListener('mini-player-settings', event => render(event.detail));
-    noctune.miniPlayer.getSettings().then(render).catch(() => { document.getElementById('mini-player-settings-status').textContent = 'Не удалось загрузить настройки мини-плеера.'; });
+    noctune.miniPlayer.getSettings().then(render).catch(() => { document.getElementById('mini-player-settings-status').textContent = (globalThis.noctuneI18n?.t("ui.miniPlayerSettings.couldNotLoadMiniPlayerSettings", {}) ?? "Не удалось загрузить настройки мини-плеера."); });
     lucide.createIcons();
     document.dispatchEvent(new Event('settings-sections-changed'));
 })();

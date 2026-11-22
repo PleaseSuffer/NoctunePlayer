@@ -1,11 +1,11 @@
 {
   "id": "noctune-sleep",
   "name": "Noctune Sleep",
-  "description": "Таймер сна: пауза по времени, мягкое затихание и управление горячими клавишами. Официальное расширение Noctune.",
+  "description": "extension.description",
   "author": "Noctune",
   "version": "1.0.0",
-  "revision": 1,
-  "apiVersion": 1,
+  "revision": 2,
+  "apiVersion": 2,
   "minNoctuneVersion": "1.4.0",
   "type": "extension",
   "entry": "main.js",
@@ -23,39 +23,39 @@
   "commands": [
     {
       "id": "start-timer",
-      "title": "Запустить таймер"
+      "title": "commands.startTimer.title"
     },
     {
       "id": "cancel-timer",
-      "title": "Отменить таймер"
+      "title": "commands.cancelTimer.title"
     },
     {
       "id": "extend-timer",
-      "title": "Добавить 5 минут"
+      "title": "commands.extendTimer.title"
     },
     {
       "id": "time-left",
-      "title": "Сколько осталось"
+      "title": "commands.timeLeft.title"
     }
   ],
   "settings": {
     "minutes": {
       "type": "slider",
-      "label": "До паузы, минут",
+      "label": "settings.minutes.label",
       "default": 30,
       "min": 5,
       "max": 180,
       "step": 5,
-      "description": "Применяется при следующем запуске таймера."
+      "description": "settings.minutes.description"
     },
     "fade": {
       "type": "toggle",
-      "label": "Плавное затихание",
+      "label": "settings.fade.label",
       "default": true
     },
     "fadeSeconds": {
       "type": "slider",
-      "label": "Затихание, секунд",
+      "label": "settings.fadeSeconds.label",
       "default": 20,
       "min": 5,
       "max": 60,
@@ -67,9 +67,16 @@
     },
     "startOnEnable": {
       "type": "toggle",
-      "label": "Запускать при включении",
+      "label": "settings.startOnEnable.label",
       "default": false,
-      "description": "Также запускает новый таймер при следующем запуске плеера, если расширение включено."
+      "description": "settings.startOnEnable.description"
+    }
+  },
+  "localization": {
+    "defaultLocale": "ru",
+    "files": {
+      "ru": "locales/ru_RU.json",
+      "en": "locales/en_US.json"
     }
   }
 }

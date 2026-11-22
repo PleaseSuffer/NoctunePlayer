@@ -1,3 +1,4 @@
+const {trySymlink}=require('../helpers/symlink.cjs');
 const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os'),{Readable}=require('node:stream');
 const {createAddonDownloads,filename}=require('../../src/main/addons/downloads');
 const {validate,normalize}=require('../../src/shared/addon-settings');
@@ -18,8 +19,10 @@ const {validate,normalize}=require('../../src/shared/addon-settings');
    const folder=(await invoke('folder',{setting:'folder'})).path;
    assert.equal((await done(await start())).state,'completed');assert.deepEqual(await fs.readFile(path.join(folder,'Artist — Song.mp3')),bytes);
    assert.equal((await done(await start())).name,'Artist — Song (1).mp3');
-   await fs.symlink(path.join(folder,'Artist — Song.mp3'),path.join(folder,'linked.mp3'));
+   const linked=await trySymlink(path.join(folder,'Artist — Song.mp3'),path.join(folder,'linked.mp3'));
+   if(!linked)await fs.writeFile(path.join(folder,'linked.mp3'),'existing');
    assert.equal((await done(await start('linked.mp3'))).name,'linked (1).mp3');
+   assert.deepEqual(await fs.readFile(path.join(folder,'linked.mp3')),linked?bytes:Buffer.from('existing'));
    for(const failure of ['html','invalid','short']){mode=failure;assert.equal((await done(await start('bad.mp3'))).state,'failed');await assert.rejects(fs.access(path.join(folder,'bad.mp3')));}
    mode='ok';location='custom';await assert.rejects(start(),/Выберите папку/);await invoke('folder',{setting:'folder',action:'choose'});
    assert.equal((await done(await start())).state,'completed');assert.deepEqual(await fs.readFile(path.join(custom,'Artist — Song.mp3')),bytes);

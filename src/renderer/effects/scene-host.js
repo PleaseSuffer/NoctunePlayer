@@ -2,6 +2,15 @@
     'use strict';
     let current = null, candidate = null, dormant = null, epoch = 0, last = 0, time = 0, queued = false;
     let spectrum = new Uint8Array(0), sampleRate = 44100, playing = false;
+    // Viewport-normalized input remains usable in sandboxed iframe and Worker scenes.
+    let pointer = { x: 0, y: 0, active: false };
+    window.addEventListener('pointermove', event => {
+        if (event.pointerType === 'touch') return;
+        pointer = { x: Math.max(-1, Math.min(1, event.clientX / Math.max(1, innerWidth) * 2 - 1)), y: Math.max(-1, Math.min(1, event.clientY / Math.max(1, innerHeight) * 2 - 1)), active: true };
+    }, { passive: true });
+    const clearPointer = () => { pointer = { x: 0, y: 0, active: false }; };
+    document.addEventListener('pointerleave', clearPointer);
+    window.addEventListener('blur', clearPointer);
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
     let config, diagnosticsEnabled = false;
     function refreshConfig() {
@@ -47,7 +56,7 @@
                         }));
                         const decodeMs = performance.now() - decodeStart;
                         scene = window.__noctuneScene;
-                        if (!scene) throw new Error('Отсутствует NoctuneScene.define');
+                        if (!scene) throw new Error((globalThis.noctuneI18n?.t("effects.sceneHost.noctunesceneDefineMissing", {}) ?? "Отсутствует NoctuneScene.define"));
                         api = NoctuneScene.create(data.canvas, data.manifest, images, data.apiVersion, 'worker');
                         if (scene.init) await scene.init(api);
                         if (api.apiVersion === 2) for (const event of ['resize','parameters','audio','reset']) if (typeof scene[event] === 'function') api.on(event, value => scene[event](api, value));
@@ -100,31 +109,31 @@
         }
         const runScript = text => new Promise((resolve, reject) => {
             const script = document.createElement('script'); script.src = 'data:text/javascript;base64,' + btoa(unescape(encodeURIComponent(text)));
-            script.onload = resolve; script.onerror = () => reject(new Error('Не удалось загрузить скрипт')); document.head.append(script);
+            script.onload = resolve; script.onerror = () => reject(new Error((globalThis.noctuneI18n?.t("effects.sceneHost.couldNotLoadScript", {}) ?? "Не удалось загрузить скрипт"))); document.head.append(script);
         });
         window.addEventListener('error', e => reply('error', { message: String(e.message).slice(0, 240) }));
-        window.addEventListener('unhandledrejection', e => reply('error', { message: String(e.reason?.message || e.reason || 'Ошибка скрипта темы').slice(0, 240) }));
+        window.addEventListener('unhandledrejection', e => reply('error', { message: String(e.reason?.message || e.reason || (globalThis.noctuneI18n?.t("effects.sceneHost.themeScriptError", {}) ?? "Ошибка скрипта темы")).slice(0, 240) }));
         (async () => {
-            reply('stage', { stage: 'запуск отдельного потока отрисовки' });
+            reply('stage', { stage: (globalThis.noctuneI18n?.t("effects.sceneHost.startingASeparateRenderingWorker", {}) ?? "запуск отдельного потока отрисовки") });
             if (await startWorker()) return;
             const images = Object.create(null);
             const decodeStart = performance.now();
-            reply('stage', { stage: 'загрузка PNG-слоёв' });
+            reply('stage', { stage: (globalThis.noctuneI18n?.t("effects.sceneHost.loadingPngLayers", {}) ?? "загрузка PNG-слоёв") });
             await Promise.all(Object.entries(payload.assets).map(async ([id, src]) => {
                 const img = new Image(); img.decoding = 'sync';
                 await new Promise((resolve, reject) => {
-                    img.onload = resolve; img.onerror = () => reject(new Error('Не удалось загрузить PNG-слой: ' + id));
+                    img.onload = resolve; img.onerror = () => reject(new Error((globalThis.noctuneI18n?.t("effects.sceneHost.couldNotLoadPngLayer", {}) ?? "Не удалось загрузить PNG-слой: ") + id));
                     img.src = src;
                 });
                 images[id] = img;
             }));
             const decodeMs = performance.now() - decodeStart;
-            reply('stage', { stage: 'загрузка SDK' }); await runScript(payload.sdk);
-            reply('stage', { stage: 'загрузка скрипта сцены' }); await runScript(payload.script);
+            reply('stage', { stage: (globalThis.noctuneI18n?.t("effects.sceneHost.loadingSdk", {}) ?? "загрузка SDK") }); await runScript(payload.sdk);
+            reply('stage', { stage: (globalThis.noctuneI18n?.t("effects.sceneHost.loadingSceneScript", {}) ?? "загрузка скрипта сцены") }); await runScript(payload.script);
             const scene = window.__noctuneScene;
-            if (!scene) throw new Error('Отсутствует NoctuneScene.define');
+            if (!scene) throw new Error((globalThis.noctuneI18n?.t("effects.sceneHost.noctunesceneDefineMissing", {}) ?? "Отсутствует NoctuneScene.define"));
             const api = NoctuneScene.create(document.querySelector('canvas'), payload.manifest, images, payload.apiVersion, 'iframe');
-            reply('stage', { stage: 'инициализация сцены' });
+            reply('stage', { stage: (globalThis.noctuneI18n?.t("effects.sceneHost.initializingScene", {}) ?? "инициализация сцены") });
             if (scene.init) await scene.init(api);
             if (api.apiVersion === 2) for (const event of ['resize','parameters','audio','reset']) if (typeof scene[event] === 'function') api.on(event, value => scene[event](api, value));
             window.addEventListener('pagehide', () => { try { if(api.apiVersion===2)scene.dispose?.(api); } finally { api.dispose?.(); } }, {once:true});
@@ -152,7 +161,7 @@
         const palette = inherit ? current.metadata.palette : { accent: appStorage.getItem('setting_accent_color') || '#4a90e2', gradient: gradient || ['#bb86fc', '#4a90e2', '#03dac6'] };
         window.backgroundSettings?.palette(palette);
     }
-    function destroy(entry) { if (!entry) return; clearTimeout(entry.timer); entry.frame.remove(); if (entry.reject) { entry.reject(new Error('Выбор темы отменён')); entry.reject = null; } }
+    function destroy(entry) { if (!entry) return; clearTimeout(entry.timer); entry.frame.remove(); if (entry.reject) { entry.reject(new Error((globalThis.noctuneI18n?.t("effects.sceneHost.themeSelectionCanceled", {}) ?? "Выбор темы отменён"))); entry.reject = null; } }
     function deactivate(persist = true) {
         const wasActive = !!current;
         dormant = persist ? null : current?.metadata || dormant;
@@ -180,7 +189,7 @@
             if (!entry?.ready) continue;
             if (entry.busy) {
                 if (diagnosticsEnabled) entry.skipped = (entry.skipped || 0) + 1;
-                if (now - entry.sentAt > 5000) failure(entry, 'Тема перестала отвечать');
+                if (now - entry.sentAt > 5000) failure(entry, (globalThis.noctuneI18n?.t("effects.sceneHost.themeStoppedResponding", {}) ?? "Тема перестала отвечать"));
                 continue;
             }
             // A changing canvas invalidates backdrop-filter surfaces too. Leave GPU
@@ -202,7 +211,7 @@
             entry.frames = (entry.frames || 0) + 1;
             const settings = entry.settings;
             const audio = { spectrum, sampleRate, playing, frequencyMix: settings.frequencyMix, enabled: entry.metadata.capabilities.visualizer !== 'none' && config.visualizer, intensity: config.intensity };
-            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, reducedMotion: reducedMotion.matches, safeArea: safeArea(), parameters: settings, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
+            entry.frame.contentWindow.postMessage({ sceneChannel: entry.channel, type: 'frame', frame: { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: frameDt, motion: animated, reducedMotion: reducedMotion.matches, safeArea: safeArea(), pointer: { ...pointer }, parameters: settings, lighting: {intensity:settings.glowIntensity}, audio } }, '*');
         }
     }
     function failure(entry, message) {
@@ -213,7 +222,7 @@
             destroy(entry);
         }
         else if (entry === current) deactivate();
-        const details = `Тема: ${entry.metadata.name} (${entry.metadata.id})\nЭтап: ${entry.stage || 'загрузка iframe'}\n${message}`;
+        const details = (globalThis.noctuneI18n?.t("effects.sceneHost.themeStage", {p0: (entry.metadata.name), p1: (entry.metadata.id), p2: (entry.stage || 'загрузка iframe'), p3: (message)}) ?? "Тема: {p0} ({p1})\nЭтап: {p2}\n{p3}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (entry.metadata.name), p1: (entry.metadata.id), p2: (entry.stage || 'загрузка iframe'), p3: (message)})[k] ?? "{"+k+"}"));
         if (typeof showNotification === 'function') showNotification(message, 'warning', null, null, { copyText: details });
     }
     window.addEventListener('message', event => {
@@ -221,7 +230,7 @@
         if (!entry) return;
         if (event.data.type === 'fallback') { entry.fallbackReason = String(event.data.reason).slice(0,240); return; }
         if (event.data.type === 'stage') { entry.stage = String(event.data.stage).slice(0, 120); return; }
-        if (event.data.type === 'error') { failure(entry, 'Ошибка интерактивной темы: ' + String(event.data.message).slice(0, 240)); return; }
+        if (event.data.type === 'error') { failure(entry, (globalThis.noctuneI18n?.t("effects.sceneHost.interactiveThemeError", {}) ?? "Ошибка интерактивной темы: ") + String(event.data.message).slice(0, 240)); return; }
         if (event.data.type === 'ready') { entry.ready = true; if(Number.isFinite(event.data.decodeMs))entry.decodeMs=event.data.decodeMs; schedule(); }
         if (event.data.type === 'frame') {
             entry.runtime = event.data.runtime || entry.runtime;
@@ -276,7 +285,7 @@
         async activate(metadata, guard) {
             const request = ++epoch; destroy(candidate); candidate = null;
             const pkg = await noctune.sceneThemes.read(metadata.id);
-            if (request !== epoch || guard && !guard()) throw new Error('Выбор темы отменён');
+            if (request !== epoch || guard && !guard()) throw new Error((globalThis.noctuneI18n?.t("effects.sceneHost.themeSelectionCanceled", {}) ?? "Выбор темы отменён"));
             metadata = { ...metadata, ...pkg.manifest, id: metadata.id, packageId: pkg.manifest.id, apiVersion: pkg.apiVersion, preview: metadata.preview };
             return new Promise((resolve, reject) => {
                 const frame = document.createElement('iframe'); frame.className = 'scene-frame'; frame.setAttribute('sandbox', 'allow-scripts');
@@ -285,9 +294,9 @@
                 const entry = { frame, channel, metadata, resolve, reject, guard, ready: false, busy: false };
                 candidate = entry;
                 refreshConfig();
-                frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, reducedMotion: reducedMotion.matches, safeArea: safeArea(), parameters: entry.settings, lighting:{intensity:entry.settings.glowIntensity}, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
+                frame.srcdoc = html(pkg, channel, { width: innerWidth, height: innerHeight, dpr: devicePixelRatio, time, dt: 0, motion: false, reducedMotion: reducedMotion.matches, safeArea: safeArea(), pointer: { ...pointer }, parameters: entry.settings, lighting:{intensity:entry.settings.glowIntensity}, audio: { spectrum: [], sampleRate, playing: false, enabled: false, intensity: 1 } });
                 document.body.prepend(frame);
-                entry.timer = setTimeout(() => { if (entry === candidate) failure(entry, 'Не удалось запустить тему: ' + (entry.stage || 'загрузка iframe') + ' (тайм-аут 15 с)'); }, 15000);
+                entry.timer = setTimeout(() => { if (entry === candidate) failure(entry, (globalThis.noctuneI18n?.t("effects.sceneHost.couldNotStartTheme", {}) ?? "Не удалось запустить тему: ") + (entry.stage || (globalThis.noctuneI18n?.t("effects.sceneHost.loadingIframe", {}) ?? "загрузка iframe")) + (globalThis.noctuneI18n?.t("effects.sceneHost.timeoutDetail", {}) ?? " (тайм-аут 15 с)")); }, 15000);
                 schedule();
             });
         },
@@ -314,7 +323,7 @@
                 if (request !== epoch || appStorage.getItem('setting_scene_enabled') !== '1' || appStorage.getItem('setting_scene_theme') !== id) return;
                 if (metadata) await this.activate(metadata);
                 else { appStorage.removeItem('setting_scene_theme'); emit(); }
-            } catch (error) { if (error.message !== 'Выбор темы отменён' && !error.sceneNotified) showNotification(error.message, 'warning', null, null, { copyText: error.stack || error.message }); }
+            } catch (error) { if (error.message !== (globalThis.noctuneI18n?.t("effects.sceneHost.themeSelectionCanceled", {}) ?? "Выбор темы отменён") && !error.sceneNotified) showNotification(error.message, 'warning', null, null, { copyText: error.stack || error.message }); }
         },
         onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
         preferencesChanged() { refreshConfig(); colors(); emit(); },

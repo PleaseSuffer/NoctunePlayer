@@ -1,4 +1,4 @@
-/** Noctune extensions SDK 1. */
+/** Noctune extensions SDK 1 and 2. */
 type SettingField = { label: string; description?: string; visibleWhen?: { field: string; equals: string | number | boolean } } & (
     { type: 'toggle'; default: boolean } |
     { type: 'text'; default: string; maxLength?: number } |
@@ -13,7 +13,8 @@ interface OAuthProvider {
 }
 interface NoctuneAddonManifest {
     id: string; name: string; description: string; author: string; version: string; revision: number;
-    apiVersion: 1; minNoctuneVersion: string; maxNoctuneVersion?: string;
+    apiVersion: 1 | 2; minNoctuneVersion: string; maxNoctuneVersion?: string;
+    localization?: { defaultLocale: string; messages?: Record<string, Record<string, string>>; files?: Record<string, string> };
     type: 'extension' | 'integration'; entry: string; permissions: string[];
     /** Noctune >=1.4.0: network origins/routes also accept https://*.example.com (subdomains only).
      * OAuth resourceOrigins and credential origins must still be exact HTTPS origins explicitly listed here. */
@@ -154,4 +155,14 @@ interface NoctuneAddonApi {
         invalidate(provider: string, trackIds?: string[]): Promise<void>;
     };
 }
-declare const NoctuneAddon: { define(activate: (api: NoctuneAddonApi) => void | Promise<void>): void };
+interface NoctuneLanguagePack { locale: string; name: string; messages: Record<string, string> }
+type NoctuneAddonApiV2 = Omit<NoctuneAddonApi, 'version'> & {
+    readonly version: 2;
+    readonly i18n: {
+        readonly locale: string;
+        t(key: string, args?: Record<string, string | number | boolean>): string;
+        /** Requires i18n.register. Cannot replace bundled ru/en or another extension's language. */
+        register(pack: NoctuneLanguagePack): Promise<string>;
+    };
+};
+declare const NoctuneAddon: { define(activate: (api: NoctuneAddonApi | NoctuneAddonApiV2) => void | Promise<void>): void };

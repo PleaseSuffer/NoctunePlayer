@@ -6,8 +6,8 @@ function fileMetadataView(metadata, name) {
     const parts = clean.split(/ (?:-|—|–) /);
     return {
         ...tags, _embeddedTags: tags,
-        title: (parts.length > 1 ? parts.slice(1).join(' - ') : clean).trim() || 'Без названия',
-        artist: parts.length > 1 ? parts[0].trim() || 'Неизвестный исполнитель' : 'Неизвестный исполнитель',
+        title: (parts.length > 1 ? parts.slice(1).join(' - ') : clean).trim() || (globalThis.noctuneI18n?.t("preload.untitled", {}) ?? "Без названия"),
+        artist: parts.length > 1 ? parts[0].trim() || (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель") : (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель"),
         album: '', coverDataUrl: null, coverThumbnailDataUrl: null, hasEmbeddedCover: false,
     };
 }

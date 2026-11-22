@@ -158,7 +158,7 @@
                     userPlaylists.push(pl);
                 }
                 if (!pl.stations.some(s => s.url === url)) {
-                    pl.stations.push({ name: name || 'Радиостанция', url });
+                    pl.stations.push({ name: name || (globalThis.noctuneI18n?.t("index.radioStation", {}) ?? "Радиостанция"), url });
                 }
                 savePlaylistsToStorage();
                 renderPlaylistsDropdown();
@@ -168,9 +168,9 @@
                 const absId = fileEntries.findIndex(en => en && en.kind === 'radio' && en.path === url);
                 const orderIdx = absId !== -1 ? playlistOrder.indexOf(absId) : -1;
                 if (orderIdx !== -1) playTrack(orderIdx);
-                showNotification(`Друг поделился радиостанцией «${name || 'Радио'}» — запускаем`, 'success');
+                showNotification((globalThis.noctuneI18n?.t("core.domRefsState.aFriendSharedTheRadioStationStarting", {p0: (name || 'Радио')}) ?? "Друг поделился радиостанцией «{p0}» — запускаем".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (name || 'Радио')})[k] ?? "{"+k+"}")), 'success');
             } catch (e) {
-                console.error('Не удалось обработать ссылку радиостанции:', e);
+                console.error((globalThis.noctuneI18n?.t("core.domRefsState.couldNotProcessRadioStationLink", {}) ?? "Не удалось обработать ссылку радиостанции:"), e);
             }
         });
 

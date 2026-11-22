@@ -1,0 +1,22 @@
+{
+  "commands.cancelTimer.title": "Cancel timer",
+  "commands.extendTimer.title": "Add 5 minutes",
+  "commands.startTimer.title": "Start timer",
+  "commands.timeLeft.title": "Time remaining",
+  "errors.pauseFailed": "Could not pause playback: ",
+  "extension.description": "Sleep timer: timed pause, gentle fade-out and hotkey control. An official Noctune extension.",
+  "notifications.timerCancelled": "Timer canceled.",
+  "notifications.timeRemaining": "Until pause: {p0}:{p1}.",
+  "notifications.timerExtended": "Added 5 minutes to the timer.",
+  "notifications.timerFinished": "Timer finished. Playback paused.",
+  "notifications.timerNotRunning": "Timer not running.",
+  "notifications.timerStarted": "Timer started: ",
+  "settings.fade.label": "Gentle fade-out",
+  "settings.fadeSeconds.label": "Fade-out, seconds",
+  "settings.minutes.description": "Applies the next time the timer starts.",
+  "settings.minutes.label": "Minutes until pause",
+  "settings.startOnEnable.description": "Also starts a new timer on player startup when the extension is enabled.",
+  "settings.startOnEnable.label": "Start when enabled",
+  "units.minutesAbbreviation": " min.",
+  "warnings.fadeUnavailable": "Gentle fade-out unavailable. Playback will pause when the timer expires."
+}

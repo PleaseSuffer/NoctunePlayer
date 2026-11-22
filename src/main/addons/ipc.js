@@ -28,7 +28,7 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   };
   function sender(event) {
     const win = getWindow();
-    if (!win || win.isDestroyed() || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error('Недоступно для этого окна');
+    if (!win || win.isDestroyed() || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
     return win;
   }
   const handle = (channel, callback) => ipcMain.handle('addons:' + channel, (event, ...args) => { sender(event); return callback(event, ...args); });
@@ -40,7 +40,7 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   handle('open-store', (_event, appearance) => shop.open(appearance));
   handle('runtime', () => store.runtime());
   handle('prepare-file', async event => {
-    const choice = await dialog.showOpenDialog(sender(event), { title: 'Установить расширение', properties: ['openFile'], filters: [{ name: 'Noctune Extension', extensions: ['noctaddon'] }] });
+    const choice = await dialog.showOpenDialog(sender(event), { title: (globalThis.noctuneI18n?.t("extensions.ipc.installExtension", {}) ?? "Установить расширение"), properties: ['openFile'], filters: [{ name: 'Noctune Extension', extensions: ['noctaddon'] }] });
     return choice.canceled || !choice.filePaths[0] ? null : store.prepareFile(choice.filePaths[0]);
   });
   handle('prepare-url', (_event, url) => store.prepareUrl(url));
@@ -61,7 +61,7 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   handle('invoke', (_event, id, hash, method, args) => store.invoke(id, hash, method, args));
   handle('request', async (_event, id, hash, url) => {
     const pending = downloads.get(id) || new Set();
-    if (pending.size >= 3) throw new Error('Разрешено не более трёх одновременных запросов');
+    if (pending.size >= 3) throw new Error((globalThis.noctuneI18n?.t("extensions.ipc.atMostThreeConcurrentRequestsAreAllowed", {}) ?? "Разрешено не более трёх одновременных запросов"));
     const controller = new AbortController(); pending.add(controller); downloads.set(id, pending);
     try { return await store.request(id, hash, url, controller.signal); }
     finally { pending.delete(controller); if (!pending.size) downloads.delete(id); }

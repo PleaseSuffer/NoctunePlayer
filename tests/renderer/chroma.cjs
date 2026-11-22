@@ -2,12 +2,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const manifest = require('../../addons/official/noctune-chroma/manifest.json');
+const messages = Object.fromEntries(Object.entries(manifest.localization.files).map(([locale, filename]) => [locale, JSON.parse(fs.readFileSync('addons/official/noctune-chroma/'+filename, 'utf8'))]));
 const defaults = Object.fromEntries(Object.entries(manifest.settings).map(([key, field]) => [key, field.default]));
 const source = fs.readFileSync('addons/official/noctune-chroma/main.js', 'utf8');
 async function activate(values = {}, accent) {
     let now = 0, start;
     const scheduled = [], colors = [], notices = [], events = {}, commands = {};
     const api = {
+        version: 2, i18n: { locale: 'ru', t: (key, args = {}) => messages.ru[key].replace(/\{(\w+)\}/g, (all, name) => Object.hasOwn(args, name) ? String(args[name]) : all) },
         settings: { get: async () => ({ ...defaults, offset: 0, saturation: 100, duration: 12, easing: 'linear', ...values }) },
         themes: { accent: async ({ color }) => { colors.push(color); if (accent) await accent(color); } },
         on: (type, fn) => { events[type] = fn; }, onCommand: (id, fn) => { commands[id] = fn; },

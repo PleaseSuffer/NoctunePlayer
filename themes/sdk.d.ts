@@ -13,6 +13,7 @@ declare namespace NoctuneScene {
     interface Palette { accent: string; background: string; gradient: [string, string, string] }
     interface Manifest {
         apiVersion?: 1 | 2;
+        localization?: { defaultLocale: string; messages: Record<string, Record<string, string>> };
         id: string; name: string; description: string; author: string; version: string;
         width: number; height: number; preview: string; palette: Palette;
         capabilities: { visualizer: 'bars' | 'line' | 'radial' | 'character' | 'none'; motion: boolean; visualizers?: ('bars' | 'line' | 'radial' | 'character' | 'none')[] };
@@ -37,6 +38,8 @@ declare namespace NoctuneScene {
         parameters: Parameters;
         /** Player controls bounds in viewport CSS pixels, or null. */
         safeArea: Rect | null;
+        /** Viewport-normalized cursor (-1..1). Optional on older hosts; inactive outside the window. */
+        pointer?: { x: number; y: number; active: boolean };
         audio: Audio;
     }
     type Surface = HTMLCanvasElement | OffscreenCanvas;

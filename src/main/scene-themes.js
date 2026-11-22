@@ -1,3 +1,4 @@
+const localization = require('../shared/addon-localization');
 // The container is deliberately JSON, not ZIP: no extraction paths or native code.
 const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
@@ -8,40 +9,43 @@ const MAX_BYTES = 64 * 1024 * 1024;
 const BUILTINS = { 'builtin-rain-window': '03-rain-window', 'builtin-night-hill': '02-night-hill', 'builtin-obsessed-over-camera': '05-obsessed-over-camera' };
 const fail = message => { throw new Error(message); };
 function validatePackage(value) {
-    if (!value || value.format !== 'noctune-scene') fail('Не поддерживается формат темы');
-    if (![1, 2].includes(value.apiVersion)) fail(`Не поддерживается API темы ${value.apiVersion}; поддерживаются версии 1 и 2`);
+    if (!value || value.format !== 'noctune-scene') fail((globalThis.noctuneI18n?.t("sceneThemes.unsupportedThemeFormat", {}) ?? "Не поддерживается формат темы"));
+    if (![1, 2].includes(value.apiVersion)) fail((globalThis.noctuneI18n?.t("sceneThemes.unsupportedThemeApiVersions1And2AreSupported", {p0: (value.apiVersion)}) ?? "Не поддерживается API темы {p0}; поддерживаются версии 1 и 2".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (value.apiVersion)})[k] ?? "{"+k+"}")));
     const m = value.manifest;
-    if (m?.apiVersion !== undefined && m.apiVersion !== value.apiVersion) fail('Версии API пакета и манифеста не совпадают');
-    if (!m || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(m.id)) fail('Некорректный ID темы');
+    if (m?.apiVersion !== undefined && m.apiVersion !== value.apiVersion) fail((globalThis.noctuneI18n?.t("sceneThemes.packageAndManifestApiVersionsDiffer", {}) ?? "Версии API пакета и манифеста не совпадают"));
+    if (!m || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(m.id)) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidThemeId", {}) ?? "Некорректный ID темы"));
     for (const key of ['name', 'description', 'author', 'version']) {
-        if (typeof m[key] !== 'string' || m[key].length > (key === 'description' ? 1200 : 120)) fail('Некорректное описание темы');
+        if (typeof m[key] !== 'string' || m[key].length > (key === 'description' ? 1200 : 120)) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidThemeDescription", {}) ?? "Некорректное описание темы"));
     }
-    if (!Number.isInteger(m.width) || !Number.isInteger(m.height) || m.width < 320 || m.height < 180 || m.width > 4096 || m.height > 4096) fail('Некорректный размер сцены');
+    if (!Number.isInteger(m.width) || !Number.isInteger(m.height) || m.width < 320 || m.height < 180 || m.width > 4096 || m.height > 4096) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidSceneSize", {}) ?? "Некорректный размер сцены"));
     const color = c => typeof c === 'string' && /^#[\da-f]{6}$/i.test(c);
-    if (!m.palette || !color(m.palette.accent) || !color(m.palette.background) || !Array.isArray(m.palette.gradient) || m.palette.gradient.length !== 3 || !m.palette.gradient.every(color)) fail('Некорректная палитра');
-    if (!(value.apiVersion === 2 ? ['bars', 'line', 'radial', 'character', 'none'] : ['bars', 'line', 'character', 'none']).includes(m.capabilities?.visualizer)) fail('Неизвестный визуализатор');
-    if(m.parameters !== undefined && (!m.parameters || typeof m.parameters !== 'object' || Array.isArray(m.parameters))) fail('Некорректные параметры темы');
+    if (!m.palette || !color(m.palette.accent) || !color(m.palette.background) || !Array.isArray(m.palette.gradient) || m.palette.gradient.length !== 3 || !m.palette.gradient.every(color)) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidPalette", {}) ?? "Некорректная палитра"));
+    if (!(value.apiVersion === 2 ? ['bars', 'line', 'radial', 'character', 'none'] : ['bars', 'line', 'character', 'none']).includes(m.capabilities?.visualizer)) fail((globalThis.noctuneI18n?.t("sceneThemes.unknownVisualizer", {}) ?? "Неизвестный визуализатор"));
+    if(m.parameters !== undefined && (!m.parameters || typeof m.parameters !== 'object' || Array.isArray(m.parameters))) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidThemeParameters", {}) ?? "Некорректные параметры темы"));
     const parameters = { frequencyMix: .6, glowIntensity: 1, ...(m.parameters || {}) };
-    if (!Number.isFinite(parameters.frequencyMix) || parameters.frequencyMix < 0 || parameters.frequencyMix > 1 || !Number.isFinite(parameters.glowIntensity) || parameters.glowIntensity < 0 || parameters.glowIntensity > 3) fail('Некорректные параметры частот/свечения');
+    if (!Number.isFinite(parameters.frequencyMix) || parameters.frequencyMix < 0 || parameters.frequencyMix > 1 || !Number.isFinite(parameters.glowIntensity) || parameters.glowIntensity < 0 || parameters.glowIntensity > 3) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidFrequencyGlowParameters", {}) ?? "Некорректные параметры частот/свечения"));
     const v2 = value.apiVersion === 2 ? validateV2(m) : {};
-    if (typeof value.script !== 'string' || Buffer.byteLength(value.script) > 128 * 1024) fail('Слишком большой скрипт');
-    if (!value.assets || typeof value.assets !== 'object' || Array.isArray(value.assets)) fail('Отсутствуют слои');
+    if (typeof value.script !== 'string' || Buffer.byteLength(value.script) > 128 * 1024) fail((globalThis.noctuneI18n?.t("sceneThemes.scriptTooLarge", {}) ?? "Слишком большой скрипт"));
+    if (!value.assets || typeof value.assets !== 'object' || Array.isArray(value.assets)) fail((globalThis.noctuneI18n?.t("sceneThemes.missingLayers", {}) ?? "Отсутствуют слои"));
     const entries = Object.entries(value.assets);
-    if (!entries.length || entries.length > 24) fail('Слишком много слоёв');
+    if (!entries.length || entries.length > 24) fail((globalThis.noctuneI18n?.t("sceneThemes.tooManyLayers", {}) ?? "Слишком много слоёв"));
     let total = 0, pixels = 0;
     for (const [key, data] of entries) {
-        if (!/^[a-z][a-z0-9-]{0,63}$/.test(key) || typeof data !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(data)) fail('Разрешены только встроенные PNG-слои');
+        if (!/^[a-z][a-z0-9-]{0,63}$/.test(key) || typeof data !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(data)) fail((globalThis.noctuneI18n?.t("sceneThemes.onlyEmbeddedPngLayersAreAllowed", {}) ?? "Разрешены только встроенные PNG-слои"));
         total += data.length;
-        if (total > MAX_BYTES) fail('Тема превышает 64 МБ');
+        if (total > MAX_BYTES) fail((globalThis.noctuneI18n?.t("sceneThemes.themeExceeds64Mb", {}) ?? "Тема превышает 64 МБ"));
         const buffer = Buffer.from(data.slice(22), 'base64');
-        if (buffer.length < 33 || buffer.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || buffer.toString('ascii', 12, 16) !== 'IHDR') fail('Повреждённый PNG');
+        if (buffer.length < 33 || buffer.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || buffer.toString('ascii', 12, 16) !== 'IHDR') fail((globalThis.noctuneI18n?.t("sceneThemes.corruptedPng", {}) ?? "Повреждённый PNG"));
         const w = buffer.readUInt32BE(16), h = buffer.readUInt32BE(20);
-        if (!w || !h || w > 4096 || h > 4096 || (pixels += w * h) > 48 * 1024 * 1024) fail('Превышен размер изображений');
+        if (!w || !h || w > 4096 || h > 4096 || (pixels += w * h) > 48 * 1024 * 1024) fail((globalThis.noctuneI18n?.t("sceneThemes.imageSizeLimitExceeded", {}) ?? "Превышен размер изображений"));
     }
-    if (!Object.hasOwn(value.assets, m.preview)) fail('Отсутствует превью');
+    if (!Object.hasOwn(value.assets, m.preview)) fail((globalThis.noctuneI18n?.t("sceneThemes.missingPreview", {}) ?? "Отсутствует превью"));
+    localization.validate(m.localization);
+    if (m.localization && value.apiVersion !== 2) fail((globalThis.noctuneI18n?.t("language.errors.localizationRequiresThemeApi2") ?? "Localization requires theme API 2"));
     // Pick known properties; no package-controlled filesystem or HTML fields survive.
     return { format: value.format, apiVersion: value.apiVersion, manifest: {
         id: m.id, name: m.name, description: m.description, author: m.author, version: m.version,
+        ...(m.localization ? { localization: m.localization } : {}),
         width: m.width, height: m.height, preview: m.preview,
         palette: { accent: m.palette.accent, background: m.palette.background, gradient: [...m.palette.gradient] },
         capabilities: { visualizer: m.capabilities.visualizer, motion: !!m.capabilities.motion },
@@ -51,54 +55,54 @@ function validatePackage(value) {
 }
 function validateV2(m) {
     const runtimeRequirements = m.runtimeRequirements ?? { dom: false };
-    if (!runtimeRequirements || typeof runtimeRequirements !== 'object' || Array.isArray(runtimeRequirements) || typeof runtimeRequirements.dom !== 'boolean' || Object.keys(runtimeRequirements).some(k => k !== 'dom')) fail('runtimeRequirements допускает только dom: boolean');
+    if (!runtimeRequirements || typeof runtimeRequirements !== 'object' || Array.isArray(runtimeRequirements) || typeof runtimeRequirements.dom !== 'boolean' || Object.keys(runtimeRequirements).some(k => k !== 'dom')) fail((globalThis.noctuneI18n?.t("sceneThemes.runtimerequirementsAcceptsOnlyDomBoolean", {}) ?? "runtimeRequirements допускает только dom: boolean"));
     const visualizers = m.capabilities?.visualizers ?? [m.capabilities.visualizer];
-    if (!Array.isArray(visualizers) || !visualizers.length || visualizers.length > 5 || !visualizers.every(v => ['bars', 'line', 'radial', 'character', 'none'].includes(v)) || new Set(visualizers).size !== visualizers.length) fail('Некорректный список визуализаторов');
-    if (!visualizers.includes(m.capabilities.visualizer) || visualizers.includes('none') && visualizers.length !== 1) fail('Список визуализаторов не соответствует основному типу');
+    if (!Array.isArray(visualizers) || !visualizers.length || visualizers.length > 5 || !visualizers.every(v => ['bars', 'line', 'radial', 'character', 'none'].includes(v)) || new Set(visualizers).size !== visualizers.length) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidVisualizerList", {}) ?? "Некорректный список визуализаторов"));
+    if (!visualizers.includes(m.capabilities.visualizer) || visualizers.includes('none') && visualizers.length !== 1) fail((globalThis.noctuneI18n?.t("sceneThemes.visualizerListDoesNotMatchThePrimaryType", {}) ?? "Список визуализаторов не соответствует основному типу"));
     const schema = m.parameterSchema ?? {};
-    if (!schema || typeof schema !== 'object' || Array.isArray(schema) || Object.keys(schema).length > 24) fail('Некорректная схема параметров');
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema) || Object.keys(schema).length > 24) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidParameterSchema", {}) ?? "Некорректная схема параметров"));
     const label = value => {
         const valid = text => typeof text === 'string' && text.length > 0 && text.length <= 120 && !/[<>]/.test(text);
         if (valid(value)) return value;
         if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length > 0 && Object.keys(value).length <= 8 && Object.entries(value).every(([locale, text]) => /^[a-z]{2}(-[A-Z]{2})?$/.test(locale) && valid(text))) return { ...value };
-        fail('Некорректная подпись параметра');
+        fail((globalThis.noctuneI18n?.t("sceneThemes.invalidParameterLabel", {}) ?? "Некорректная подпись параметра"));
     };
     const parameterSchema = {};
     for (const [key, p] of Object.entries(schema)) {
-        if (!/^[a-z][a-zA-Z0-9]{0,47}$/.test(key) || ['frequencyMix', 'glowIntensity', 'constructor', 'prototype'].includes(key) || !p || typeof p !== 'object' || Array.isArray(p)) fail('Некорректный ключ параметра');
+        if (!/^[a-z][a-zA-Z0-9]{0,47}$/.test(key) || ['frequencyMix', 'glowIntensity', 'constructor', 'prototype'].includes(key) || !p || typeof p !== 'object' || Array.isArray(p)) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidParameterKey", {}) ?? "Некорректный ключ параметра"));
         const allowed = p.type === 'slider' ? ['type', 'label', 'default', 'min', 'max', 'step'] : p.type === 'select' ? ['type', 'label', 'default', 'options'] : ['type', 'label', 'default'];
-        if (Object.keys(p).some(k => !allowed.includes(k))) fail('Неизвестное поле схемы параметра');
+        if (Object.keys(p).some(k => !allowed.includes(k))) fail((globalThis.noctuneI18n?.t("sceneThemes.unknownParameterSchemaField", {}) ?? "Неизвестное поле схемы параметра"));
         const result = { type: p.type, label: label(p.label), default: p.default };
         if (p.type === 'slider') {
-            if (![p.min, p.max, p.step, p.default].every(Number.isFinite) || p.min >= p.max || p.step <= 0 || p.step > p.max - p.min || p.default < p.min || p.default > p.max) fail('Некорректный slider');
+            if (![p.min, p.max, p.step, p.default].every(Number.isFinite) || p.min >= p.max || p.step <= 0 || p.step > p.max - p.min || p.default < p.min || p.default > p.max) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidSlider", {}) ?? "Некорректный slider"));
             Object.assign(result, { min: p.min, max: p.max, step: p.step });
         } else if (p.type === 'toggle') {
-            if (typeof p.default !== 'boolean') fail('Некорректный toggle');
+            if (typeof p.default !== 'boolean') fail((globalThis.noctuneI18n?.t("sceneThemes.invalidToggle", {}) ?? "Некорректный toggle"));
         } else if (p.type === 'select') {
-            if (!Array.isArray(p.options) || !p.options.length || p.options.length > 16 || !p.options.every(o => o && typeof o.value === 'string' && /^[a-zA-Z0-9-]{1,48}$/.test(o.value)) || new Set(p.options.map(o => o.value)).size !== p.options.length || !p.options.some(o => o.value === p.default)) fail('Некорректный select');
+            if (!Array.isArray(p.options) || !p.options.length || p.options.length > 16 || !p.options.every(o => o && typeof o.value === 'string' && /^[a-zA-Z0-9-]{1,48}$/.test(o.value)) || new Set(p.options.map(o => o.value)).size !== p.options.length || !p.options.some(o => o.value === p.default)) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidSelect", {}) ?? "Некорректный select"));
             result.options = p.options.map(o => ({ value: o.value, label: label(o.label) }));
-        } else fail('Неизвестный тип параметра');
+        } else fail((globalThis.noctuneI18n?.t("sceneThemes.unknownParameterType", {}) ?? "Неизвестный тип параметра"));
         parameterSchema[key] = result;
     }
     const quality = m.quality ?? 'balanced';
-    if (!['low', 'balanced', 'high'].includes(quality)) fail('Некорректный профиль качества');
+    if (!['low', 'balanced', 'high'].includes(quality)) fail((globalThis.noctuneI18n?.t("sceneThemes.invalidQualityProfile", {}) ?? "Некорректный профиль качества"));
     return { apiVersion: 2, runtimeRequirements: { dom: runtimeRequirements.dom }, parameterSchema, quality,
         capabilities: { visualizer: m.capabilities.visualizer, visualizers: [...visualizers], motion: !!m.capabilities.motion } };
 }
 async function readPackage(file) {
     const stat = await fs.stat(file);
-    if (!stat.isFile() || stat.size > MAX_BYTES) fail('Тема превышает 64 МБ');
+    if (!stat.isFile() || stat.size > MAX_BYTES) fail((globalThis.noctuneI18n?.t("sceneThemes.themeExceeds64Mb", {}) ?? "Тема превышает 64 МБ"));
     return validatePackage(JSON.parse(await fs.readFile(file, 'utf8')));
 }
 async function packDirectory(directory) {
     const root = await fs.realpath(directory);
     const m = JSON.parse(await fs.readFile(path.join(root, 'manifest.json'), 'utf8'));
     async function readRelative(relative) {
-        if (typeof relative !== 'string' || path.isAbsolute(relative)) fail('Путь должен быть относительным');
+        if (typeof relative !== 'string' || path.isAbsolute(relative)) fail((globalThis.noctuneI18n?.t("sceneThemes.pathMustBeRelative", {}) ?? "Путь должен быть относительным"));
         const file = await fs.realpath(path.resolve(root, relative));
         const rel = path.relative(root, file);
-        if (rel.startsWith('..') || path.isAbsolute(rel)) fail('Файл вне директории темы');
-        if ((await fs.stat(file)).size > MAX_BYTES) fail('Слишком большой файл');
+        if (rel.startsWith('..') || path.isAbsolute(rel)) fail((globalThis.noctuneI18n?.t("sceneThemes.fileIsOutsideTheThemeDirectory", {}) ?? "Файл вне директории темы"));
+        if ((await fs.stat(file)).size > MAX_BYTES) fail((globalThis.noctuneI18n?.t("sceneThemes.fileTooLarge", {}) ?? "Слишком большой файл"));
         return fs.readFile(file);
     }
     const assets = {};
@@ -107,10 +111,10 @@ async function packDirectory(directory) {
 }
 function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDirectory, userThemesDirectory, legacyDirectory }) {
     const importedPath = id => {
-        if (!/^import-[a-f0-9]{24}$/.test(id)) fail('Неизвестная тема');
+        if (!/^import-[a-f0-9]{24}$/.test(id)) fail((globalThis.noctuneI18n?.t("sceneThemes.unknownTheme", {}) ?? "Неизвестная тема"));
         return path.join(directory(), id + '.noctheme');
     };
-    const metadata = (p, id, builtin, removable = false) => ({ ...p.manifest, apiVersion: p.apiVersion, packageId: p.manifest.id, id, builtin, removable, preview: p.assets[p.manifest.preview] });
+    const metadata = (p, id, builtin, removable = false) => ({ ...localization.manifest(p.manifest, globalThis.noctuneI18n?.locale || 'ru'), ...(builtin && globalThis.noctuneI18n ? { name: globalThis.noctuneI18n.text(p.manifest.name), description: globalThis.noctuneI18n.text(p.manifest.description) } : {}), apiVersion: p.apiVersion, packageId: p.manifest.id, id, builtin, removable, preview: p.assets[p.manifest.preview] });
     let migration;
     let installationTask = Promise.resolve();
     // Source folders may live inside read-only app.asar. Removing them from the
@@ -119,7 +123,7 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
     async function hiddenThemes() {
         const value = await fs.readFile(hiddenFile(), 'utf8').catch(error => { if (error.code === 'ENOENT') return '[]'; throw error; });
         const ids = JSON.parse(value);
-        if (!Array.isArray(ids) || !ids.every(id => typeof id === 'string')) fail('Повреждён список удалённых тем');
+        if (!Array.isArray(ids) || !ids.every(id => typeof id === 'string')) fail((globalThis.noctuneI18n?.t("sceneThemes.corruptedDeletedThemesList", {}) ?? "Повреждён список удалённых тем"));
         return new Set(ids);
     }
     async function setHidden(packageId, hidden) {
@@ -184,7 +188,7 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
             }
             const visibleThemes = themes.filter(theme => theme.builtin || (!overrides.has(theme.packageId) && newestUsers.get(theme.packageId) === theme))
                 .map(theme => theme.builtin ? overrides.get(theme.packageId) || theme : theme);
-            const presets = JSON.parse(await fs.readFile(path.join(presetsDirectory, 'presets.json'), 'utf8')).map(p => ({ ...p, path: path.join(presetsDirectory, p.file) }));
+            const presets = JSON.parse(await fs.readFile(path.join(presetsDirectory, 'presets.json'), 'utf8')).map(p => ({ ...p, name: globalThis.noctuneI18n?.text(p.name) ?? p.name, path: path.join(presetsDirectory, p.file) }));
             return { themes: visibleThemes, presets };
         },
         async read(id) {
@@ -201,9 +205,9 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
             }
             else {
                 const entry = (await userEntries()).get(id);
-                if (!entry) fail('Неизвестная тема');
+                if (!entry) fail((globalThis.noctuneI18n?.t("sceneThemes.unknownTheme", {}) ?? "Неизвестная тема"));
                 theme = await (entry.isDirectory ? packDirectory(entry.file) : readPackage(entry.file));
-                if ((await hiddenThemes()).has(theme.manifest.id)) fail('Тема удалена из галереи');
+                if ((await hiddenThemes()).has(theme.manifest.id)) fail((globalThis.noctuneI18n?.t("sceneThemes.themeRemovedFromGallery", {}) ?? "Тема удалена из галереи"));
             }
             return { ...theme, sdk: await fs.readFile(sdkFile, 'utf8') };
         },
@@ -238,10 +242,10 @@ function createSceneThemeStore({ directory, builtinDirectory, sdkFile, presetsDi
             return metadata(theme, id, false, true);
         },
         async remove(id) {
-            if (!/^(import|user)-[a-f0-9]{24}$/.test(id)) fail('Неизвестная тема');
+            if (!/^(import|user)-[a-f0-9]{24}$/.test(id)) fail((globalThis.noctuneI18n?.t("sceneThemes.unknownTheme", {}) ?? "Неизвестная тема"));
             const task = installationTask.then(async () => {
                 const entries = await userEntries(), entry = entries.get(id);
-                if (!entry) fail('Неизвестная тема');
+                if (!entry) fail((globalThis.noctuneI18n?.t("sceneThemes.unknownTheme", {}) ?? "Неизвестная тема"));
                 const pkg = await (entry.isDirectory ? packDirectory(entry.file) : readPackage(entry.file));
                 await setHidden(pkg.manifest.id, true);
                 for (const candidate of entries.values()) {

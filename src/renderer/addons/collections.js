@@ -19,30 +19,30 @@
         appStorage.setItem(referencesKey,JSON.stringify(values.slice(-64)));
     }
     async function read(source, args={}) {
-        if(!currentCatalog(source))throw new Error('Интеграция отключена или аккаунт изменился');
+        if(!currentCatalog(source))throw new Error((globalThis.noctuneI18n?.t("extensions.collections.integrationDisabledOrAccountChanged", {}) ?? "Интеграция отключена или аккаунт изменился"));
         if(source.query){
             const page=await window.addonContributions.invoke(source.owner,'','catalog.search',{catalog:source.catalog,query:source.query,cursor:args.cursor});
-            if(!currentCatalog(source))throw new Error('Интеграция отключена');
-            return {id:source.id,name:'Поиск: '+source.query,revision:source.revision,tracks:page.items.map(track=>({...track,entryId:'search-'+track.id})),cursor:page.cursor};
+            if(!currentCatalog(source))throw new Error((globalThis.noctuneI18n?.t("extensions.collections.integrationDisabled", {}) ?? "Интеграция отключена"));
+            return {id:source.id,name:(globalThis.noctuneI18n?.t("extensions.collections.search", {}) ?? "Поиск: ")+source.query,revision:source.revision,tracks:page.items.map(track=>({...track,entryId:'search-'+track.id})),cursor:page.cursor};
         }
         const result=await window.addonContributions.invoke(source.owner,'','servicePlaylists.read',{catalog:source.catalog,id:source.id,...args});
-        if(!currentCatalog(source))throw new Error('Интеграция отключена или аккаунт изменился');
+        if(!currentCatalog(source))throw new Error((globalThis.noctuneI18n?.t("extensions.collections.integrationDisabledOrAccountChanged", {}) ?? "Интеграция отключена или аккаунт изменился"));
         return result;
     }
     function convert(owner, provider, track, index) {
-        if(!track||typeof track.id!=='string'||!track.id||track.id.length>300||typeof track.title!=='string'||!track.title)throw new Error('Некорректный трек сервиса');
+        if(!track||typeof track.id!=='string'||!track.id||track.id.length>300||typeof track.title!=='string'||!track.title)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.invalidServiceTrack", {}) ?? "Некорректный трек сервиса"));
         return {kind:'provider',trackId:track.id,id:track.id,title:track.title.slice(0,300),name:track.title.slice(0,300),artist:String(track.artist||'').slice(0,300),album:String(track.album||'').slice(0,300),
             artwork:typeof track.artwork==='string'?track.artwork:'',duration:Number(track.duration)||0,canonicalId:String(track.canonicalId||track.id),entryId:track.entryId||'entry-'+index,addonId:owner,providerId:provider};
     }
-    function notifyError(error) { showNotification?.(String(error.message||error),'error','Музыкальный сервис'); }
+    function notifyError(error) { showNotification?.(String(error.message||error),'error',(globalThis.noctuneI18n?.t("extensions.collections.musicService", {}) ?? "Музыкальный сервис")); }
     function update(pl) {
         renderPlaylistsDropdown();
         if(currentPlaylistId===pl.id)api.render(pl);
         document.dispatchEvent(new CustomEvent('service-playlist-updated',{detail:{playlistId:pl.id}}));
     }
     api.collection = async (owner,args,entryId) => {
-        if(!api.has(owner,args.provider))throw new Error('Интеграция отключена');
-        if(!Array.isArray(args.tracks)||args.tracks.length>10000)throw new Error('Не более 10000 треков');
+        if(!api.has(owner,args.provider))throw new Error((globalThis.noctuneI18n?.t("extensions.collections.integrationDisabled", {}) ?? "Интеграция отключена"));
+        if(!Array.isArray(args.tracks)||args.tracks.length>10000)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.atMost10000Tracks", {}) ?? "Не более 10000 треков"));
         const key=identity(owner,args);
         let pl=userPlaylists.find(item=>item.type==='provider'&&item.collectionKey===key);
         const existing=saved().find(item=>identity(item.owner,item)===key);
@@ -51,13 +51,13 @@
         if(activePlaylistId===pl.id&&pl.playingEntryId&&!tracks.some(track=>track.entryId===pl.playingEntryId)) {
             const playing=pl.tracks?.find(track=>track.entryId===pl.playingEntryId);if(playing)tracks.unshift(playing);
         }
-        Object.assign(pl,{name:String(args.name||names.get(owner+':'+args.provider)||'Музыкальный сервис').slice(0,300),providerId:args.provider,accountId:args.accountId,tracks,artwork:args.artwork||'',serviceName:names.get(owner+':'+args.provider)||'Интеграция'});
+        Object.assign(pl,{name:String(args.name||names.get(owner+':'+args.provider)||(globalThis.noctuneI18n?.t("extensions.collections.musicService", {}) ?? "Музыкальный сервис")).slice(0,300),providerId:args.provider,accountId:args.accountId,tracks,artwork:args.artwork||'',serviceName:names.get(owner+':'+args.provider)||(globalThis.noctuneI18n?.t("addonInstall.app.integration", {}) ?? "Интеграция")});
         if(args.catalog)pl.service={owner,catalog:args.catalog,id:args.id,accountId:args.accountId,hash:args.hash,cursor:args.cursor||null,revision:args.revision,query:args.searchQuery||null,continuous:!!args.continuous,total:args.total,error:'',pending:null};
         if(pl.service&&args.persist!==false)remember(pl);
         renderPlaylistsDropdown();
         if(args.select!==false)await selectPlaylist(pl.id);
         else if(currentPlaylistId===pl.id)api.render(pl);
-        if(entryId!==undefined){const index=pl.tracks.findIndex(track=>track.entryId===entryId);if(index<0)throw new Error('Трек больше не находится в плейлисте');await playTrack(playlistOrder.indexOf(index));}
+        if(entryId!==undefined){const index=pl.tracks.findIndex(track=>track.entryId===entryId);if(index<0)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.trackIsNoLongerInThePlaylist", {}) ?? "Трек больше не находится в плейлисте"));await playTrack(playlistOrder.indexOf(index));}
         return pl;
     };
     api.openCollection = async (catalog,id,{select=true,limit=300,playEntry}={}) => {
@@ -70,9 +70,9 @@
         return pl;
     };
     api.openServiceCollection = async (owner,args) => {
-        if(typeof args.catalog!=='string'||!args.catalog||args.catalog.length>300||typeof args.id!=='string'||!args.id||args.id.length>300||(args.play!==undefined&&typeof args.play!=='boolean'))throw new Error('Некорректная коллекция сервиса');
+        if(typeof args.catalog!=='string'||!args.catalog||args.catalog.length>300||typeof args.id!=='string'||!args.id||args.id.length>300||(args.play!==undefined&&typeof args.play!=='boolean'))throw new Error((globalThis.noctuneI18n?.t("extensions.collections.invalidServiceCollection", {}) ?? "Некорректная коллекция сервиса"));
         const catalog=catalogs().find(item=>item.owner===owner&&item.id===args.catalog&&item.providerId===args.provider&&item.playable);
-        if(!catalog)throw new Error('Каталог провайдера недоступен');
+        if(!catalog)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.providerCatalogUnavailable", {}) ?? "Каталог провайдера недоступен"));
         const pl=await api.openCollection(catalog,args.id);
         if(args.play&&pl.tracks.length&&currentCatalog(pl.service)&&currentPlaylistId===pl.id){window.addonEvents.emit('playback.skip',{reason:'selection'});await playTrack(0);}
     };
@@ -84,11 +84,11 @@
         source.pending=(async()=>{
             const result=await read(source,{cursor:source.cursor,after,reason:'continue'});
             if(pl.service!==source||(epochs.get(pl.addonId)||0)!==epoch||!userPlaylists.includes(pl))return 0;
-            if(!source.continuous&&result.revision!==source.revision)throw new Error('Плейлист изменился. Обновите его из интеграции.');
+            if(!source.continuous&&result.revision!==source.revision)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.playlistChangedRefreshItFromTheIntegration", {}) ?? "Плейлист изменился. Обновите его из интеграции."));
             const known=new Set(pl.tracks.slice(source.continuous?-50:0).map(track=>source.continuous?track.canonicalId:track.entryId));
             const incoming=(result.tracks||[]).map((track,index)=>convert(pl.addonId,pl.providerId,track,pl.tracks.length+index));
             const added=incoming.filter(track=>{const id=source.continuous?track.canonicalId:track.entryId;if(known.has(id))return false;known.add(id);return true;});
-            if(pl.tracks.length+added.length>10000&&!source.continuous)throw new Error('Достигнут предел 10000 треков');
+            if(pl.tracks.length+added.length>10000&&!source.continuous)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.trackLimitReached", {}) ?? "Достигнут предел 10000 треков"));
             pl.tracks.push(...added);source.cursor=result.cursor||null;source.continuous=result.continuous===true;source.error='';source.retryAt=added.length?0:Date.now()+5000;
             if(source.continuous&&pl.tracks.length>500){const playing=pl.tracks.findIndex(track=>track.entryId===pl.playingEntryId),count=Math.min(pl.tracks.length-500,Math.max(0,playing-20));if(count){pl.tracks.splice(0,count);playNextIndex=playNextIndex>=count?playNextIndex-count:-1;}}
             update(pl);return added.length;
@@ -106,12 +106,12 @@
     api.play = async (owner,args) => {
         const active=userPlaylists.find(pl=>pl.id===activePlaylistId),found=active?.addonId===owner&&active.providerId===args.provider?active.tracks.findIndex(track=>track.trackId===args.track.id):-1;
         if(found>=0){if(currentPlaylistId!==active.id)await selectPlaylist(active.id);return playTrack(playlistOrder.indexOf(found));}
-        const name=names.get(owner+':'+args.provider)||'Музыкальный сервис';
+        const name=names.get(owner+':'+args.provider)||(globalThis.noctuneI18n?.t("extensions.collections.musicService", {}) ?? "Музыкальный сервис");
         const track={...args.track,entryId:'track-'+args.track.id};
         return api.collection(owner,{provider:args.provider,id:'selection',name,tracks:[track],persist:false},track.entryId);
     };
     function addQueue(pl,track,next=false) {
-        if(externalAudioQueue.length>=500)throw new Error('Очередь заполнена');
+        if(externalAudioQueue.length>=500)throw new Error((globalThis.noctuneI18n?.t("extensions.collections.queueIsFull", {}) ?? "Очередь заполнена"));
         const entry={queueId:crypto.randomUUID(),provider:{addonId:pl.addonId,providerId:pl.providerId,track:{...track,id:track.trackId||track.id}}};
         if(next)externalAudioQueue.unshift(entry);else externalAudioQueue.push(entry);
         window.addonEvents.emit('queue.changed');
@@ -122,21 +122,21 @@
         menu=node('div','context-menu provider-context-menu');menu.setAttribute('role','menu');
         const target=menu;
         const action=(label,icon,run)=>{const button=node('button');button.type='button';button.setAttribute('role','menuitem');button.append(AddonPermissionView.icon(icon,'provider-menu-icon'),node('span','',label));button.addEventListener('click',()=>{if(button.disabled)return;button.disabled=true;hideMenu();Promise.resolve().then(run).catch(notifyError);});target.append(button);return button;};
-        action('Воспроизвести','Play',play);
-        action('Воспроизвести следующим','ListStart',()=>addQueue(pl,track,true));
-        action('Добавить в очередь','ListPlus',()=>addQueue(pl,track));
-        if(remove)action('Убрать из этого списка','ListMinus',remove);
+        action((globalThis.noctuneI18n?.t("player.interface.play", {}) ?? "Воспроизвести"),'Play',play);
+        action((globalThis.noctuneI18n?.t("player.interface.playNext", {}) ?? "Воспроизвести следующим"),'ListStart',()=>addQueue(pl,track,true));
+        action((globalThis.noctuneI18n?.t("windowsAudioIntegration.addToQueue", {}) ?? "Добавить в очередь"),'ListPlus',()=>addQueue(pl,track));
+        if(remove)action((globalThis.noctuneI18n?.t("extensions.collections.removeFromThisList", {}) ?? "Убрать из этого списка"),'ListMinus',remove);
         document.body.append(menu);menu.style.display='block';
         const position=()=>{target.style.left=Math.max(8,Math.min(event.clientX,innerWidth-target.offsetWidth-8))+'px';target.style.top=Math.max(8,Math.min(event.clientY,innerHeight-target.offsetHeight-8))+'px';};
         position();menu.querySelector('button')?.focus();
         const entry={...track,addonId:pl.addonId,providerId:pl.providerId};
-        const loading=action('Загрузка действий…','LoaderCircle',()=>{});loading.disabled=true;
+        const loading=action((globalThis.noctuneI18n?.t("extensions.collections.loadingActions", {}) ?? "Загрузка действий…"),'LoaderCircle',()=>{});loading.disabled=true;
         api.actions(entry).then(actions=>{
             if(menu!==target)return;
             loading.remove();
             for(const item of actions)action(item.title,item.icon,()=>api.action(entry,item.id));
             position();
-        }).catch(error=>{if(menu===target){loading.textContent='Не удалось загрузить действия';loading.title=String(error.message||error);position();}});
+        }).catch(error=>{if(menu===target){loading.textContent=(globalThis.noctuneI18n?.t("extensions.collections.couldNotLoadActions", {}) ?? "Не удалось загрузить действия");loading.title=String(error.message||error);position();}});
     };
     document.addEventListener('click',hideMenu);document.addEventListener('scroll',hideMenu,true);document.addEventListener('keydown',event=>{if(event.key==='Escape')hideMenu();});
     async function drainImages(){
@@ -163,9 +163,9 @@
         const row=node('li','provider-track'),image=node('img','track-cover-thumb'),placeholder=node('div','track-cover-placeholder');
         if(index!==undefined)row.dataset.id=index;
         placeholder.append(AddonPermissionView.icon('Music','provider-track-icon'));
-        const info=node('div','track-name-block');info.append(node('div','track-title-item',track.title),node('div','track-artist-item',track.artist||'Неизвестный исполнитель'));
+        const info=node('div','track-name-block');info.append(node('div','track-title-item',track.title),node('div','track-artist-item',track.artist||(globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель")));
         const duration=node('div','track-meta',track.duration?formatTime(track.duration):'');if(index!==undefined)duration.id='meta-'+index;
-        const button=node('button','actions-btn');button.type='button';button.setAttribute('aria-label','Действия с треком «'+track.title+'»');button.append(AddonPermissionView.icon('EllipsisVertical','provider-track-icon'));
+        const button=node('button','actions-btn');button.type='button';button.setAttribute('aria-label',(globalThis.noctuneI18n?.t("extensions.collections.actionsForTrack", {}) ?? "Действия с треком «")+track.title+'»');button.append(AddonPermissionView.icon('EllipsisVertical','provider-track-icon'));
         const intentPlay=()=>{window.addonEvents.emit('playback.skip',{reason:'selection'});return play();};
         const context=event=>api.menu(event,{pl,track,play:intentPlay,remove});
         button.addEventListener('click',context);row.addEventListener('contextmenu',context);
@@ -236,9 +236,9 @@
         playlistElem.replaceChildren();
         const catalog=pl.service&&currentCatalog(pl.service)||catalogs().find(item=>item.owner===pl.addonId&&item.providerId===pl.providerId);
         fileEntries.forEach((track,index)=>{const row=api.trackRow({track,index,pl,catalog,play:()=>playTrack(playlistOrder.indexOf(index)),remove:()=>{if(track.entryId===pl.playingEntryId&&activePlaylistId===pl.id){stopTrack();updatePlayIcons(false);pl.playingEntryId=null;}pl.tracks.splice(index,1);update(pl);}});if(index===currentIndex)row.classList.add('active');playlistElem.append(row);});
-        if(pl.service&&(!pl.service.continuous&&pl.service.cursor||pl.service.error)){const row=node('li','provider-load-more'),button=node('button','btn',pl.service.continuous?'Обновить поток':'Загрузить ещё треки');button.type='button';button.disabled=!!pl.service.pending;button.addEventListener('click',()=>api.loadMore(pl,{after:fileEntries[playlistOrder[currentIndex]]?.trackId,force:true}).catch(notifyError));row.append(button);playlistElem.append(row);}
-        if(!pl.tracks.length)playlistElem.append(node('li','provider-empty','В этом списке пока нет треков'));
-        if(activePlaylistId!==pl.id)statusText.textContent=pl.service?.continuous?'Поток сервиса':`Треков: ${pl.tracks.length}${pl.service?.total?' из '+pl.service.total:''}`;
+        if(pl.service&&(!pl.service.continuous&&pl.service.cursor||pl.service.error)){const row=node('li','provider-load-more'),button=node('button','btn',pl.service.continuous?(globalThis.noctuneI18n?.t("extensions.collections.refreshStream", {}) ?? "Обновить поток"):(globalThis.noctuneI18n?.t("extensions.collections.loadMoreTracks", {}) ?? "Загрузить ещё треки"));button.type='button';button.disabled=!!pl.service.pending;button.addEventListener('click',()=>api.loadMore(pl,{after:fileEntries[playlistOrder[currentIndex]]?.trackId,force:true}).catch(notifyError));row.append(button);playlistElem.append(row);}
+        if(!pl.tracks.length)playlistElem.append(node('li','provider-empty',(globalThis.noctuneI18n?.t("extensions.collections.noTracksInThisListYet", {}) ?? "В этом списке пока нет треков")));
+        if(activePlaylistId!==pl.id)statusText.textContent=pl.service?.continuous?(globalThis.noctuneI18n?.t("extensions.collections.serviceStream", {}) ?? "Поток сервиса"):(globalThis.noctuneI18n?.t("extensions.collections.tracks", {p0: (pl.tracks.length), p1: (pl.service?.total?' из '+pl.service.total:'')}) ?? "Треков: {p0}{p1}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (pl.tracks.length), p1: (pl.service?.total?' из '+pl.service.total:'')})[k] ?? "{"+k+"}"));
     };
     api.watch = (element,entry,token) => {
         watch(element,entry,token);

@@ -185,3 +185,11 @@ npm run audit:package -- dist/linux-unpacked/resources/app.asar
 ```bash
 ./node_modules/.bin/electron tests/native-addons-probe.cjs --app-asar=dist/linux-unpacked/resources/app.asar
 ```
+
+## Локализация
+
+Базовые каталоги — `src/shared/locales/ru_RU.json` и `en_US.json`, загрузчик —
+`src/shared/locales/index.js`. Общий runtime — `src/shared/i18n.js`; сохранение языка
+и IPC — `src/main/i18n.js`; DOM-маркеры и dropdown — `src/renderer/core/i18n.js`.
+Формат файлов и правила ключей описаны в [локализации](localization.md), контракт
+переводов расширений — в [SDK v2](extensions-api-v2.md).

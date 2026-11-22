@@ -13,7 +13,7 @@ function createThemeOpenQueue(importFile, report) {
           if (!theme) continue;
           result = { theme };
         }
-        catch (error) { result = { error: `Не удалось добавить тему: ${error.message}` }; }
+        catch (error) { result = { error: (globalThis.noctuneI18n?.t("openThemeFiles.couldNotAddTheme", {p0: (error.message)}) ?? "Не удалось добавить тему: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (error.message)})[k] ?? "{"+k+"}")) }; }
         report(result);
       }
     });

@@ -24,12 +24,12 @@
             }
 
             const icons  = { error: 'alert-circle', warning: 'alert-triangle', info: 'info' };
-            const titles = { error: 'Ошибка', warning: 'Предупреждение', info: 'Информация' };
+            const titles = { error: (globalThis.noctuneI18n?.t("ui.notifications.error", {}) ?? "Ошибка"), warning: (globalThis.noctuneI18n?.t("ui.notifications.warning", {}) ?? "Предупреждение"), info: (globalThis.noctuneI18n?.t("ui.notifications.information", {}) ?? "Информация") };
             const iconName  = icons[type]  || 'info';
-            const titleText = title || titles[type] || 'Уведомление';
+            const titleText = title || titles[type] || (globalThis.noctuneI18n?.t("ui.notifications.notification", {}) ?? "Уведомление");
 
             const copyText = options.copyText || (type === 'error' ? stackTrace : null);
-            const copyLabel = options.copyText ? 'Скопировать ошибку' : 'Скопировать stack trace';
+            const copyLabel = options.copyText ? (globalThis.noctuneI18n?.t("ui.notifications.copyError", {}) ?? "Скопировать ошибку") : (globalThis.noctuneI18n?.t("ui.notifications.copyStackTrace", {}) ?? "Скопировать stack trace");
             const copyBtnHtml = copyText ? `
                 <button class="notification-toast-copy-stack" title="${copyLabel}">
                     <i data-lucide="clipboard" style="width:11px;height:11px;"></i>
@@ -57,21 +57,7 @@
             const toast = document.createElement('div');
             toast.className = 'notification-toast' + (cornerAction ? ' has-corner-action' : '');
             if (options.replaceKey) toast.dataset.replaceKey = options.replaceKey;
-            toast.innerHTML = `
-                <div class="notification-toast-icon ${type}">
-                    <i data-lucide="${iconName}" style="width:16px;height:16px;"></i>
-                </div>
-                <div class="notification-toast-body">
-                    <div class="notification-toast-title">${titleText}</div>
-                    <div class="notification-toast-msg"></div>
-                    ${copyBtnHtml}
-                    ${actionsHtml}
-                </div>
-                <button class="notification-toast-close" title="Закрыть">
-                    <i data-lucide="x" style="width:13px;height:13px;"></i>
-                </button>
-                ${cornerActionHtml}
-            `;
+            toast.innerHTML = ("\n                <div class=\"notification-toast-icon " + (type) + "\">\n                    <i data-lucide=\"" + (iconName) + "\" style=\"width:16px;height:16px;\"></i>\n                </div>\n                <div class=\"notification-toast-body\">\n                    <div class=\"notification-toast-title\">" + (titleText) + "</div>\n                    <div class=\"notification-toast-msg\"></div>\n                    " + (copyBtnHtml) + "\n                    " + (actionsHtml) + "\n                </div>\n                <button class=\"notification-toast-close\" title=\"" + (globalThis.noctuneI18n?.legacyHtml("player.interface.close", {p0: (type), p1: (iconName), p2: (titleText), p3: (copyBtnHtml), p4: (actionsHtml), p5: (cornerActionHtml)}) ?? "Закрыть".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (type), p1: (iconName), p2: (titleText), p3: (copyBtnHtml), p4: (actionsHtml), p5: (cornerActionHtml)})[i])) + "\">\n                    <i data-lucide=\"x\" style=\"width:13px;height:13px;\"></i>\n                </button>\n                " + (cornerActionHtml) + "\n            ");
             toast.querySelector('.notification-toast-msg').textContent = msg;
 
             const closeBtn = toast.querySelector('.notification-toast-close');
@@ -101,7 +87,7 @@
                 copyBtn.addEventListener('click', () => {
                     navigator.clipboard.writeText(copyText).then(() => {
                         copyBtn.classList.add('copied');
-                        copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> Скопировано';
+                        copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> ' + (globalThis.noctuneI18n?.legacyHtml('ui.notifications.copied') ?? 'Скопировано');
                         lucide.createIcons({ nodes: [copyBtn] });
                         setTimeout(() => {
                             copyBtn.classList.remove('copied');
@@ -119,7 +105,7 @@
                         document.execCommand('copy');
                         document.body.removeChild(ta);
                         copyBtn.classList.add('copied');
-                        copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> Скопировано';
+                        copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> ' + (globalThis.noctuneI18n?.legacyHtml('ui.notifications.copied') ?? 'Скопировано');
                         lucide.createIcons({ nodes: [copyBtn] });
                         setTimeout(() => {
                             copyBtn.classList.remove('copied');
@@ -157,10 +143,10 @@
                 const localVersion = String(actualVersion || '0.0.0').replace(/^v/, '');
                 if (currentVersionEl) currentVersionEl.textContent = `v${localVersion}`;
                 if (updateStatusMsg) {
-                    updateStatusMsg.textContent = 'Нажмите «Проверить» для поиска новых версий';
+                    updateStatusMsg.textContent = (globalThis.noctuneI18n?.t("settings.about.clickCheckToLookForNewVersions", {}) ?? "Нажмите «Проверить» для поиска новых версий");
                 }
             } catch (e) {
-                console.error('Не удалось получить версию приложения:', e);
+                console.error((globalThis.noctuneI18n?.t("ui.notifications.couldNotGetApplicationVersion", {}) ?? "Не удалось получить версию приложения:"), e);
             }
         });
 
@@ -225,7 +211,7 @@
                 // Все остальные enumerable свойства
                 const extra = Object.keys(errObj).filter(k => !knownFields.includes(k));
                 if (extra.length) {
-                    lines.push('  — дополнительные свойства:');
+                    lines.push((globalThis.noctuneI18n?.t("ui.notifications.additionalProperties", {}) ?? "  — дополнительные свойства:"));
                     extra.forEach(k => { try { lines.push(`  ${k.padEnd(14)}: ${JSON.stringify(errObj[k])}`); } catch {} });
                 }
             }
@@ -237,7 +223,7 @@
                 lines.push(errObj.stack.trim());
             } else {
                 lines.push('STACK TRACE');
-                lines.push('(недоступен для данного типа ошибки)');
+                lines.push((globalThis.noctuneI18n?.t("ui.notifications.unavailableForThisErrorType", {}) ?? "(недоступен для данного типа ошибки)"));
             }
             lines.push(sep);
 
@@ -259,7 +245,7 @@
             // 5. Последние логи из буфера
             lines.push('RECENT LOGS (last ' + window._appLogBuffer.length + ')');
             if (window._appLogBuffer.length === 0) {
-                lines.push('  (пусто)');
+                lines.push((globalThis.noctuneI18n?.t("ui.notifications.empty", {}) ?? "  (пусто)"));
             } else {
                 window._appLogBuffer.forEach(e => {
                     lines.push(`  [${e.time}] [${e.level.padEnd(5)}] ${e.msg}`);
@@ -305,7 +291,7 @@
 
         // Main-process errors use the same setting, toast and copyable report as player errors.
         if (window.noctune?.errors) {
-            noctune.errors.onReport(error => console.error('Основной процесс:', error));
+            noctune.errors.onReport(error => console.error((globalThis.noctuneI18n?.t("errors.mainProcess.prefix") ?? "Основной процесс:"), error));
             if (document.readyState === 'complete') noctune.errors.ready();
             else window.addEventListener('load', () => noctune.errors.ready(), { once: true });
         }

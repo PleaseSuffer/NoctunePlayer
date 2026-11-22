@@ -3,7 +3,7 @@
         let isEqBypassed = false;
         let isMuted = false;
         let savedVolumeMute = 0.8;
-        let currentSelectedPresetName = "Обычный";
+        let currentSelectedPresetName = (globalThis.noctuneI18n?.t("equalizer.presets.normal", {}) ?? "Обычный");
         let _loadToken = 0;                // токен отмены: каждый новый вызов playTrack инкрементирует
         window.preampNode = null;
         

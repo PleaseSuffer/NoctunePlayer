@@ -20,8 +20,8 @@
         const acceptsTracks = playlist?.type === 'folder';
         event.dataTransfer.dropEffect = acceptsTracks ? 'copy' : 'none';
         zone.dataset.dropState = acceptsTracks ? 'accept' : 'reject';
-        zone.dataset.dropMessage = acceptsTracks ? 'Отпустите, чтобы добавить треки'
-            : playlist ? 'Радиоплейлист не поддерживает треки' : 'Выберите музыкальный плейлист';
+        zone.dataset.dropMessage = acceptsTracks ? (globalThis.noctuneI18n?.t("library.dragDrop.dropToAddTracks", {}) ?? "Отпустите, чтобы добавить треки")
+            : playlist ? (globalThis.noctuneI18n?.t("library.dragDrop.radioPlaylistsDoNotSupportTracks", {}) ?? "Радиоплейлист не поддерживает треки") : (globalThis.noctuneI18n?.t("library.dragDrop.selectAMusicPlaylist", {}) ?? "Выберите музыкальный плейлист");
     });
     zone.addEventListener('dragleave', event => {
         if (!event.relatedTarget || !zone.contains(event.relatedTarget)) clear();
@@ -33,7 +33,7 @@
         clear();
         const playlist = currentPlaylist();
         if (playlist?.type !== 'folder') {
-            statusText.textContent = 'Выберите музыкальный плейлист для добавления треков';
+            statusText.textContent = (globalThis.noctuneI18n?.t("library.dragDrop.selectAMusicPlaylistToAddTracks", {}) ?? "Выберите музыкальный плейлист для добавления треков");
             return;
         }
         const paths = Array.from(event.dataTransfer.files || []).map(file => noctune.getDroppedFilePath(file)).filter(Boolean);

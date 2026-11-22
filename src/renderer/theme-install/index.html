@@ -4,25 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'self'; script-src 'self'">
-  <title>Установка темы — Noctune</title>
+  <title data-i18n="themeInstall.installThemeNoctune">Установка темы — Noctune</title>
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
+<script src="../../shared/i18n.js"></script>
+<script src="../core/i18n.js"></script>
 </head>
 <body>
   <main>
-    <header><span class="brand">Noctune</span><span class="badge">Новая тема</span></header>
-    <img id="preview" alt="Превью темы" hidden>
+    <header><span class="brand">Noctune</span><span class="badge" data-i18n="themeInstall.newTheme">Новая тема</span></header>
+    <img id="preview" alt="Превью темы" hidden data-i18n-alt="themeInstall.themePreview">
     <section class="details">
-      <p class="eyebrow">Установка темы</p>
-      <h1 id="name">Загрузка…</h1>
+      <p class="eyebrow" data-i18n="themeInstall.installTheme">Установка темы</p>
+      <h1 id="name" data-i18n="addonInstall.loading">Загрузка…</h1>
       <p id="description"></p>
       <dl id="metadata"></dl>
-      <p class="note">Тема появится в списке добавленных тем. Вы сможете включить её в настройках плеера.</p>
+      <p class="note" data-i18n="themeInstall.theThemeWillAppearInYourAddedThemesEnableItInPlayerSettings">Тема появится в списке добавленных тем. Вы сможете включить её в настройках плеера.</p>
     </section>
   </main>
   <footer>
     <p id="status" role="status" aria-live="polite"></p>
-    <div class="actions"><button id="cancel">Отмена</button><button id="install" class="primary" disabled>Установить</button></div>
+    <div class="actions"><button id="cancel" data-i18n="player.interface.cancel">Отмена</button><button id="install" class="primary" disabled data-i18n="addonInstall.install">Установить</button></div>
   </footer>
+<script src="../core/i18n-initial.js"></script>
 </body>
 </html>

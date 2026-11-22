@@ -18,7 +18,7 @@
 
         function restoreEqState() {
             const saved = appStorage.getItem('player_eq_state');
-            if (!saved) { applyPreset("Обычный", false); return; }
+            if (!saved) { applyPreset('Обычный', false); return; }
 
             const state = JSON.parse(saved);
             eqToggle.checked = state.enabled;
@@ -27,7 +27,7 @@
             openEqBtn.classList.toggle('active', state.enabled);
 
             if (state.selectedPreset && presets[state.selectedPreset]) { applyPreset(state.selectedPreset, false); } 
-            else { applyPreset("Обычный", false); }
+            else { applyPreset('Обычный', false); }
         }
 
         if ('mediaSession' in navigator) {
@@ -122,7 +122,7 @@
                 if (savedPath && userPlaylists.length === 0) {
                     const fallbackPl = {
                         id: 'pl_default',
-                        name: "Основная папка",
+                        name: (globalThis.noctuneI18n?.t("core.bootstrap.mainFolder", {}) ?? "Основная папка"),
                         type: 'folder',
                         path: savedPath,
                         stations: []
@@ -164,7 +164,7 @@
                                         ? `${metaArtist} — ${metaTitle}`
                                         : metaTitle;
                                     triggerMiniMarquee?.();
-                                    statusText.textContent = 'Пауза';
+                                    statusText.textContent = (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза");
                                 }
 
                                 // Восстанавливаем позицию

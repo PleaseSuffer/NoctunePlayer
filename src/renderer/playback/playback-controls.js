@@ -10,7 +10,7 @@
 
         function updateRepeatUI() {
             const icons   = ['repeat-off', 'repeat-1', 'repeat'];
-            const titles  = ['Повтор выключен', 'Повторять этот трек', 'Повторять плейлист'];
+            const titles  = [(globalThis.noctuneI18n?.t("playback.repeat.off", {}) ?? "Повтор выключен"), (globalThis.noctuneI18n?.t("playback.repeat.track", {}) ?? "Повторять этот трек"), (globalThis.noctuneI18n?.t("playback.repeat.playlist", {}) ?? "Повторять плейлист")];
             const active  = repeatMode > 0;
             const iconName = icons[repeatMode];
 
@@ -28,7 +28,7 @@
             appStorage.setItem('player_repeat', String(repeatMode));
             window.addonEvents?.emit('playback.repeat');
         }
-        function toggleRepeat() { setRepeatMode((repeatMode + 1) % 3); }
+        function toggleRepeat() { setRepeatMode(({ 0: 2, 2: 1, 1: 0 })[repeatMode]); }
 
         // ========================
         // VIRTUAL SHUFFLE PLAYLIST

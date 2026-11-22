@@ -42,7 +42,15 @@ assert.ok(Math.abs(smooth.reduce((a,b)=>a+b,0)-spike.reduce((a,b)=>a+b,0))<1e-6,
 assert.equal(spike[4],1,'raw frequency samples stay untouched');assert.ok(reactive.smoothSpectrum(new Float32Array(128),.8).every(v=>v===0),'smoothing does not introduce an idle spectrum');
 reactive.plane({origin:[.1,.2],xAxis:[1,-.25],yAxis:[.05,.8],relative:true},()=>reactive.line({x:0,y:0,width:1400,height:60,fill:.6}));
 const matrix=transforms.at(-1);assert.equal(matrix[0],1);assert.equal(matrix[3],.8);assert.ok(matrix[1]<0&&matrix[2]>0,'both projection axes tilt independently');assert.ok(Math.abs(matrix[4]-167.2)<1e-9);
-const drop=reactive.drops[0];drop.pause=0;drop.phase=0;drop.age=0;const speeds=[];for(let i=0;i<40;i++){reactive.rain();speeds.push(drop.speed);}assert.ok(Math.max(...speeds)-Math.min(...speeds)>1,'rain accelerates and slows instead of falling at constant speed');
+// A random initial speed can already equal the target, so a range-only assertion
+// intermittently failed without exercising either acceleration or braking.
+const drop=reactive.drops[0];
+Object.assign(drop,{x:500,y:100,radius:2,flow:1,speed:0,pause:0,age:0,heading:0,headingTarget:0,nextTurn:100,length:80});
+const speeds=[];for(let i=0;i<40;i++){reactive.rain();speeds.push(drop.speed);}
+assert.ok(speeds.at(-1)>speeds[0]+1,'a stationary drop accelerates towards its flow speed');
+const moving=drop.speed;drop.pause=1;
+for(let i=0;i<40;i++)reactive.rain();
+assert.ok(drop.speed<moving*.1,'surface tension slows a moving drop during a pause');
 reactive.begin({...frame(true),lighting:{intensity:0}});reactive.light(10,10,20,.5);assert.equal(ctx.globalAlpha,0,'zero glow intensity suppresses scene lights');
 const wet=context.window.NoctuneScene.create(canvas,manifest,{});wet.drops=[wet.drops[0]];wet.dt=.05;
 const profiles=Array.from({length:4},(_,phase)=>wet.rainDropShape(4,0,phase));

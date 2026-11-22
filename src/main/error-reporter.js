@@ -12,7 +12,7 @@ function createMainErrorReporter({ process: runtime = process, ipcMain, getWindo
     } catch (_) { /* Keep startup errors until the main renderer is available. */ }
   }
   function report(reason, origin = 'main') {
-    const error = { name: 'Error', message: 'Ошибка основного процесса', process: 'main', origin };
+    const error = { name: 'Error', message: (globalThis.noctuneI18n?.t("errors.mainProcess.title") ?? "Ошибка основного процесса"), process: 'main', origin };
     try {
       if (reason && typeof reason === 'object') {
         for (const key of ['name','message','stack','code','syscall','address','port']) {
@@ -21,7 +21,7 @@ function createMainErrorReporter({ process: runtime = process, ipcMain, getWindo
         }
       } else error.message = String(reason).slice(0, 2000);
     } catch (_) { /* An arbitrary rejection value must not break error reporting. */ }
-    try { log('Основной процесс:', error); } catch (_) {}
+    try { log((globalThis.noctuneI18n?.t("errors.mainProcess.prefix") ?? "Основной процесс:"), error); } catch (_) {}
     pending.push(error);
     if (pending.length > 20) pending.shift();
     flush();

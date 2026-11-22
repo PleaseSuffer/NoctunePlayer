@@ -74,7 +74,7 @@ function createLyricsClient({ fetchImpl = fetch, userAgent, now = Date.now, wait
             const title = typeof payload.title === 'string' ? payload.title.trim().slice(0, 300) : '';
             const album = typeof payload.album === 'string' ? payload.album.trim().slice(0, 300) : '';
             const duration = Number(payload.duration);
-            if (!artist || !title || artist === 'Неизвестный исполнитель' || title === 'Без названия') return { status: 'invalid' };
+            if (!artist || !title || artist === (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель") || title === (globalThis.noctuneI18n?.t("preload.untitled", {}) ?? "Без названия")) return { status: 'invalid' };
             const knownDuration = Number.isFinite(duration) && duration > 0;
             const key = JSON.stringify([artist, title, album, knownDuration ? Math.round(duration) : 0]);
             const saved = cache.get(key);

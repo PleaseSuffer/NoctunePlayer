@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:">
-  <title>Установка расширения — Noctune</title>
+  <title data-i18n="addonInstall.installExtensionNoctune">Установка расширения — Noctune</title>
   <link rel="stylesheet" href="../theme-install/style.css">
   <link rel="stylesheet" href="../../shared/settings-controls.css">
   <link rel="stylesheet" href="style.css">
@@ -13,40 +13,43 @@
   <script src="../../shared/addon-permissions.js"></script>
   <script src="../../shared/addon-permission-view.js"></script>
   <script src="app.js" defer></script>
+<script src="../../shared/i18n.js"></script>
+<script src="../core/i18n.js"></script>
 </head>
 <body class="addon-install">
   <main>
-    <header><span class="brand">Noctune</span><span class="badge" id="badge">Новое расширение</span></header>
+    <header><span class="brand">Noctune</span><span class="badge" id="badge" data-i18n="addonInstall.newExtension">Новое расширение</span></header>
     <img id="addon-banner" class="addon-banner" alt="" hidden>
     <section class="details" aria-labelledby="name">
-      <p class="eyebrow" id="eyebrow">Установка расширения</p>
+      <p class="eyebrow" id="eyebrow" data-i18n="addonInstall.installExtension">Установка расширения</p>
       <img id="addon-icon" class="addon-icon" alt="" hidden>
-      <h1 id="name">Загрузка…</h1>
+      <h1 id="name" data-i18n="addonInstall.loading">Загрузка…</h1>
       <p id="verified-publisher" class="addon-verified-publisher" hidden></p>
       <p id="description"></p>
       <dl id="metadata"></dl>
     </section>
     <section class="access-section" aria-labelledby="permissions-heading">
-      <div class="section-heading"><h2 id="permissions-heading">Разрешения</h2><span id="permission-count" class="count"></span></div>
-      <p class="section-description">Возможности, которые сможет использовать расширение.</p>
+      <div class="section-heading"><h2 id="permissions-heading" data-i18n="addonInstall.permissions">Разрешения</h2><span id="permission-count" class="count"></span></div>
+      <p class="section-description" data-i18n="addonInstall.capabilitiesTheExtensionWillBeAbleToUse">Возможности, которые сможет использовать расширение.</p>
       <ul id="permissions" class="permissions-list"></ul>
-      <p id="no-permissions" class="note" hidden>Дополнительные разрешения не запрашиваются.</p>
+      <p id="no-permissions" class="note" hidden data-i18n="addonInstall.noAdditionalPermissionsRequested">Дополнительные разрешения не запрашиваются.</p>
       <section id="network-section" aria-labelledby="network-heading" hidden>
-        <h3 id="network-heading">Сетевой доступ</h3>
+        <h3 id="network-heading" data-i18n="addonInstall.networkAccess">Сетевой доступ</h3>
         <ul id="origins" class="permissions-list"></ul>
       </section>
     </section>
     <section class="publisher-section" aria-labelledby="publisher-heading">
-      <h2 id="publisher-heading">Источник пакета</h2>
+      <h2 id="publisher-heading" data-i18n="addonInstall.packageSource">Источник пакета</h2>
       <p id="signature-note" class="note"></p>
-      <details id="publisher-details" hidden><summary>Ключ издателя</summary><code id="publisher"></code></details>
+      <details id="publisher-details" hidden><summary data-i18n="addonInstall.publisherKey">Ключ издателя</summary><code id="publisher"></code></details>
     </section>
     <p id="activation-note" class="note"></p>
   </main>
   <footer>
-    <label id="consent-row" class="consent"><span class="toggle-switch"><input id="consent" type="checkbox" disabled><span class="slider-round"></span></span><span id="consent-label">Доверяю автору и разрешаю указанный доступ</span></label>
+    <label id="consent-row" class="consent"><span class="toggle-switch"><input id="consent" type="checkbox" disabled><span class="slider-round"></span></span><span id="consent-label" data-i18n="addonInstall.iTrustTheAuthorAndAllowTheListedAccess">Доверяю автору и разрешаю указанный доступ</span></label>
     <p id="status" role="status" aria-live="polite"></p>
-    <div class="actions"><button id="cancel" type="button">Отмена</button><button id="install" type="button" class="primary" disabled>Установить</button></div>
+    <div class="actions"><button id="cancel" type="button" data-i18n="player.interface.cancel">Отмена</button><button id="install" type="button" class="primary" disabled data-i18n="addonInstall.install">Установить</button></div>
   </footer>
+<script src="../core/i18n-initial.js"></script>
 </body>
 </html>

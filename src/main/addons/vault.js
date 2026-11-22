@@ -8,13 +8,13 @@ function createVault({ directory, safeStorage }) {
     return !!safeStorage?.isEncryptionAvailable() && safeStorage.getSelectedStorageBackend?.() !== 'basic_text';
   }
   function file(id) {
-    if (!/^[a-z0-9][a-z0-9.-]{1,63}$/.test(id)) throw new Error('Некорректный ID');
+    if (!/^[a-z0-9][a-z0-9.-]{1,63}$/.test(id)) throw new Error((globalThis.noctuneI18n?.t("extensions.store.invalidId", {}) ?? "Некорректный ID"));
     return path.join(root(), 'secrets', id + '.enc');
   }
   async function read(id) {
-    if (!available()) throw new Error('Защищённое хранилище ОС недоступно. Включите Secret Service/KWallet и перезапустите Noctune.');
+    if (!available()) throw new Error((globalThis.noctuneI18n?.t("extensions.credentials.secureStorageUnavailable", {}) ?? "Защищённое хранилище ОС недоступно. Включите Secret Service/KWallet и перезапустите Noctune."));
     try { return JSON.parse(safeStorage.decryptString(await fs.readFile(file(id)))); }
-    catch (error) { if (error.code === 'ENOENT') return {}; throw new Error('Не удалось расшифровать секреты расширения'); }
+    catch (error) { if (error.code === 'ENOENT') return {}; throw new Error((globalThis.noctuneI18n?.t("extensions.vault.couldNotDecryptExtensionSecrets", {}) ?? "Не удалось расшифровать секреты расширения")); }
   }
   return {
     available,
@@ -24,7 +24,7 @@ function createVault({ directory, safeStorage }) {
         const data = await read(id);
         if (value === null) delete data[key]; else data[key] = value;
         const text = JSON.stringify(data);
-        if (Buffer.byteLength(text) > 128 * 1024) throw new Error('Секреты превышают 128 КБ');
+        if (Buffer.byteLength(text) > 128 * 1024) throw new Error((globalThis.noctuneI18n?.t("extensions.vault.secretsExceed128Kb", {}) ?? "Секреты превышают 128 КБ"));
         const target = file(id), temp = target + '.' + crypto.randomUUID();
         await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
         try { await fs.writeFile(temp, safeStorage.encryptString(text), { mode: 0o600 }); await fs.rename(temp, target); }

@@ -1,0 +1,22 @@
+{
+  "commands.cancelTimer.title": "Отменить таймер",
+  "commands.extendTimer.title": "Добавить 5 минут",
+  "commands.startTimer.title": "Запустить таймер",
+  "commands.timeLeft.title": "Сколько осталось",
+  "errors.pauseFailed": "Не удалось поставить воспроизведение на паузу: ",
+  "extension.description": "Таймер сна: пауза по времени, мягкое затихание и управление горячими клавишами. Официальное расширение Noctune.",
+  "notifications.timerCancelled": "Таймер отменён.",
+  "notifications.timeRemaining": "До паузы: {p0}:{p1}.",
+  "notifications.timerExtended": "К таймеру добавлено 5 минут.",
+  "notifications.timerFinished": "Таймер завершён. Воспроизведение приостановлено.",
+  "notifications.timerNotRunning": "Таймер не запущен.",
+  "notifications.timerStarted": "Таймер запущен: ",
+  "settings.fade.label": "Плавное затихание",
+  "settings.fadeSeconds.label": "Затихание, секунд",
+  "settings.minutes.description": "Применяется при следующем запуске таймера.",
+  "settings.minutes.label": "До паузы, минут",
+  "settings.startOnEnable.description": "Также запускает новый таймер при следующем запуске плеера, если расширение включено.",
+  "settings.startOnEnable.label": "Запускать при включении",
+  "units.minutesAbbreviation": " мин.",
+  "warnings.fadeUnavailable": "Плавное затихание недоступно. Пауза сработает по таймеру."
+}

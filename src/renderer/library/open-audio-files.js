@@ -6,12 +6,12 @@ const externalAudioQueue = [];
 function queueAudioImport(task) {
     externalAudioOpenTask = externalAudioOpenTask.then(task).catch(error => {
         console.error('Import external audio files:', error);
-        statusText.textContent = 'Не удалось открыть аудиофайл';
+        statusText.textContent = (globalThis.noctuneI18n?.t("library.openAudioFiles.couldNotOpenAudioFile", {}) ?? "Не удалось открыть аудиофайл");
     });
     return externalAudioOpenTask;
 }
 
-function externalFilePlaylist(id = 'pl_external_files', name = 'Открытые файлы') {
+function externalFilePlaylist(id = 'pl_external_files', name = (globalThis.noctuneI18n?.t("library.openAudioFiles.openedFiles", {}) ?? "Открытые файлы")) {
     let playlist = userPlaylists.find(value => value.id === id);
     if (!playlist) {
         playlist = { id, name, type: 'folder', path: null, files: [], stations: [] };
@@ -25,12 +25,12 @@ async function openExternalAudioFiles(request) {
     const { files: paths, action = 'play' } = Array.isArray(request) ? { files: request } : (request || {});
     if (!['play', 'new-playlist', 'add-playlist', 'enqueue'].includes(action)) return;
     const files = await validatedAudioPaths(paths);
-    if (!files.length) { statusText.textContent = 'Нет доступных аудиофайлов'; return; }
+    if (!files.length) { statusText.textContent = (globalThis.noctuneI18n?.t("library.openAudioFiles.noAvailableAudioFiles", {}) ?? "Нет доступных аудиофайлов"); return; }
     const current = userPlaylists.find(value => value.id === currentPlaylistId);
 
     if (action === 'add-playlist') {
         if (current && current.type !== 'folder') {
-            statusText.textContent = 'Аудиофайлы можно добавить только в музыкальный плейлист';
+            statusText.textContent = (globalThis.noctuneI18n?.t("library.openAudioFiles.audioFilesCanOnlyBeAddedToMusicPlaylists", {}) ?? "Аудиофайлы можно добавить только в музыкальный плейлист");
             return;
         }
         const target = current || externalFilePlaylist();
@@ -41,7 +41,7 @@ async function openExternalAudioFiles(request) {
 
     if (action === 'enqueue') {
         const active = userPlaylists.find(value => value.id === activePlaylistId);
-        const target = active?.type === 'folder' ? active : current?.type === 'folder' ? current : externalFilePlaylist('pl_external_queue', 'Очередь воспроизведения');
+        const target = active?.type === 'folder' ? active : current?.type === 'folder' ? current : externalFilePlaylist('pl_external_queue', (globalThis.noctuneI18n?.t("library.openAudioFiles.playbackQueue", {}) ?? "Очередь воспроизведения"));
         // Save first so a track ending during metadata extraction can consume the queue.
         target.files = [...new Set([...(target.files || []), ...files])];
         savePlaylistsToStorage();
@@ -49,7 +49,7 @@ async function openExternalAudioFiles(request) {
         globalThis.addonEvents?.emit('queue.changed');
         sendTrayState();
         await addFilesToPlaylist(files, target.id, { validated: true });
-        statusText.textContent = `Добавлено в очередь: ${files.length}`;
+        statusText.textContent = (globalThis.noctuneI18n?.t("library.openAudioFiles.addedToQueue", {p0: (files.length)}) ?? "Добавлено в очередь: {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (files.length)})[k] ?? "{"+k+"}"));
         if (currentIndex < 0 && !isPlaying && !_trackLoading) await playQueuedAudioFile(_loadToken);
         return;
     }
@@ -57,7 +57,7 @@ async function openExternalAudioFiles(request) {
     stopTrack();
     externalAudioQueue.length = 0;
     const playlist = action === 'new-playlist'
-        ? externalFilePlaylist(`pl_external_${Date.now()}_${++externalPlaylistSerial}`, 'Новый плейлист')
+        ? externalFilePlaylist(`pl_external_${Date.now()}_${++externalPlaylistSerial}`, (globalThis.noctuneI18n?.t("library.openAudioFiles.newPlaylist", {}) ?? "Новый плейлист"))
         : externalFilePlaylist();
     playlist.files = [...new Set([...(playlist.files || []), ...files])];
     savePlaylistsToStorage();

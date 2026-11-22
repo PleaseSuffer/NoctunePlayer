@@ -14,3 +14,5 @@
 Исходники примеров и декларации SDK доступны в репозитории:
 [официальные расширения](../addons/official/), [примеры расширений](../addons/examples/), [типы расширений](../addons/sdk.d.ts),
 [темы](../themes/examples/api-v2/), [типы тем](../themes/sdk.d.ts).
+
+Локализация: [устройство и проверки](localization.md), [SDK расширений v2](extensions-api-v2.md).

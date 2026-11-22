@@ -68,7 +68,7 @@
                 
                 resultsContainer.innerHTML = '';
                 if (data.length === 0) {
-                    resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: var(--text-muted);">Ничего не найдено</div>';
+                    resultsContainer.innerHTML = ("<div style=\"padding: 10px; text-align: center; color: var(--text-muted);\">" + (globalThis.noctuneI18n?.t("integrations.radioSearch.nothingFound", {}) ?? "Ничего не найдено") + "</div>");
                 } else {
                     data.forEach(station => {
                         const item = document.createElement('div');
@@ -83,7 +83,7 @@
                                     ${station.country} ${station.tags ? '• ' + station.tags.split(',').slice(0, 3).join(', ') : ''}
                                 </div>
                             </div>
-                            <button class="btn btn-icon-only${alreadyAdded ? ' btn-added' : ''}" style="width: 32px; height: 32px;" title="${alreadyAdded ? 'Уже добавлено' : 'Добавить станцию'}">
+                            <button class="btn btn-icon-only${alreadyAdded ? ' btn-added' : ''}" style="width: 32px; height: 32px;" title="${alreadyAdded ? (globalThis.noctuneI18n?.t("integrations.radioSearch.alreadyAdded", {}) ?? "Уже добавлено") : (globalThis.noctuneI18n?.t("integrations.radioSearch.addStation", {}) ?? "Добавить станцию")}">
                                 <i data-lucide="${alreadyAdded ? 'check' : 'plus'}" style="width: 14px; height: 14px;"></i>
                             </button>
                         `;
@@ -99,7 +99,7 @@
                             }
                             // Mark button as added without closing modal
                             btn.classList.add('btn-added');
-                            btn.title = 'Уже добавлено';
+                            btn.title = (globalThis.noctuneI18n?.t("integrations.radioSearch.alreadyAdded", {}) ?? "Уже добавлено");
                             btn.innerHTML = '<i data-lucide="check" style="width: 14px; height: 14px;"></i>';
                             lucide.createIcons();
                         });
@@ -109,7 +109,7 @@
                 }
                 resultsContainer.style.display = 'block';
             } catch (err) {
-                resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; color: #e74c3c;">Ошибка при поиске</div>';
+                resultsContainer.innerHTML = ("<div style=\"padding: 10px; text-align: center; color: #e74c3c;\">" + (globalThis.noctuneI18n?.t("integrations.radioSearch.searchError", {}) ?? "Ошибка при поиске") + "</div>");
                 resultsContainer.style.display = 'block';
             } finally {
                 btn.innerHTML = `<i data-lucide="search"></i> Найти станции`;

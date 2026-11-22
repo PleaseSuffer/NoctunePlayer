@@ -4,13 +4,13 @@ const { createAddonCatalog, REPOSITORY_URL, SUBMISSION_URL } = require('./catalo
 function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled, catalog = createAddonCatalog({ directory, appVersion, store }) }) {
   let window = null, contents = null, installing = false;
   function session(event) {
-    if (!window || window.isDestroyed() || event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error('Недоступно для этого окна');
+    if (!window || window.isDestroyed() || event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
     return window;
   }
   ipcMain.handle('addon-store:list', (event, refresh = false) => { session(event); return catalog.list(refresh); });
   ipcMain.handle('addon-store:install', async (event, id) => {
     session(event);
-    if (installing) throw new Error('Установка уже выполняется');
+    if (installing) throw new Error((globalThis.noctuneI18n?.t("themeInstaller.installationAlreadyInProgress", {}) ?? "Установка уже выполняется"));
     installing = true;
     let candidate;
     try {
@@ -24,7 +24,7 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
   ipcMain.handle('addon-store:open-link', (event, kind) => {
     session(event);
     const links = { repository: REPOSITORY_URL, submission: SUBMISSION_URL, documentation: REPOSITORY_URL + '/blob/main/docs/extensions-publishing.md' };
-    if (!Object.hasOwn(links, kind)) throw new Error('Неизвестная ссылка');
+    if (!Object.hasOwn(links, kind)) throw new Error((globalThis.noctuneI18n?.t("extensions.storeWindow.unknownLink", {}) ?? "Неизвестная ссылка"));
     return shell.openExternal(links[kind]);
   });
   return {
@@ -32,7 +32,7 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
       if (window && !window.isDestroyed()) { window.show(); window.focus(); contents.send('addon-store:refresh'); return; }
       const theme = appearance?.theme === 'light' ? 'light' : 'dark';
       const accent = /^#[a-f0-9]{6}$/i.test(appearance?.accent) ? appearance.accent : '#ac91ee';
-      window = new BrowserWindow({ title: 'Магазин расширений — Noctune', width: 1040, height: 800, minWidth: 620, minHeight: 560, show: false, backgroundColor: theme === 'light' ? '#f4f7f6' : '#15151b', icon, autoHideMenuBar: true,
+      window = new BrowserWindow({ title: (globalThis.noctuneI18n?.t("addonStore.extensionStoreNoctune", {}) ?? "Магазин расширений — Noctune"), width: 1040, height: 800, minWidth: 620, minHeight: 560, show: false, backgroundColor: theme === 'light' ? '#f4f7f6' : '#15151b', icon, autoHideMenuBar: true,
         webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, '../../preload/addon-store.js') } });
       const current = window; contents = current.webContents;
       current.setMenu(null);

@@ -8,6 +8,8 @@ const p=require(path.join(source,'src/main/addons/package'));
 const {createAddonStore}=require(path.join(source,'src/main/addons/store'));
 const profile=fs.mkdtempSync(path.join(os.tmpdir(),'noctune-official-native-'));
 app.setPath('userData',profile);
+// Chromium keeps profile files open until process exit on Windows.
+if(process.env.NOCTUNE_TEST_CLEANUP)fs.writeFileSync(process.env.NOCTUNE_TEST_CLEANUP,JSON.stringify([profile]));
 const show=BrowserWindow.prototype.show;BrowserWindow.prototype.show=function(){};BrowserWindow.prototype.showInactive=function(){};
 const windows=[];app.on('browser-window-created',(_event,window)=>windows.push(window));
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -115,6 +117,6 @@ require(path.join(source,'src/main/index.js'));
     await store.setEnabled('noctune-sleep',false);notify();await waitFor(()=>run(main,`window.__disconnected>0`),'gain cleanup');assert.equal(await run(main,`volumeSlider.value`),volume);
     if(packageDirectory)assert((await store.list()).every(addon=>addon.verifiedPublisher==='Noctune'));
     console.log('PASS: signed official packages, toggle scroll/disclosure preservation, six mouse-selected/applied schemes, cross-extension dropdown/selection, source disappearance/recovery, temporary wallpaper and scene restoration, real gain automation/reuse/cleanup and unchanged player volume.');
-    for(const window of windows)if(!window.isDestroyed())window.destroy();fs.rmSync(profile,{recursive:true,force:true});app.exit(0);
+    for(const window of windows)if(!window.isDestroyed())window.destroy();app.exit(0);
 })().catch(error=>{console.error(error);app.exit(1);});
 setTimeout(()=>{console.error('Official extensions probe timed out');app.exit(1);},90000);

@@ -11,7 +11,7 @@ const SUBMISSION_URL = REPOSITORY_URL + '/issues/new?template=extension-submissi
 const LIMIT = 4 * 1024 * 1024;
 const fields = ['id','name','description','author','type','version','revision','minNoctuneVersion','maxNoctuneVersion','permissions','homepage'];
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');
-const fail = () => { throw new Error('Некорректный каталог расширений'); };
+const fail = () => { throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.invalidExtensionCatalog", {}) ?? "Некорректный каталог расширений")); };
 
 function artwork(value) {
   if (value === undefined) return {};
@@ -33,7 +33,7 @@ function validateCatalog(value, trustedPublisher = publisher) {
   p.keys(value, ['format','formatVersion','revision','generatedAt','channel','entries','signature']);
   if (Buffer.byteLength(JSON.stringify(value)) > LIMIT || value.format !== 'noctune-addon-catalog' || value.formatVersion !== 1 || value.channel !== 'official' || !Number.isSafeInteger(value.revision) || value.revision < 1 || typeof value.generatedAt !== 'string' || !Number.isFinite(Date.parse(value.generatedAt)) || !Array.isArray(value.entries) || value.entries.length > 64) fail();
   const identity = p.signingIdentity(value, true);
-  if (trustedPublisher(identity) !== 'Noctune') throw new Error('Каталог не подписан доверенным ключом Noctune');
+  if (trustedPublisher(identity) !== 'Noctune') throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.catalogIsNotSignedByATrustedNoctuneKey", {}) ?? "Каталог не подписан доверенным ключом Noctune"));
   const ids = new Set();
   for (const entry of value.entries) {
     p.keys(entry, [...fields, 'publisher','sha256','packageUrl','published','artwork']);
@@ -79,16 +79,16 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
         const next = validate(JSON.parse(await fetch(CATALOG_URL, { limit: LIMIT, headers: { 'Cache-Control': 'no-cache' } })));
         for (const entry of next.entries) {
           const old = snapshot.entries.find(item=>item.id===entry.id);
-          if (old && (entry.revision < old.revision || p.compareVersions(entry.version,old.version)<0 || entry.revision===old.revision && (entry.sha256!==old.sha256 || p.canonical(fields.map(field=>entry[field]))!==p.canonical(fields.map(field=>old[field]))))) throw new Error('Каталог изменяет опубликованную версию расширения');
+          if (old && (entry.revision < old.revision || p.compareVersions(entry.version,old.version)<0 || entry.revision===old.revision && (entry.sha256!==old.sha256 || p.canonical(fields.map(field=>entry[field]))!==p.canonical(fields.map(field=>old[field]))))) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.catalogModifiesAPublishedExtensionVersion", {}) ?? "Каталог изменяет опубликованную версию расширения"));
         }
-        if (next.revision < snapshot.revision || (next.revision === snapshot.revision && p.canonical(next) !== p.canonical(snapshot))) throw new Error('Сервер вернул устаревший каталог');
+        if (next.revision < snapshot.revision || (next.revision === snapshot.revision && p.canonical(next) !== p.canonical(snapshot))) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.serverReturnedAnOutdatedCatalog", {}) ?? "Сервер вернул устаревший каталог"));
         await fs.mkdir(root(), { recursive: true });
         const temp = file() + '.' + crypto.randomUUID() + '.tmp';
         try { await fs.writeFile(temp, p.canonical(next), { mode: 0o600 }); await fs.rename(temp, file()); }
         finally { await fs.rm(temp, { force: true }); }
         snapshot = next; source = 'network';
         lastResult = { message: '' };
-      } catch (_) { lastResult = { message: 'Не удалось проверить каталог GitHub. Показана сохранённая копия.' }; }
+      } catch (_) { lastResult = { message: (globalThis.noctuneI18n?.t("extensions.catalog.couldNotVerifyTheGithubCatalogShowingASavedCopy", {}) ?? "Не удалось проверить каталог GitHub. Показана сохранённая копия.") }; }
       return lastResult;
     })().finally(() => { pending = null; });
     return pending;
@@ -113,12 +113,12 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
       const result = await update();
       if (result.message) return {state:'unavailable',message:result.message};
       const current = (await store.list()).find(item=>item.id===id);
-      if (!current) throw new Error('Расширение не установлено');
+      if (!current) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.extensionNotInstalled", {}) ?? "Расширение не установлено"));
       const entry = snapshot.entries.find(item=>item.id===id);
-      if (!entry || !entry.published) return {state:'unavailable',message:'Расширение пока недоступно в официальном каталоге'};
-      if (current.publisher!==entry.publisher) throw new Error('Другой издатель расширения');
-      if (!p.compatible(entry,appVersion)) return {state:'incompatible',message:'Обновление требует другой версии Noctune'};
-      if (entry.revision <= (current.maxRevision || current.revision)) return {state:'current',message:'Новых ревизий нет'};
+      if (!entry || !entry.published) return {state:'unavailable',message:(globalThis.noctuneI18n?.t("extensions.catalog.extensionIsNotYetAvailableInTheOfficialCatalog", {}) ?? "Расширение пока недоступно в официальном каталоге")};
+      if (current.publisher!==entry.publisher) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.differentExtensionPublisher", {}) ?? "Другой издатель расширения"));
+      if (!p.compatible(entry,appVersion)) return {state:'incompatible',message:(globalThis.noctuneI18n?.t("extensions.catalog.updateRequiresAnotherNoctuneVersion", {}) ?? "Обновление требует другой версии Noctune")};
+      if (entry.revision <= (current.maxRevision || current.revision)) return {state:'current',message:(globalThis.noctuneI18n?.t("extensions.catalog.noNewerRevisions", {}) ?? "Новых ревизий нет")};
       return this.prepare(id);
     },
     async prepare(id) {
@@ -126,12 +126,12 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
       await initialize();
       await update();
       const entry = snapshot.entries.find(candidate => candidate.id === id);
-      if (!entry || !entry.published) throw new Error('Пакет ещё не опубликован в официальном каталоге');
-      if (!p.compatible(entry, appVersion)) throw new Error('Расширение несовместимо с этой версией Noctune');
+      if (!entry || !entry.published) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.packageIsNotYetPublishedInTheOfficialCatalog", {}) ?? "Пакет ещё не опубликован в официальном каталоге"));
+      if (!p.compatible(entry, appVersion)) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.extensionIsIncompatibleWithThisNoctuneVersion", {}) ?? "Расширение несовместимо с этой версией Noctune"));
       const bytes = await fetch(entry.packageUrl, { limit: p.MAX_BYTES });
-      if (hash(bytes) !== entry.sha256) throw new Error('Контрольная сумма пакета не совпадает с каталогом');
+      if (hash(bytes) !== entry.sha256) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.packageChecksumDiffersFromTheCatalog", {}) ?? "Контрольная сумма пакета не совпадает с каталогом"));
       const pkg = p.validatePackage(JSON.parse(bytes));
-      if (p.signingIdentity(pkg, true) !== entry.publisher || fields.some(field => p.canonical(pkg.manifest[field]) !== p.canonical(entry[field]))) throw new Error('Пакет не соответствует карточке магазина');
+      if (p.signingIdentity(pkg, true) !== entry.publisher || fields.some(field => p.canonical(pkg.manifest[field]) !== p.canonical(entry[field]))) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.packageDoesNotMatchTheStoreListing", {}) ?? "Пакет не соответствует карточке магазина"));
       return store.preparePackage(pkg, 'catalog');
     },
   };

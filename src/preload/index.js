@@ -14,6 +14,17 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 const { contextBridge, ipcRenderer, nativeImage, webUtils } = require('electron');
+// Kept inline: sandboxed Electron preloads cannot require local helper modules.
+contextBridge.exposeInMainWorld('noctuneLocale', {
+    initial: ipcRenderer.sendSync('i18n:initial'),
+    set: input => ipcRenderer.invoke('i18n:set', input),
+    onChange(callback) {
+        const listener = () => callback();
+        ipcRenderer.on('i18n:changed', listener);
+        return () => ipcRenderer.removeListener('i18n:changed', listener);
+    },
+});
+
 const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
@@ -129,8 +140,8 @@ async function parseAudioMetadata(filePath, fallbackName) {
     }
   }
 
-  if (!result.title) result.title = 'Без названия';
-  if (!result.artist) result.artist = 'Неизвестный исполнитель';
+  if (!result.title) result.title = (globalThis.noctuneI18n?.t("preload.untitled", {}) ?? "Без названия");
+  if (!result.artist) result.artist = (globalThis.noctuneI18n?.t("player.interface.unknownArtist", {}) ?? "Неизвестный исполнитель");
 
   return result;
 }

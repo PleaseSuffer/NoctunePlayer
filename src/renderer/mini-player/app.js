@@ -30,14 +30,14 @@
         pin.classList.toggle('active', active);
         pin.setAttribute('aria-pressed', String(active));
         icon('pin', active ? 'pin' : 'pin-off', settings.onTop === 'playing'
-            ? 'Поверх окон во время воспроизведения' : active ? 'Открепить от переднего плана' : 'Закрепить поверх других окон');
+            ? (globalThis.noctuneI18n?.t("miniPlayer.app.onTopDuringPlayback", {}) ?? "Поверх окон во время воспроизведения") : active ? (globalThis.noctuneI18n?.t("miniPlayer.app.unpinFromForeground", {}) ?? "Открепить от переднего плана") : (globalThis.noctuneI18n?.t("miniPlayer.app.pinAboveOtherWindows", {}) ?? "Закрепить поверх других окон"));
     }
     function render(value) {
         state = value;
         renderOpacity(state.contentOpacity);
         renderPin();
         renderColors();
-        $('title').textContent = state.title || 'Музыка не выбрана';
+        $('title').textContent = state.title || (globalThis.noctuneI18n?.t("player.interface.noMusicSelected", {}) ?? "Музыка не выбрана");
         $('artist').textContent = state.artist || 'Noctune';
         $('track-info').title = [state.artist, state.title].filter(Boolean).join(' — ');
         const cover = $('cover');
@@ -49,13 +49,13 @@
         $('seek').disabled = state.radio || !state.duration;
         $('elapsed').textContent = state.radio ? 'LIVE' : format(state.position);
         $('duration').textContent = state.radio ? '' : format(state.duration);
-        icon('playpause', state.playing ? 'pause' : 'play', state.playing ? 'Пауза' : 'Воспроизвести');
-        icon('mute', state.muted || state.volume === 0 ? 'volume-x' : 'volume-2', state.muted ? 'Включить звук' : 'Выключить звук');
+        icon('playpause', state.playing ? 'pause' : 'play', state.playing ? (globalThis.noctuneI18n?.t("index.pause", {}) ?? "Пауза") : (globalThis.noctuneI18n?.t("player.interface.play", {}) ?? "Воспроизвести"));
+        icon('mute', state.muted || state.volume === 0 ? 'volume-x' : 'volume-2', state.muted ? (globalThis.noctuneI18n?.t("integrations.lyrics.unmute", {}) ?? "Включить звук") : (globalThis.noctuneI18n?.t("player.interface.mute", {}) ?? "Выключить звук"));
         const shuffle = document.querySelector('[data-action="shuffle"]');
         shuffle.classList.toggle('active', state.shuffle); shuffle.setAttribute('aria-pressed', String(state.shuffle));
         const repeat = document.querySelector('[data-action="repeat"]');
         repeat.classList.toggle('active', state.repeat > 0);
-        icon('repeat', state.repeat === 1 ? 'repeat-1' : 'repeat', ['Повтор выключен', 'Повторять трек', 'Повторять плейлист'][state.repeat]);
+        icon('repeat', state.repeat === 1 ? 'repeat-1' : 'repeat', [(globalThis.noctuneI18n?.t("playback.repeat.off", {}) ?? "Повтор выключен"), (globalThis.noctuneI18n?.t("miniPlayer.app.repeatTrack", {}) ?? "Повторять трек"), (globalThis.noctuneI18n?.t("playback.repeat.playlist", {}) ?? "Повторять плейлист")][state.repeat]);
     }
     document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => miniPlayer.command(button.dataset.action)));
     $('volume').addEventListener('input', () => { paintRange($('volume')); miniPlayer.command('volume', Number($('volume').value)); });

@@ -5,13 +5,13 @@ function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
   const tickets = new Map();
   function session(event) {
     const entry = sessions.get(event.sender);
-    if (!entry || event.senderFrame !== entry.window.webContents.mainFrame) throw new Error('Недоступно для этого окна');
+    if (!entry || event.senderFrame !== entry.window.webContents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
     return entry;
   }
   ipcMain.handle('addon-install:details', event => session(event).preview);
   ipcMain.handle('addon-install:confirm', async event => {
     const entry = session(event);
-    if (entry.installing) return { ok: false, error: 'Установка уже выполняется' };
+    if (entry.installing) return { ok: false, error: (globalThis.noctuneI18n?.t("themeInstaller.installationAlreadyInProgress", {}) ?? "Установка уже выполняется") };
     if (entry.preview.state === 'installed') return { ok: true, installed: true };
     entry.installing = true;
     try {
@@ -21,7 +21,7 @@ function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
       return { ok: true };
     } catch (error) {
       entry.installing = false;
-      return { ok: false, error: error.message || 'Не удалось установить расширение' };
+      return { ok: false, error: error.message || (globalThis.noctuneI18n?.t("extensions.installer.couldNotInstallExtension", {}) ?? "Не удалось установить расширение") };
     }
   });
   ipcMain.on('addon-install:cancel', event => {
@@ -35,7 +35,7 @@ function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
       // Metadata and the immutable package snapshot belong to main, not the caller.
       const preview = store.preview(ticket);
       const window = new BrowserWindow({
-        title: preview.state === 'update' ? 'Обновление расширения — Noctune' : 'Установка расширения — Noctune',
+        title: preview.state === 'update' ? (globalThis.noctuneI18n?.t("extensions.installer.updateExtensionNoctune", {}) ?? "Обновление расширения — Noctune") : (globalThis.noctuneI18n?.t("addonInstall.installExtensionNoctune", {}) ?? "Установка расширения — Noctune"),
         width: 640, height: 780, minWidth: 520, minHeight: 600,
         show: false, backgroundColor: '#15151b', icon, autoHideMenuBar: true,
         webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, '../../preload/addon-installer.js') },

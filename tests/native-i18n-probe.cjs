@@ -1,0 +1,125 @@
+const { app, BrowserWindow } = require('electron');
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const output = path.resolve('tests/.artifacts/i18n');
+fs.mkdirSync(output, { recursive: true });
+const directory = fs.mkdtempSync(path.join(output, 'profile-'));
+app.setPath('userData', directory);
+fs.writeFileSync(path.join(directory, 'config.json'), JSON.stringify({ language: 'en', hardwareAcceleration: '0' }));
+BrowserWindow.prototype.show = function () {};
+BrowserWindow.prototype.showInactive = function () {};
+const windows = [];
+const errors = [];
+app.on('browser-window-created', (_event, win) => {
+    windows.push(win);
+    win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
+});
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const timeout = setTimeout(() => { console.error('FAIL: localization startup timed out', errors); app.exit(1); }, 60000);
+const archive = process.argv.find(value => value.startsWith('--app-asar='))?.slice('--app-asar='.length);
+if (archive) {
+    app.setAppPath(path.resolve(archive));
+    Object.defineProperty(app, 'isPackaged', { value: true });
+    require('electron-updater').autoUpdater.checkForUpdates = async () => null;
+}
+require(archive ? path.join(path.resolve(archive), 'src/main/index.js') : '../src/main/index');
+(async () => {
+    let main;
+    for (let i = 0; i < 250; i++) {
+        main = windows.find(win => !win.isDestroyed() && win.webContents.getURL().endsWith('/renderer/index.html'));
+        if (main && await main.webContents.executeJavaScript('document.readyState === "complete" && !!window.noctune && !!document.getElementById("setting-language")').catch(() => false)) break;
+        await sleep(100);
+    }
+    assert(main, 'main window starts');
+    main.webContents.setBackgroundThrottling(false);
+    await sleep(1000);
+    const startup = await main.webContents.executeJavaScript(`(async()=>({version:document.getElementById("app-version").textContent,directVersion:await noctune.getAppVersion(), tech:await noctune.getTechVersions()}))()`);
+    fs.writeFileSync(path.join(output, "startup.json"), JSON.stringify(startup,null,2));
+    const state = await main.webContents.executeJavaScript(`({locale:noctuneI18n.locale,html:document.documentElement.lang,label:document.querySelector('label[for="setting-language-button"]').textContent,repeat:(()=>{const old=repeatMode;setRepeatMode(0);const result=[];for(let i=0;i<3;i++){toggleRepeat();result.push(repeatMode)}setRepeatMode(old);return result})(),settings:document.querySelector('[data-panel="panel-general"]').textContent.trim()})`);
+    assert.equal(state.locale, 'en'); assert.equal(state.html, 'en');
+    assert.equal(state.label, 'Interface language'); assert.equal(state.settings, 'General');
+    assert.deepEqual(state.repeat, [2, 1, 0]);
+    await main.webContents.executeJavaScript(`document.getElementById('settings-fab').click(); document.querySelector('[data-panel="panel-general"]').click(); document.getElementById('setting-language-button').scrollIntoView({block:'center'});`);
+    await sleep(300);
+    const dropdown = await main.webContents.executeJavaScript(`(() => {
+        const button = document.getElementById('setting-language-button'), fps = document.getElementById('setting-effects-fps');
+        button.click();
+        const open = button.getAttribute('aria-expanded');
+        button.dispatchEvent(new KeyboardEvent('keydown', {key:'End',bubbles:true}));
+        const last = document.activeElement.dataset.locale;
+        button.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape',bubbles:true}));
+        return {afterPerformance:!!(fps.compareDocumentPosition(button)&Node.DOCUMENT_POSITION_FOLLOWING),open,last,closed:button.getAttribute('aria-expanded'),label:document.getElementById('language-label').textContent};
+    })()`);
+    assert.deepEqual(dropdown, {afterPerformance:true,open:'true',last:'en',closed:'false',label:'English'});
+    const editor = await main.webContents.executeJavaScript(`(() => {
+        userPlaylists = [{id:'editor-current',name:'Current',type:'folder',files:[]},{id:'editor-target',name:'Radio target',type:'radio',stations:[]}];
+        currentPlaylistId='editor-current'; activePlaylistId='editor-current';
+        renderPlaylistsDropdown(); renderPlEditor();
+        const row=()=>document.querySelector('[data-playlist-id="editor-target"]');
+        const actions=row().querySelectorAll('.pl-editor-actions button').length;
+        row().querySelector('.pl-rename-btn').click();
+        const renameOpened=document.getElementById('rename-modal').style.display==='flex';
+        document.getElementById('playlist-rename-input').value='Renamed radio'; document.getElementById('btn-save-rename').click();
+        const renamed=userPlaylists.find(p=>p.id==='editor-target').name;
+        row().querySelector('.pl-delete-btn').click(); document.getElementById('btn-delete-modal-cancel').click();
+        const cancelled=!!userPlaylists.find(p=>p.id==='editor-target');
+        row().querySelector('.pl-delete-btn').click();
+        const confirmation=document.getElementById('delete-playlist-modal-msg').textContent.includes('Renamed radio');
+        document.getElementById('btn-delete-modal-confirm').click();
+        const result={actions,renameOpened,renamed,cancelled,confirmation,removed:!userPlaylists.some(p=>p.id==='editor-target'),current:currentPlaylistId,active:activePlaylistId,rows:document.querySelectorAll('.pl-editor-item').length};
+        userPlaylists=[]; currentPlaylistId=null; activePlaylistId=null; savePlaylistsToStorage(); renderPlaylistsDropdown(); renderPlEditor();
+        return result;
+    })()`);
+    assert.deepEqual(editor,{actions:3,renameOpened:true,renamed:'Renamed radio',cancelled:true,confirmation:true,removed:true,current:'editor-current',active:'editor-current',rows:1});
+    const untranslated = await main.webContents.executeJavaScript(`(() => { const result = new Set(), walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let node; while (node = walker.nextNode()) { const value = node.textContent.trim(); if (/[А-Яа-яЁё]/.test(value) && !['SCRIPT','STYLE'].includes(node.parentElement.tagName) && value !== 'Русский') result.add(value); } return [...result]; })()`);
+    fs.writeFileSync(path.join(output, 'untranslated.json'), JSON.stringify(untranslated, null, 2));
+    if (archive) assert.deepEqual(untranslated, [], 'clean packaged English UI contains no untranslated Russian strings');
+    await main.webContents.executeJavaScript(`document.getElementById('settings-fab').click(); document.querySelector('[data-panel="panel-general"]').click();`);
+    await sleep(200);
+    await main.webContents.capturePage().then(image => fs.writeFileSync(path.join(output, 'english.png'), image.toPNG()));
+    const { createAddonStore } = require('../src/main/addons/store');
+    const packages = require('../src/main/addons/package');
+    const store = createAddonStore({ directory: path.join(directory, 'addons'), appVersion: '1.4.0' });
+    const pkg = await packages.packDirectory('addons/examples/language-pack');
+    pkg.manifest.permissions.push('storage.*');
+    pkg.files['locales/en_GB.json'] = JSON.stringify({ ...JSON.parse(pkg.files['locales/en_GB.json']), ...Object.fromEntries(Array.from({length:100},(_,i)=>['test.'+i,'x'.repeat(1024)])) });
+    pkg.files['main.js'] = pkg.files['main.js'].replace('if (api.version !== 2) return;', 'if (api.version !== 2) return; await api.storage.set("language", { locale: api.i18n.locale, name: api.i18n.t("extension.name") });');
+    await store.confirm((await store.preparePackage(pkg)).ticket);
+    await store.setEnabled(pkg.manifest.id, true);
+    await main.webContents.executeJavaScript('addonHost.refresh()');
+    for (let i=0;i<100;i++) { if (await main.webContents.executeJavaScript('noctuneI18n.languages().some(item=>item.locale==="en-GB")')) break; await sleep(100); }
+    assert(await main.webContents.executeJavaScript('noctuneI18n.languages().some(item=>item.locale==="en-GB")'), 'SDK v2 worker registers its language');
+    const stored = JSON.parse(fs.readFileSync(path.join(directory, 'addons/storage/language-pack-demo.json')));
+    assert.deepEqual(stored.language, { locale: 'en', name: 'Language pack example' });
+    const addonList = await store.list(); assert.equal(addonList[0].name, 'Language pack example');
+    const blocked = await packages.packDirectory('addons/examples/language-pack');
+    blocked.manifest.id = 'language-pack-denied'; blocked.manifest.permissions = [];
+    blocked.files['main.js'] = 'NoctuneAddon.define(async api => { await api.i18n.register({locale:"fr",name:"Denied",messages:{}}); });';
+    await store.confirm((await store.preparePackage(blocked)).ticket); await store.setEnabled(blocked.manifest.id, true);
+    await main.webContents.executeJavaScript('addonHost.refresh()');
+    for (let i=0;i<100;i++) { if (await main.webContents.executeJavaScript('addonHost.state("language-pack-denied")?.status === "error"')) break; await sleep(100); }
+    assert.equal(await main.webContents.executeJavaScript('addonHost.state("language-pack-denied")?.status'), 'error');
+    assert.equal(await main.webContents.executeJavaScript('noctuneI18n.languages().some(language=>language.locale==="fr")'), false, 'SDK v2 requires explicit language permission');
+    assert.equal(await main.webContents.executeJavaScript('Array.from(document.getElementById("setting-language").options).some(option=>option.value==="en-GB")'), true);
+    await main.webContents.executeJavaScript('noctuneLocale.set({locale:"en-GB",pack:noctuneI18n.getPack("en-GB")})').catch(()=>{});
+    await sleep(1200);
+    assert.equal(await main.webContents.executeJavaScript('noctuneI18n.locale'), 'en-GB');
+    assert.equal(await main.webContents.executeJavaScript('noctuneI18n.t("appearance.accent.label")'), 'Accent colour');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'config.json'))).language, 'en-GB');
+    await store.setEnabled(pkg.manifest.id, false);
+    await main.webContents.executeJavaScript('addonHost.refresh()').catch(()=>{});
+    await sleep(1200);
+    assert.equal(await main.webContents.executeJavaScript('noctuneI18n.locale'), 'en');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'config.json'))).language, 'en');
+    // Persist through the real privileged bridge; all windows reload from one preference.
+    await main.webContents.executeJavaScript('document.getElementById("setting-language-button").click(); document.querySelector("#language-menu [data-locale=ru]").click()').catch(() => {});
+    await sleep(1200);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(directory, 'config.json'))).language, 'ru');
+    const changed = await main.webContents.executeJavaScript('({lang:document.documentElement.lang,label:document.querySelector(\'label[for="setting-language-button"]\').textContent})');
+    assert.equal(changed.lang, 'ru'); assert.equal(changed.label, 'Язык интерфейса');
+    fs.writeFileSync(path.join(output, 'errors.json'), JSON.stringify(errors, null, 2));
+    assert.deepEqual(errors, [], 'no renderer errors');
+    fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify({ passed: true, checks: ['English startup', 'real preload', 'settings', 'repeat cycle', 'persistent Russian switch'], errors }, null, 2));
+    clearTimeout(timeout); app.exit(0);
+})().catch(error => { console.error(error, errors); app.exit(1); });

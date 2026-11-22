@@ -40,7 +40,7 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
     const applications = path.join(dataHome, 'applications');
     const icons = path.join(dataHome, 'icons', 'hicolor', '512x512', 'apps');
     const executable = env.APPIMAGE || app.getPath('exe');
-    if (!path.isAbsolute(executable)) throw new Error('Не удалось определить путь к приложению.');
+    if (!path.isAbsolute(executable)) throw new Error((globalThis.noctuneI18n?.t("systemIntegration.couldNotDetermineApplicationPath", {}) ?? "Не удалось определить путь к приложению."));
     const icon = path.join(icons, 'com.noctune.player.png');
     await fs.mkdir(applications, { recursive: true });
     await fs.mkdir(icons, { recursive: true });
@@ -50,7 +50,7 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
     await fs.mkdir(path.join(mime, 'packages'), { recursive: true });
     await fs.writeFile(path.join(mime, 'packages', 'com.noctune.player.xml'), THEME_MIME_XML, 'utf8');
     await run('update-mime-database', [mime], { timeout: 10000 }).catch(error => {
-      if (error.code === 'ENOENT') throw new Error('Не найден update-mime-database. Установите пакет shared-mime-info для распознавания .noctheme и .noctaddon.');
+      if (error.code === 'ENOENT') throw new Error((globalThis.noctuneI18n?.t("systemIntegration.updateMimeDatabaseNotFoundInstallSharedMimeInfoToRecognizeNocthemeAndNoctaddonFiles", {}) ?? "Не найден update-mime-database. Установите пакет shared-mime-info для распознавания .noctheme и .noctaddon."));
       throw error;
     });
     // Optional utility: desktop environments can read the entry without it.
@@ -60,27 +60,27 @@ function createSystemIntegration({ app, shell, iconPath, platform = process.plat
   return {
     async apply(action) {
       try {
-        if (!['register', 'default'].includes(action)) throw new Error('Неизвестное действие.');
-        if (!app.isPackaged) throw new Error('Системная интеграция доступна в установленной или распакованной сборке приложения.');
+        if (!['register', 'default'].includes(action)) throw new Error((globalThis.noctuneI18n?.t("systemIntegration.unknownAction", {}) ?? "Неизвестное действие."));
+        if (!app.isPackaged) throw new Error((globalThis.noctuneI18n?.t("systemIntegration.systemIntegrationIsAvailableInInstalledOrUnpackedApplicationBuilds", {}) ?? "Системная интеграция доступна в установленной или распакованной сборке приложения."));
         if (platform === 'win32') {
           await registerWindowsAudio({ executable: app.getPath('exe'), run, env });
-          if (action === 'register') return { ok: true, message: 'Музыкальные форматы добавлены в «Открыть с помощью» и контекстное меню Noctune. Приложение по умолчанию не изменено.' };
+          if (action === 'register') return { ok: true, message: (globalThis.noctuneI18n?.t("systemIntegration.musicFormatsAddedToOpenWithAndTheNoctuneContextMenuTheDefaultApplicationIsUnchanged", {}) ?? "Музыкальные форматы добавлены в «Открыть с помощью» и контекстное меню Noctune. Приложение по умолчанию не изменено.") };
           await shell.openExternal('ms-settings:defaultapps');
-          return { ok: true, message: 'Выберите Noctune в настройках Windows и назначьте нужные музыкальные форматы.' };
+          return { ok: true, message: (globalThis.noctuneI18n?.t("systemIntegration.selectNoctuneInWindowsSettingsAndAssignTheDesiredMusicFormats", {}) ?? "Выберите Noctune в настройках Windows и назначьте нужные музыкальные форматы.") };
         }
-        if (platform !== 'linux') throw new Error('Эта платформа не поддерживается.');
+        if (platform !== 'linux') throw new Error((globalThis.noctuneI18n?.t("systemIntegration.thisPlatformIsNotSupported", {}) ?? "Эта платформа не поддерживается."));
         await registerLinux();
-        if (action === 'register') return { ok: true, message: 'Noctune добавлен в меню «Открыть с помощью».' };
+        if (action === 'register') return { ok: true, message: (globalThis.noctuneI18n?.t("systemIntegration.noctuneAddedToTheOpenWithMenu", {}) ?? "Noctune добавлен в меню «Открыть с помощью».") };
         await run('xdg-mime', ['default', DESKTOP_ID, ...FILE_MIME_TYPES], { timeout: 15000 });
         const results = await Promise.all(FILE_MIME_TYPES.map(async type => {
           const { stdout } = await run('xdg-mime', ['query', 'default', type], { timeout: 10000 });
           return stdout.trim() === DESKTOP_ID;
         }));
-        if (results.some(value => !value)) throw new Error('Окружение рабочего стола не применило все ассоциации. Выберите Noctune через свойства аудиофайла → «Открыть с помощью».');
-        return { ok: true, message: 'Noctune назначен приложением по умолчанию для MP3, WAV, OGG, M4A, FLAC, тем .noctheme и расширений .noctaddon.' };
+        if (results.some(value => !value)) throw new Error((globalThis.noctuneI18n?.t("systemIntegration.theDesktopEnvironmentDidNotApplyAllAssociationsSelectNoctuneInTheAudioFilePropertiesOpenWith", {}) ?? "Окружение рабочего стола не применило все ассоциации. Выберите Noctune через свойства аудиофайла → «Открыть с помощью»."));
+        return { ok: true, message: (globalThis.noctuneI18n?.t("systemIntegration.noctuneSetAsTheDefaultForMp3WavOggM4aFlacNocthemeThemesAndNoctaddonExtensions", {}) ?? "Noctune назначен приложением по умолчанию для MP3, WAV, OGG, M4A, FLAC, тем .noctheme и расширений .noctaddon.") };
       } catch (error) {
         const message = error.code === 'ENOENT'
-          ? 'Не найден xdg-mime. Установите пакет xdg-utils или выберите Noctune через свойства аудиофайла.'
+          ? (globalThis.noctuneI18n?.t("systemIntegration.xdgMimeNotFoundInstallXdgUtilsOrSelectNoctuneInTheAudioFileProperties", {}) ?? "Не найден xdg-mime. Установите пакет xdg-utils или выберите Noctune через свойства аудиофайла.")
           : error.message;
         return { ok: false, message };
       }

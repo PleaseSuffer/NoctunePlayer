@@ -5,7 +5,7 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
     const sessions = new Map();
     function session(event) {
         const entry = sessions.get(event.sender);
-        if (!entry || event.senderFrame !== entry.window.webContents.mainFrame) throw new Error('Недоступно для этого окна');
+        if (!entry || event.senderFrame !== entry.window.webContents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
         return entry;
     }
     ipcMain.handle('theme-install:details', async event => {
@@ -15,7 +15,7 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
     });
     ipcMain.handle('theme-install:confirm', async event => {
         const entry = session(event);
-        if (entry.installing) return { ok: false, error: 'Установка уже выполняется' };
+        if (entry.installing) return { ok: false, error: (globalThis.noctuneI18n?.t("themeInstaller.installationAlreadyInProgress", {}) ?? "Установка уже выполняется") };
         entry.installing = true;
         try {
             const imported = await store.installPackage(entry.theme);
@@ -28,7 +28,7 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
             return { ok: true };
         } catch (error) {
             entry.installing = false;
-            return { ok: false, error: 'Не удалось установить тему: ' + error.message };
+            return { ok: false, error: (globalThis.noctuneI18n?.t("themeInstaller.couldNotInstallTheme", {}) ?? "Не удалось установить тему: ") + error.message };
         }
     });
     ipcMain.on('theme-install:cancel', event => {
@@ -41,7 +41,7 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
             const theme = await readPackage(file);
             return new Promise((resolve, reject) => {
                 const window = new BrowserWindow({
-                    title: 'Установка темы — Noctune', width: 640, height: 740,
+                    title: (globalThis.noctuneI18n?.t("themeInstall.installThemeNoctune", {}) ?? "Установка темы — Noctune"), width: 640, height: 740,
                     minWidth: 520, minHeight: 640, show: false, backgroundColor: '#15151b', icon,
                     autoHideMenuBar: true,
                     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true,

@@ -4,12 +4,12 @@ NoctuneAddon.define(async api => {
     const serialize=action=>{const result=work.then(action);work=result.catch(()=>{});return result;};
     const notify=async message=>{try{await api.notify(message);}catch(_){}};
     function minute(value) {
-        if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))throw new Error('Укажите время в формате ЧЧ:ММ, например 07:00.');
+        if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))throw new Error(api.i18n.t("errors.invalidTime"));
         const [hours,minutes]=value.split(':').map(Number);return hours*60+minutes;
     }
     function currentPeriod() {
         const day=minute(settings.dayStart),night=minute(settings.nightStart),now=new Date(),time=now.getHours()*60+now.getMinutes();
-        if(day===night)throw new Error('Начало дня и ночи должны различаться.');
+        if(day===night)throw new Error(api.i18n.t("errors.identicalStartTimes"));
         return (day<night?time>=day&&time<night:time>=day||time<night)?'day':'night';
     }
     async function release() {
@@ -27,11 +27,11 @@ NoctuneAddon.define(async api => {
             const wallpaper=settings.wallpapers?settings[next+'Wallpaper']:'';
             const wallpaperKey=next+':'+wallpaper;
             if(forceWallpaper||lastWallpaper!==wallpaperKey){
-                if(wallpaper){const items=await api.backgrounds.list();if(!items.some(item=>item.id===wallpaper))throw new Error('Выбранные обои недоступны. Выберите другой фон в настройках Dusk.');}
+                if(wallpaper){const items=await api.backgrounds.list();if(!items.some(item=>item.id===wallpaper))throw new Error(api.i18n.t("errors.wallpaperUnavailable"));}
                 await api.backgrounds.override({id:wallpaper||null});lastWallpaper=wallpaperKey;
             }
             period=next;
-            if(!found&&lastError!==chosen){lastError=chosen;await notify('Выбранная схема недоступна. Временно используется '+(next==='day'?'светлое':'тёмное')+' оформление. Включите расширение с нужной схемой.');}
+            if(!found&&lastError!==chosen){lastError=chosen;await notify(api.i18n.t("warnings.schemeUnavailable")+(next==='day'?api.i18n.t("appearance.light"):api.i18n.t("appearance.dark"))+api.i18n.t("warnings.enableSchemeProviderSuffix"));}
             else if(found)lastError=null;
         } catch(error){
             if(!/обои/.test(error.message))await release();
@@ -50,6 +50,6 @@ NoctuneAddon.define(async api => {
         refreshTimer=setTimeout(()=>serialize(()=>apply(true,false)).catch(()=>{}),250);
     });
     api.onCommand('apply-now',()=>serialize(async()=>{await apply(true);schedule();}));
-    api.onCommand('schedule-status',()=>serialize(async()=>{await notify(!settings.automatic?'Расписание выключено.':period==='day'?'Сейчас действует дневное оформление.':period==='night'?'Сейчас действует ночное оформление.':'Расписание ожидает корректных настроек.');}));
+    api.onCommand('schedule-status',()=>serialize(async()=>{await notify(!settings.automatic?api.i18n.t("status.scheduleDisabled"):period==='day'?api.i18n.t("status.dayActive"):period==='night'?api.i18n.t("status.nightActive"):api.i18n.t("status.invalidSchedule"));}));
     await apply(); schedule();
 });

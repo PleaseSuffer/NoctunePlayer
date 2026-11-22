@@ -9,7 +9,7 @@ NoctuneAddon.define(async api => {
     function parsePalette(value) {
         const colors = String(value).trim().split(/[\s,;]+/).filter(Boolean);
         if (colors.length < 2 || colors.length > 12 || colors.some(color => !/^#(?:[a-f\d]{3}|[a-f\d]{6})$/i.test(color))) {
-            throw new Error('Укажите от 2 до 12 цветов в формате #RRGGBB или #RGB через запятую.');
+            throw new Error(api.i18n.t("errors.invalidPalette"));
         }
         return colors.map(color => color.length === 4 ? '#' + [...color.slice(1)].map(part => part + part).join('') : color.toLowerCase());
     }
@@ -55,7 +55,7 @@ NoctuneAddon.define(async api => {
         const message = validatePalette();
         if (message && settings.mode === 'custom' && reportedInvalid !== settings.colors) {
             reportedInvalid = settings.colors;
-            await notify(message + ' Используется последняя корректная палитра.');
+            await notify(message + api.i18n.t("warnings.lastValidPalette"));
         }
     }
     function advance(now) {
@@ -70,7 +70,7 @@ NoctuneAddon.define(async api => {
     api.onCommand('restart-cycle', () => { phase = 0; lastTime = performance.now(); dirty = true; });
     api.onCommand('check-palette', async () => {
         const error = validatePalette();
-        await notify(error || `Палитра готова: ${custom.length} цветов. Выберите режим «Свои цвета».`);
+        await notify(error || api.i18n.t("notifications.paletteReady",{p0:(custom.length)}));
     });
     await reportPaletteError();
     async function tick() {

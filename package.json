@@ -3,7 +3,7 @@
   "displayName": "Noctune",
   "productName": "Noctune",
   "desktopName": "com.noctune.player.desktop",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "main": "src/main/index.js",
   "devDependencies": {
     "electron": "^42.2.0",
@@ -29,6 +29,7 @@
       "src/preload/**/*.js",
       "src/renderer/**/*.{js,html,css}",
       "src/shared/**/*.{js,css}",
+      "src/shared/locales/*.json",
       "addons/catalog/official.json",
       "themes/builtin/**/{manifest.json,scene.js}",
       "themes/builtin/**/assets/**/*.{png,jpg,jpeg,webp}",

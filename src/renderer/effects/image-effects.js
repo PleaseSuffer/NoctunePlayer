@@ -2,48 +2,48 @@
     const defaults = { enabled: false, contours: true, waves: false, highlights: false, sparks: false, ripple: false, chromatic: false, strength: 1 };
     // [minimum, maximum, default, step, label, unit]
     const parameters = {
-        contoursStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
-        wavesStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
-        highlightsStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
-        sparksStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
-        rippleStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
-        chromaticStrength: [0, 2, 1, .1, 'Интенсивность', '×'],
-        contoursThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
-        contoursGain: [.2, 3, 1.4, .1, 'Яркость свечения', '×'],
-        contoursResponse: [0, 100, 40, 1, 'Доля средних и высоких частот', '%'],
-        contoursDecay: [60, 800, 180, 10, 'Затухание', ' мс'],
-        wavesThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
-        wavesLimit: [1, 8, 4, 1, 'Одновременные волны', ''],
-        wavesGain: [.2, 3, 1.3, .1, 'Яркость волны', '×'],
-        wavesSensitivity: [.5, 3, 1.5, .1, 'Чувствительность к ударам', '×'],
-        wavesSpeed: [.15, 1.2, .45, .05, 'Скорость волны', ''],
-        wavesWidth: [.02, .2, .07, .01, 'Ширина волны', ''],
-        highlightsThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
-        highlightsGain: [.2, 3, 1.4, .1, 'Яркость вспышек', '×'],
-        highlightsResponse: [0, 100, 75, 1, 'Доля средних и высоких частот', '%'],
-        highlightsDecay: [60, 800, 140, 10, 'Затухание', ' мс'],
-        sparksThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
-        sparksSensitivity: [.5, 3, 1.5, .1, 'Чувствительность к ударам', '×'],
-        sparksLimit: [20, 240, 160, 1, 'Одновременные искры', ''],
-        sparksCount: [2, 40, 14, 1, 'Искр на удар', ''],
-        sparksSize: [6, 40, 20, 1, 'Размер искр', ' px'],
-        sparksLifetime: [.3, 2.5, 1, .1, 'Время жизни', ' с'],
-        rippleThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
-        rippleLimit: [1, 8, 4, 1, 'Одновременная рябь', ''],
-        rippleGain: [.2, 3, 1.2, .1, 'Сила искажения', '×'],
-        rippleSensitivity: [.5, 3, 1.5, .1, 'Чувствительность к ударам', '×'],
-        rippleSpeed: [.15, 1.2, .45, .05, 'Скорость ряби', ''],
-        rippleWidth: [.02, .2, .08, .01, 'Ширина ряби', ''],
-        chromaticThreshold: [0, .5, 0, .02, 'Игнорировать тихие моменты', ''],
-        chromaticDistance: [2, 40, 14, 1, 'Смещение каналов', ' px'],
-        chromaticResponse: [0, 100, 65, 1, 'Доля средних и высоких частот', '%'],
-        chromaticDecay: [60, 800, 160, 10, 'Затухание', ' мс'],
-        chromaticAngle: [-180, 180, 0, 1, 'Направление смещения', '°']
+        contoursStrength: [0, 2, 1, .1, (globalThis.noctuneI18n?.t("settings.player.intensity", {}) ?? "Интенсивность"), '×'],
+        wavesStrength: [0, 2, 1, .1, (globalThis.noctuneI18n?.t("settings.player.intensity", {}) ?? "Интенсивность"), '×'],
+        highlightsStrength: [0, 2, 1, .1, (globalThis.noctuneI18n?.t("settings.player.intensity", {}) ?? "Интенсивность"), '×'],
+        sparksStrength: [0, 2, 1, .1, (globalThis.noctuneI18n?.t("settings.player.intensity", {}) ?? "Интенсивность"), '×'],
+        rippleStrength: [0, 2, 1, .1, (globalThis.noctuneI18n?.t("settings.player.intensity", {}) ?? "Интенсивность"), '×'],
+        chromaticStrength: [0, 2, 1, .1, (globalThis.noctuneI18n?.t("settings.player.intensity", {}) ?? "Интенсивность"), '×'],
+        contoursThreshold: [0, .5, 0, .02, (globalThis.noctuneI18n?.t("settings.appearance.ignoreQuietPassages", {}) ?? "Игнорировать тихие моменты"), ''],
+        contoursGain: [.2, 3, 1.4, .1, (globalThis.noctuneI18n?.t("settings.appearance.glowBrightness", {}) ?? "Яркость свечения"), '×'],
+        contoursResponse: [0, 100, 40, 1, (globalThis.noctuneI18n?.t("settings.appearance.midAndHighFrequencyMix", {}) ?? "Доля средних и высоких частот"), '%'],
+        contoursDecay: [60, 800, 180, 10, (globalThis.noctuneI18n?.t("settings.appearance.decay", {}) ?? "Затухание"), (globalThis.noctuneI18n?.t("effects.imageEffects.ms", {}) ?? " мс")],
+        wavesThreshold: [0, .5, 0, .02, (globalThis.noctuneI18n?.t("settings.appearance.ignoreQuietPassages", {}) ?? "Игнорировать тихие моменты"), ''],
+        wavesLimit: [1, 8, 4, 1, (globalThis.noctuneI18n?.t("settings.appearance.simultaneousWaves", {}) ?? "Одновременные волны"), ''],
+        wavesGain: [.2, 3, 1.3, .1, (globalThis.noctuneI18n?.t("settings.appearance.waveBrightness", {}) ?? "Яркость волны"), '×'],
+        wavesSensitivity: [.5, 3, 1.5, .1, (globalThis.noctuneI18n?.t("settings.appearance.beatSensitivity", {}) ?? "Чувствительность к ударам"), '×'],
+        wavesSpeed: [.15, 1.2, .45, .05, (globalThis.noctuneI18n?.t("settings.appearance.waveSpeed", {}) ?? "Скорость волны"), ''],
+        wavesWidth: [.02, .2, .07, .01, (globalThis.noctuneI18n?.t("settings.appearance.waveWidth", {}) ?? "Ширина волны"), ''],
+        highlightsThreshold: [0, .5, 0, .02, (globalThis.noctuneI18n?.t("settings.appearance.ignoreQuietPassages", {}) ?? "Игнорировать тихие моменты"), ''],
+        highlightsGain: [.2, 3, 1.4, .1, (globalThis.noctuneI18n?.t("settings.appearance.flashBrightness", {}) ?? "Яркость вспышек"), '×'],
+        highlightsResponse: [0, 100, 75, 1, (globalThis.noctuneI18n?.t("settings.appearance.midAndHighFrequencyMix", {}) ?? "Доля средних и высоких частот"), '%'],
+        highlightsDecay: [60, 800, 140, 10, (globalThis.noctuneI18n?.t("settings.appearance.decay", {}) ?? "Затухание"), (globalThis.noctuneI18n?.t("effects.imageEffects.ms", {}) ?? " мс")],
+        sparksThreshold: [0, .5, 0, .02, (globalThis.noctuneI18n?.t("settings.appearance.ignoreQuietPassages", {}) ?? "Игнорировать тихие моменты"), ''],
+        sparksSensitivity: [.5, 3, 1.5, .1, (globalThis.noctuneI18n?.t("settings.appearance.beatSensitivity", {}) ?? "Чувствительность к ударам"), '×'],
+        sparksLimit: [20, 240, 160, 1, (globalThis.noctuneI18n?.t("settings.appearance.simultaneousSparks", {}) ?? "Одновременные искры"), ''],
+        sparksCount: [2, 40, 14, 1, (globalThis.noctuneI18n?.t("settings.appearance.sparksPerBeat", {}) ?? "Искр на удар"), ''],
+        sparksSize: [6, 40, 20, 1, (globalThis.noctuneI18n?.t("settings.appearance.sparkSize", {}) ?? "Размер искр"), ' px'],
+        sparksLifetime: [.3, 2.5, 1, .1, (globalThis.noctuneI18n?.t("settings.appearance.lifetime", {}) ?? "Время жизни"), (globalThis.noctuneI18n?.t("effects.imageEffects.s", {}) ?? " с")],
+        rippleThreshold: [0, .5, 0, .02, (globalThis.noctuneI18n?.t("settings.appearance.ignoreQuietPassages", {}) ?? "Игнорировать тихие моменты"), ''],
+        rippleLimit: [1, 8, 4, 1, (globalThis.noctuneI18n?.t("settings.appearance.simultaneousRipples", {}) ?? "Одновременная рябь"), ''],
+        rippleGain: [.2, 3, 1.2, .1, (globalThis.noctuneI18n?.t("settings.appearance.distortionStrength", {}) ?? "Сила искажения"), '×'],
+        rippleSensitivity: [.5, 3, 1.5, .1, (globalThis.noctuneI18n?.t("settings.appearance.beatSensitivity", {}) ?? "Чувствительность к ударам"), '×'],
+        rippleSpeed: [.15, 1.2, .45, .05, (globalThis.noctuneI18n?.t("settings.appearance.rippleSpeed", {}) ?? "Скорость ряби"), ''],
+        rippleWidth: [.02, .2, .08, .01, (globalThis.noctuneI18n?.t("settings.appearance.rippleWidth", {}) ?? "Ширина ряби"), ''],
+        chromaticThreshold: [0, .5, 0, .02, (globalThis.noctuneI18n?.t("settings.appearance.ignoreQuietPassages", {}) ?? "Игнорировать тихие моменты"), ''],
+        chromaticDistance: [2, 40, 14, 1, (globalThis.noctuneI18n?.t("settings.appearance.channelOffset", {}) ?? "Смещение каналов"), ' px'],
+        chromaticResponse: [0, 100, 65, 1, (globalThis.noctuneI18n?.t("settings.appearance.midAndHighFrequencyMix", {}) ?? "Доля средних и высоких частот"), '%'],
+        chromaticDecay: [60, 800, 160, 10, (globalThis.noctuneI18n?.t("settings.appearance.decay", {}) ?? "Затухание"), (globalThis.noctuneI18n?.t("effects.imageEffects.ms", {}) ?? " мс")],
+        chromaticAngle: [-180, 180, 0, 1, (globalThis.noctuneI18n?.t("settings.appearance.offsetDirection", {}) ?? "Направление смещения"), '°']
     };
     const parameterDefaults = Object.fromEntries(Object.entries(parameters).map(([key, spec]) => [key, spec[2]]));
     const response = window.createImageAudioResponse();
     const luminousEffects = ['contours', 'waves', 'highlights', 'sparks'];
-    const colorModes = { accent: 'От акцента', custom: 'Свой цвет', gradient: 'Градиент темы' };
+    const colorModes = { accent: (globalThis.noctuneI18n?.t("settings.appearance.accent", {}) ?? "От акцента"), custom: (globalThis.noctuneI18n?.t("settings.appearance.effects.customColor", {}) ?? "Свой цвет"), gradient: (globalThis.noctuneI18n?.t("settings.appearance.themeGradient", {}) ?? "Градиент темы") };
     const colorDefaults = () => Object.fromEntries(luminousEffects.map(key => [key, { mode: 'accent', custom: '#4a90e2' }]));
     const pulses = Object.fromEntries(['waves', 'sparks', 'ripple'].map(key => [key, window.createImagePulsePool()]));
     const waveUniforms = new Float32Array(32), rippleUniforms = new Float32Array(32);
@@ -203,7 +203,7 @@
     function createWorker() {
         if (worker) return;
         worker = new Worker(new URL('effects/image-mask-worker.js', document.baseURI));
-        worker.onerror = () => { status.textContent = previewStatus.textContent = 'Не удалось подготовить маску изображения'; };
+        worker.onerror = () => { status.textContent = previewStatus.textContent = (globalThis.noctuneI18n?.t("effects.imageEffects.couldNotPrepareImageMask", {}) ?? "Не удалось подготовить маску изображения"); };
         worker.onmessage = event => {
             const message = event.data;
             if (message.type === 'base') {
@@ -216,10 +216,10 @@
                 disposeMasks();
                 sharp = message.sharp; glow = message.glow; points = message.points;
                 if (gl && program) { uploadTexture(1, sharp); uploadTexture(2, glow); }
-                status.textContent = gpuFailed ? 'Упрощённая отрисовка эффектов' : '';
+                status.textContent = gpuFailed ? (globalThis.noctuneI18n?.t("effects.imageEffects.simplifiedEffectRendering", {}) ?? "Упрощённая отрисовка эффектов") : '';
                 previewStatus.textContent = '';
                 drawPreview(); dirty = true;
-            } else if (message.type === 'error') status.textContent = previewStatus.textContent = 'Не удалось подготовить маску изображения';
+            } else if (message.type === 'error') status.textContent = previewStatus.textContent = (globalThis.noctuneI18n?.t("effects.imageEffects.couldNotPrepareImageMask", {}) ?? "Не удалось подготовить маску изображения");
         };
     }
     function prepareMask() {
@@ -231,7 +231,7 @@
         if (source) { if (!sharp && base) { createWorker(); prepareMask(); } return; }
         if (loading || !file || !staticImage) return loading;
         const token = generation, selectedFile = file;
-        status.textContent = previewStatus.textContent = 'Подготовка маски…';
+        status.textContent = previewStatus.textContent = (globalThis.noctuneI18n?.t("effects.imageEffects.preparingMask", {}) ?? "Подготовка маски…");
         loading = (async () => {
             try {
                 const image = new Image();
@@ -250,7 +250,7 @@
                 if (info.mask) { base = info.mask; bitmap.close(); prepareMask(); }
                 else worker.postMessage({ type: 'analyze', token, bitmap }, [bitmap]);
             } catch (error) {
-                if (token === generation) { status.textContent = previewStatus.textContent = 'Не удалось загрузить изображение для эффектов'; console.error('Image effects:', error); }
+                if (token === generation) { status.textContent = previewStatus.textContent = (globalThis.noctuneI18n?.t("effects.imageEffects.couldNotLoadImageForEffects", {}) ?? "Не удалось загрузить изображение для эффектов"); console.error('Image effects:', error); }
             } finally { if (token === generation) loading = null; }
         })();
         return loading;
@@ -390,7 +390,7 @@
         gl.activeTexture(gl.TEXTURE0 + index); gl.bindTexture(gl.TEXTURE_2D, textures[index]);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
     }
-    gpuCanvas.addEventListener('webglcontextlost', event => { event.preventDefault(); gl = program = null; gpuFailed = true; dirty = true; status.textContent = 'Упрощённая отрисовка эффектов'; });
+    gpuCanvas.addEventListener('webglcontextlost', event => { event.preventDefault(); gl = program = null; gpuFailed = true; dirty = true; status.textContent = (globalThis.noctuneI18n?.t("effects.imageEffects.simplifiedEffectRendering", {}) ?? "Упрощённая отрисовка эффектов"); });
     gpuCanvas.addEventListener('webglcontextrestored', () => { gpuFailed = false; gl = null; initGpu(); if (program && source && sharp) { uploadTexture(0, source); uploadTexture(1, sharp); uploadTexture(2, glow); } dirty = true; });
     function layout() {
         const rect = { width:host.clientWidth, height:host.clientHeight };

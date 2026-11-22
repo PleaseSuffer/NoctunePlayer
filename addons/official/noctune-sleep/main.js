@@ -13,8 +13,8 @@ NoctuneAddon.define(async api => {
         const remaining = deadline - Date.now();
         if (remaining <= 0) {
             deadline = 0; clearTimeout(timer);
-            try { await api.player.pause(); await notify('Таймер завершён. Воспроизведение приостановлено.'); }
-            catch (error) { await notify('Не удалось поставить воспроизведение на паузу: ' + error.message); }
+            try { await api.player.pause(); await notify(api.i18n.t("notifications.timerFinished")); }
+            catch (error) { await notify(api.i18n.t("errors.pauseFailed") + error.message); }
             finally { await release(); }
             return;
         }
@@ -22,22 +22,22 @@ NoctuneAddon.define(async api => {
             if (settings.fade && !fading && remaining <= settings.fadeSeconds * 1000) {
                 await api.audio.gain({gain:0,ramp:remaining/1000}); fading = true;
             }
-        } catch (_) { await notify('Плавное затихание недоступно. Пауза сработает по таймеру.'); }
+        } catch (_) { await notify(api.i18n.t("warnings.fadeUnavailable")); }
         finally { schedule(); }
     }
     async function start() {
         await release(); deadline = Date.now() + settings.minutes * 60000;
-        await notify('Таймер запущен: ' + settings.minutes + ' мин.'); await tick();
+        await notify(api.i18n.t("notifications.timerStarted") + settings.minutes + api.i18n.t("units.minutesAbbreviation")); await tick();
     }
     api.onCommand('start-timer',()=>serialize(start));
-    api.onCommand('cancel-timer',()=>serialize(async()=>{ deadline=0; clearTimeout(timer); await release(); await notify('Таймер отменён.'); }));
+    api.onCommand('cancel-timer',()=>serialize(async()=>{ deadline=0; clearTimeout(timer); await release(); await notify(api.i18n.t("notifications.timerCancelled")); }));
     api.onCommand('extend-timer',()=>serialize(async()=>{
         if (!deadline || deadline <= Date.now()) { await start(); return; }
-        await release(); deadline += 5 * 60000; await notify('К таймеру добавлено 5 минут.'); await tick();
+        await release(); deadline += 5 * 60000; await notify(api.i18n.t("notifications.timerExtended")); await tick();
     }));
     api.onCommand('time-left',()=>serialize(async()=>{
         const seconds = Math.max(0,Math.ceil((deadline-Date.now())/1000));
-        await notify(deadline ? `До паузы: ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}.` : 'Таймер не запущен.');
+        await notify(deadline ? api.i18n.t("notifications.timeRemaining",{p0:(Math.floor(seconds/60)),p1:(String(seconds%60).padStart(2,'0'))}) : api.i18n.t("notifications.timerNotRunning"));
     }));
     api.on('settings.changed',event=>serialize(async()=>{
         const changedFade = settings.fade !== event.values.fade || settings.fadeSeconds !== event.values.fadeSeconds;

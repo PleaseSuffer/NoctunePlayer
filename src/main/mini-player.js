@@ -151,7 +151,7 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
             show: false, frame: false, transparent: true, backgroundColor: '#00000000', hasShadow: false,
             skipTaskbar: true, maximizable: false, fullscreenable: false, autoHideMenuBar: true,
             alwaysOnTop: settings.onTop === 'always' || settings.onTop === 'playing' && state.playing,
-            title: 'Noctune — Мини-плеер', icon,
+            title: (globalThis.noctuneI18n?.t("miniPlayer.noctuneMiniPlayer", {}) ?? "Noctune — Мини-плеер"), icon,
             webPreferences: { preload: path.join(__dirname, '../preload/mini-player.js'), sandbox: true, contextIsolation: true, nodeIntegration: false },
         });
         mini.setMenu(null);
@@ -266,11 +266,11 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
     }
     app.on('before-quit', destroy);
     ipcMain.handle('mini-player:get-settings', async event => {
-        if (!isMain(event) && !isMini(event)) throw Error('Недоступно для этого окна');
+        if (!isMain(event) && !isMini(event)) throw Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
         await ready; return settings;
     });
     ipcMain.handle('mini-player:set-settings', async (event, value) => {
-        if (!isMain(event)) throw Error('Недоступно для этого окна');
+        if (!isMain(event)) throw Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
         await ready;
         const previousTop = settings.onTop;
         settings = normalizeSettings({ ...settings, ...value }); edgeSnap.reset(); dragOrigin = null; persist(); apply(true); reconcile(); watchHover();

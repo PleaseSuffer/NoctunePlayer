@@ -8,7 +8,7 @@
     const mime = file => types[extension(file)] || null;
     function resource(files, file) {
         const item = Object.hasOwn(files, file) ? files[file] : null;
-        if (!mime(file) || !item || item.encoding !== 'base64' || typeof item.data !== 'string') throw new Error('Двоичный ресурс отсутствует: ' + file);
+        if (!mime(file) || !item || item.encoding !== 'base64' || typeof item.data !== 'string') throw new Error((globalThis.noctuneI18n?.t("addonAssets.binaryAssetMissing", {}) ?? "Двоичный ресурс отсутствует: ") + file);
         return { mime: mime(file), base64: item.data, size: item.data.length / 4 * 3 - (item.data.endsWith('==') ? 2 : item.data.endsWith('=') ? 1 : 0) };
     }
     function url(files, file) { const data = resource(files, file); return 'data:' + data.mime + ';base64,' + data.base64; }

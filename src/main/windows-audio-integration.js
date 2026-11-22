@@ -7,7 +7,7 @@ const AUDIO_OPT_IN = 'AudioFileAssociationsEnabled';
 const regString = value => '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
 
 function audioRegistration(executable) {
-    if (!path.win32.isAbsolute(executable) || /[\r\n\0]/.test(executable)) throw new Error('Некорректный путь к приложению.');
+    if (!path.win32.isAbsolute(executable) || /[\r\n\0]/.test(executable)) throw new Error((globalThis.noctuneI18n?.t("windowsAudioIntegration.invalidApplicationPath", {}) ?? "Некорректный путь к приложению."));
     const lines = ['Windows Registry Editor Version 5.00', ''];
     const section = (key, values) => {
         lines.push(`[HKEY_CURRENT_USER\\${key}]`);
@@ -20,7 +20,7 @@ function audioRegistration(executable) {
         const key = `Software\\Classes\\${progId}`;
         section(key, [[null, regString(`Noctune ${extension} audio`)]]);
         section(key + '\\DefaultIcon', [[null, icon]]);
-        section(key + '\\shell\\open', [[null, regString('Открыть в Noctune')]]);
+        section(key + '\\shell\\open', [[null, regString((globalThis.noctuneI18n?.t("windowsAudioIntegration.openInNoctune", {}) ?? "Открыть в Noctune"))]]);
         section(key + '\\shell\\open\\command', [[null, regString(`"${executable}" "%1"`)]]);
         section(`Software\\Classes\\.${extension}\\OpenWithProgids`, [[progId, 'hex(0):']]);
         section('Software\\Noctune\\Capabilities\\FileAssociations', [[`.${extension}`, regString(progId)]]);
@@ -30,8 +30,8 @@ function audioRegistration(executable) {
         section(menu, [['MUIVerb', regString('Noctune')], ['Icon', icon], ['ExtendedSubCommandsKey', regString('Noctune.Commands')]]);
     }
     for (const [key, label, action] of [
-        ['01play', 'Воспроизвести', 'play'], ['02new', 'Открыть в новом плейлисте', 'new-playlist'],
-        ['03add', 'Добавить в плейлист', 'add-playlist'], ['04queue', 'Добавить в очередь', 'enqueue'],
+        ['01play', (globalThis.noctuneI18n?.t("player.interface.play", {}) ?? "Воспроизвести"), 'play'], ['02new', (globalThis.noctuneI18n?.t("windowsAudioIntegration.openInNewPlaylist", {}) ?? "Открыть в новом плейлисте"), 'new-playlist'],
+        ['03add', (globalThis.noctuneI18n?.t("windowsAudioIntegration.addToPlaylist", {}) ?? "Добавить в плейлист"), 'add-playlist'], ['04queue', (globalThis.noctuneI18n?.t("windowsAudioIntegration.addToQueue", {}) ?? "Добавить в очередь"), 'enqueue'],
     ]) {
         const menu = `Software\\Classes\\Noctune.Commands\\shell\\${key}`;
         section(menu, [['MUIVerb', regString(label)], ['Icon', icon], ['MultiSelectModel', regString('Player')]]);

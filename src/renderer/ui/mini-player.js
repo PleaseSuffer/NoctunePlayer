@@ -60,7 +60,7 @@
                 document.querySelector('[data-panel="panel-player"]').click();
                 document.getElementById('mini-player-settings-title').scrollIntoView({ block: 'start' });
             }
-        } catch (error) { console.warn('Команда мини-плеера:', error); }
+        } catch (error) { console.warn((globalThis.noctuneI18n?.t("ui.miniPlayer.miniPlayerCommand", {}) ?? "Команда мини-плеера:"), error); }
         publish(true);
     });
     window.addEventListener('beforeunload', () => clearInterval(timer));

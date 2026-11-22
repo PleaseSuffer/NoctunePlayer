@@ -1,3 +1,4 @@
+const { trySymlink } = require('../helpers/symlink.cjs');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
@@ -12,7 +13,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
     assert.equal(p.compatible(pkg.manifest, '1.4.0'), true);
     assert.equal(p.compatible(pkg.manifest, '1.2.0'), false);
     for (const change of [
-        value => { value.manifest.apiVersion = 2; },
+        value => { value.manifest.apiVersion = 3; },
         value => { value.manifest.permissions.push('filesystem'); },
         value => { value.files['../escape.js'] = ''; },
         value => { value.manifest.entry = 'missing.js'; },
@@ -37,8 +38,12 @@ const clone = value => JSON.parse(JSON.stringify(value));
     const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'noctune-addon-packing-'));
     try {
         await fs.writeFile(path.join(temp, 'manifest.json'), JSON.stringify(pkg.manifest));
-        await fs.symlink(path.resolve('addons/examples/track-info/main.js'), path.join(temp, 'main.js'));
-        await assert.rejects(p.packDirectory(temp));
+        if (await trySymlink(path.resolve('addons/examples/track-info/main.js'), path.join(temp, 'main.js'))) { await assert.rejects(p.packDirectory(temp), /Символические ссылки/); }
+        else {
+            await fs.writeFile(path.join(temp, 'main.js'), '// fixture');
+            await fs.symlink(path.resolve('addons/examples/track-info'), path.join(temp, 'linked-directory'), 'junction');
+            await assert.rejects(p.packDirectory(temp), /Символические ссылки/, 'directory junctions are rejected without requiring file-symlink privileges');
+        }
     } finally { await fs.rm(temp, { recursive: true, force: true }); }
     console.log('PASS: addon manifest/permissions/paths/compatibility, Ed25519 integrity, bounded files and public HTTPS validation.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
