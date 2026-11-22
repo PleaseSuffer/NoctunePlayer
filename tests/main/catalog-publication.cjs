@@ -20,7 +20,9 @@ const {createSceneThemeStore}=require('../../src/main/scene-themes');
    const list=await catalog.list(true);assert.equal(list.source,'network');assert(!list.message);
    for(const entry of list.entries){assert(entry.compatible);assert(!entry.description.startsWith('extension.'));const candidate=await catalog.prepare(entry.id,entry.kind,entry.channel);if(candidate.ticket)store.discard(candidate.ticket);else assert(candidate.theme);}
   }
-  assert.equal(requested.size,10,'both signed catalogs and all eight packages are accessible and valid');
-  console.log('PASS: publication URLs, current signed network snapshots, localized cards, compatibility and all eight package hashes/metadata/install previews.');
+  assert.equal(requested.size,14,'both signed catalogs and all twelve packages are accessible and valid');
+  const community=(await b.list()).entries.filter(entry=>entry.kind==='theme'&&entry.channel==='community');
+  assert.deepEqual(community.map(entry=>entry.id),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light']);
+  console.log('PASS: publication URLs, signed network snapshots, localized cards, community theme order and all twelve package hashes/metadata/install previews.');
  }finally{await fs.rm(root,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

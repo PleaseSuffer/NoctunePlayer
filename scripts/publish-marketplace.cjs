@@ -18,7 +18,13 @@ async function publishMarketplace({root=path.resolve(__dirname,'..'),privateKey,
   // Sources are explicitly separated by provenance. Local experiments are never scanned.
   for (const [relative,kind,channel] of [['themes/official','theme','official'],['themes/community','theme','community'],['addons/community','extension','community']]) {
     let directories;try{directories=await fs.readdir(path.join(root,relative),{withFileTypes:true});}catch(error){if(error.code==='ENOENT')continue;throw error;}
-    for(const directory of directories.sort((a,b)=>a.name.localeCompare(b.name))){
+    let order=[];
+    if(relative==='themes/community'){
+      try{order=JSON.parse(await fs.readFile(path.join(root,relative,'order.json'),'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
+      if(!Array.isArray(order)||order.length>128||new Set(order).size!==order.length||order.some(id=>typeof id!=='string'||!directories.some(item=>item.isDirectory()&&item.name===id)))throw new Error('Некорректный порядок пользовательских тем');
+    }
+    const rank=name=>order.includes(name)?order.indexOf(name):order.length;
+    for(const directory of directories.sort((a,b)=>rank(a.name)-rank(b.name)||a.name.localeCompare(b.name))){
       if(!directory.isDirectory() || directory.isSymbolicLink())continue;
       const source=path.join(root,relative,directory.name);
       let pkg=await (kind==='theme'?themes.packDirectory(source):p.packDirectory(source));

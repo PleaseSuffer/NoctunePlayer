@@ -1,0 +1,20 @@
+Rhodes Island community fan theme for Noctune / Themes API v2.
+
+Tower SVG: https://github.com/Yue-plus/arknights_icons/blob/main/site-icons/logo_rhodes_island.svg
+The repository README identifies site-icons as extracted from https://ak.hypergryph.com/.
+Original artwork and Arknights marks belong to Hypergryph / Yostar.
+
+The theme composes this tower vector with a triangular field and a Rhodes Island
+wordmark, rasterized at 1536 x 1344. This is a custom fan composition, not a claim
+to an unmodified official full-logo SVG.
+
+Lore references:
+https://arknights.wiki.gg/wiki/Rhodes_Island
+https://arknights.wiki.gg/wiki/PRTS
+https://arknights.wiki.gg/wiki/Rhodes_Island_(landship)
+
+PRTS terminal readings, ECG-style animation and counters are decorative UI.
+Source and packages are distributed through the Noctune community theme catalog. Full theme assets are not bundled with the player.
+
+Motto placement / triangular emblem reference: https://arknights.wiki.gg/images/c/c8/Rhodes_Island.png
+The side inscriptions are rendered separately so they remain readable during signal glitches.

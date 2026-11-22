@@ -1,0 +1,5 @@
+Endfield Industries logo
+Vector source: https://github.com/Yue-plus/endfield_icons/blob/main/svg/endfield-industries.svg
+Repository: https://github.com/Yue-plus/endfield_icons (MIT)
+Original game mark: Hypergryph / Gryphline. Unofficial fan theme.
+PNG rasterized from SVG at 1536 x 1344 for Themes API v2.

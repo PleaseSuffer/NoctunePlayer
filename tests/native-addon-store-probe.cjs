@@ -105,7 +105,10 @@ let networkCalls=0, offline=false;
                 await run(shop,`document.getElementById('tab-${section}').click();document.getElementById('tab-${tab}').click()`);await delay(180);
                 assert.equal(await run(shop,`document.getElementById('community-actions').hidden`),tab!=='community');
                 assert.equal(await run(shop,`(()=>{const cards=[...document.querySelectorAll('.store-card')];return cards.every(a=>cards.every(b=>Math.abs(a.offsetTop-b.offsetTop)>1||Math.abs(a.getBoundingClientRect().height-b.getBoundingClientRect().height)<1));})()`),true,'cards in a row have equal height');
-                if(section==='themes'&&tab==='community')assert.equal(await run(shop,`document.getElementById('empty').textContent`),'В этом разделе пока нет тем.');
+                if(section==='themes'&&tab==='community'){
+                    assert.deepEqual(await run(shop,`[...document.querySelectorAll('.store-card')].map(card=>card.dataset.addonId)`),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light']);
+                    assert.equal(await run(shop,`!!document.querySelector('.card-author .lucide-badge-check')`),false);
+                }
                 assert.equal(await run(shop,`document.documentElement.scrollWidth>innerWidth`),false);
                 await shop.webContents.capturePage();
                 fs.writeFileSync(path.join(screenshots,`${theme}-${section}-${tab}-${size[0]}.png`),(await shop.webContents.capturePage()).toPNG());

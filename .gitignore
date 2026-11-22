@@ -8,7 +8,6 @@ refs/
 tests/.artifacts/
 .artifacts/
 themes/user/*
-!themes/user/README.md
 themes/custom/
 
 # Local research, previews, credentials and build output

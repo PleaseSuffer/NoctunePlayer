@@ -1,0 +1,103 @@
+{
+  "apiVersion": 2,
+  "id": "rhodes-island-dark",
+  "name": "Rhodes Island / PRTS Black",
+  "description": "Три стороны логотипа — три диапазона частот. Терра, терминал PRTS, тактическая телеметрия и частицы оригиния.",
+  "author": "Noctune · fan theme",
+  "version": "1.2.1",
+  "width": 1920,
+  "height": 1080,
+  "preview": "preview",
+  "palette": {
+    "background": "#0b131c",
+    "accent": "#46c8ed",
+    "gradient": [
+      "#46c8ed",
+      "#81a9c4",
+      "#e4aa64"
+    ]
+  },
+  "capabilities": {
+    "visualizer": "bars",
+    "visualizers": [
+      "bars"
+    ],
+    "motion": true
+  },
+  "runtimeRequirements": {
+    "dom": false
+  },
+  "quality": "balanced",
+  "parameterSchema": {
+    "amplitude": {
+      "type": "slider",
+      "label": "Высота спектра",
+      "default": 1,
+      "min": 0.2,
+      "max": 2,
+      "step": 0.1
+    },
+    "glitch": {
+      "type": "slider",
+      "label": "Глитч-эффекты",
+      "default": 0.6,
+      "min": 0,
+      "max": 1,
+      "step": 0.1
+    },
+    "particles": {
+      "type": "toggle",
+      "label": "Частицы",
+      "default": true
+    },
+    "contours": {
+      "type": "toggle",
+      "label": "Топографические линии",
+      "default": true
+    },
+    "scan": {
+      "type": "toggle",
+      "label": "Сканирующий луч",
+      "default": true
+    },
+    "motto": {
+      "type": "toggle",
+      "label": "Девиз на эмблеме",
+      "default": true
+    },
+    "textFloat": {
+      "type": "slider",
+      "label": "Плавание текста",
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "parallax": {
+      "type": "slider",
+      "label": "Глубина параллакса",
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "animatedText": {
+      "type": "toggle",
+      "label": "Анимированная телеметрия",
+      "default": true
+    },
+    "backgroundMotion": {
+      "type": "slider",
+      "label": "Движение фона",
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    }
+  },
+  "assets": {
+    "logo": "assets/logo.png",
+    "preview": "assets/preview.png"
+  },
+  "script": "scene.js"
+}
