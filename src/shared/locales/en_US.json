@@ -1694,5 +1694,6 @@
   "permissions.notifications.dismiss": "Dismiss own notifications",
   "permissions.hotkeys.list": "List own registered hotkey commands",
   "permissions.hotkeys.unregister": "Unregister own hotkey commands",
-  "permissions.interface.invalid": "Invalid interface request or missing permission"
+  "permissions.interface.invalid": "Invalid interface request or missing permission",
+  "extensions.network.requestTimedOut": "The server did not respond within the allotted time"
 }

@@ -63,7 +63,7 @@ const { fetchText } = require('../../src/main/addons/network');
         const controller = new AbortController(); controller.abort(); address = '1.1.1.1';
         await assert.rejects(fetchText('https://publisher.example/ok', { signal: controller.signal }), /отменён/);
         dns.lookup = () => new Promise(() => {});
-        await assert.rejects(fetchText('https://publisher.example/ok', { deadline: Date.now() + 20 }), /15 секунд/);
+        await assert.rejects(fetchText('https://publisher.example/ok', { deadline: Date.now() + 20 }), /отведённое время/);
         console.log('PASS: addon network pins validated DNS, blocks private redirects and cross-origin escapes, bounds redirects/body and rejects HTTP/compression/aborted requests without credentials.');
     } finally { https.get = originalGet; dns.lookup = originalLookup; }
 })().catch(error => { console.error(error); process.exitCode = 1; });

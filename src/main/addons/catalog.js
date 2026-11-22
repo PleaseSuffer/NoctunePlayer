@@ -83,7 +83,7 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
     lastAttempt = Date.now();
     pending = (async () => {
       try {
-        const next = validate(JSON.parse(await fetch(CATALOG_URL, { limit: LIMIT, headers: { 'Cache-Control': 'no-cache' } })));
+        const next = validate(JSON.parse(await fetch(CATALOG_URL, { limit: LIMIT, deadline: Date.now() + 60000, headers: { 'Cache-Control': 'no-cache' } })));
         for (const entry of next.entries) {
           const old = snapshot.entries.find(item=>item.id===entry.id);
           if (old && (entry.revision < old.revision || p.compareVersions(entry.version,old.version)<0 || entry.revision===old.revision && (entry.sha256!==old.sha256 || p.canonical(fields.map(field=>entry[field]))!==p.canonical(fields.map(field=>old[field]))))) throw new Error((globalThis.noctuneI18n?.t("extensions.catalog.catalogModifiesAPublishedExtensionVersion", {}) ?? "Каталог изменяет опубликованную версию расширения"));
@@ -95,7 +95,7 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
         finally { await fs.rm(temp, { force: true }); }
         snapshot = next; source = 'network';
         lastResult = { message: '' };
-      } catch (_) { lastResult = { message: (globalThis.noctuneI18n?.t("extensions.catalog.couldNotVerifyTheGithubCatalogShowingASavedCopy", {}) ?? "Не удалось проверить каталог GitHub. Показана сохранённая копия.") }; }
+      } catch (error) { lastResult = { message: (globalThis.noctuneI18n?.t("extensions.catalog.couldNotVerifyTheGithubCatalogShowingASavedCopy", {}) ?? "Не удалось проверить каталог GitHub. Показана сохранённая копия.") + " " + String(error.message).replace(/https?:\/\/\S+/g,"GitHub").slice(0,240) }; }
       return lastResult;
     })().finally(() => { pending = null; });
     return pending;

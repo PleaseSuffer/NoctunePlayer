@@ -64,12 +64,12 @@ function createMarketplaceCatalog({ directory, appVersion, store, themeStore, fe
     lastAttempt = Date.now();
     pending = (async()=>{
       try {
-        const next = accept(validate(JSON.parse(await fetch(URL,{limit:LIMIT,headers:{'Cache-Control':'no-cache'}}))));
+        const next = accept(validate(JSON.parse(await fetch(URL,{limit:LIMIT,deadline:Date.now()+60000,headers:{'Cache-Control':'no-cache'}}))));
         await fs.mkdir(path.dirname(file()),{recursive:true});
         const temp = file()+'.'+crypto.randomUUID()+'.tmp';
         try { await fs.writeFile(temp,p.canonical(next),{mode:0o600}); await fs.rename(temp,file()); } finally { await fs.rm(temp,{force:true}); }
         snapshot = next; source = 'network'; message = '';
-      } catch (_) { message = globalThis.noctuneI18n?.t('extensions.catalog.couldNotVerifyTheGithubCatalogShowingASavedCopy') ?? 'Не удалось проверить каталог GitHub. Показана сохранённая копия.'; }
+      } catch (error) { message = globalThis.noctuneI18n?.t('extensions.catalog.couldNotVerifyTheGithubCatalogShowingASavedCopy') ?? 'Не удалось проверить каталог GitHub. Показана сохранённая копия.'; message += ' '+String(error.message).replace(/https?:\/\/\S+/g,'GitHub').slice(0,240); }
     })().finally(()=>{pending=null;});
     return pending;
   }

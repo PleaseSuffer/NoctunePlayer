@@ -1694,5 +1694,6 @@
   "permissions.notifications.dismiss": "Закрытие собственных уведомлений",
   "permissions.hotkeys.list": "Список собственных зарегистрированных команд",
   "permissions.hotkeys.unregister": "Удаление собственных команд горячих клавиш",
-  "permissions.interface.invalid": "Недопустимый запрос интерфейса или отсутствует разрешение"
+  "permissions.interface.invalid": "Недопустимый запрос интерфейса или отсутствует разрешение",
+  "extensions.network.requestTimedOut": "Сервер не ответил в отведённое время"
 }

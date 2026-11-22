@@ -21,7 +21,7 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
   if (origins && !allowsOrigin(origins, url.origin)) throw new Error((globalThis.noctuneI18n?.t("extensions.network.domainIsNotDeclaredInExtensionPermissions", {}) ?? "Домен не указан в разрешениях расширения"));
   const hostname = url.hostname.replace(/^\[|\]$/g, '');
   if (signal?.aborted) throw new Error((globalThis.noctuneI18n?.t("extensions.network.requestCanceled", {}) ?? "Запрос отменён"));
-  if (Date.now() >= deadline) throw new Error((globalThis.noctuneI18n?.t("extensions.network.serverDidNotRespondWithin15Seconds", {}) ?? "Сервер не ответил за 15 секунд"));
+  if (Date.now() >= deadline) throw new Error((globalThis.noctuneI18n?.t("extensions.network.requestTimedOut", {}) ?? "Сервер не ответил в отведённое время"));
   let addresses;
   if (net.isIP(hostname)) addresses = [{ address: hostname, family: net.isIP(hostname) }];
   else {
@@ -30,7 +30,7 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
       addresses = await Promise.race([
         dns.lookup(hostname, { all: true }),
         new Promise((_, reject) => {
-          timer = setTimeout(() => reject(new Error((globalThis.noctuneI18n?.t("extensions.network.serverDidNotRespondWithin15Seconds", {}) ?? "Сервер не ответил за 15 секунд"))), Math.max(1, deadline - Date.now()));
+          timer = setTimeout(() => reject(new Error((globalThis.noctuneI18n?.t("extensions.network.requestTimedOut", {}) ?? "Сервер не ответил в отведённое время"))), Math.max(1, deadline - Date.now()));
           onAbort = () => reject(new Error((globalThis.noctuneI18n?.t("extensions.network.requestCanceled", {}) ?? "Запрос отменён")));
           signal?.addEventListener('abort', onAbort, { once: true });
         }),
@@ -74,7 +74,7 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
     };
     const request = method === 'GET' && body === undefined ? https.get(url, options, receive) : https.request(url, options, receive);
     if (method !== 'GET' || body !== undefined) request.end(body);
-    const timer = setTimeout(() => request.destroy(new Error((globalThis.noctuneI18n?.t("extensions.network.serverDidNotRespondWithin15Seconds", {}) ?? "Сервер не ответил за 15 секунд"))), Math.max(1, deadline - Date.now()));
+    const timer = setTimeout(() => request.destroy(new Error((globalThis.noctuneI18n?.t("extensions.network.requestTimedOut", {}) ?? "Сервер не ответил в отведённое время"))), Math.max(1, deadline - Date.now()));
     request.on('close', () => clearTimeout(timer));
     request.on('error', reject);
   });

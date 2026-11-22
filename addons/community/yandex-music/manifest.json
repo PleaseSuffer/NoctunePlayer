@@ -1,6 +1,6 @@
 {
   "apiVersion": 1,
-  "author": "Noctune community",
+  "author": "Noctune Community",
   "banner": "assets/banner.png",
   "commands": [
     {
@@ -227,7 +227,7 @@
     "clipboard.write",
     "downloads.write"
   ],
-  "revision": 21,
+  "revision": 22,
   "settings": {
     "autoWave": {
       "default": true,
@@ -323,5 +323,5 @@
       "title": "Яндекс Музыка"
     }
   },
-  "version": "0.3.13"
+  "version": "0.3.14"
 }

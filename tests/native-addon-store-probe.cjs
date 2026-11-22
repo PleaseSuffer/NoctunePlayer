@@ -26,7 +26,7 @@ async function waitFor(callback) {
     throw new Error('Timed out waiting for store state');
 }
 const run=(window,code)=>window.webContents.executeJavaScript(code);
-let networkCalls=0, offline=false;
+let networkCalls=0, offline=false, marketplaceOffline=false;
 (async()=>{
     const key=crypto.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'});
     const addonDirectory=path.join(root,'addons/official/noctune-chroma');
@@ -50,7 +50,7 @@ let networkCalls=0, offline=false;
     const marketplaceSeed=require(path.join(source,'addons/catalog/marketplace.json'));
     const originalMarketplace=marketplaceModule.createMarketplaceCatalog;
     marketplaceModule.createMarketplaceCatalog=options=>originalMarketplace({...options,fetch:async url=>{
-        networkCalls++;if(offline)throw Error('Offline');
+        networkCalls++;if(offline||marketplaceOffline)throw Error('Offline');
         if(url===marketplaceModule.CATALOG_URL)return p.canonical(marketplaceSeed);
         const entry=marketplaceSeed.entries.find(item=>item.packageUrl===url);assert(entry,'only a pinned catalog package is downloaded');
         return fs.readFileSync(path.join(root,marketplaceModule.packagePath(entry)),'utf8');
@@ -108,6 +108,7 @@ let networkCalls=0, offline=false;
                 if(section==='themes'&&tab==='community'){
                     assert.deepEqual(await run(shop,`[...document.querySelectorAll('.store-card')].map(card=>card.dataset.addonId)`),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light']);
                     assert.equal(await run(shop,`!!document.querySelector('.card-author .lucide-badge-check')`),false);
+                    assert.equal(await run(shop,`[...document.querySelectorAll('.card-author')].every(author=>author.textContent==='Noctune Community')`),true);
                 }
                 assert.equal(await run(shop,`document.documentElement.scrollWidth>innerWidth`),false);
                 await shop.webContents.capturePage();
@@ -159,6 +160,7 @@ let networkCalls=0, offline=false;
     await waitFor(()=>run(main,`document.querySelectorAll('#scene-imported-list .scene-tile:not(.scene-add-tile)').length===1`));
     await run(shop,`document.getElementById('tab-extensions').click();document.getElementById('tab-community').click()`);
     assert.equal(await run(shop,`document.querySelector('.store-card').dataset.addonId`),'yandex-music');
+    assert.equal(await run(shop,`document.querySelector('.card-author').textContent`),'Noctune Community');
     assert.equal(await run(shop,`!!document.querySelector('.card-author .lucide-badge-check')`),false,'community cards never claim an official publisher');
     await run(shop,`document.querySelector('.store-card .primary').click()`);
     installer=await waitFor(()=>windows.find(window=>!window.isDestroyed()&&window.webContents.getURL().includes('/addon-install/index.html')&&!window.webContents.isLoading()));
@@ -174,6 +176,14 @@ let networkCalls=0, offline=false;
     fs.writeFileSync(path.join(screenshots,'theme-settings-entry.png'),(await main.webContents.capturePage()).toPNG());
     await run(shop,`document.getElementById('tab-extensions').click()`);
     await waitFor(()=>run(shop,`!document.getElementById('refresh').disabled`));
+    marketplaceOffline=true;
+    await run(shop,`document.getElementById('refresh').click()`);
+    await waitFor(()=>run(shop,`!document.getElementById('refresh').disabled`));
+    await run(shop,`document.getElementById('tab-official').click()`);
+    assert.equal(await run(shop,`document.getElementById('catalog-message').textContent`),'','a failed theme catalog does not label the official extension catalog as failed');
+    await run(shop,`document.getElementById('tab-themes').click()`);
+    assert.equal(await run(shop,`document.getElementById('catalog-message').textContent.includes('Offline')`),true,'catalog failures include the actual reason');
+    await run(shop,`document.getElementById('tab-extensions').click();document.getElementById('tab-community').click()`);
     offline=true;
     await run(shop,`document.getElementById('refresh').click()`);
     await waitFor(()=>run(shop,`document.getElementById('catalog-message').textContent.includes('сохранённая')`));

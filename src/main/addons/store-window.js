@@ -10,7 +10,7 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
   ipcMain.handle('addon-store:list', (event, refresh = false) => {
     session(event);
     if (!marketplace) return catalog.list(refresh);
-    return Promise.all([catalog.list(refresh),marketplace.list(refresh)]).then(([official,extra])=>({...official,message:[...new Set([official.message,extra.message].filter(Boolean))].join(' '),entries:[...official.entries.map(entry=>({...entry,kind:'extension',channel:'official'})),...extra.entries]}));
+    return Promise.all([catalog.list(refresh),marketplace.list(refresh)]).then(([official,extra])=>({...official,catalogs:Object.fromEntries([['official',official],['marketplace',extra]].map(([key,value])=>[key,{source:value.source,generatedAt:value.generatedAt,message:value.message}])),message:[...new Set([official.message,extra.message].filter(Boolean))].join(' '),entries:[...official.entries.map(entry=>({...entry,kind:'extension',channel:'official'})),...extra.entries]}));
   });
   ipcMain.handle('addon-store:install', async (event, id, kind = 'extension', channel = 'official') => {
     session(event);

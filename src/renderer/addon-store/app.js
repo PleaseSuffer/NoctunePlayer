@@ -44,6 +44,11 @@
     });
     function render() {
         if (!catalog) return;
+        const active = catalog.catalogs?.[section === 'extension' && channel === 'official' ? 'official' : 'marketplace'] || catalog;
+        const sources={builtin:t('addonStore.app.bundledCatalog','Встроенный каталог'),cache:t('addonStore.app.savedCatalog','Сохранённый каталог'),network:t('addonStore.app.githubCatalog','Каталог GitHub')};
+        byId('catalog-source').textContent=sources[active.source] || t('addonStore.noctuneCatalog','Каталог Noctune');
+        byId('catalog-source').title=t('addonStore.app.updated','Обновлён: ')+new Date(active.generatedAt).toLocaleString(globalThis.noctuneI18n?.locale || 'ru');
+        byId('catalog-message').textContent=active.message || '';
         const list = byId('catalog'); list.replaceChildren();
         const search = byId('search').value.trim().toLocaleLowerCase();
         const inSection = catalog.entries.filter(entry=>(entry.kind || 'extension')===section);
