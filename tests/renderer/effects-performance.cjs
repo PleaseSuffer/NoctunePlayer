@@ -58,3 +58,24 @@ const restored = { ...context, window: {}, requestAnimationFrame: () => 1 };
 vm.createContext(restored); vm.runInContext(source, restored);
 assert.equal(restored.window.effectsPerformance.fps, 0);
 console.log('PASS: 30/60 FPS on 120 Hz, unlimited mode, original tray suspension, no video reload/canvas release and FPS persistence.');
+
+// A foreground settings panel gets GPU headroom without rewriting the preference.
+window.effectsPerformance.setSettingsOpen(true);
+assert.equal(window.effectsPerformance.fps, 0);
+assert.equal(window.effectsPerformance.effectiveFps, 30);
+assert.equal(stored.setting_effects_fps, '0');
+count = 0;
+for (let i = 0; i < 120; i++) tick(5000 + i * 1000 / 120);
+assert.ok(count >= 29 && count <= 31, `settings background budget: ${count}`);
+window.effectsPerformance.setSettingsOpen(false);
+assert.equal(window.effectsPerformance.effectiveFps, 0);
+count = 0;
+for (let i = 0; i < 120; i++) tick(7000 + i * 1000 / 120);
+assert.equal(count, 120, 'unlimited rendering returns when settings close');
+window.effectsPerformance.setFps(60);
+window.effectsPerformance.setSettingsOpen(true);
+assert.equal(window.effectsPerformance.effectiveFps, 30);
+window.effectsPerformance.setSettingsOpen(false);
+assert.equal(window.effectsPerformance.effectiveFps, 60);
+assert.equal(video.loads, 0); assert.equal(video.pauses, 0);
+console.log('PASS: temporary settings frame budget, configured 60/unlimited restoration and unchanged video playback.');

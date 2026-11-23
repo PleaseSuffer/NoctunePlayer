@@ -747,7 +747,7 @@
                     const stream = provider ? await window.addonProviders.resolve(entry, myToken) : null;
                     if (myToken !== _loadToken) return;
                     const filePath = provider ? '' : entry.path;
-                    const cachedMeta = provider ? { title: entry.title, artist: entry.artist || '', album: entry.album || '' } : parsedMetadataCache[absoluteTrackId] || await (async () => {
+                    let cachedMeta = provider ? { title: entry.title, artist: entry.artist || '', album: entry.album || '' } : parsedMetadataCache[absoluteTrackId] || await (async () => {
                         // Быстрое чтение метаданных если кэш ещё не заполнен —
                         // единый вызов через music-metadata (preload) вместо
                         // ручного fs.open + самописного ID3-парсера.
@@ -796,8 +796,10 @@
                     }
 
                     if (!provider) {
-                        window.refreshPlayingFileMetadata = async () => {
+                        window.refreshPlayingFileMetadata = async (updatedMetadata, updatedPath) => {
                             if (myToken !== _loadToken) return;
+                            if (updatedMetadata && updatedPath !== filePath) return;
+                            if (updatedMetadata) cachedMeta = updatedMetadata;
                             const view = fileMetadataView(cachedMeta, entry.name);
                             Object.assign(meta, view);
                             trackTitle.textContent = meta.title;

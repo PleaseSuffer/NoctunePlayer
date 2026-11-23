@@ -22,11 +22,6 @@
     const backgrounds = gallery((globalThis.noctuneI18n?.t("ui.sceneSettings.builtInBackgrounds", {}) ?? "Встроенные фоны"), 'bg-presets-list', backgroundCollection);
     const builtins = gallery((globalThis.noctuneI18n?.t("ui.sceneSettings.builtInThemes", {}) ?? "Встроенные темы"), 'scene-builtins-list');
     const imports = gallery((globalThis.noctuneI18n?.t("ui.sceneSettings.addedThemes", {}) ?? "Добавленные темы"), 'scene-imported-list');
-    const shop = document.createElement('button'); shop.type = 'button'; shop.className = 'btn'; shop.id = 'scene-theme-store';
-    const shopIcon = document.createElement('i'); shopIcon.setAttribute('data-lucide', 'store'); shopIcon.setAttribute('aria-hidden', 'true');
-    const shopLabel = document.createElement('span'); shopLabel.textContent = globalThis.noctuneI18n?.t('marketplace.themeStore') ?? 'Магазин тем'; shop.append(shopIcon, shopLabel);
-    shop.addEventListener('click', () => noctune.addons.openStore({ section: 'themes', theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', accent: getComputedStyle(document.body).getPropertyValue('--accent-color').trim() }).catch(notifyError));
-    imports.parentElement.before(shop);
     const empty = document.createElement('p'); empty.className = 'settings-row-desc'; empty.textContent = (globalThis.noctuneI18n?.t("ui.sceneSettings.importANocthemeFileContainingASceneItsLayersAndAnimations", {}) ?? "Импортируйте файл .noctheme — он содержит сцену, её слои и анимации."); imports.after(empty);
     const options = document.createElement('div'); options.id = 'scene-theme-options'; options.hidden = true;
     const name = document.createElement('div'); name.className = 'settings-row-label';
@@ -215,11 +210,21 @@
                 }); item.append(remove);
             }
         });
-        for (const list of [imports]) {
-            const item=document.createElement('div');item.className='scene-gallery-item';
-            const button=document.createElement('button');button.type='button';button.className='scene-tile scene-add-tile';button.title=(globalThis.noctuneI18n?.t("ui.sceneSettings.addTheme", {}) ?? "Добавить тему");button.setAttribute('aria-label',(globalThis.noctuneI18n?.t("ui.sceneSettings.addTheme", {}) ?? "Добавить тему"));
-            button.innerHTML='<i data-lucide="plus"></i>';
-            button.addEventListener('click', importTheme);item.append(button);list.append(item);
+        for (const action of ['store', 'file']) {
+            const item = document.createElement('div'); item.className = 'scene-gallery-item';
+            const button = document.createElement('button'); button.type = 'button';
+            button.className = 'scene-tile scene-action-tile ' + (action === 'store' ? 'scene-store-tile' : 'scene-add-tile');
+            const label = action === 'store' ? (globalThis.noctuneI18n?.t('marketplace.title') ?? 'NocStore')
+                : (globalThis.noctuneI18n?.t('ui.sceneSettings.addThemeFromFile') ?? 'Добавить тему из файла');
+            button.title = label; button.setAttribute('aria-label', label);
+            const icon = document.createElement('i'); icon.setAttribute('data-lucide', action === 'store' ? 'store' : 'plus'); icon.setAttribute('aria-hidden', 'true');
+            const caption = document.createElement('span'); caption.className = 'scene-action-label'; caption.textContent = label;
+            button.append(icon, caption);
+            if (action === 'store') {
+                button.id = 'scene-theme-store';
+                button.addEventListener('click', () => noctune.addons.openStore({ section: 'themes', theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', accent: getComputedStyle(document.body).getPropertyValue('--accent-color').trim() }).catch(notifyError));
+            } else button.addEventListener('click', importTheme);
+            item.append(button); imports.append(item);
         }
         lucide.createIcons();
         empty.hidden = themes.some(t => !t.builtin); changed(window.sceneThemes.metadata); return themes;

@@ -11,12 +11,20 @@ contextBridge.exposeInMainWorld('noctuneLocale', {
 });
 
 contextBridge.exposeInMainWorld('addonStore', {
+    onProgress: callback => {
+        const listener = (_event, progress) => callback(progress);
+        ipcRenderer.on('addon-store:progress', listener);
+        return () => ipcRenderer.removeListener('addon-store:progress', listener);
+    },
     list: refresh => ipcRenderer.invoke('addon-store:list', refresh),
     onRefresh: callback => {
         const listener = (_event, state) => callback(state);
         ipcRenderer.on('addon-store:refresh', listener);
         return () => ipcRenderer.removeListener('addon-store:refresh', listener);
     },
-    install: (id, kind, channel) => ipcRenderer.invoke('addon-store:install', id, kind, channel),
+    install: async (id, kind, channel) => {
+        try { return await ipcRenderer.invoke('addon-store:install', id, kind, channel); }
+        catch (error) { throw new Error(String(error.message).replace(/^Error invoking remote method 'addon-store:install': (?:Error: )?/, '')); }
+    },
     openLink: kind => ipcRenderer.invoke('addon-store:open-link', kind),
 });

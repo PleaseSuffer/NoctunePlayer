@@ -16,7 +16,7 @@ async function readFileMetadata(filePath, name) {
     return fileMetadataView(await noctune.metadata.parseFile(filePath, name), name);
 }
 
-function refreshFileMetadataViews() {
+function refreshFileMetadataViews(updatedMetadata, updatedPath) {
     fileEntries.forEach((entry, index) => {
         if (entry.kind === 'radio' || entry.kind === 'provider') return;
         const cached = parsedMetadataCache[index];
@@ -29,5 +29,5 @@ function refreshFileMetadataViews() {
         if (artist) artist.textContent = meta.artist;
         window.updateTrackArtwork?.(index, meta, entry.path);
     });
-    window.refreshPlayingFileMetadata?.();
+    return window.refreshPlayingFileMetadata?.(updatedMetadata, updatedPath);
 }

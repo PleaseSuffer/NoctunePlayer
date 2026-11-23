@@ -550,8 +550,6 @@
         activeIndex = null;
         requestAnimationFrame(sync);
     }
-    window.getLyricsAppearance = () => ({ ...appearance });
-    window.applyLyricsAppearanceTheme = values => applyAppearance(values, true);
     for (const [key, control] of Object.entries(appearanceControls)) {
         control.addEventListener(['mode', 'shadow', 'scrollbar'].includes(key) ? 'change' : 'input', () => {
             applyAppearance({ [key]: key === 'shadow' ? control.checked : control.value }, true);

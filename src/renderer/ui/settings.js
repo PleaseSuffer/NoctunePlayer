@@ -34,13 +34,15 @@
 
             // Open / close
             fab.addEventListener('click', () => {
+                window.effectsPerformance?.setSettingsOpen(true);
                 overlay.classList.add('open');
                 fab.classList.add('open');
                 refreshSettingsUI();
-                lucide.createIcons();
                 buildSettingsToc();
             });
             function closeSettings() {
+                window.effectsPerformance?.setSettingsOpen(false);
+                clickedTocTarget = null;
                 overlay.classList.remove('open');
                 fab.classList.remove('open');
             }
@@ -56,7 +58,7 @@
                     item.classList.add('active');
                     const target = item.dataset.panel;
                     document.getElementById(target).classList.add('active');
-                    if (settingsContent) settingsContent.scrollTop = 0;
+                    if (settingsContent) settingsContent.scrollTo({ top: 0, behavior: 'instant' });
                     if (target === 'panel-general') renderPlEditor();
                     buildSettingsToc();
                 });
@@ -68,10 +70,12 @@
             // Список заголовков (.settings-section-title) внутри АКТИВНОЙ
             // вкладки — клик скроллит .settings-content к нужному разделу,
             // подсветка «текущего» пункта следует за прокруткой. Строится
-            // заново при каждом открытии настроек и при каждом переключении
-            // вкладки, потому что набор заголовков у каждой вкладки свой.
+            // при открытии и переключении вкладок, а также при изменении
+            // доступных разделов. Неизменившиеся ярлыки сохраняют свои DOM-узлы.
             const settingsToc = document.getElementById('settings-toc');
             let clickedTocTarget = null;
+            let tocPanel = null;
+            let tocEntries = [];
 
             // titleEl.offsetTop НЕЛЬЗЯ использовать напрямую здесь: он
             // отсчитывается от offsetParent — ближайшего позиционированного
@@ -90,65 +94,74 @@
             }
 
             function buildSettingsToc() {
-                if (!settingsToc) return;
+                if (!settingsToc || !overlay.classList.contains('open')) return;
                 const activePanel = document.querySelector('.settings-panel.active');
-                settingsToc.innerHTML = '';
-                if (settingsContent) settingsContent.scrollTo({ top: settingsContent.scrollTop, behavior: 'instant' });
-                clickedTocTarget = null;
-                if (!activePanel || activePanel.id === 'panel-integrations') { settingsToc.classList.remove('has-items'); return; }
-
-                const titles = [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
+                if (activePanel !== tocPanel) clickedTocTarget = null;
+                tocPanel = activePanel;
+                const titles = !activePanel || activePanel.id === 'panel-integrations' ? []
+                    : [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
                 if (titles.length < 2) {
                     // В короткой вкладке (1 раздел или их нет) якоря не нужны
+                    if (tocEntries.length) settingsToc.replaceChildren();
+                    tocEntries = [];
+                    clickedTocTarget = null;
                     settingsToc.classList.remove('has-items');
                     return;
                 }
 
-                titles.forEach((titleEl, idx) => {
+                const previous = new Map(tocEntries.map(entry => [entry.title, entry]));
+                const next = titles.map((titleEl, idx) => {
+                    if (previous.has(titleEl)) return previous.get(titleEl);
                     if (!titleEl.id) titleEl.id = `settings-toc-target-${idx}-${Date.now()}`;
                     const item = document.createElement('div');
-                    item.className = 'settings-toc-item' + (idx === 0 ? ' active' : '');
-                    item.textContent = titleEl.textContent;
+                    item.className = 'settings-toc-item';
                     item.addEventListener('click', () => {
                         if (!settingsContent) return;
                         const maxScroll = Math.max(0, settingsContent.scrollHeight - settingsContent.clientHeight);
                         const top = Math.min(maxScroll, Math.max(0, getTitleOffsetInContent(titleEl) - 12));
                         // Подсветка держится на выбранном разделе весь переход,
                         // включая короткие разделы, упирающиеся в конец контента.
-                        clickedTocTarget = { index: idx, scrollTop: top, moving: true };
+                        clickedTocTarget = { title: titleEl, scrollTop: top, moving: true };
                         settingsContent.scrollTo({ top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
                         updateSettingsTocActive();
                     });
-                    settingsToc.appendChild(item);
+                    return { title: titleEl, item };
                 });
+                const changed = next.length !== tocEntries.length || next.some((entry, idx) => entry !== tocEntries[idx]);
+                tocEntries = next;
+                // Select the correct section before inserting new items. Starting
+                // each rebuild with the first item active restarts CSS transitions
+                // and flashes that item even when scrolling has not changed.
+                updateSettingsTocActive(titles);
+                for (const { title, item } of tocEntries) if (item.textContent !== title.textContent) item.textContent = title.textContent;
+                if (changed) settingsToc.replaceChildren(...tocEntries.map(entry => entry.item));
                 settingsToc.classList.add('has-items');
-                updateSettingsTocActive();
             }
 
             document.addEventListener('settings-sections-changed', buildSettingsToc);
 
-            function updateSettingsTocActive() {
+            function updateSettingsTocActive(visibleTitles) {
                 if (!settingsToc || !settingsContent) return;
-                const items = settingsToc.querySelectorAll('.settings-toc-item');
-                if (!items.length) return;
+                if (!tocEntries.length) return;
                 const activePanel = document.querySelector('.settings-panel.active');
                 if (!activePanel) return;
-                const titles = [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
+                const titles = visibleTitles || [...activePanel.querySelectorAll('.settings-section-title')].filter(title => title.getClientRects().length);
                 const scrollPos = settingsContent.scrollTop + 20; // небольшой запас — подсветка меняется чуть заранее
 
                 let currentIdx = 0;
                 titles.forEach((titleEl, idx) => {
                     if (getTitleOffsetInContent(titleEl) <= scrollPos) currentIdx = idx;
                 });
-                if (clickedTocTarget && (clickedTocTarget.moving || Math.abs(settingsContent.scrollTop - clickedTocTarget.scrollTop) <= 1)) {
-                    currentIdx = clickedTocTarget.index;
+                if (clickedTocTarget && titles.includes(clickedTocTarget.title) && (clickedTocTarget.moving || Math.abs(settingsContent.scrollTop - clickedTocTarget.scrollTop) <= 1)) {
+                    currentIdx = titles.indexOf(clickedTocTarget.title);
                     if (Math.abs(settingsContent.scrollTop - clickedTocTarget.scrollTop) <= 1) clickedTocTarget.moving = false;
                 } else {
                     clickedTocTarget = null;
                     const maxScroll = settingsContent.scrollHeight - settingsContent.clientHeight;
                     if (maxScroll > 0 && settingsContent.scrollTop >= maxScroll - 1) currentIdx = titles.length - 1;
                 }
-                items.forEach((item, idx) => item.classList.toggle('active', idx === currentIdx));
+                const currentTitle = titles[currentIdx];
+                tocEntries.forEach(({ title, item }) => item.classList.toggle('active', title === currentTitle));
             }
 
             if (settingsContent) {
@@ -251,7 +264,7 @@
                     });
                     list.appendChild(li);
                 });
-                lucide.createIcons();
+                lucide.createIcons({ root: list });
             }
 
             // ---- PLAYER: Crossfade ----
@@ -521,7 +534,7 @@
                     el.classList.toggle('active', el.dataset.viz === type));
                 updateVizSettingsBlocks(style);
                 syncVizOptions();
-                lucide.createIcons();
+                lucide.createIcons({ root: vizTypeBtn });
             }
 
             vizTypeBtn.addEventListener('click', (e) => {
@@ -553,6 +566,7 @@
                         if (selected) {
                             root.querySelector('.pd-label').textContent = option.textContent.trim();
                             root.querySelector('.pd-icon').innerHTML = `<i data-lucide="${option.dataset.icon}" style="width:14px;height:14px;"></i>`;
+                            lucide.createIcons({ root: root.querySelector('.pd-icon') });
                         }
                     });
                 }
@@ -563,7 +577,6 @@
                     document.getElementById(id).hidden = !gradient;
                 }
                 updateVizSettingsBlocks(window.vizStyle || 'circle-smooth');
-                lucide.createIcons();
             }
             function selectVizColorMode(mode) {
                 window.vizColorMode = ['accent', 'custom', 'gradient'].includes(mode) ? mode : 'gradient';
@@ -721,7 +734,7 @@
                     el.classList.toggle('active', el.dataset.fwcolor === mode));
                 setSettingsBlockVisible(fwCustomColorRow, mode === 'custom', 'flex');
                 appStorage.setItem('setting_fw_color_mode', mode);
-                lucide.createIcons();
+                lucide.createIcons({ root: fwColorBtn });
             }
             fwColorBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -986,7 +999,7 @@
                 const show = msg.length > 0;
                 setSettingsBlockVisible(warn, show, 'flex');
                 warnTxt.textContent = msg;
-                if (show) lucide.createIcons({ nodes: [warn] });
+                if (show) lucide.createIcons({ root: warn });
             }
 
             // ---- APPEARANCE: Waveform trail ----
@@ -1128,7 +1141,7 @@
                     `<i data-lucide="${icon}" style="width:14px;height:14px;"></i>`;
                 pbModeMenu.querySelectorAll('.pb-mode-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.mode === mode));
-                lucide.createIcons();
+                lucide.createIcons({ root: pbModeBtn });
             }
 
             pbModeBtn.addEventListener('click', (e) => {
@@ -1293,7 +1306,7 @@
                     appStorage.setItem('player_theme', 'light');
                     themeToggle.innerHTML = '<i data-lucide="moon"></i>';
                 }
-                lucide.createIcons();
+                lucide.createIcons({ root: themeToggle });
                 refreshAccentFg(); // светлота считалась под старую тему — пересчитываем
                 if (typeof applyGlassOpacity === 'function') applyGlassOpacity(); // альфа фона зависит от базового RGB темы
                 if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
@@ -1400,7 +1413,7 @@
                 // Reset sprinkler state on mode change
                 if (mode !== 'sprinkler') { window._sprinklerAngle = 0; window._sprinklerCooldown = 0; }
                 appStorage.setItem('setting_confetti_spawn', mode);
-                lucide.createIcons();
+                lucide.createIcons({ root: spawnDropBtn });
             }
 
             if (spawnDropBtn) spawnDropBtn.addEventListener('click', (e) => {
@@ -1805,7 +1818,7 @@
                     bgRecentList.appendChild(cell);
                 });
 
-                lucide.createIcons();
+                lucide.createIcons({ root: bgRecentList });
             }
 
             // ── Плавная смена обоев (кроссфейд) ───────────────────────────────
@@ -1984,7 +1997,7 @@
                 bgFitMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.fit === fit));
                 appStorage.setItem('setting_bg_image_fit', fit);
-                lucide.createIcons();
+                lucide.createIcons({ root: bgFitBtn });
             }
             bgFitBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2125,7 +2138,7 @@
                     el.classList.toggle('active', el.dataset.glowStyle === style));
                 appStorage.setItem('setting_bg_glow_style', style);
                 applyBgGlowStyle();
-                lucide.createIcons();
+                lucide.createIcons({ root: bgGlowStyleBtn });
             }
             bgGlowStyleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2217,7 +2230,7 @@
                 waveformModeMenu.querySelectorAll('.viz-type-menu-item').forEach(el =>
                     el.classList.toggle('active', el.dataset.waveformMode === mode));
                 appStorage.setItem('setting_waveform_mode', mode);
-                lucide.createIcons();
+                lucide.createIcons({ root: waveformModeBtn });
                 reloadWaveformForCurrentTrack();
             }
             waveformModeBtn.addEventListener('click', (e) => {
@@ -2245,7 +2258,7 @@
                     el.classList.toggle('active', el.dataset.waveformColorMode === mode));
                 setSettingsBlockVisible(waveformColorRow, mode === 'custom', 'flex');
                 appStorage.setItem('setting_waveform_color_mode', mode);
-                lucide.createIcons();
+                lucide.createIcons({ root: waveformColorModeBtn });
                 reloadWaveformForCurrentTrack();
             }
             waveformColorModeBtn.addEventListener('click', (e) => {
@@ -2951,360 +2964,6 @@
                 if (settingAdaptiveGradient.checked) applyAdaptivePalette();
             });
 
-            // ====================================================
-            // APPEARANCE: Экспорт / импорт тем (noctune:<код>)
-            // Код хранит только цвета и поведение, без самого изображения/видео
-            // фона — у каждого пользователя оно своё, переносить его смысла нет.
-            // Ключи укорочены, чтобы итоговый код был как можно компактнее.
-            // ====================================================
-            const btnExportTheme    = document.getElementById('btn-export-theme');
-            const btnImportTheme    = document.getElementById('btn-import-theme');
-            const themeImportInput  = document.getElementById('theme-import-input');
-            const THEME_PREFIX = 'noctune:';
-
-            function safeParseJSON(str, fallback) {
-                if (str === null || str === undefined) return fallback;
-                try {
-                    const parsed = JSON.parse(str);
-                    return (parsed === null || parsed === undefined) ? fallback : parsed;
-                } catch (e) { return fallback; }
-            }
-
-            function buildThemePayload() {
-                const payload = {
-                    v: 1,
-                    d: document.body.getAttribute('data-theme') === 'dark',           // dark theme
-                    a: appStorage.getItem('setting_accent_color') || '#4a90e2',     // accent
-                    st: (appStorage.getItem('setting_show_stars') ?? '1') === '1',  // stars
-                    gb: (appStorage.getItem('setting_glass_blur') ?? '1') === '1',  // glass blur
-                    go: (appStorage.getItem('setting_glass_opacity_enabled') ?? '1') === '1', // glass opacity toggle
-                    gov: parseFloat(appStorage.getItem('setting_glass_opacity_value') || '0.85'), // glass opacity value
-                    g: {                                                              // gradient
-                        c: safeParseJSON(appStorage.getItem('setting_viz_grad'), ['#bb86fc', '#4a90e2', '#03dac6']),
-                        r: (appStorage.getItem('setting_viz_rotate') ?? '1') === '1',
-                        rs: parseFloat(appStorage.getItem('setting_viz_rotate_speed') || '1'),
-                        sg: appStorage.getItem('setting_viz_scroll_grad') === '1',
-                        ss: parseFloat(appStorage.getItem('setting_viz_scroll_speed') || '1'),
-                        sw: appStorage.getItem('setting_viz_scroll_grad_wave') === '1',
-                        sws: parseFloat(appStorage.getItem('setting_viz_scroll_speed_wave') || '1'),
-                    },
-                    ad: {                                                             // adaptive
-                        a: appStorage.getItem('setting_adaptive_accent') === '1',
-                        g: appStorage.getItem('setting_adaptive_gradient') === '1',
-                    },
-                    si: settingStarsInteractive.checked,                             // stars interactive
-                    vint: parseFloat(appStorage.getItem('setting_viz_intensity') || '1'), // viz intensity
-                    vcm: window.vizColorMode || 'gradient',
-                    vcc: window.vizCustomColor || '#bb86fc',
-                    vcir: appStorage.getItem('setting_viz_circle_mode') || 'circle-smooth',
-                    vbar: appStorage.getItem('setting_viz_bars_position') || 'bars-bottom',
-                    vrib: appStorage.getItem('setting_viz_ribbon_position') || 'ribbon-center',
-                    vorb: window.vizOrbitMode || 'lines',
-                    vsz: window.vizCircleSize || 1,
-                    vgeo: Object.fromEntries(vizGeometryControls.map(([, property]) => [property, window[property]])),
-                    vsty: appStorage.getItem('setting_viz_style') || 'circle-smooth', // viz type
-                    vin: (appStorage.getItem('setting_viz_inner') ?? '1') === '1',   // inner circle
-                    vpk: (appStorage.getItem('setting_viz_peaks') ?? '1') === '1',   // bar peaks
-                    w: {                                                              // waveform
-                        tr: settingWaveTrail.checked,
-                        tra: parseFloat(appStorage.getItem('setting_viz_wave_trail_amount') || '0.3'),
-                        hs: settingWaveHideSilence.checked,
-                        ln: parseInt(waveLineSlider.value, 10) || 1,
-                        sn: parseFloat(waveSensSlider.value) || 1.5,
-                    },
-                    fw: {                                                             // fireworks
-                        cm: appStorage.getItem('setting_fw_color_mode') || 'random',
-                        cc: safeParseJSON(appStorage.getItem('setting_fw_custom_colors'), ['#ffaa33', '#ff5e7d', '#4da6ff']),
-                        th: parseFloat(appStorage.getItem('setting_fw_threshold') || '0'),
-                        fr: parseFloat(appStorage.getItem('setting_fw_frequency') || '1'),
-                        id: (appStorage.getItem('setting_fw_idle_spawn') ?? '1') === '1',
-                        br: (appStorage.getItem('setting_fw_beat_reactive') ?? '1') === '1',
-                        bb: parseInt(appStorage.getItem('setting_fw_beat_burst') || '1', 10),
-                        tl: parseInt(appStorage.getItem('setting_fw_trail') || '4', 10),
-                    },
-                    cf: {                                                             // confetti
-                        en: settingConfetti.checked,
-                        sp: appStorage.getItem('setting_confetti_spawn') || 'top',
-                        gr: safeParseJSON(appStorage.getItem('setting_confetti_grad'), ['#ff6b9d', '#c44dff', '#4daaff']),
-                        it: parseFloat(appStorage.getItem('setting_confetti_intensity') || '1'),
-                        gv: parseFloat(appStorage.getItem('setting_confetti_gravity') || '1'),
-                        sz: parseFloat(appStorage.getItem('setting_confetti_size') || '1'),
-                        sl: parseInt(appStorage.getItem('setting_confetti_sprinkler_lines') || '4', 10),
-                        sv: parseFloat(appStorage.getItem('setting_confetti_sensitivity') || '1'),
-                        sw: settingConfettiSwirl.checked,
-                        ss: parseFloat(appStorage.getItem('setting_confetti_swirl_str') || '1'),
-                        id2: appStorage.getItem('setting_confetti_idle') || 'drift',
-                    },
-                    wf: {                                                             // waveform за обложкой (не путать с "w" — тип визуализатора)
-                        en: settingWaveformEnabled.checked,
-                        cm: window.waveformColorMode || 'custom',
-                        cc: appStorage.getItem('setting_waveform_custom_color') || '#4a90e2',
-                        md: window.waveformMode || 'full',
-                        sv: window.waveformSensitivity || 1,
-                    },
-                    lyr: window.getLyricsAppearance ? window.getLyricsAppearance() : undefined,
-                    imageEffects: window.imageEffects?.appearance(),
-                    sceneParameters: window.sceneThemes?.appearance(),
-                    sceneVisualizer: appStorage.getItem('setting_scene_visualizer_enabled') !== '0',
-                    bg: null,
-                };
-
-                if (appStorage.getItem('setting_bg_image_enabled') === '1') {
-                    payload.bg = {
-                        f: appStorage.getItem('setting_bg_image_fit') || 'cover',
-                        pe: (appStorage.getItem('setting_bg_pulse_enabled') ?? '1') === '1',
-                        pi: parseFloat(appStorage.getItem('setting_bg_pulse_intensity') || '1'),
-                        pt: parseFloat(appStorage.getItem('setting_bg_pulse_threshold') || '0'),
-                        be: appStorage.getItem('setting_bg_blur_enabled') === '1',
-                        bi: parseFloat(appStorage.getItem('setting_bg_blur_intensity') || '1'),
-                        bt: parseFloat(appStorage.getItem('setting_bg_blur_threshold') || '0'),
-                        ge: appStorage.getItem('setting_bg_glow_enabled') === '1',
-                        gi: parseFloat(appStorage.getItem('setting_bg_glow_intensity') || '1'),
-                        gt: parseFloat(appStorage.getItem('setting_bg_glow_threshold') || '0'),
-                        gs: appStorage.getItem('setting_bg_glow_style') || 'center',
-                        gce: appStorage.getItem('setting_bg_glow_custom_color_enabled') === '1',
-                        gc: appStorage.getItem('setting_bg_glow_custom_color') || '#bb86fc',
-                        te: appStorage.getItem('setting_bg_tilt_enabled') === '1',
-                        ti: parseFloat(appStorage.getItem('setting_bg_tilt_intensity') || '1'),
-                        tt: parseFloat(appStorage.getItem('setting_bg_tilt_threshold') || '0'),
-                        ts: parseFloat(appStorage.getItem('setting_bg_tilt_speed') || '1'),
-                        tr: (appStorage.getItem('setting_bg_tilt_rotation') ?? '1') === '1',
-                        tsh: (appStorage.getItem('setting_bg_tilt_shift') ?? '1') === '1',
-                        ce: appStorage.getItem('setting_bg_cursor_enabled') === '1',
-                        cx: parseFloat(appStorage.getItem('setting_bg_cursor_intensity_x') || '3'),
-                        cy: parseFloat(appStorage.getItem('setting_bg_cursor_intensity_y') || '3'),
-                        ci: appStorage.getItem('setting_bg_cursor_invert') === '1',
-                        cte: appStorage.getItem('setting_bg_cursor_tilt_enabled') === '1',
-                        cti: parseFloat(appStorage.getItem('setting_bg_cursor_tilt_intensity') || '2'),
-                        ctv: appStorage.getItem('setting_bg_cursor_tilt_invert') === '1',
-                    };
-                }
-
-                return payload;
-            }
-
-            // Unicode-safe base64 без Node Buffer (недоступен в рендерере
-            // после отключения nodeIntegration) — btoa/atob умеют только
-            // Latin1, поэтому строку сначала гоним через UTF-8 байты.
-            function utf8ToBase64(str) {
-                const bytes = new TextEncoder().encode(str);
-                let binary = '';
-                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-                return btoa(binary);
-            }
-            function base64ToUtf8(b64) {
-                const binary = atob(b64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                return new TextDecoder().decode(bytes);
-            }
-
-            function encodeTheme(payload) {
-                const json = JSON.stringify(payload);
-                return THEME_PREFIX + utf8ToBase64(json);
-            }
-
-            function decodeTheme(code) {
-                const trimmed = String(code || '').trim();
-                if (!trimmed.startsWith(THEME_PREFIX)) throw new Error('bad-prefix');
-                const json = base64ToUtf8(trimmed.slice(THEME_PREFIX.length));
-                return JSON.parse(json);
-            }
-
-            function setCheckedAndFire(el, value) {
-                if (!el) return;
-                el.checked = !!value;
-                el.dispatchEvent(new Event('change'));
-            }
-
-            function setValueAndFire(el, value) {
-                if (!el || value === undefined || value === null || Number.isNaN(value)) return;
-                el.value = value;
-                el.dispatchEvent(new Event('input'));
-            }
-
-            async function applyThemePayload(payload) {
-                window.sceneThemes?.applyAppearance(payload.sceneParameters);
-                if (typeof payload.sceneVisualizer === 'boolean') setCheckedAndFire(document.getElementById('scene-option-scene_visualizer_enabled'), payload.sceneVisualizer);
-                if (payload.lyr && window.applyLyricsAppearanceTheme) window.applyLyricsAppearanceTheme(payload.lyr);
-                if (typeof payload.d === 'boolean') setCheckedAndFire(settingDark, payload.d);
-                if (payload.a) setAccentColor(payload.a);
-                if (typeof payload.st === 'boolean') setCheckedAndFire(settingStars, payload.st);
-                if (typeof payload.gb === 'boolean') setCheckedAndFire(settingBlur, payload.gb);
-                if (typeof payload.go === 'boolean' && settingGlassOpacity) setCheckedAndFire(settingGlassOpacity, payload.go);
-                if (typeof payload.gov === 'number' && glassOpacitySlider) setValueAndFire(glassOpacitySlider, payload.gov);
-
-                if (payload.g) {
-                    const g = payload.g;
-                    if (Array.isArray(g.c) && g.c.length === 3) {
-                        vizColor1.value = g.c[0];
-                        vizColor2.value = g.c[1];
-                        vizColor3.value = g.c[2];
-                        applyVizColors();
-                        highlightActiveGradPreset();
-                    }
-                    if (typeof g.r === 'boolean') setCheckedAndFire(settingVizRotate, g.r);
-                    setValueAndFire(rotateSpeedSlider, g.rs);
-                    if (typeof g.sg === 'boolean') setCheckedAndFire(settingScrollGrad, g.sg);
-                    setValueAndFire(scrollSpeedSlider, g.ss);
-                    if (typeof g.sw === 'boolean') setCheckedAndFire(settingScrollGradWave, g.sw);
-                    setValueAndFire(scrollSpeedWaveSlider, g.sws);
-                }
-
-                if (payload.bg) {
-                    setCheckedAndFire(settingBgEnabled, true);
-                    if (payload.bg.f) selectBgFit(payload.bg.f);
-                    if (typeof payload.bg.pe === 'boolean') setCheckedAndFire(settingBgPulse, payload.bg.pe);
-                    setValueAndFire(bgPulseIntensitySlider, payload.bg.pi);
-                    setValueAndFire(bgPulseThresholdSlider, payload.bg.pt);
-                    if (typeof payload.bg.be === 'boolean') setCheckedAndFire(settingBgBlur, payload.bg.be);
-                    setValueAndFire(bgBlurIntensitySlider, payload.bg.bi);
-                    setValueAndFire(bgBlurThresholdSlider, payload.bg.bt);
-                    if (typeof payload.bg.ge === 'boolean') setCheckedAndFire(settingBgGlow, payload.bg.ge);
-                    setValueAndFire(bgGlowIntensitySlider, payload.bg.gi);
-                    setValueAndFire(bgGlowThresholdSlider, payload.bg.gt);
-                    if (payload.bg.gs) selectBgGlowStyle(payload.bg.gs);
-                    if (typeof payload.bg.gce === 'boolean') setCheckedAndFire(settingBgGlowCustomColor, payload.bg.gce);
-                    if (payload.bg.gc) { bgGlowColorPicker.value = payload.bg.gc; bgGlowColorPicker.dispatchEvent(new Event('input')); }
-                    if (typeof payload.bg.te === 'boolean') setCheckedAndFire(settingBgTilt, payload.bg.te);
-                    setValueAndFire(bgTiltIntensitySlider, payload.bg.ti);
-                    setValueAndFire(bgTiltThresholdSlider, payload.bg.tt);
-                    setValueAndFire(bgTiltSpeedSlider, payload.bg.ts);
-                    if (typeof payload.bg.tr === 'boolean') setCheckedAndFire(settingBgTiltRotation, payload.bg.tr);
-                    if (typeof payload.bg.tsh === 'boolean') setCheckedAndFire(settingBgTiltShift, payload.bg.tsh);
-                    if (typeof payload.bg.ce === 'boolean') setCheckedAndFire(settingBgCursor, payload.bg.ce);
-                    setValueAndFire(bgCursorIntensityXSlider, payload.bg.cx);
-                    setValueAndFire(bgCursorIntensityYSlider, payload.bg.cy);
-                    if (typeof payload.bg.ci === 'boolean') setCheckedAndFire(settingBgCursorInvert, payload.bg.ci);
-                    if (typeof payload.bg.cte === 'boolean') setCheckedAndFire(settingBgCursorTilt, payload.bg.cte);
-                    setValueAndFire(bgCursorTiltIntensitySlider, payload.bg.cti);
-                    if (typeof payload.bg.ctv === 'boolean') setCheckedAndFire(settingBgCursorTiltInvert, payload.bg.ctv);
-                    showNotification((globalThis.noctuneI18n?.t("ui.settings.backgroundSettingsAppliedTheThemeDoesNotTransferTheImageOrVideoSelectItManually", {}) ?? "Настройки фона применены — само изображение/видео тема не переносит, выберите его вручную"), 'info');
-                }
-
-                window.imageEffects?.applyAppearance(payload.imageEffects);
-                if (typeof payload.si === 'boolean') setCheckedAndFire(settingStarsInteractive, payload.si);
-                setValueAndFire(vizIntSlider, payload.vint);
-                if (['circle-smooth', 'circle-lines', 'circle-dots', 'circle-double'].includes(payload.vcir)) appStorage.setItem('setting_viz_circle_mode', payload.vcir);
-                if (['bars-bottom', 'bars-center', 'bars-top'].includes(payload.vbar)) appStorage.setItem('setting_viz_bars_position', payload.vbar);
-                if (['ribbon-top', 'ribbon-center', 'ribbon-bottom'].includes(payload.vrib)) appStorage.setItem('setting_viz_ribbon_position', payload.vrib);
-                applyVizCircleSize(payload.vsz);
-                applyVizGeometry(payload.vgeo || {});
-                selectVizOrbitMode(payload.vorb || 'lines');
-                applyVizCustomColor(payload.vcc || '#bb86fc');
-                selectVizColorMode(payload.vcm || 'gradient');
-                if (payload.vsty) selectVizType(payload.vsty);
-                if (typeof payload.vin === 'boolean') setCheckedAndFire(settingVizInner, payload.vin);
-                if (typeof payload.vpk === 'boolean') setCheckedAndFire(settingVizPeaks, payload.vpk);
-
-                if (payload.w) {
-                    const w = payload.w;
-                    if (typeof w.tr === 'boolean') setCheckedAndFire(settingWaveTrail, w.tr);
-                    setValueAndFire(waveTrailAmountSlider, w.tra);
-                    if (typeof w.hs === 'boolean') setCheckedAndFire(settingWaveHideSilence, w.hs);
-                    setValueAndFire(waveLineSlider, w.ln);
-                    setValueAndFire(waveSensSlider, w.sn);
-                }
-
-                if (payload.fw) {
-                    const fw = payload.fw;
-                    if (fw.cm) selectFwColorMode(fw.cm);
-                    if (Array.isArray(fw.cc) && fw.cc.length === 3) {
-                        fwCustomColor1.value = fw.cc[0];
-                        fwCustomColor2.value = fw.cc[1];
-                        fwCustomColor3.value = fw.cc[2];
-                        applyFwCustomColors();
-                    }
-                    setValueAndFire(fwThresholdSlider, fw.th);
-                    setValueAndFire(fwFreqSlider, fw.fr);
-                    if (typeof fw.id === 'boolean') setCheckedAndFire(fwIdleSpawnToggle, fw.id);
-                    if (typeof fw.br === 'boolean') setCheckedAndFire(fwBeatToggle, fw.br);
-                    setValueAndFire(fwBeatBurstSlider, fw.bb);
-                    setValueAndFire(fwTrailSlider, fw.tl);
-                }
-
-                if (payload.cf) {
-                    const cf = payload.cf;
-                    if (typeof cf.en === 'boolean') setCheckedAndFire(settingConfetti, cf.en);
-                    if (cf.sp) selectConfettiSpawn(cf.sp);
-                    if (Array.isArray(cf.gr) && cf.gr.length === 3) {
-                        confettiC1.value = cf.gr[0];
-                        confettiC2.value = cf.gr[1];
-                        confettiC3.value = cf.gr[2];
-                        applyConfettiColors();
-                    }
-                    setValueAndFire(confettiIntSlider, cf.it);
-                    setValueAndFire(confettiGravSlider, cf.gv);
-                    setValueAndFire(confettiSizeSlider, cf.sz);
-                    setValueAndFire(sprinklerLinesSlider, cf.sl);
-                    setValueAndFire(sensitivitySlider, cf.sv);
-                    if (typeof cf.sw === 'boolean') setCheckedAndFire(settingConfettiSwirl, cf.sw);
-                    setValueAndFire(confettiSwirlStrSlider, cf.ss);
-                    if (cf.id2) selectConfettiIdle(cf.id2);
-                }
-
-                if (payload.wf) {
-                    const wf = payload.wf;
-                    if (typeof wf.en === 'boolean') setCheckedAndFire(settingWaveformEnabled, wf.en);
-                    if (wf.cc) {
-                        waveformColorPicker.value = wf.cc;
-                        window.waveformCustomColor = wf.cc;
-                        appStorage.setItem('setting_waveform_custom_color', wf.cc);
-                    }
-                    if (wf.cm) selectWaveformColorMode(wf.cm);
-                    if (wf.md) selectWaveformMode(wf.md);
-                    if (typeof wf.sv === 'number') setValueAndFire(waveformSensSlider, wf.sv);
-                }
-
-                // Адаптивные тумблеры применяем последними: если у импортирующего
-                // уже есть свой фон, палитра пересчитается именно от него.
-                if (payload.ad) {
-                    setCheckedAndFire(settingAdaptiveAccent, !!payload.ad.a);
-                    setCheckedAndFire(settingAdaptiveGradient, !!payload.ad.g);
-                }
-            }
-
-            if (btnExportTheme) btnExportTheme.addEventListener('click', () => {
-                try {
-                    const payload = buildThemePayload();
-                    const code = encodeTheme(payload);
-                    if (themeImportInput) themeImportInput.value = code;
-
-                    const announceCopied = () => showNotification((globalThis.noctuneI18n?.t("ui.settings.themeCodeCopiedToClipboard", {}) ?? "Код темы скопирован в буфер обмена"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeExported", {}) ?? "Тема экспортирована"));
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(code).then(announceCopied).catch(() => {
-                            if (themeImportInput) themeImportInput.select();
-                            showNotification((globalThis.noctuneI18n?.t("ui.settings.themeCodeReadyCopyItFromTheFieldBelow", {}) ?? "Код темы готов — скопируйте его из поля ниже"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeExported", {}) ?? "Тема экспортирована"));
-                        });
-                    } else if (themeImportInput) {
-                        themeImportInput.select();
-                        showNotification((globalThis.noctuneI18n?.t("ui.settings.themeCodeReadyCopyItFromTheFieldBelow", {}) ?? "Код темы готов — скопируйте его из поля ниже"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeExported", {}) ?? "Тема экспортирована"));
-                    }
-                } catch (e) {
-                    console.error((globalThis.noctuneI18n?.t("ui.settings.couldNotExportTheme", {}) ?? "Не удалось экспортировать тему:"), e);
-                    showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotExportTheme.label", {}) ?? "Не удалось экспортировать тему"), 'error');
-                }
-            });
-
-            if (btnImportTheme) btnImportTheme.addEventListener('click', async () => {
-                if (!themeImportInput) return;
-                let payload;
-                try {
-                    payload = decodeTheme(themeImportInput.value);
-                    if (!payload || typeof payload !== 'object') throw new Error('empty');
-                } catch (e) {
-                    showNotification((globalThis.noctuneI18n?.t("ui.settings.invalidThemeCodeCheckThatItStartsWithNoctuneAndWasCopiedInFull", {}) ?? "Некорректный код темы. Проверьте, что он начинается с «noctune:» и скопирован полностью"), 'error');
-                    return;
-                }
-                try {
-                    await applyThemePayload(payload);
-                    showNotification((globalThis.noctuneI18n?.t("ui.settings.themeAppliedSuccessfully", {}) ?? "Тема успешно применена"), 'info', (globalThis.noctuneI18n?.t("ui.settings.themeImported", {}) ?? "Тема импортирована"));
-                } catch (e) {
-                    console.error((globalThis.noctuneI18n?.t("ui.settings.couldNotApplyTheme", {}) ?? "Не удалось применить тему:"), e);
-                    showNotification((globalThis.noctuneI18n?.t("ui.settings.couldNotApplyTheme.label", {}) ?? "Не удалось применить тему"), 'error');
-                }
-            });
-
             // ---- ABOUT: Version & update check ----
             // Кнопка "Проверить" и вся логика electron-updater теперь в
             // renderer/updates/updater.js (единая точка правды, без дублирования
@@ -3312,6 +2971,23 @@
 
             // ---- Restore saved settings on load ----
             function refreshSettingsUI() {
+                // Controls are updated by their change handlers. Opening settings
+                // must not reapply audio modes, persist presets, restart waveform
+                // work or overwrite the live theme palette.
+                settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
+                refreshLastfmStatusFromMain();
+                if (window.discordRPCEnabled) noctune.discordRpcStatus().then(s => {
+                    setDiscordRpcStatusPill(s?.connected ? 'connected' : 'idle', s?.connected
+                        ? (globalThis.noctuneI18n?.t('ui.settings.connected') ?? 'Подключено')
+                        : (globalThis.noctuneI18n?.t('ui.settings.connecting') ?? 'Подключение…'));
+                });
+                const version = document.getElementById('app-version').textContent;
+                document.getElementById('settings-app-version').textContent = version;
+                document.getElementById('update-current-version').textContent = version;
+                if (document.getElementById('panel-general').classList.contains('active')) renderPlEditor();
+            }
+
+            function restoreSettings() {
                 queueMicrotask(() => { if (window.sceneThemes?.active) window.sceneThemes.applyPalette(); });
                 // Dark theme
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
@@ -3957,7 +3633,7 @@
             // Вызывается ОДИН РАЗ при старте приложения. Если вызывать это при
             // каждом открытии настроек (как раньше), video.load() перезапускал
             // бы видео-фон и вызывал заметное мигание — поэтому загрузка файла
-            // отделена от refreshSettingsUI(), которая теперь лишь синхронизирует
+            // отделена от восстановления остальных настроек, которое синхронизирует
             // переключатели и ничего не перезагружает.
             function restoreBackgroundFromStorage() {
                 const savedBgPath = appStorage.getItem('setting_bg_image_path');
@@ -3978,14 +3654,14 @@
             window.adaptiveAccentEnabled = appStorage.getItem('setting_adaptive_accent') === '1';
             window.adaptiveGradientEnabled = appStorage.getItem('setting_adaptive_gradient') === '1';
             restoreBackgroundFromStorage();
-            refreshSettingsUI();
+            restoreSettings();
             // Discord Rich Presence — если было включено в прошлый раз, подключаемся
             // автоматически при старте приложения (без необходимости открывать настройки).
             (function initDiscordRpcOnStartup() {
                 window.discordRPCEnabled = appStorage.getItem('setting_discord_rpc_enabled') === '1';
                 window.discordRPCShowProgress = (appStorage.getItem('setting_discord_rpc_progress') ?? '1') === '1';
                 window.discordRPCShowRadioButton = (appStorage.getItem('setting_discord_rpc_radio_button') ?? '1') === '1';
-                // refreshSettingsUI() (вызван строкой выше) уже восстановил
+                // restoreSettings() (вызван строкой выше) уже восстановил
                 // settingDiscordRpcManual.checked и поля ввода — используем те же
                 // помощники, чтобы при выключенной "Ручной настройке" всегда
                 // подключались с ID/redirect-URL по умолчанию, а не тем, что

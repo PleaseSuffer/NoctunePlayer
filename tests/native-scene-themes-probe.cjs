@@ -58,11 +58,11 @@ app.whenReady().then(async () => {
         const edited=await win.webContents.executeJavaScript(`(()=>{
             const id=sceneThemes.metadata.id,frequency=document.getElementById('scene-frequencyMix'),lighting=document.getElementById('scene-glowIntensity');
             frequency.value=82;frequency.dispatchEvent(new Event('input'));lighting.value=1.7;lighting.dispatchEvent(new Event('input'));
-            const saved=sceneThemes.appearance();sceneThemes.applyAppearance(saved);
-            const add=document.querySelector('#scene-imported-list .scene-add-tile'),icon=add.querySelector('svg'),b=add.getBoundingClientRect(),i=icon.getBoundingClientRect();
-            return {saved:saved[id],mix:frequency.value,glow:lighting.value,builtinPlus:document.querySelectorAll('#scene-builtins-list .scene-add-tile').length,dx:Math.abs(b.x+b.width/2-i.x-i.width/2),dy:Math.abs(b.y+b.height/2-i.y-i.height/2)};
+            const saved=JSON.parse(appStorage.getItem('setting_scene_preferences'));sceneThemes.preferencesChanged();
+            const add=document.querySelector('#scene-imported-list .scene-add-tile'),icon=add.querySelector('svg'),b=add.getBoundingClientRect(),i=icon.getBoundingClientRect(),label=add.querySelector('.scene-action-label').getBoundingClientRect();
+            return {saved:saved[id],mix:frequency.value,glow:lighting.value,builtinPlus:document.querySelectorAll('#scene-builtins-list .scene-add-tile').length,dx:Math.abs(b.x+b.width/2-i.x-i.width/2),dy:Math.abs(b.y+b.height/2-(Math.min(i.top,label.top)+Math.max(i.bottom,label.bottom))/2)};
         })()`);
-        assert.equal(edited.saved.frequencyMix,.82);assert.equal(edited.saved.glowIntensity,1.7);assert.equal(edited.mix,'82');assert.equal(edited.glow,'1.7');assert.equal(edited.builtinPlus,0);assert.ok(edited.dx<1&&edited.dy<1,'import plus is centered along both axes');
+        assert.equal(edited.saved.frequencyMix,.82);assert.equal(edited.saved.glowIntensity,1.7);assert.equal(edited.mix,'82');assert.equal(edited.glow,'1.7');assert.equal(edited.builtinPlus,0);assert.ok(edited.dx<1&&edited.dy<1,'file import icon and caption are centered together');
         const themeControls=await win.webContents.executeJavaScript(`(()=>{
             const add=document.querySelector('#scene-imported-list .scene-add-tile').getBoundingClientRect(),builtin=document.querySelector('#scene-builtins-list .scene-tile').getBoundingClientRect();
             const theme=document.getElementById('scene-option-scene_visualizer_enabled'),global=document.getElementById('setting-show-visualizer'),details=document.getElementById('scene-visualizer-details');
@@ -176,7 +176,7 @@ app.whenReady().then(async () => {
         await win.webContents.executeJavaScript(await fs.readFile(path.join(root, 'src/renderer/ui/scene-settings.js'), 'utf8'));
         await win.webContents.executeJavaScript(`new Promise(r=>setTimeout(r,100))`);
         let result = await win.webContents.executeJavaScript(`({backgrounds:document.querySelectorAll('#bg-presets-list .scene-tile').length,sections:document.querySelectorAll('.appearance-section').length,imports:document.querySelectorAll('.scene-add-tile').length,oldImport:!!document.getElementById('btn-import-scene-theme'),switches:document.querySelectorAll('#scene-theme-options .toggle-switch').length})`);
-        assert.equal(result.backgrounds, 8); assert.equal(result.sections, 9); assert.equal(result.imports,1); assert.equal(result.oldImport,false); assert.equal(result.switches,3);
+        assert.equal(result.backgrounds, 8); assert.equal(result.sections, 8); assert.equal(result.imports,1); assert.equal(result.oldImport,false); assert.equal(result.switches,3);
         await fs.mkdir(out, { recursive: true });
         for (const def of definitions) {
             await win.webContents.executeJavaScript(`sceneThemes.activate(__packages.find(p=>p.id===${JSON.stringify(def.id)}).metadata)`);

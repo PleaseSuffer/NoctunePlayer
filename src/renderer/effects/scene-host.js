@@ -1,6 +1,6 @@
 (() => {
     'use strict';
-    let current = null, candidate = null, dormant = null, epoch = 0, last = 0, time = 0, queued = false;
+    let current = null, candidate = null, dormant = null, epoch = 0, last = 0, time = 0, queued = false, wasPaused = false;
     let spectrum = new Uint8Array(0), sampleRate = 44100, playing = false;
     // Viewport-normalized input remains usable in sandboxed iframe and Worker scenes.
     let pointer = { x: 0, y: 0, active: false };
@@ -189,6 +189,14 @@
         queued = false; if (!current && !candidate) return;
         schedule();
         const paused = window._rafSuspended || document.hidden;
+        const hostGap = last ? now - last : 0;
+        // A blocked/hidden host cannot deliver the Worker's completed frame.
+        // Give queued replies a chance to arrive before judging the scene;
+        // a truly stuck scene still times out while the host is responsive.
+        if (paused || wasPaused || hostGap > 1000) {
+            for (const entry of [current, candidate]) if (entry?.busy) entry.sentAt = now;
+        }
+        wasPaused = !!paused;
         const dt = last && !paused ? Math.min((now - last) / 1000, .08) : 0; last = now;
         if (paused) return;
         const motion = config.motion && !reducedMotion.matches;
@@ -206,7 +214,7 @@
             }
             // A changing canvas invalidates backdrop-filter surfaces too. Leave GPU
             // headroom for the UI while a costly scene runs behind transparent panels.
-            const fps = window.effectsPerformance?.fps ?? 60;
+            const fps = window.effectsPerformance?.effectiveFps ?? window.effectsPerformance?.fps ?? 60;
             if (entry.renderAverage > 5) entry.panelLimited = true;
             else if (entry.renderAverage < 3) entry.panelLimited = false;
             entry.frameLimit = overlay && entry.panelLimited ? Math.min(fps || 60, 30) : fps;
@@ -314,20 +322,6 @@
             });
         },
         deactivate, applyPalette: colors,
-        appearance() { try { return JSON.parse(appStorage.getItem('setting_scene_preferences')||'{}'); } catch (_) { return {}; } },
-        applyAppearance(value) {
-            if(!value || typeof value!=='object' || Array.isArray(value))return;
-            const settings={};
-            for(const [id,p] of Object.entries(value).slice(0,128)){
-                if(!/^[a-z0-9][a-z0-9-]{0,79}$/.test(id) || !p)continue;
-                const entry={};
-                if(Number.isFinite(p.frequencyMix))entry.frequencyMix=Math.max(0,Math.min(1,p.frequencyMix));
-                if(Number.isFinite(p.glowIntensity))entry.glowIntensity=Math.max(0,Math.min(3,p.glowIntensity));
-                for(const [key,value] of Object.entries(p).slice(0,26))if(/^[a-z][a-zA-Z0-9]{0,47}$/.test(key) && !['constructor','prototype','frequencyMix','glowIntensity'].includes(key) && (typeof value==='boolean' || Number.isFinite(value) || typeof value==='string' && /^[a-zA-Z0-9-]{1,48}$/.test(value)))entry[key]=value;
-                settings[id]=entry;
-            }
-            appStorage.setItem('setting_scene_preferences',JSON.stringify(settings));this.preferencesChanged();
-        },
         async resumeSaved() {
             const id = appStorage.getItem('setting_scene_theme'), request = epoch;
             if (!id || current || appStorage.getItem('setting_scene_enabled') !== '1') return;

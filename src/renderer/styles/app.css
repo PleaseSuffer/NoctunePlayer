@@ -2543,3 +2543,8 @@ body.scene-active #image-effects-settings { display: none !important; }
 .scene-parameter-select option { background: var(--bg-color); color: var(--text-color); }
 .scene-parameter-select:focus-visible, #scene-theme-options input:focus-visible + .slider-round { outline: 2px solid var(--accent-color); outline-offset: 3px; }
 #bg-recent-list { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); width: 100%; }
+
+.scene-action-tile { background: transparent; border-style: dashed; justify-content: center; align-items: center; gap: 10px; padding: 10px; }
+.scene-action-tile > svg { width: 26px; height: 26px; flex-shrink: 0; }
+.scene-action-tile .scene-action-label { padding: 0; font-size: 11px; line-height: 1.4; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
+.scene-action-tile:hover { color: var(--accent-color); border-color: var(--accent-color); background: var(--track-hover); }

@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="styles/app.css">
     <link rel="stylesheet" href="../shared/settings-controls.css">
     <link rel="stylesheet" href="styles/addons.css">
+    <link rel="stylesheet" href="styles/tag-editor.css">
     <link rel="stylesheet" href="../shared/addon-permission-view.css">
 <script src="../shared/i18n.js"></script>
 <script src="core/i18n.js"></script>
@@ -212,11 +213,48 @@
 
     <div class="context-menu" id="context-menu">
         <button id="menu-play-next"><i data-lucide="arrow-right-to-line"></i> <span data-i18n="player.interface.playNext">Воспроизвести следующим</span></button>
+        <button id="menu-edit-tags" style="display:none;"><i data-lucide="tags"></i> <span data-i18n="tagEditor.menu">Редактировать теги</span></button>
         <button id="menu-track-cover" style="display:none;"><i data-lucide="refresh-cw"></i> <span data-i18n="player.interface.refreshArtwork">Обновить обложку</span></button>
         <button id="menu-check-radio"><i data-lucide="wifi"></i> <span data-i18n="player.interface.checkAvailability">Проверить доступность</span></button>
         <button id="menu-edit-radio"><i data-lucide="pencil"></i> <span data-i18n="player.interface.edit">Редактировать</span></button>
         <button id="menu-remove"><i data-lucide="trash-2"></i> <span data-i18n="player.interface.removeFromList">Удалить из списка</span></button>
     </div>
+
+    <dialog id="tag-editor" class="tag-editor" aria-labelledby="tag-editor-title" aria-describedby="tag-editor-notice">
+        <form id="tag-editor-form">
+            <header class="tag-editor-header">
+                <div class="tag-editor-heading"><span class="tag-editor-icon"><i data-lucide="tags"></i></span><div><h2 id="tag-editor-title" data-i18n="tagEditor.title">Теги трека</h2><p data-i18n="tagEditor.subtitle">Метаданные локального файла</p></div></div>
+                <button type="button" id="tag-editor-close" class="actions-btn" data-i18n-aria-label="tagEditor.close" aria-label="Закрыть"><i data-lucide="x"></i></button>
+            </header>
+            <div class="tag-editor-body custom-scroll">
+                <div class="tag-editor-file"><div class="tag-editor-art"><i data-lucide="music-2"></i><img id="tag-editor-cover" hidden data-i18n-alt="tagEditor.artwork" alt="Обложка трека"></div><div class="tag-editor-file-info"><strong id="tag-editor-filename"></strong><p id="tag-editor-path"></p><span id="tag-editor-format"></span></div></div>
+                <p class="tag-editor-status" id="tag-editor-status" role="status" aria-live="polite"></p>
+                <button class="btn tag-editor-secondary" type="button" id="tag-editor-retry" hidden data-i18n="tagEditor.retry">Повторить</button>
+                <fieldset id="tag-editor-fields" disabled>
+                    <legend data-i18n="tagEditor.section">Информация о треке</legend>
+                    <div class="tag-editor-grid">
+                        <label class="tag-editor-field tag-editor-wide"><span data-i18n="tagEditor.fields.title">Название трека</span><input name="title" type="text" maxlength="10000" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.artist">Исполнитель</span><input name="artist" type="text" maxlength="10000" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.albumArtist">Исполнитель альбома</span><input name="albumArtist" type="text" maxlength="10000" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field tag-editor-wide"><span data-i18n="tagEditor.fields.album">Альбом</span><input name="album" type="text" maxlength="10000" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.genre">Жанр</span><input name="genre" type="text" maxlength="10000" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.year">Год</span><input name="year" type="number" min="1" max="9999" step="1" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                    </div>
+                    <p class="tag-editor-hint" data-i18n="tagEditor.hint">Несколько исполнителей или жанров разделяйте точкой с запятой.</p>
+                    <div class="tag-editor-numbering"><span data-i18n="tagEditor.numbering">Нумерация</span><div class="tag-editor-grid tag-editor-numbers">
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.track">Трек</span><input name="track" type="number" min="1" max="65535" step="1" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.trackCount">Всего треков</span><input name="trackCount" type="number" min="1" max="65535" step="1" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.disc">Диск</span><input name="disc" type="number" min="1" max="65535" step="1" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                        <label class="tag-editor-field"><span data-i18n="tagEditor.fields.discCount">Всего дисков</span><input name="discCount" type="number" min="1" max="65535" step="1" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></label>
+                    </div></div>
+                    <label class="tag-editor-field tag-editor-comment"><span data-i18n="tagEditor.fields.comment">Комментарий</span><textarea name="comment" rows="2" maxlength="10000" data-i18n-placeholder="tagEditor.empty" placeholder="Не задано"></textarea></label>
+                </fieldset>
+                <p class="tag-editor-hint" id="tag-editor-read-off" hidden data-i18n="tagEditor.readTagsOff">Отображение тегов выключено в настройках. Изменения всё равно будут записаны в файл.</p>
+            </div>
+            <div class="tag-editor-discard" id="tag-editor-discard" hidden><p data-i18n="tagEditor.discardQuestion">Закрыть без сохранения изменений?</p><div><button class="btn tag-editor-secondary" id="tag-editor-keep" type="button" data-i18n="tagEditor.keepEditing">Продолжить редактирование</button><button class="btn" id="tag-editor-discard-confirm" type="button" data-i18n="tagEditor.discard">Не сохранять</button></div></div>
+            <footer class="tag-editor-footer"><p id="tag-editor-notice"><i data-lucide="file-check-2"></i><span data-i18n="tagEditor.notice">Изменения сохраняются в музыкальный файл. Обложка сохраняется.</span></p><div><button class="btn tag-editor-secondary" type="button" id="tag-editor-cancel" data-i18n="tagEditor.cancel">Отмена</button><button class="btn" type="submit" id="tag-editor-save" disabled><i data-lucide="check"></i><span data-i18n="tagEditor.save">Сохранить</span></button></div></footer>
+        </form>
+    </dialog>
 
     <div class="modal" id="playlist-modal">
         <div class="modal-content">
@@ -2221,30 +2259,6 @@
                             </div>
                         </div>
 
-                        <div class="settings-section-title" data-i18n="settings.appearance.importExportTheme">Импорт/экспорт темы</div>
-                        <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
-                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;">
-                                <div>
-                                    <div class="settings-row-label" data-i18n="settings.appearance.themeExport.title">Экспорт темы</div>
-                                    <div class="settings-row-desc" data-i18n="appearance.themes.exportDescription">Сохраняет акцент, градиенты визуализатора и настройки фона (без самого изображения/видео) в один короткий код</div>
-                                </div>
-                                <button class="btn" id="btn-export-theme" style="width:100%;padding:9px 14px;font-size:13px;">
-                                    <i data-lucide="share-2" style="width:14px;height:14px;"></i> <span data-i18n="settings.appearance.themeExport.button">Экспортировать тему</span>
-                                </button>
-                            </div>
-                            <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px;border-bottom:none;">
-                                <div>
-                                    <div class="settings-row-label" data-i18n="settings.appearance.importTheme">Импорт темы</div>
-                                    <div class="settings-row-desc"><span data-i18n="settings.appearance.pasteACodeStartingWith">Вставьте код вида</span> <code>noctune:...</code> <span data-i18n="settings.appearance.andClickImport">и нажмите «Импортировать»</span></div>
-                                </div>
-                                <input type="text" id="theme-import-input" placeholder="noctune:..."
-                                    style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-color);font-size:13px;">
-                                <button class="btn" id="btn-import-theme" style="width:100%;padding:9px 14px;font-size:13px;">
-                                    <i data-lucide="check" style="width:14px;height:14px;"></i> <span data-i18n="settings.appearance.import">Импортировать</span>
-                                </button>
-                            </div>
-                        </div>
-
                     </div>
 
                     <!-- === ИНТЕГРАЦИИ === -->
@@ -2492,7 +2506,7 @@
                         <div class="settings-card addons-install-card">
                             <div class="addons-entry-heading">
                                 <div class="addons-entry-info"><div class="settings-row-label" data-i18n="settings.addons.newFeaturesForNoctune">Новые возможности для Noctune</div><p class="settings-row-desc" data-i18n="settings.addons.addOnsAndIntegrationsForYourPlayer">Дополнения и интеграции для вашего плеера.</p></div>
-                                <button type="button" class="btn addons-store-button" id="addons-store"><i data-lucide="store" aria-hidden="true"></i><span data-i18n="settings.addons.extensionStore">Магазин расширений</span></button>
+                                <button type="button" class="btn addons-store-button" id="addons-store"><i data-lucide="store" aria-hidden="true"></i><span data-i18n="settings.addons.extensionStore">NocStore</span></button>
                             </div>
                             <div class="addons-manual-actions" role="group" aria-label="Установить свой пакет" data-i18n-aria-label="settings.addons.installYourOwnPackage">
                                 <button type="button" class="btn addons-secondary-action" id="addons-import"><i data-lucide="folder-open" aria-hidden="true"></i><span data-i18n="settings.addons.installFromFile">Установить из файла</span></button>
@@ -2677,6 +2691,7 @@
     <script src="playback/file-metadata.js"></script>
     <script src="playback/normalization.js"></script>
     <script src="library/playlists.js"></script>
+    <script src="library/tag-editor.js"></script>
     <script src="library/open-audio-files.js"></script>
     <script src="library/drag-drop.js"></script>
     <script src="effects/waveform.js"></script>

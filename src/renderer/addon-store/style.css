@@ -11,7 +11,6 @@ button:disabled { opacity: .6; }
 svg { width: 17px; height: 17px; flex: 0 0 auto; }
 .store-header { flex-shrink: 0; padding: 20px 30px; margin: 0; border-bottom: 1px solid var(--line); }
 .store-header > div { display: flex; align-items: center; gap: 15px; }
-.store-label { color: var(--muted); font-size: 12px; border-left: 1px solid var(--line); padding-left: 15px; }
 .quiet { background: transparent; padding: 9px 12px; }
 main { padding: 28px 30px; }
 .intro { margin-bottom: 27px; }
@@ -65,3 +64,26 @@ footer { display: flex; align-items: center; justify-content: space-between; fle
 .footer-note { color: var(--muted); font-size: 11px; }
 @media (max-width: 720px) { .store-header { padding-inline: 20px; } main { padding: 24px 20px; } footer { padding-inline: 20px; } .tabs button { padding: 10px; } #refresh span { display: none; } .catalog-source { max-width: 150px; } }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+
+/* A package stays identifiable while its button fills; updates never rebuild cards. */
+button.install-progress { position: relative; overflow: hidden; isolation: isolate; background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised)); color: var(--foreground); opacity: 1; }
+button.install-progress::before { content: ''; position: absolute; inset: 0; z-index: -1; background: color-mix(in srgb, var(--accent) 40%, var(--surface-raised)); transform: scaleX(var(--download-progress, 0)); transform-origin: left; transition: transform 140ms linear; }
+button.install-indeterminate::before { transform: none; background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--accent) 35%, transparent), transparent); width: 55%; animation: store-download 1.4s ease-in-out infinite; }
+.install-label { position: relative; }
+@keyframes store-download { from { translate: -110% 0; } to { translate: 210% 0; } }
+footer { display: block; flex-shrink: 0; }
+.footer-line { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 18px; }
+.transfer { padding-bottom: 14px; margin-bottom: 13px; border-bottom: 1px solid var(--line); }
+.transfer-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-size: 12px; margin-bottom: 10px; }
+#transfer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#transfer-phase { color: var(--muted); flex-shrink: 0; font-size: 11px; }
+#transfer-progress { display: block; width: 100%; height: 5px; border: 0; border-radius: 5px; overflow: hidden; appearance: none; }
+#transfer-progress::-webkit-progress-bar { background: var(--surface-raised); border-radius: 5px; }
+#transfer-progress::-webkit-progress-value { background: var(--accent); border-radius: 5px; transition: width 140ms linear; }
+#transfer-progress:indeterminate { background: linear-gradient(100deg, var(--surface-raised) 15%, var(--accent) 50%, var(--surface-raised) 85%); background-size: 200% 100%; animation: store-transfer 1.4s linear infinite; }
+@keyframes store-transfer { to { background-position: -200% 0; } }
+.transfer-stats { display: flex; gap: 16px; align-items: center; color: var(--muted); font-size: 11px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+#transfer-speed { margin-left: auto; }
+#transfer-percent { min-width: 36px; text-align: right; color: var(--foreground); }
+@media (max-width: 720px) { .transfer-heading { flex-wrap: wrap; gap: 5px; } }
+@media (prefers-reduced-motion: reduce) { button.install-progress::before, #transfer-progress::-webkit-progress-value { transition: none; } button.install-indeterminate::before, #transfer-progress:indeterminate { animation: none; } }

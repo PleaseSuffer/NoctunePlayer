@@ -1,0 +1,50 @@
+const {app,BrowserWindow}=require('electron');
+const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+const root=path.resolve('tests/.artifacts/tag-editor'); fs.mkdirSync(root,{recursive:true});
+const language=process.argv.includes('--english')?'en':'ru';
+const profile=fs.mkdtempSync(path.join(root,'profile-')); app.setPath('userData',profile);
+fs.writeFileSync(path.join(profile,'config.json'),JSON.stringify({language,hardwareAcceleration:'0'}));
+const fixture=path.join(root,`native-${language}.wav`);
+fs.writeFileSync(fixture, require('./helpers/tag-audio.cjs').audioFixture(40).buffer);
+const show=BrowserWindow.prototype.show;BrowserWindow.prototype.show=function(){};BrowserWindow.prototype.showInactive=function(){};
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const timeout=setTimeout(()=>{console.error('TIMEOUT');app.exit(1)},60000);
+app.on('browser-window-created',(_,win)=>win.webContents.on('did-finish-load',async()=>{
+ if(!win.webContents.getURL().endsWith('/renderer/index.html'))return;
+ const run=code=>win.webContents.executeJavaScript(code);
+ const wait=async(code,label)=>{for(let i=0;i<180;i++){if(await run(code))return;await delay(100)}throw Error(label)};
+ try{
+ win.webContents.setBackgroundThrottling(false);win.setSize(1100,1000);show.call(win);
+ await delay(800);
+ await run(`appStorage.setItem('setting_read_tags','1');document.getElementById('setting-dark-theme').checked=true;document.getElementById('setting-dark-theme').dispatchEvent(new Event('change'));loadMusicFromFiles([${JSON.stringify(fixture)}])`);
+ await wait(`parsedMetadataCache[0]?.title === 'Before edit'`,'metadata loaded');
+ await run(`playTrack(0)`);await wait(`isPlaying && !!window.refreshPlayingFileMetadata`,'playback');
+ await run(`playlistElem.querySelector('li[data-id="0"]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:450,clientY:300}))`);
+ assert.equal(await run(`document.getElementById('menu-edit-tags').style.display`),'flex');
+ await run(`document.getElementById('menu-edit-tags').click()`);
+ await wait(`document.getElementById('tag-editor').open && !document.getElementById('tag-editor-fields').disabled`,'editor read');
+ assert.equal(await run(`document.querySelector('#tag-editor input[name="title"]').value`),'Before edit');
+ assert.equal(await run(`document.getElementById('tag-editor-save').disabled`),true);
+ const expected=language==='en'?'Track tags':'Теги трека';assert.equal(await run(`document.getElementById('tag-editor-title').textContent`),expected);
+ const pos=await run('localAudioElement.currentTime');
+ await run(`document.querySelector('#tag-editor input[name="title"]').value='Ночное сияние 日本語';document.querySelector('#tag-editor input[name="artist"]').value='New artist';document.querySelector('#tag-editor input[name="album"]').value='New album';document.querySelector('#tag-editor input[name="title"]').dispatchEvent(new Event('input',{bubbles:true}))`);
+ assert.equal(await run(`document.getElementById('tag-editor-save').disabled`),false);await delay(300);fs.writeFileSync(path.join(root,`editor-${language}-dark.png`),(await win.webContents.capturePage()).toPNG());
+ await run(`document.getElementById('tag-editor-close').click()`);assert(await run(`!document.getElementById('tag-editor-discard').hidden`));
+ await run(`document.getElementById('tag-editor-keep').click();document.getElementById('tag-editor-form').requestSubmit()`);
+ await wait(`!document.getElementById('tag-editor').open`,'editor saved: '+await run(`document.getElementById('tag-editor-status').textContent`));
+ assert.equal(await run('trackTitle.textContent'),'Ночное сияние 日本語');assert.equal(await run('trackArtist.textContent'),'New artist');assert(await run(`localAudioElement.currentTime >= ${pos} && isPlaying`),'playback continues');
+ assert.equal(await run(`parsedMetadataCache[0].album`),'New album');
+ await run(`selectedTrackIndexInMenu=0;document.getElementById('menu-edit-tags').click()`);await wait(`!document.getElementById('tag-editor-fields').disabled`,'reopen');
+ assert.equal(await run(`document.querySelector('#tag-editor input[name="title"]').value`),'Ночное сияние 日本語');
+ win.setMinimumSize(360,400);win.setSize(460,740);
+ await run(`document.getElementById('setting-dark-theme').checked=false;document.getElementById('setting-dark-theme').dispatchEvent(new Event('change'))`);await delay(400);
+ const bounds=await run(`(()=>{const d=document.getElementById('tag-editor');return {w:d.scrollWidth,c:d.clientWidth,h:d.getBoundingClientRect().height,v:innerHeight}})()`);assert(bounds.w<=bounds.c+1,JSON.stringify(bounds));assert(bounds.h<=bounds.v,JSON.stringify(bounds));
+ fs.writeFileSync(path.join(root,`editor-${language}-light-small.png`),(await win.webContents.capturePage()).toPNG());
+ await run(`document.getElementById('tag-editor-cancel').click();updateTrackTagMenu({kind:'radio',path:'https://radio.example'})`);assert.equal(await run(`document.getElementById('menu-edit-tags').style.display`),'none');
+ await run(`updateTrackTagMenu({kind:'provider',path:'https://provider.example'})`);assert.equal(await run(`document.getElementById('menu-edit-tags').style.display`),'none');
+ console.log('PASS real Electron: '+language+', right-click, raw tags, dirty close, save/reopen, active playback metadata, dark/light and small layout, radio/provider exclusion');clearTimeout(timeout);app.exit(0);
+ }catch(e){console.error(e);console.error(await run(`document.getElementById('tag-editor-status').textContent`).catch(()=>''));app.exit(1)}
+}));
+const archive = process.argv.find(value => value.startsWith('--app-asar='))?.slice('--app-asar='.length);
+if (archive) { app.setAppPath(path.resolve(archive)); Object.defineProperty(app, 'isPackaged', { value: true }); require('electron-updater').autoUpdater.checkForUpdates = async () => null; }
+require(archive ? path.join(path.resolve(archive), 'src/main/index.js') : '../src/main/index');

@@ -591,6 +591,6 @@
         }
         particles=particles.filter(p=>p.life>0); ctx.globalAlpha=1;
     }
-    window.imageEffects = { select, remove, layout, refreshVisibility, audio, appearance: () => ({ ...config, parameters: { ...config.parameters }, colors: Object.fromEntries(luminousEffects.map(key=>[key,{ ...config.colors[key] }])) }), applyAppearance };
+    window.imageEffects = { select, remove, layout, refreshVisibility, audio };
     applyAppearance(parse(storageKey)); layout(); window.requestEffectsFrame(frame);
 })();

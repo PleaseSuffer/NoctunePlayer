@@ -4,6 +4,7 @@
             const serial = ++trackCoverMenuSerial;
             const button = document.getElementById('menu-track-cover');
             const entry = fileEntries[index];
+            window.updateTrackTagMenu?.(entry);
             trackCoverMenuInfo = null;
             button.style.display = entry && entry.kind !== 'radio' ? 'flex' : 'none';
             button.disabled = true;

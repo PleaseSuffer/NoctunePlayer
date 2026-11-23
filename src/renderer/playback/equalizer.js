@@ -122,7 +122,8 @@
                 if (presetsContainerSettings) presetsContainerSettings.appendChild(_buildPresetButton(name, isSystem, savedState));
             });
 
-            lucide.createIcons();
+            lucide.createIcons({ root: presetsContainer });
+            if (presetsContainerSettings) lucide.createIcons({ root: presetsContainerSettings });
             _presetsPage = 0;
             // Даём браузеру отрисовать кнопки перед замером offsetWidth
             requestAnimationFrame(() => _updatePresetsCarousel());
@@ -137,7 +138,7 @@
             if (!viewport || !navPrev || !navNext || !dotsEl) return;
 
             const vw = viewport.offsetWidth;
-            if (!vw) { requestAnimationFrame(() => _updatePresetsCarousel()); return; }
+            if (!vw) return; // Hidden modal: measure when opened, without polling every frame.
 
             const btns = Array.from(presetsContainer.querySelectorAll('.preset-btn'));
             dotsEl.innerHTML = '';
@@ -293,7 +294,13 @@
             lucide.createIcons();
         });
 
-        openEqBtn.addEventListener('click', () => eqModal.style.display = 'flex');
+        openEqBtn.addEventListener('click', () => {
+            eqModal.style.display = 'flex';
+            requestAnimationFrame(() => _updatePresetsCarousel());
+        });
+        window.addEventListener('resize', () => {
+            if (eqModal.style.display === 'flex') requestAnimationFrame(() => _updatePresetsCarousel());
+        });
         closeEqBtn.addEventListener('click', () => eqModal.style.display = 'none');
 
         btnSavePreset.addEventListener('click', () => doSaveCustomPreset(customPresetName));

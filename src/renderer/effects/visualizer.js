@@ -233,6 +233,9 @@
                 window._bgCursorY = 0;
             }
 
+            // Audio still drives backgrounds/scene effects above, but an invisible
+            // visualizer must not render gradients, shadows and particle trails.
+            if (window.vizEnabled === false) return;
             ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
             const style = window.vizStyle || 'circle-smooth';

@@ -387,6 +387,8 @@ contextBridge.exposeInMainWorld('noctune', {
 
   // ── Метаданные аудио (music-metadata) ──
   metadata: {
+    readTags: filePath => ipcRenderer.invoke('tags:read', { filePath }),
+    saveTags: (filePath, patch, expectedRevision) => ipcRenderer.invoke('tags:save', { filePath, patch, expectedRevision }),
     parseFile: (filePath, fallbackName) => metadataQueue(() => parseAudioMetadata(filePath, fallbackName)),
     cancelCover: () => { activeCoverRequest++; },
     cover: filePath => {

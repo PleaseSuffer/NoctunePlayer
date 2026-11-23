@@ -17,6 +17,7 @@ const { fetchText } = require('../../src/main/addons/network');
             ['/redirect', { status: 302, location: '/ok' }],
             ['/loop', { status: 302, location: '/loop' }],
             ['/large', { status: 200, text: 'x'.repeat(100) }],
+            ['/truncated', {status:200,text:'short',length:'10'}],
             ['/missing', { status: 404, text: 'missing' }],
             ['/compressed', { status: 200, encoding: 'gzip', text: 'compressed' }],
         ]);
@@ -37,16 +38,22 @@ const { fetchText } = require('../../src/main/addons/network');
             queueMicrotask(() => {
                 if (url.pathname === '/unreachable') return;
                 const route = routes.get(url.pathname), response = new EventEmitter();
-                response.statusCode = route.status; response.headers = { location: route.location, 'content-encoding': route.encoding };
+                response.statusCode = route.status; response.headers = { location: route.location, 'content-encoding': route.encoding, 'content-length': route.length ?? (url.pathname === '/ok' ? String(Buffer.byteLength(route.text)) : undefined) };
                 response.resume = () => {}; response.setTimeout = () => {}; response.destroy = () => queueMicrotask(() => response.emit('error', new Error('response disconnected')));
                 callback(response);
                 if (url.pathname === '/stream-error') { response.emit('error', new Error('early stream error')); request.emit('close'); return; }
-                if (route.text) response.emit('data', Buffer.from(route.text));
+                if (route.text) { const data=Buffer.from(route.text),half=Math.ceil(data.length/2);response.emit('data',data.subarray(0,half));response.emit('data',data.subarray(half)); }
                 response.emit('end'); request.emit('close');
             });
             return request;
         };
         assert.equal(await fetchText('https://publisher.example/ok'), '{"ok":true}');
+        const known=[];await fetchText('https://publisher.example/redirect',{onProgress:p=>known.push(p)});
+        assert.deepEqual(known.map(p=>p.received),[0,6,11,11]);assert(known.every(p=>p.total===11),'redirect preserves a known byte length');
+        await assert.rejects(fetchText('https://publisher.example/truncated'),/прервал/);
+        const unknown=[];await fetchText('https://publisher.example/large',{onProgress:p=>unknown.push(p)});assert(unknown.every(p=>p.total===null));assert.equal(unknown.at(-1).received,100);
+        assert.equal(await fetchText('https://publisher.example/ok',{onProgress(){throw Error('UI unavailable')}}),'{"ok":true}');
+
         await assert.rejects(fetchText('https://publisher.example/unreachable'), error => error.code === 'ENETUNREACH');
         assert((await fetchText('https://publisher.example/stream-error', { stream: true, detailed: true })).listenerCount('error') > 0);
         assert.equal(await fetchText('https://publisher.example/redirect'), '{"ok":true}');
@@ -64,6 +71,6 @@ const { fetchText } = require('../../src/main/addons/network');
         await assert.rejects(fetchText('https://publisher.example/ok', { signal: controller.signal }), /отменён/);
         dns.lookup = () => new Promise(() => {});
         await assert.rejects(fetchText('https://publisher.example/ok', { deadline: Date.now() + 20 }), /отведённое время/);
-        console.log('PASS: addon network pins validated DNS, blocks private redirects and cross-origin escapes, bounds redirects/body and rejects HTTP/compression/aborted requests without credentials.');
+        console.log('PASS: addon network pins validated DNS, blocks private redirects and cross-origin escapes, bounds redirects/body and rejects HTTP/compression/aborted requests without credentials; byte progress survives redirects, supports unknown totals and rejects truncation.');
     } finally { https.get = originalGet; dns.lookup = originalLookup; }
 })().catch(error => { console.error(error); process.exitCode = 1; });

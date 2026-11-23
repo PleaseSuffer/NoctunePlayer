@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, Tray, Notification, ipcMain, dialog, shell, powerSaveBlocker, safeStorage, clipboard, protocol, screen } = require('electron');
 let win = null;
+require('./tag-editor').registerTagEditor({ ipcMain, getWindow: () => win });
 const mainErrors = require('./error-reporter').createMainErrorReporter({ ipcMain, getWindow: () => win });
 const windowBackend = require('./window-backend').configureWindowBackend({ app });
 const appI18n = require('./i18n').installI18n({ app, ipcMain, BrowserWindow, getStore: () => initStore(), getMainWindow: () => win });

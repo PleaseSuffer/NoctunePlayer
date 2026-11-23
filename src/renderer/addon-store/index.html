@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:">
-    <title data-i18n="marketplace.windowTitle">Магазин — Noctune</title>
+    <title data-i18n="marketplace.windowTitle">NocStore</title>
     <link rel="stylesheet" href="../theme-install/style.css">
     <link rel="stylesheet" href="style.css">
     <script src="../../../node_modules/lucide/dist/umd/lucide.min.js"></script>
@@ -14,11 +14,11 @@
 </head>
 <body>
     <header class="store-header">
-        <div><span class="brand">Noctune</span><span class="store-label" data-i18n="marketplace.title">Магазин</span></div>
+        <div><span class="brand" data-i18n="marketplace.title">NocStore</span></div>
         <button type="button" id="repository" class="quiet"><i data-lucide="git-branch" aria-hidden="true"></i><span data-i18n="settings.about.repository">Репозиторий</span></button>
     </header>
     <main>
-        <section class="intro"><p class="eyebrow" data-i18n="marketplace.title">Магазин</p><h1 data-i18n="addonStore.makeNoctuneYours">Настройте Noctune под себя</h1><p class="subtitle" data-i18n="addonStore.themesIntegrationsAndAddOnsForYourMusic">Оформление, интеграции и дополнения для вашей музыки.</p></section>
+        <section class="intro"><p class="eyebrow" data-i18n="marketplace.title">NocStore</p><h1 data-i18n="addonStore.makeNoctuneYours">Настройте Noctune под себя</h1><p class="subtitle" data-i18n="addonStore.themesIntegrationsAndAddOnsForYourMusic">Оформление, интеграции и дополнения для вашей музыки.</p></section>
         <div class="tabs section-tabs" role="tablist" aria-label="Раздел магазина" data-i18n-aria-label="marketplace.sections">
             <button id="tab-extensions" role="tab" aria-selected="true" aria-controls="store-results"><i data-lucide="puzzle"></i><span data-i18n="player.interface.extensions">Расширения</span></button>
             <button id="tab-themes" role="tab" aria-selected="false" aria-controls="store-results" tabindex="-1"><i data-lucide="palette"></i><span data-i18n="addonPermissions.themes">Темы</span></button>
@@ -39,7 +39,14 @@
         </section>
         <div id="community-actions" class="community-actions" hidden><button type="button" id="documentation"><i data-lucide="book-open"></i><span data-i18n="marketplace.publishGuide">Как опубликовать дополнение или тему</span></button><button type="button" id="submission"><i data-lucide="git-pull-request"></i><span data-i18n="addonStore.submitOnGithub">Заявка на GitHub</span></button></div>
     </main>
-    <footer><span id="status" role="status" aria-live="polite"></span><span class="footer-note" data-i18n="marketplace.confirmation">Установка — с вашим подтверждением</span></footer>
+    <footer>
+        <section id="transfer" class="transfer" hidden aria-label="Загрузка пакета" data-i18n-aria-label="addonStore.transfer.footer">
+            <div class="transfer-heading"><strong id="transfer-name"></strong><span id="transfer-phase"></span></div>
+            <progress id="transfer-progress" max="100" aria-label="Прогресс загрузки" data-i18n-aria-label="addonStore.transfer.progress"></progress>
+            <div class="transfer-stats"><span id="transfer-size"></span><span id="transfer-speed"></span><span id="transfer-percent"></span></div>
+        </section>
+        <div class="footer-line"><span id="status" role="status" aria-live="polite"></span><span class="footer-note" data-i18n="marketplace.confirmation">Установка — с вашим подтверждением</span></div>
+    </footer>
 <script src="../core/i18n-initial.js"></script>
 </body>
 </html>

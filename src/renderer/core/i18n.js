@@ -1,19 +1,29 @@
 (function () {
     const i18n = globalThis.noctuneI18n;
     const lastText = new WeakMap();
+    const markers = '[data-i18n], [data-i18n-title], [data-i18n-placeholder], [data-i18n-aria-label], [data-i18n-alt]';
     let translatedLocale = i18n.locale;
     function translate(root = document) {
-        const nodes = [...(root.querySelectorAll?.('[data-i18n], [data-i18n-title], [data-i18n-placeholder], [data-i18n-aria-label], [data-i18n-alt]') || [])];
-        if (root.nodeType === 1) nodes.unshift(root);
+        const nodes = [...(root.querySelectorAll?.(markers) || [])];
+        if (root.nodeType === 1 && root.matches(markers)) nodes.unshift(root);
         for (const node of nodes) {
             if (node.hasAttribute('data-i18n')) {
                 const key = node.getAttribute('data-i18n'), current = node.textContent.trim();
                 const previous = lastText.get(node);
-                if (previous === undefined || current === previous || current === globalThis.NoctuneLocaleCatalog.ru[key]?.trim() || current === globalThis.NoctuneLocaleCatalog.en[key]?.trim()) { node.textContent = i18n.t(key); lastText.set(node, node.textContent.trim()); }
+                if (previous === undefined || current === previous || current === globalThis.NoctuneLocaleCatalog.ru[key]?.trim() || current === globalThis.NoctuneLocaleCatalog.en[key]?.trim()) {
+                    const value = i18n.t(key);
+                    if (node.textContent !== value) node.textContent = value;
+                    lastText.set(node, value.trim());
+                }
             }
-            for (const attr of ['title', 'placeholder', 'aria-label', 'alt']) if (node.hasAttribute('data-i18n-' + attr)) node.setAttribute(attr, i18n.t(node.getAttribute('data-i18n-' + attr)));
+            for (const attr of ['title', 'placeholder', 'aria-label', 'alt']) if (node.hasAttribute('data-i18n-' + attr)) {
+                const value = i18n.t(node.getAttribute('data-i18n-' + attr));
+                if (node.getAttribute(attr) !== value) node.setAttribute(attr, value);
+            }
         }
-        document.documentElement.lang = i18n.locale;
+        // Writing lang invalidates inherited styles across the entire document.
+        // DOM additions (e.g. SVG icons) do not constitute a language change.
+        if (document.documentElement.lang !== i18n.locale) document.documentElement.lang = i18n.locale;
     }
     function populate() {
         const select = document.getElementById('setting-language');
@@ -86,7 +96,17 @@
         document.getElementById('setting-language')?.addEventListener('change', event => selectLanguage(event.target.value).catch(error => { console.error(error); populate(); }));
         // Only explicitly marked application strings are translated. Track names,
         // provider content, form values and other user data are never inspected.
-        const observer = new MutationObserver(records => { for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1) translate(node); });
+        const observer = new MutationObserver(records => {
+            const roots = new Set();
+            for (const record of records) for (const node of record.addedNodes) if (node.nodeType === 1 && node.isConnected) roots.add(node);
+            for (const node of roots) {
+                // An inserted subtree can generate several records before delivery.
+                // Translate it once, skipping descendants already covered by a root.
+                let parent = node.parentElement;
+                while (parent && !roots.has(parent)) parent = parent.parentElement;
+                if (!parent) translate(node);
+            }
+        });
         observer.observe(document.body, { childList: true, subtree: true });
     }
     i18n.onChange(() => { if (translatedLocale !== i18n.locale) { translate(); translatedLocale = i18n.locale; window.noctuneLocale?.set({ locale: i18n.locale, pack: i18n.getPack(i18n.locale) }).catch(console.error); } populate(); });
