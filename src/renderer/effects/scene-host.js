@@ -35,9 +35,10 @@
         }
         return result;
     }
-    const encode = text => { const bytes = new TextEncoder().encode(text); let result = ''; for (let i = 0; i < bytes.length; i += 8192) result += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(result); };
+    const encode = text => { const bytes = new TextEncoder().encode(text); if (bytes.toBase64) return bytes.toBase64(); let result = ''; for (let i = 0; i < bytes.length; i += 8192) result += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(result); };
     const bootstrap = function () {
-        const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(document.getElementById('scene-data').textContent), c => c.charCodeAt(0))));
+        const encoded = document.getElementById('scene-data').textContent;
+        const payload = JSON.parse(new TextDecoder().decode(Uint8Array.fromBase64 ? Uint8Array.fromBase64(encoded) : Uint8Array.from(atob(encoded), c => c.charCodeAt(0))));
         const reply = (type, extra = {}) => parent.postMessage({ sceneChannel: payload.channel, type, ...extra }, '*');
         const workerBootstrap = function () {
             let api, scene;
@@ -51,7 +52,8 @@
                         const decodeStart = performance.now();
                         const images = Object.create(null);
                         await Promise.all(Object.entries(data.assets).map(async ([id, source]) => {
-                            const bytes = Uint8Array.from(atob(source.split(',')[1]), c => c.charCodeAt(0));
+                            const encoded = source.slice(source.indexOf(',') + 1);
+                            const bytes = Uint8Array.fromBase64 ? Uint8Array.fromBase64(encoded) : Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
                             images[id] = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
                         }));
                         const decodeMs = performance.now() - decodeStart;
@@ -307,7 +309,8 @@
             const request = ++epoch; destroy(candidate); candidate = null;
             const pkg = await noctune.sceneThemes.read(metadata.id);
             if (request !== epoch || guard && !guard()) throw new Error((globalThis.noctuneI18n?.t("effects.sceneHost.themeSelectionCanceled", {}) ?? "Выбор темы отменён"));
-            metadata = { ...metadata, ...pkg.manifest, id: metadata.id, packageId: pkg.manifest.id, apiVersion: pkg.apiVersion, preview: metadata.preview };
+            const manifest = window.AddonLocalization ? window.AddonLocalization.manifest(pkg.manifest, window.noctuneI18n?.locale || 'ru') : pkg.manifest;
+            metadata = { ...metadata, ...manifest, id: metadata.id, packageId: pkg.manifest.id, apiVersion: pkg.apiVersion, preview: metadata.preview };
             return new Promise((resolve, reject) => {
                 const frame = document.createElement('iframe'); frame.className = 'scene-frame'; frame.setAttribute('sandbox', 'allow-scripts');
                 frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1; frame.style.opacity = '0';
