@@ -171,7 +171,10 @@ NoctuneScene.define({
             inscription('Respected by all men and in all times.',176,107,Math.atan2(540,305));
         }
         c.save();c.translate(cameraX*.35,cameraY*.35);
-        text(decode(labels[0],2),260,-20,11,yellow);text(decode(labels[1],3),365,300,10,yellow);text(decode(labels[2],4),-350,-20,11,yellow);
+        text(decode(labels[0],2),260,-20,11,yellow);
+        // The lower spectrum reaches y=344 at maximum amplitude; leave room for text float and glow.
+        c.save();c.textAlign='center';text(decode(labels[1],3),0,370,10,yellow);c.restore();
+        text(decode(labels[2],4),-350,-20,11,yellow);
         c.restore();c.restore();
         // Independent telemetry layers move more slowly than the emblem.
         c.save();c.translate(cameraX*.65,cameraY*.65);
