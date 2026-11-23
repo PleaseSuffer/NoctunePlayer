@@ -6,10 +6,14 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
   const store = createAddonStore({ directory, appVersion });
   const credentialDialog = require('./credentials-dialog').createCredentialDialog({ BrowserWindow, ipcMain, shell });
   const services = require('./services').createAddonServices({ store, directory, downloadsPath, safeStorage, shell, clipboard, dialog, getWindow, credentialDialog });
-  const installer = createAddonInstaller({ BrowserWindow, ipcMain, store, icon });
+  const installer = createAddonInstaller({ BrowserWindow, ipcMain, store, icon, getAppearance: () => require('../window-appearance').readWindowAppearance(getWindow()) });
   const catalog = createAddonCatalog({ directory, appVersion, store });
   const marketplace = themeStore && require('./marketplace').createMarketplaceCatalog({directory,appVersion,store,themeStore});
-  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, catalog, marketplace, themeInstaller, onThemeInstalled: theme => {
+  const removalWindow = require('../package-removal').createPackageRemoval({ BrowserWindow, ipcMain, icon });
+  const shop = require('./store-window').createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, catalog, marketplace, themeInstaller, themeStore, removalWindow, removeExtension, onThemeRemoved: theme => {
+    const window = getWindow();
+    if (window && !window.isDestroyed()) window.webContents.send('scene-themes:removed',theme);
+  }, onThemeInstalled: theme => {
     const window = getWindow();
     if (window && !window.isDestroyed()) window.webContents.send('scene-themes:imported',{theme});
   }, onInstalled: () => {
@@ -56,7 +60,12 @@ function registerAddonIpc({ ipcMain, BrowserWindow, dialog, getWindow, directory
     if (pending) { for (const controller of pending) controller.abort(); downloads.delete(id); }
   }
   handle('enable', async (_event, id, enabled) => { await store.setEnabled(id, enabled); if (!enabled) abort(id); });
-  handle('remove', async (_event, id) => { await store.remove(id); await services.remove(id); abort(id); });
+  async function removeExtension(id) {
+    await store.remove(id); await services.remove(id); abort(id);
+    const window = getWindow();
+    if (window && !window.isDestroyed()) window.webContents.send('addons:changed');
+  }
+  handle('remove', (_event, id) => removeExtension(id));
   handle('rollback', async (_event, id) => { const result = await store.rollback(id); abort(id); return result; });
   handle('check-update', async (_event, id) => {
     const current = (await store.list()).find(item=>item.id===id);

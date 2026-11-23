@@ -1,7 +1,8 @@
 const path = require('node:path');
+const { normalizeAppearance } = require('./window-appearance');
 const { readPackage, validatePackage } = require('./scene-themes');
 
-function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
+function createThemeInstaller({ BrowserWindow, ipcMain, store, icon, getAppearance = () => ({}) }) {
     const sessions = new Map();
     function session(event) {
         const entry = sessions.get(event.sender);
@@ -37,13 +38,14 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
     });
     return {
         async open(file) { return this.openPackage(await readPackage(file)); },
-        async openPackage(value) {
+        async openPackage(value, appearance) {
+            const colors = normalizeAppearance(appearance || await getAppearance());
             // Preview the validated snapshot only; scene code runs only after the user selects an installed theme.
             const theme = validatePackage(JSON.parse(JSON.stringify(value)));
             return new Promise((resolve, reject) => {
                 const window = new BrowserWindow({
                     title: (globalThis.noctuneI18n?.t("themeInstall.installThemeNoctune", {}) ?? "Установка темы — Noctune"), width: 640, height: 740,
-                    minWidth: 520, minHeight: 640, show: false, backgroundColor: '#15151b', icon,
+                    minWidth: 520, minHeight: 640, show: false, backgroundColor: colors.theme === 'light' ? '#f4f7f6' : '#15151b', icon,
                     autoHideMenuBar: true,
                     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true,
                         preload: path.join(__dirname, '../preload/theme-installer.js') },
@@ -58,7 +60,7 @@ function createThemeInstaller({ BrowserWindow, ipcMain, store, icon }) {
                 window.once('ready-to-show', () => { window.show(); window.focus(); });
                 window.on('close', event => { if (entry.installing) event.preventDefault(); });
                 window.once('closed', () => { sessions.delete(contents); resolve(null); });
-                window.loadFile(path.join(__dirname, '../renderer/theme-install/index.html')).catch(error => { reject(error); window.destroy(); });
+                window.loadFile(path.join(__dirname, '../renderer/theme-install/index.html'), { query: colors }).catch(error => { reject(error); window.destroy(); });
             });
         },
     };

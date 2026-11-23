@@ -352,6 +352,7 @@ contextBridge.exposeInMainWorld('noctune', {
 
   sceneThemes: {
     ready: () => ipcRenderer.send('scene-themes:ready'),
+    onRemoved: cb => ipcRenderer.on('scene-themes:removed', (_event, theme) => cb(theme)),
     onImported: cb => ipcRenderer.on('scene-themes:imported', (_event, result) => cb(result)),
     list: () => ipcRenderer.invoke('scene-themes:list'),
     read: id => ipcRenderer.invoke('scene-themes:read', id),

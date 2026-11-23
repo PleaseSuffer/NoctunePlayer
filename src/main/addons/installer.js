@@ -1,6 +1,7 @@
 const path = require('node:path');
+const { normalizeAppearance } = require('../window-appearance');
 
-function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
+function createAddonInstaller({ BrowserWindow, ipcMain, store, icon, getAppearance = () => ({}) }) {
   const sessions = new Map();
   const tickets = new Map();
   function session(event) {
@@ -29,15 +30,21 @@ function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
     if (!entry.installing) entry.window.close();
   });
   return {
-    open(ticket) {
+    open(ticket, appearance) {
       const existing = tickets.get(ticket);
       if (existing) { existing.window.show(); existing.window.focus(); return existing.promise; }
+      if (!appearance) {
+        const value = getAppearance();
+        if (value?.then) return value.then(colors => this.open(ticket, colors));
+        appearance = value;
+      }
+      const colors = normalizeAppearance(appearance);
       // Metadata and the immutable package snapshot belong to main, not the caller.
       const preview = store.preview(ticket);
       const window = new BrowserWindow({
         title: preview.state === 'update' ? (globalThis.noctuneI18n?.t("extensions.installer.updateExtensionNoctune", {}) ?? "Обновление расширения — Noctune") : (globalThis.noctuneI18n?.t("addonInstall.installExtensionNoctune", {}) ?? "Установка расширения — Noctune"),
         width: 640, height: 780, minWidth: 520, minHeight: 600,
-        show: false, backgroundColor: '#15151b', icon, autoHideMenuBar: true,
+        show: false, backgroundColor: colors.theme === 'light' ? '#f4f7f6' : '#15151b', icon, autoHideMenuBar: true,
         webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, '../../preload/addon-installer.js') },
       });
       let resolve, reject;
@@ -55,7 +62,7 @@ function createAddonInstaller({ BrowserWindow, ipcMain, store, icon }) {
         sessions.delete(contents); tickets.delete(ticket);
         store.discard(ticket); resolve(null);
       });
-      window.loadFile(path.join(__dirname, '../../renderer/addon-install/index.html')).catch(error => { reject(error); window.destroy(); });
+      window.loadFile(path.join(__dirname, '../../renderer/addon-install/index.html'), { query: colors }).catch(error => { reject(error); window.destroy(); });
       return promise;
     },
   };

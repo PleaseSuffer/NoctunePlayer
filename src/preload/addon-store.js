@@ -26,5 +26,9 @@ contextBridge.exposeInMainWorld('addonStore', {
         try { return await ipcRenderer.invoke('addon-store:install', id, kind, channel); }
         catch (error) { throw new Error(String(error.message).replace(/^Error invoking remote method 'addon-store:install': (?:Error: )?/, '')); }
     },
+    remove: async (id, kind, channel) => {
+        try { return await ipcRenderer.invoke('addon-store:remove', id, kind, channel); }
+        catch (error) { throw new Error(String(error.message).replace(/^Error invoking remote method 'addon-store:remove': (?:Error: )?/, '')); }
+    },
     openLink: kind => ipcRenderer.invoke('addon-store:open-link', kind),
 });

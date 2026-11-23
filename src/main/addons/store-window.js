@@ -1,8 +1,10 @@
 const path = require('node:path');
+const { normalizeAppearance } = require('../window-appearance');
 const { createAddonCatalog, REPOSITORY_URL, SUBMISSION_URL } = require('./catalog');
 
-function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled, marketplace, themeInstaller, onThemeInstalled, catalog = createAddonCatalog({ directory, appVersion, store }) }) {
+function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled, marketplace, themeInstaller, onThemeInstalled, themeStore, removalWindow, removeExtension, onThemeRemoved, catalog = createAddonCatalog({ directory, appVersion, store }) }) {
   let window = null, contents = null, installing = false, controller = null;
+  let colors = normalizeAppearance();
   function session(event) {
     if (!window || window.isDestroyed() || event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
     return window;
@@ -42,10 +44,37 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
       candidate = kind === 'extension' && channel === 'official' ? await catalog.prepare(id,options) : await marketplace.prepare(id,kind,channel,options);
       session(event);
       report({ phase: 'confirming', ...progress });
-      const result = candidate.theme ? await themeInstaller.openPackage(candidate.theme) : await installer.open(candidate.ticket);
+      const result = candidate.theme ? await themeInstaller.openPackage(candidate.theme, colors) : await installer.open(candidate.ticket, colors);
       if (result) { if (candidate.theme) onThemeInstalled?.(result); else onInstalled?.(result); }
       return { installed: !!result };
     } finally { if (candidate?.ticket) store.discard(candidate.ticket); if (controller === download) controller = null; installing = false; }
+  });
+  ipcMain.handle('addon-store:remove', async (event, id, kind = 'extension', channel = 'official') => {
+    session(event);
+    if (installing) throw new Error(globalThis.noctuneI18n?.t('themeInstaller.installationAlreadyInProgress') ?? 'Установка уже выполняется');
+    if (!['extension','theme'].includes(kind) || !['official','community'].includes(channel)) throw new Error('Некорректный раздел магазина');
+    installing = true;
+    try {
+      async function installedEntry() {
+        const entries = (await (kind === 'extension' && channel === 'official' ? catalog : marketplace).list()).entries;
+        const entry = entries.find(entry => entry.id === id && (entry.channel || 'official') === channel && (entry.kind || 'extension') === kind);
+        if (!entry?.removable || !['installed','update'].includes(entry.state)) throw new Error(globalThis.noctuneI18n?.t('addonStore.removeUnavailable') ?? 'Этот пакет нельзя удалить из магазина');
+        return entry;
+      }
+      await installedEntry();
+      const current = kind === 'theme' ? (await themeStore.list()).themes.find(theme => theme.packageId === id && theme.removable) : (await store.list()).find(addon => addon.id === id);
+      if (!current) throw new Error(globalThis.noctuneI18n?.t('addonStore.removeUnavailable') ?? 'Этот пакет нельзя удалить из магазина');
+      return await removalWindow.open({ kind, name: current.name, author: current.author, description: current.description, version: current.version, preview: kind === 'theme' ? current.preview : current.artwork?.banner || current.artwork?.icon, width: current.width, height: current.height }, colors, async () => {
+        session(event);
+        await installedEntry();
+        if (kind === 'theme') {
+          const theme = (await themeStore.list()).themes.find(theme => theme.packageId === id && theme.removable);
+          if (!theme) throw new Error(globalThis.noctuneI18n?.t('addonStore.removeUnavailable') ?? 'Этот пакет нельзя удалить из магазина');
+          await themeStore.remove(theme.id); onThemeRemoved?.(theme);
+        } else await removeExtension(id);
+        return { removed: true };
+      });
+    } finally { installing = false; }
   });
   ipcMain.handle('addon-store:open-link', (event, kind) => {
     session(event);
@@ -55,9 +84,9 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
   });
   return {
     open(appearance = {}) {
+      colors = normalizeAppearance(appearance);
       if (window && !window.isDestroyed()) { window.show(); window.focus(); if(appearance?.section==='themes') contents.send('addon-store:refresh',{section:'themes'}); else contents.send('addon-store:refresh'); return; }
-      const theme = appearance?.theme === 'light' ? 'light' : 'dark';
-      const accent = /^#[a-f0-9]{6}$/i.test(appearance?.accent) ? appearance.accent : '#ac91ee';
+      const { theme, accent } = colors;
       window = new BrowserWindow({ title: (globalThis.noctuneI18n?.t('marketplace.windowTitle') ?? 'NocStore'), width: 1040, height: 800, minWidth: 620, minHeight: 560, show: false, backgroundColor: theme === 'light' ? '#f4f7f6' : '#15151b', icon, autoHideMenuBar: true,
         webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, '../../preload/addon-store.js') } });
       const current = window; contents = current.webContents;

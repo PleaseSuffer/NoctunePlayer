@@ -1,10 +1,9 @@
 .addons-install-card { display: flex; flex-direction: column; gap: 12px; }
 .addons-install-card p, .addon-card p { margin: 0; }
-.addons-entry-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
-.addons-entry-info { flex: 1 1 180px; min-width: 0; }
+.addons-entry-info { min-width: 0; }
 .addons-entry-info .settings-row-desc { margin-top: 6px; line-height: 1.6; }
-.addons-store-button { flex: 0 0 auto; min-height: 40px; }
-.addons-manual-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.addons-install-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.addons-install-actions .btn { min-height: 36px; }
 #panel-addons .addons-secondary-action { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); font-size: 12px; font-weight: 500; padding: 8px 12px; }
 #panel-addons .addons-secondary-action:hover { background: var(--track-hover); border-color: var(--accent-color); }
 #panel-addons .btn:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }

@@ -2,18 +2,11 @@
     const api = window.addonStore;
     const byId = id => document.getElementById(id);
     const query = new URLSearchParams(location.search);
-    document.documentElement.dataset.theme = query.get('theme') === 'light' ? 'light' : 'dark';
-    const accent = query.get('accent');
-    if (/^#[a-f0-9]{6}$/i.test(accent)) {
-        document.documentElement.style.setProperty('--accent', accent);
-        const rgb = accent.slice(1).match(/../g).map(value => parseInt(value,16) / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
-        document.documentElement.style.setProperty('--accent-ink', rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722 > .179 ? '#171220' : '#ffffff');
-    }
     const tabs = [byId('tab-official'),byId('tab-community')];
     const sectionTabs = [byId('tab-extensions'),byId('tab-themes')];
     const t = (key, fallback, args) => globalThis.noctuneI18n?.t(key, args) ?? fallback;
     let section = query.get('section') === 'themes' ? 'theme' : 'extension', channel = 'official';
-    let catalog = null, busy = false, refreshing = false;
+    let catalog = null, busy = false, refreshing = false, loadError = '';
     let transfer = null;
     const byteFormats = ['byte', 'kilobyte', 'megabyte', 'gigabyte'].map((unit, index) => new Intl.NumberFormat(globalThis.noctuneI18n?.locale || 'ru', { style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: index > 0 ? 1 : 0 }));
     function formatBytes(value) {
@@ -48,8 +41,7 @@
             control.classList.toggle('install-indeterminate', percent === null);
             control.style.setProperty('--download-progress', (percent || 0) / 100);
             control.setAttribute('aria-busy', 'true');
-            const label = phase === 'confirming' ? t('addonStore.transfer.confirmButton', 'Подтвердите установку')
-                : phase === 'downloading' && percent !== null ? t('addonStore.transfer.downloadPercent', `Загрузка · ${percent}%`, { percent }) : phaseLabels[phase];
+            const label = phase === 'confirming' ? t('addonStore.transfer.confirmingButton', 'Подтверждение…') : t('addonStore.transfer.downloadingButton', 'Загрузка…');
             control.querySelector('.install-label').textContent = label;
         }
     }
@@ -92,7 +84,8 @@
         const sources={builtin:t('addonStore.app.bundledCatalog','Встроенный каталог'),cache:t('addonStore.app.savedCatalog','Сохранённый каталог'),network:t('addonStore.app.githubCatalog','Каталог GitHub')};
         byId('catalog-source').textContent=sources[active.source] || t('addonStore.noctuneCatalog','Каталог Noctune');
         byId('catalog-source').title=t('addonStore.app.updated','Обновлён: ')+new Date(active.generatedAt).toLocaleString(globalThis.noctuneI18n?.locale || 'ru');
-        byId('catalog-message').textContent=active.message || '';
+        byId('catalog-message').textContent=loadError || active.message || '';
+        if (refreshing) byId('catalog-source').textContent = t('addonStore.app.refreshingCatalog', 'Обновляем каталог…');
         const list = byId('catalog'); list.replaceChildren();
         const search = byId('search').value.trim().toLocaleLowerCase();
         const inSection = catalog.entries.filter(entry=>(entry.kind || 'extension')===section);
@@ -118,9 +111,19 @@
             control.textContent = !entry.compatible ? (globalThis.noctuneI18n?.t("addonStore.app.incompatible", {}) ?? "Несовместимо") : entry.state === 'installed' ? labels.installed : !entry.published ? (globalThis.noctuneI18n?.t("addonStore.app.comingToTheStore", {}) ?? "Скоро в магазине") : labels[entry.state];
             control.replaceChildren(node('span', 'install-label', control.textContent));
             control.disabled = busy || !entry.compatible || !entry.published || ['installed','conflict'].includes(entry.state);
-            const state = !entry.compatible ? (globalThis.noctuneI18n?.t("addonStore.app.checkYourNoctuneVersion", {}) ?? "Проверьте версию Noctune") : entry.state === 'installed' ? entry.enabled ? (globalThis.noctuneI18n?.t("addonStore.app.enabledInPlayer", {}) ?? "Включено в плеере") : (globalThis.noctuneI18n?.t("addonStore.app.canBeEnabledInSettings", {}) ?? "Можно включить в настройках") : entry.state === 'conflict' ? (globalThis.noctuneI18n?.t("addonStore.app.idBelongsToAnExtensionFromAnotherPublisher", {}) ?? "ID занят расширением другого издателя") : !entry.published ? (globalThis.noctuneI18n?.t("addonStore.app.preparingForPublication", {}) ?? "Готовится к публикации") : (globalThis.noctuneI18n?.t("addonStore.app.officialExtension", {}) ?? "Официальное расширение");
             const scope = entry.channel === 'community' ? t('addonStore.community','Пользовательские') : t('addonStore.official','Официальные');
-            actions.append(node('span','card-state',entry.state === 'install' && entry.published && entry.compatible ? scope : state),control);
+            const state = !entry.compatible ? (globalThis.noctuneI18n?.t("addonStore.app.checkYourNoctuneVersion", {}) ?? "Проверьте версию Noctune") : entry.state === 'installed' ? entry.enabled ? (globalThis.noctuneI18n?.t("addonStore.app.enabledInPlayer", {}) ?? "Включено в плеере") : (globalThis.noctuneI18n?.t("addonStore.app.canBeEnabledInSettings", {}) ?? "Можно включить в настройках") : entry.state === 'conflict' ? (globalThis.noctuneI18n?.t("addonStore.app.idBelongsToAnExtensionFromAnotherPublisher", {}) ?? "ID занят расширением другого издателя") : !entry.published ? (globalThis.noctuneI18n?.t("addonStore.app.preparingForPublication", {}) ?? "Готовится к публикации") : scope;
+            const controls = node('div', 'card-controls'), removeSlot = node('span', 'remove-slot');
+            controls.append(control);
+            if (entry.removable) {
+                controls.prepend(removeSlot);
+                const removeButton = node('button', 'remove-package'); removeButton.type = 'button';
+                const label = t('addonStore.removePackage', 'Удалить «{name}»', { name: entry.name }).replace('{name}', entry.name);
+                removeButton.title = label; removeButton.setAttribute('aria-label', label); removeButton.disabled = busy;
+                const trash = icon('trash-2'); trash.setAttribute('aria-hidden', 'true'); removeButton.append(trash);
+                removeButton.addEventListener('click', () => remove(entry)); removeSlot.append(removeButton);
+            }
+            actions.append(node('span','card-state',state),controls);
             control.addEventListener('click',() => install(entry));
             body.append(heading,node('p','card-description',entry.description),metadata,actions); card.append(body); list.append(card);
         }
@@ -129,15 +132,24 @@
     }
     async function load(refresh = false) {
         if (refresh && refreshing) return;
-        if (refresh) { refreshing = true; byId('refresh').disabled = true; byId('catalog-message').textContent = (globalThis.noctuneI18n?.t("addonStore.app.refreshingCatalog", {}) ?? "Обновляем каталог…"); }
+        if (refresh) {
+            refreshing = true; byId('refresh').disabled = true; byId('refresh').setAttribute('aria-busy', 'true');
+            byId('catalog-source').textContent = t('addonStore.app.refreshingCatalog', 'Обновляем каталог…');
+            byId('status').textContent = t('addonStore.app.refreshingCatalog', 'Обновляем каталог…');
+        }
         try {
-            catalog = await api.list(refresh);
+            catalog = await api.list(refresh); loadError = '';
             const names = { builtin:(globalThis.noctuneI18n?.t("addonStore.app.bundledCatalog", {}) ?? "Встроенный каталог"),cache:(globalThis.noctuneI18n?.t("addonStore.app.savedCatalog", {}) ?? "Сохранённый каталог"),network:(globalThis.noctuneI18n?.t("addonStore.app.githubCatalog", {}) ?? "Каталог GitHub") };
             byId('catalog-source').textContent = names[catalog.source] || (globalThis.noctuneI18n?.t("addonStore.noctuneCatalog", {}) ?? "Каталог Noctune");
             byId('catalog-source').title = (globalThis.noctuneI18n?.t("addonStore.app.updated", {}) ?? "Обновлён: ") + new Date(catalog.generatedAt).toLocaleString(globalThis.noctuneI18n?.locale || 'ru');
             byId('catalog-message').textContent = catalog.message; render();
-        } catch (error) { byId('catalog-message').textContent = error.message || (globalThis.noctuneI18n?.t("addonStore.app.couldNotLoadCatalog", {}) ?? "Не удалось загрузить каталог"); }
-        finally { if (refresh) { refreshing = false; byId('refresh').disabled = false; } }
+            if (refresh) byId('status').textContent = catalog.message || t('addonStore.catalogUpdated', 'Каталог обновлён');
+        } catch (error) {
+            loadError = error.message || t('addonStore.app.couldNotLoadCatalog', 'Не удалось загрузить каталог');
+            byId('catalog-message').textContent = loadError;
+            if (refresh) byId('status').textContent = loadError;
+        }
+        finally { if (refresh) { refreshing = false; byId('refresh').disabled = false; byId('refresh').removeAttribute('aria-busy'); if (catalog) render(); } }
     }
     async function install(entry) {
         if (busy) return;
@@ -150,9 +162,21 @@
             const result = await api.install(entry.id,entry.kind || 'extension',entry.channel || 'official');
             transfer = null; byId('transfer').hidden = true;
             byId('status').textContent = result.installed ? entry.kind === 'theme' ? t('marketplace.themeInstalled','Тема установлена. Выберите её в настройках оформления.') : (globalThis.noctuneI18n?.t("addonStore.app.extensionInstalledEnableItInPlayerSettings", {}) ?? "Расширение установлено. Включите его в настройках плеера.") : (globalThis.noctuneI18n?.t("addonStore.app.installationCanceled", {}) ?? "Установка отменена");
-            await load(true);
+            await load();
         } catch (error) { byId('status').textContent = error.message || (globalThis.noctuneI18n?.t("extensions.installer.couldNotInstallExtension", {}) ?? "Не удалось установить расширение"); }
         finally { busy = false; transfer = null; byId('transfer').hidden = true; render(); }
+    }
+    async function remove(entry) {
+        if (busy) return;
+        busy = true; render();
+        try {
+            const result = await api.remove(entry.id, entry.kind || 'extension', entry.channel || 'official');
+            if (result.removed) {
+                byId('status').textContent = t('addonStore.packageRemoved', 'Пакет удалён');
+                await load();
+            }
+        } catch (error) { byId('status').textContent = error.message || t('addonStore.removeFailed', 'Не удалось удалить пакет'); }
+        finally { busy = false; render(); }
     }
     for (const kind of ['repository','documentation','submission']) byId(kind).addEventListener('click',() => api.openLink(kind).catch(error => { byId('status').textContent = error.message; }));
     byId('search').addEventListener('input',render);

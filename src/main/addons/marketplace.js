@@ -94,7 +94,7 @@ function createMarketplaceCatalog({ directory, appVersion, store, themeStore, fe
         const current = entry.kind === 'theme' ? installedThemes.themes.find(theme=>theme.packageId===entry.id) : addons.find(addon=>addon.id===entry.id);
         const state = current ? entry.kind === 'theme' ? compareThemeVersions(entry.version,current.version)>0 ? 'update':'installed' : current.publisher !== entry.publisher ? 'conflict' : entry.revision > (current.maxRevision||current.revision) ? 'update':'installed' : 'install';
         const {packageUrl,sha256,...metadata} = entry;
-        return {...metadata,artwork:artwork(entry.artwork),compatible:p.compatible(entry,appVersion),published:true,state,enabled:current?.enabled===true};
+        return {...metadata,artwork:artwork(entry.artwork),compatible:p.compatible(entry,appVersion),published:true,state,removable:!!current && (entry.kind === 'theme' ? current.removable === true : current.publisher === entry.publisher),enabled:current?.enabled===true};
       }) };
     },
     async prepare(id, kind, channel, { onProgress, signal } = {}) {

@@ -18,7 +18,7 @@ const { packDirectory } = require('../../src/main/addons/package');
                 windows.push(this);
             }
             setMenu() {} show() {} focus() {}
-            loadFile(file) { this.file = file; return Promise.resolve(); }
+            loadFile(file, options) { this.query = options.query; this.file = file; return Promise.resolve(); }
             destroy() { this.emit('closed'); }
             close() { let prevented = false; this.emit('close', { preventDefault() { prevented = true; } }); if (!prevented) this.destroy(); }
         }
@@ -26,8 +26,10 @@ const { packDirectory } = require('../../src/main/addons/package');
         const installer = createAddonInstaller({ BrowserWindow: Window, ipcMain: { handle: (id, handler) => handlers.set(id, handler), on: (id, handler) => handlers.set(id, handler) }, store });
         const pkg = await packDirectory('addons/examples/track-info');
         let candidate = await store.preparePackage(pkg);
-        let task = installer.open(candidate.ticket), window = windows.at(-1);
+        let task = installer.open(candidate.ticket, { theme: 'light', accent: '#eec84a' }), window = windows.at(-1);
         const event = () => ({ sender: window.webContents, senderFrame: window.webContents.mainFrame });
+        assert.equal(window.options.backgroundColor, '#f4f7f6');
+        assert.deepEqual(window.query, { theme: 'light', accent: '#eec84a' });
         assert.equal(window.options.parent, undefined); assert.equal(window.options.modal, undefined);
         assert.equal(window.options.webPreferences.sandbox, true);
         assert.equal(window.options.webPreferences.contextIsolation, true);

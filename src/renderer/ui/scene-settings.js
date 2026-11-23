@@ -251,6 +251,10 @@
         }
         announceThemeInstall(theme);
     }
+    noctune.sceneThemes.onRemoved?.(theme => {
+        if (window.sceneThemes.metadata?.packageId === theme.packageId || window.sceneThemes.metadata?.id === theme.id || appStorage.getItem('setting_scene_theme') === theme.id) window.sceneThemes.deactivate();
+        refresh().catch(notifyError);
+    });
     let externalImportTask = Promise.resolve();
     noctune.sceneThemes.onImported(result => {
         externalImportTask = externalImportTask.then(async () => {

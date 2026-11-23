@@ -8,17 +8,18 @@
     <link rel="stylesheet" href="../theme-install/style.css">
     <link rel="stylesheet" href="style.css">
     <script src="../../../node_modules/lucide/dist/umd/lucide.min.js"></script>
+    <script src="../../shared/window-appearance.js"></script>
     <script src="app.js" defer></script>
 <script src="../../shared/i18n.js"></script>
 <script src="../core/i18n.js"></script>
 </head>
 <body>
     <header class="store-header">
-        <div><span class="brand" data-i18n="marketplace.title">NocStore</span></div>
+        <div class="store-identity"><span class="store-mark" aria-hidden="true"><i data-lucide="store"></i></span><span class="brand" data-i18n="marketplace.title">NocStore</span></div>
         <button type="button" id="repository" class="quiet"><i data-lucide="git-branch" aria-hidden="true"></i><span data-i18n="settings.about.repository">Репозиторий</span></button>
     </header>
     <main>
-        <section class="intro"><p class="eyebrow" data-i18n="marketplace.title">NocStore</p><h1 data-i18n="addonStore.makeNoctuneYours">Настройте Noctune под себя</h1><p class="subtitle" data-i18n="addonStore.themesIntegrationsAndAddOnsForYourMusic">Оформление, интеграции и дополнения для вашей музыки.</p></section>
+        <section class="intro"><h1 data-i18n="addonStore.makeNoctuneYours">Настройте Noctune под себя</h1><p class="subtitle" data-i18n="addonStore.themesIntegrationsAndAddOnsForYourMusic">Оформление, интеграции и дополнения для вашей музыки.</p></section>
         <div class="tabs section-tabs" role="tablist" aria-label="Раздел магазина" data-i18n-aria-label="marketplace.sections">
             <button id="tab-extensions" role="tab" aria-selected="true" aria-controls="store-results"><i data-lucide="puzzle"></i><span data-i18n="player.interface.extensions">Расширения</span></button>
             <button id="tab-themes" role="tab" aria-selected="false" aria-controls="store-results" tabindex="-1"><i data-lucide="palette"></i><span data-i18n="addonPermissions.themes">Темы</span></button>
@@ -28,16 +29,19 @@
                 <button type="button" id="tab-official" role="tab" aria-selected="true" aria-controls="store-results"><i data-lucide="badge-check"></i><span data-i18n="addonStore.official">Официальные</span><span id="official-count" class="count"></span></button>
                 <button type="button" id="tab-community" role="tab" aria-selected="false" aria-controls="store-results" tabindex="-1"><i data-lucide="users"></i><span data-i18n="addonStore.community">Пользовательские</span><span id="community-count" class="count"></span></button>
             </div>
-            <button type="button" id="refresh" class="quiet" aria-label="Обновить каталог" data-i18n-aria-label="addonStore.refreshCatalog"><i data-lucide="refresh-cw"></i><span data-i18n="addonStore.refresh">Обновить</span></button>
         </div>
         <section id="store-results" role="tabpanel" aria-labelledby="tab-extensions tab-official">
-            <div class="search-row"><label class="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="Найти расширение" aria-label="Поиск официальных расширений" maxlength="120" data-i18n-placeholder="addonStore.findExtension" data-i18n-aria-label="addonStore.searchOfficialExtensions"></label><span class="catalog-source" id="catalog-source" data-i18n="addonStore.noctuneCatalog">Каталог Noctune</span></div>
+            <div class="search-row"><label class="search"><i data-lucide="search"></i><input id="search" type="search" placeholder="Найти расширение" aria-label="Поиск официальных расширений" maxlength="120" data-i18n-placeholder="addonStore.findExtension" data-i18n-aria-label="addonStore.searchOfficialExtensions"></label>
+                <button type="button" id="refresh" class="quiet refresh-button" title="Обновить каталог" data-i18n-title="addonStore.refreshCatalog" aria-label="Обновить каталог" data-i18n-aria-label="addonStore.refreshCatalog"><i data-lucide="refresh-cw"></i><span data-i18n="addonStore.refresh">Обновить</span></button>
+            </div>
+            <p class="catalog-source" id="catalog-source" role="status" data-i18n="addonStore.noctuneCatalog">Каталог Noctune</p>
             <p class="catalog-message" id="catalog-message" role="status"></p>
-            <p id="community-note" class="catalog-message" hidden data-i18n="marketplace.communityNote">Работа пользовательских дополнений зависит от авторов и сторонних сервисов. Наличие в каталоге не делает их официальными.</p>
             <div id="catalog" class="catalog" aria-live="polite"></div>
             <p id="empty" class="empty" hidden></p>
         </section>
-        <div id="community-actions" class="community-actions" hidden><button type="button" id="documentation"><i data-lucide="book-open"></i><span data-i18n="marketplace.publishGuide">Как опубликовать дополнение или тему</span></button><button type="button" id="submission"><i data-lucide="git-pull-request"></i><span data-i18n="addonStore.submitOnGithub">Заявка на GitHub</span></button></div>
+        <div id="community-actions" class="community-actions" hidden>
+            <p id="community-note" class="community-note" hidden data-i18n="marketplace.communityNote">Работа пользовательских дополнений зависит от авторов и сторонних сервисов.</p>
+            <button type="button" id="documentation"><i data-lucide="book-open"></i><span data-i18n="marketplace.publishGuide">Как опубликовать дополнение или тему</span></button><button type="button" id="submission"><i data-lucide="git-pull-request"></i><span data-i18n="addonStore.submitOnGithub">Заявка на GitHub</span></button></div>
     </main>
     <footer>
         <section id="transfer" class="transfer" hidden aria-label="Загрузка пакета" data-i18n-aria-label="addonStore.transfer.footer">

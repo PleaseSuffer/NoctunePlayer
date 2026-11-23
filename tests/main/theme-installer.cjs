@@ -15,14 +15,16 @@ const { createThemeInstaller } = require('../../src/main/theme-installer');
         class Window extends EventEmitter {
             constructor(options) { super(); this.options=options; this.webContents=new EventEmitter(); this.webContents.mainFrame={}; this.webContents.setWindowOpenHandler=()=>{}; windows.push(this); }
             setMenu() {} show() {} focus() {}
-            async loadFile() {}
+            async loadFile(file, options) { this.query = options.query; }
             close() {const event={preventDefault:()=>{event.prevented=true;}}; this.emit('close', event); if(!event.prevented)this.destroy();}
             destroy() {this.emit('closed');}
         }
-        const installer = createThemeInstaller({BrowserWindow:Window, ipcMain:{handle:(id,cb)=>handlers.set(id,cb),on:(id,cb)=>handlers.set(id,cb)},store:{installationStatus:async()=>({state:'install'}),installPackage:async theme => {installed.push(theme); return {name:theme.manifest.name};}}});
+        const installer = createThemeInstaller({BrowserWindow:Window, ipcMain:{handle:(id,cb)=>handlers.set(id,cb),on:(id,cb)=>handlers.set(id,cb)},getAppearance: async () => ({ theme: 'light', accent: '#eec84a' }),store:{installationStatus:async()=>({state:'install'}),installPackage:async theme => {installed.push(theme); return {name:theme.manifest.name};}}});
         await fs.writeFile(file, JSON.stringify(theme));
         let task = installer.open(file); await waitForWindow(1);
         let window=windows.at(-1), event={sender:window.webContents,senderFrame:window.webContents.mainFrame};
+        assert.equal(window.options.backgroundColor, '#f4f7f6');
+        assert.deepEqual(window.query, { theme: 'light', accent: '#eec84a' });
         assert.equal(window.options.modal, undefined); assert.equal(window.options.parent, undefined); assert.equal(window.options.webPreferences.sandbox, true);
         assert.equal((await handlers.get('theme-install:details')(event)).name, theme.manifest.name);
         await assert.rejects(handlers.get('theme-install:details')({...event,senderFrame:{}}));

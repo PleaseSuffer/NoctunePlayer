@@ -1,3 +1,4 @@
+if (!window.packageRemoval) {
 const install = document.getElementById('install');
 const cancel = document.getElementById('cancel');
 const status = document.getElementById('status');
@@ -33,3 +34,5 @@ install.addEventListener('click', async () => {
         cancel.disabled = false; applyInstallState(installState);
     }
 });
+
+}

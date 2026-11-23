@@ -112,7 +112,7 @@ function createAddonCatalog({ directory, appVersion, store, fetch = fetchText, b
         const state = current ? !samePublisher ? 'conflict' : (current.maxRevision || current.revision) >= entry.revision ? 'installed' : 'update' : 'install';
         const { packageUrl, sha256, ...metadata } = entry;
         const locale = (globalThis.noctuneI18n?.locale || 'ru').startsWith('en') ? 'en' : 'ru';
-        return { ...metadata, ...entry.localized?.[locale], artwork: artwork(entry.artwork), compatible: p.compatible(entry, appVersion), state, enabled: current?.enabled === true };
+        return { ...metadata, ...entry.localized?.[locale], artwork: artwork(entry.artwork), compatible: p.compatible(entry, appVersion), removable: !!current && samePublisher, state, enabled: current?.enabled === true };
       }) };
     },
     async checkUpdate(id) {
