@@ -79,6 +79,7 @@
         tab.addEventListener('keydown',event=>{ if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return; event.preventDefault(); selectSection(event.key==='Home'?0:event.key==='End'?1:1-index,true); });
     });
     function render() {
+        window.storePreviews?.stop();
         if (!catalog) return;
         const active = catalog.catalogs?.[section === 'extension' && channel === 'official' ? 'official' : 'marketplace'] || catalog;
         const sources={builtin:t('addonStore.app.bundledCatalog','Встроенный каталог'),cache:t('addonStore.app.savedCatalog','Сохранённый каталог'),network:t('addonStore.app.githubCatalog','Каталог GitHub')};
@@ -98,7 +99,10 @@
         byId('empty').textContent = search ? t('addonStore.nothingFoundTryAnotherName','Ничего не найдено. Попробуйте другое название.') : section === 'theme' ? t('marketplace.noThemes','В этом разделе пока нет тем.') : t('marketplace.noExtensions','В этом разделе пока нет расширений.');
         for (const entry of entries) {
             const card = node('article','store-card'); card.dataset.addonId = entry.id; card.dataset.kind = entry.kind || 'extension'; card.dataset.channel = entry.channel || 'official';
-            if (entry.artwork.banner) { const banner = node('img','card-banner'); banner.src = entry.artwork.banner; banner.alt = ''; card.append(banner); }
+            if (entry.artwork.banner) {
+                const media = node('div','card-media'), banner = node('img','card-banner'); banner.src = entry.artwork.banner; banner.alt = ''; media.append(banner); card.append(media);
+                window.storePreviews?.attach(media,entry,t('addonStore.previewDescription','Анимированное превью: наведите курсор или установите фокус'));
+            }
             const body = node('div','card-body'), heading = node('div','card-heading');
             const picture = node(entry.artwork.icon ? 'img' : 'span','card-icon' + (entry.artwork.icon ? '' : ' card-placeholder'));
             if (entry.artwork.icon) { picture.src = entry.artwork.icon; picture.alt = ''; } else picture.append(icon(entry.kind === 'theme' ? 'palette' : 'puzzle'));
@@ -180,6 +184,29 @@
     }
     for (const kind of ['repository','documentation','submission']) byId(kind).addEventListener('click',() => api.openLink(kind).catch(error => { byId('status').textContent = error.message; }));
     byId('search').addEventListener('input',render);
+    byId('animated-previews').checked = window.storePreviews.enabled;
+    byId('animated-previews').addEventListener('change',event => window.storePreviews.setEnabled(event.target.checked));
+    const cacheSizeFormat = new Intl.NumberFormat(globalThis.noctuneI18n?.locale || 'ru', { minimumFractionDigits:1, maximumFractionDigits:1 });
+    function updatePreviewCache(cache) {
+        if (!cache || !Number.isFinite(cache.bytes) || !Number.isFinite(cache.limit) || cache.limit <= 0) return;
+        const bytes = Math.max(0,cache.bytes), percent = Math.max(0,Math.min(100,bytes/cache.limit*100));
+        byId('clear-previews').style.setProperty('--cache-usage',percent/100);
+        byId('preview-cache-size').textContent = t('addonStore.previewCacheSize','{size} МБ',{size:cacheSizeFormat.format(bytes/1_000_000)});
+        const progress = byId('preview-cache-fill');
+        progress.setAttribute('aria-valuenow',String(Math.round(percent)));
+        progress.setAttribute('aria-valuetext',byId('preview-cache-size').textContent);
+    }
+    window.addEventListener('preview-cache-changed',event => updatePreviewCache(event.detail));
+    const refreshPreviewCache = () => api.previewCache().then(updatePreviewCache).catch(()=>{});
+    window.addEventListener('focus',refreshPreviewCache);
+    refreshPreviewCache();
+    byId('clear-previews').addEventListener('click',async () => {
+        window.storePreviews.stop();
+        byId('clear-previews').disabled = true;
+        try { updatePreviewCache(await api.clearPreviews()); byId('status').textContent=t('addonStore.previewsCleared','Кэш превью очищен'); }
+        catch (_) { byId('status').textContent=t('addonStore.previewsClearFailed','Не удалось очистить кэш превью'); }
+        finally { byId('clear-previews').disabled = false; }
+    });
     byId('refresh').addEventListener('click',() => load(true));
     api.onRefresh(state => { if(state?.section === 'themes')selectSection(1); return load(true); });
     lucide.createIcons();

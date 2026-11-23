@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:; media-src blob:">
     <title data-i18n="marketplace.windowTitle">NocStore</title>
     <link rel="stylesheet" href="../theme-install/style.css">
+    <link rel="stylesheet" href="../../shared/settings-controls.css">
     <link rel="stylesheet" href="style.css">
     <script src="../../../node_modules/lucide/dist/umd/lucide.min.js"></script>
     <script src="../../shared/window-appearance.js"></script>
+    <script src="previews.js" defer></script>
     <script src="app.js" defer></script>
 <script src="../../shared/i18n.js"></script>
 <script src="../core/i18n.js"></script>
@@ -16,7 +18,11 @@
 <body>
     <header class="store-header">
         <div class="store-identity"><span class="store-mark" aria-hidden="true"><i data-lucide="store"></i></span><span class="brand" data-i18n="marketplace.title">NocStore</span></div>
-        <button type="button" id="repository" class="quiet"><i data-lucide="git-branch" aria-hidden="true"></i><span data-i18n="settings.about.repository">Репозиторий</span></button>
+        <div class="header-actions">
+            <label class="preview-setting"><span class="toggle-switch"><input type="checkbox" id="animated-previews" checked><span class="slider-round"></span></span><span data-i18n="addonStore.animatedPreviews">Анимированные превью</span></label>
+            <button type="button" id="clear-previews" class="quiet cache-button" title="Кэш превью — до 50 МБ. Старые ролики удаляются автоматически. Нажмите, чтобы очистить сейчас." data-i18n-title="addonStore.previewCacheHint" aria-label="Очистить кэш превью, лимит 50 МБ" data-i18n-aria-label="addonStore.previewCacheAction"><i data-lucide="hard-drive" aria-hidden="true"></i><span id="preview-cache-fill" role="progressbar" aria-label="Заполнение кэша превью" data-i18n-aria-label="addonStore.previewCacheUsage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></span><span id="preview-cache-size">0,0 МБ</span></button>
+            <button type="button" id="repository" class="quiet" title="Репозиторий" data-i18n-title="settings.about.repository" aria-label="Репозиторий" data-i18n-aria-label="settings.about.repository"><i data-lucide="git-branch" aria-hidden="true"></i><span data-i18n="settings.about.repository">Репозиторий</span></button>
+        </div>
     </header>
     <main>
         <section class="intro"><h1 data-i18n="addonStore.makeNoctuneYours">Настройте Noctune под себя</h1><p class="subtitle" data-i18n="addonStore.themesIntegrationsAndAddOnsForYourMusic">Оформление, интеграции и дополнения для вашей музыки.</p></section>

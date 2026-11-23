@@ -1740,5 +1740,13 @@
   "packageRemoval.themeHeading": "Удаление темы",
   "packageRemoval.extensionHeading": "Удаление расширения",
   "packageRemoval.badge": "Удаление",
-  "packageRemoval.removing": "Удаление…"
+  "packageRemoval.removing": "Удаление…",
+  "addonStore.animatedPreviews": "Анимированные превью",
+  "addonStore.previewsCleared": "Кэш превью очищен",
+  "addonStore.previewsClearFailed": "Не удалось очистить кэш превью",
+  "addonStore.previewDescription": "Анимированное превью: наведите курсор или установите фокус",
+  "addonStore.previewCacheHint": "Кэш превью — до 50 МБ. Старые ролики удаляются автоматически. Нажмите, чтобы очистить сейчас.",
+  "addonStore.previewCacheAction": "Очистить кэш превью, лимит 50 МБ",
+  "addonStore.previewCacheUsage": "Заполнение кэша превью",
+  "addonStore.previewCacheSize": "{size} МБ"
 }

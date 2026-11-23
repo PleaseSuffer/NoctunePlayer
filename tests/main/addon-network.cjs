@@ -48,6 +48,7 @@ const { fetchText } = require('../../src/main/addons/network');
             return request;
         };
         assert.equal(await fetchText('https://publisher.example/ok'), '{"ok":true}');
+        assert.deepEqual(await fetchText('https://publisher.example/redirect', { binary:true }),Buffer.from('{"ok":true}'),'binary payload survives redirect without UTF-8 conversion');
         const known=[];await fetchText('https://publisher.example/redirect',{onProgress:p=>known.push(p)});
         assert.deepEqual(known.map(p=>p.received),[0,6,11,11]);assert(known.every(p=>p.total===11),'redirect preserves a known byte length');
         await assert.rejects(fetchText('https://publisher.example/truncated'),/прервал/);

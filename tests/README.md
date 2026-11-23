@@ -196,3 +196,11 @@ Linux, где нативный `setOpacity` не действует. Прове�
 Запускайте `node tests/run-electron.cjs tests/native-i18n-probe.cjs` (аналогично для остальных native-проб). Runner пишет вывод GUI-процесса в файл и ждёт завершения, исключая EPIPE от закрытого shell-пайпа. Альтернативный Electron задаётся через `NOCTUNE_ELECTRON`.
 
 Проверки symlink на Windows пропускаются только при отсутствии права на файловые ссылки. Запрет directory junction и подмена обычного файла проверяются независимо.
+
+## Анимированные превью магазина
+
+`node tests/main/animated-previews.cjs` checks the separate signed optional index,
+bounded downloads, hashes, cache, cancellation and offline behavior.
+`electron tests/native-animated-previews-probe.cjs` checks real sandboxed playback,
+the fade, static fallback, keyboard, reduced motion and cleanup with local media.
+See [authoring and delivery](../docs/theme-animated-previews.md).

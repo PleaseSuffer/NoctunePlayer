@@ -1740,5 +1740,13 @@
   "packageRemoval.themeHeading": "Remove theme",
   "packageRemoval.extensionHeading": "Remove extension",
   "packageRemoval.badge": "Removal",
-  "packageRemoval.removing": "Removing…"
+  "packageRemoval.removing": "Removing…",
+  "addonStore.animatedPreviews": "Animated previews",
+  "addonStore.previewsCleared": "Preview cache cleared",
+  "addonStore.previewsClearFailed": "Could not clear preview cache",
+  "addonStore.previewDescription": "Animated preview: hover or focus to play",
+  "addonStore.previewCacheHint": "Preview cache: up to 50 MB. Older videos are removed automatically. Click to clear now.",
+  "addonStore.previewCacheAction": "Clear preview cache, 50 MB limit",
+  "addonStore.previewCacheUsage": "Preview cache usage",
+  "addonStore.previewCacheSize": "{size} MB"
 }

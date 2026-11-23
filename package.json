@@ -32,6 +32,7 @@
       "src/shared/locales/*.json",
       "addons/catalog/official.json",
       "addons/catalog/marketplace.json",
+      "addons/catalog/previews.json",
       "themes/backgrounds/*.{png,jpg,jpeg,webp,json}",
       "resources/app.ico",
       "resources/app.png",

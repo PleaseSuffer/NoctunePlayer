@@ -2,18 +2,42 @@ const path = require('node:path');
 const { normalizeAppearance } = require('../window-appearance');
 const { createAddonCatalog, REPOSITORY_URL, SUBMISSION_URL } = require('./catalog');
 
-function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled, marketplace, themeInstaller, onThemeInstalled, themeStore, removalWindow, removeExtension, onThemeRemoved, catalog = createAddonCatalog({ directory, appVersion, store }) }) {
+function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, directory, appVersion, icon, shell, onInstalled, marketplace, themeInstaller, onThemeInstalled, themeStore, removalWindow, removeExtension, onThemeRemoved, previewService, catalog = createAddonCatalog({ directory, appVersion, store }) }) {
   let window = null, contents = null, installing = false, controller = null;
   let colors = normalizeAppearance();
+  const previews = previewService || (directory ? require('./previews').createPreviews({ directory }) : null);
+  let previewController = null, previewRequest = null, previewEntries = [], windowController = null;
+  function cancelPreview() { previewController?.abort(); previewController = null; previewRequest = null; }
   function session(event) {
     if (!window || window.isDestroyed() || event.sender !== contents || event.senderFrame !== contents.mainFrame) throw new Error((globalThis.noctuneI18n?.t("index.unavailableForThisWindow", {}) ?? "Недоступно для этого окна"));
     return window;
   }
   ipcMain.handle('addon-store:list', (event, refresh = false) => {
     session(event);
-    if (!marketplace) return catalog.list(refresh);
-    return Promise.all([catalog.list(refresh),marketplace.list(refresh)]).then(([official,extra])=>({...official,catalogs:Object.fromEntries([['official',official],['marketplace',extra]].map(([key,value])=>[key,{source:value.source,generatedAt:value.generatedAt,message:value.message}])),message:[...new Set([official.message,extra.message].filter(Boolean))].join(' '),entries:[...official.entries.map(entry=>({...entry,kind:'extension',channel:'official'})),...extra.entries]}));
+    const signal = windowController?.signal;
+    return (async () => {
+      const result = !marketplace ? await catalog.list(refresh) : await Promise.all([catalog.list(refresh),marketplace.list(refresh)]).then(([official,extra])=>({...official,catalogs:Object.fromEntries([['official',official],['marketplace',extra]].map(([key,value])=>[key,{source:value.source,generatedAt:value.generatedAt,message:value.message}])),message:[...new Set([official.message,extra.message].filter(Boolean))].join(' '),entries:[...official.entries.map(entry=>({...entry,kind:'extension',channel:'official'})),...extra.entries]}));
+      session(event);
+      if (previews && result.entries) {
+        result.entries = await previews.list(result.entries, refresh, signal);
+        session(event); previewEntries = result.entries;
+      }
+      return result;
+    })();
   });
+  ipcMain.handle('addon-store:preview', async (event, request, id, kind, channel) => {
+    session(event);
+    if (!Number.isSafeInteger(request) || request < 1) throw new Error('Invalid preview request');
+    const entry = previewEntries.find(item => item.id === id && item.kind === kind && item.channel === channel && item.animatedPreview);
+    if (!previews || !entry) throw new Error('Preview unavailable');
+    cancelPreview();
+    const download = new AbortController(); previewController = download; previewRequest = request;
+    try { const result = await previews.load(entry, download.signal); const cache = await previews.stats(); session(event); return { ...result, cache }; }
+    finally { if (previewController === download) { previewController = null; previewRequest = null; } }
+  });
+  ipcMain.handle('addon-store:cancel-preview', (event, request) => { session(event); if (request === previewRequest) cancelPreview(); });
+  ipcMain.handle('addon-store:preview-cache', event => { session(event); return previews?.stats() || {bytes:0,limit:50_000_000}; });
+  ipcMain.handle('addon-store:clear-previews', async event => { session(event); cancelPreview(); await previews?.clear(); return previews?.stats() || {bytes:0,limit:50_000_000}; });
   ipcMain.handle('addon-store:install', async (event, id, kind = 'extension', channel = 'official') => {
     const owner = session(event);
     if (installing) throw new Error((globalThis.noctuneI18n?.t("themeInstaller.installationAlreadyInProgress", {}) ?? "Установка уже выполняется"));
@@ -90,12 +114,14 @@ function createAddonStoreWindow({ BrowserWindow, ipcMain, installer, store, dire
       window = new BrowserWindow({ title: (globalThis.noctuneI18n?.t('marketplace.windowTitle') ?? 'NocStore'), width: 1040, height: 800, minWidth: 620, minHeight: 560, show: false, backgroundColor: theme === 'light' ? '#f4f7f6' : '#15151b', icon, autoHideMenuBar: true,
         webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, '../../preload/addon-store.js') } });
       const current = window; contents = current.webContents;
+      windowController = new AbortController();
+      current.on('hide', cancelPreview);
       current.setMenu(null);
       contents.setWindowOpenHandler(() => ({ action: 'deny' }));
       contents.on('will-navigate', event => event.preventDefault());
       contents.on('will-frame-navigate', event => event.preventDefault());
       current.once('ready-to-show', () => { if (!current.isDestroyed()) { current.show(); current.focus(); } });
-      current.once('closed', () => { if (window === current) { controller?.abort(); window = null; contents = null; } });
+      current.once('closed', () => { if (window === current) { controller?.abort(); windowController?.abort(); cancelPreview(); previewEntries = []; window = null; contents = null; } });
       return current.loadFile(path.join(__dirname, '../../renderer/addon-store/index.html'), { query: { theme, accent, section: appearance?.section === 'themes' ? 'themes' : 'extensions' } }).catch(error => { current.destroy(); throw error; });
     },
   };

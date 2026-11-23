@@ -15,7 +15,7 @@ function httpsUrl(value) {
   if (url.protocol !== 'https:' || url.hostname.includes('*') || url.username || url.password || url.hash || (url.port && url.port !== '443') || url.href.length > 2048) throw new Error((globalThis.noctuneI18n?.t("extensions.network.aPublicHttpsAddressWithoutAPasswordOrCustomPortIsRequired", {}) ?? "Требуется публичный HTTPS-адрес без пароля и нестандартного порта"));
   return url;
 }
-async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3, origins, deadline = Date.now() + 15000, method = 'GET', headers = {}, body, detailed = false, stream = false, headerOrigin, validateUrl, onProgress } = {}) {
+async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3, origins, deadline = Date.now() + 15000, method = 'GET', headers = {}, body, detailed = false, stream = false, binary = false, headerOrigin, validateUrl, onProgress } = {}) {
   const url = httpsUrl(value);
   validateUrl?.(url.href, method);
   if (origins && !allowsOrigin(origins, url.origin)) throw new Error((globalThis.noctuneI18n?.t("extensions.network.domainIsNotDeclaredInExtensionPermissions", {}) ?? "Домен не указан в разрешениях расширения"));
@@ -57,7 +57,7 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
         if (!redirects || !response.headers.location) return reject(new Error((globalThis.noctuneI18n?.t("extensions.network.tooManyRedirects", {}) ?? "Слишком много перенаправлений")));
         const target = new URL(response.headers.location, url);
         if (target.origin !== url.origin && body !== undefined) { reject(new Error((globalThis.noctuneI18n?.t("extensions.network.redirectingARequestBodyToAnotherDomainIsForbidden", {}) ?? "Перенаправление тела запроса на другой домен запрещено"))); return; }
-        fetchText(target.href, { limit, signal, redirects: redirects - 1, origins, deadline, method: status === 303 ? 'GET' : method, headers, body: status === 303 ? undefined : body, detailed, stream, headerOrigin: headerOrigin || url.origin, validateUrl, onProgress }).then(resolve, reject);
+        fetchText(target.href, { limit, signal, redirects: redirects - 1, origins, deadline, method: status === 303 ? 'GET' : method, headers, body: status === 303 ? undefined : body, detailed, stream, binary, headerOrigin: headerOrigin || url.origin, validateUrl, onProgress }).then(resolve, reject);
         return;
       }
       if (!detailed && (status < 200 || status >= 300)) { response.resume(); reject(new Error((globalThis.noctuneI18n?.t("extensions.network.serverReturnedHttp", {p0: (status)}) ?? "Сервер вернул HTTP {p0}".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (status)})[k] ?? "{"+k+"}")))); return; }
@@ -78,7 +78,8 @@ async function fetchText(value, { limit = 4 * 1024 * 1024, signal, redirects = 3
       response.on('end', () => {
         if (total !== null && total !== bytes) { reject(new Error((globalThis.noctuneI18n?.t('extensions.network.serverInterruptedTheResponse') ?? 'Сервер прервал ответ'))); return; }
         report();
-        resolve(detailed ? { status, headers: response.headers, body: Buffer.concat(chunks).toString('utf8') } : Buffer.concat(chunks).toString('utf8'));
+        const result = binary ? Buffer.concat(chunks) : Buffer.concat(chunks).toString('utf8');
+        resolve(detailed ? { status, headers: response.headers, body: result } : result);
       });
     };
     const request = method === 'GET' && body === undefined ? https.get(url, options, receive) : https.request(url, options, receive);

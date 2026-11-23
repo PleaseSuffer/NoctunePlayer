@@ -42,6 +42,13 @@ h1 { font-size: clamp(23px, 3vw, 32px); letter-spacing: -.7px; margin-bottom: 10
 .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 20px; align-items: stretch; }
 .store-card { display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--surface); border-radius: 16px; overflow: hidden; min-width: 0; }
 .card-banner { display: block; width: 100%; aspect-ratio: 4; object-fit: cover; background: var(--surface-raised); }
+.card-media { position: relative; overflow: hidden; }
+.animated-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 220ms ease; pointer-events: none; }
+.preview-playing .animated-preview { opacity: 1; }
+.preview-loader { position: absolute; z-index: 2; inset: auto 0 0; height: 2px; background: var(--accent); opacity: 0; transform: scaleX(.2); transition: opacity 150ms ease; }
+.preview-loading .preview-loader { opacity: .7; animation: preview-loading 1s ease-in-out infinite alternate; }
+@keyframes preview-loading { to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .animated-preview, .preview-loader { transition: none; animation: none !important; } }
 .card-body { padding: 20px; display: flex; flex-direction: column; flex: 1; }
 .card-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .card-icon { width: 48px; height: 48px; border-radius: 12px; object-fit: contain; flex-shrink: 0; }
@@ -102,3 +109,14 @@ footer { display: block; flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { button.install-progress::before, #transfer-progress::-webkit-progress-value { transition: none; } button.install-indeterminate::before, #transfer-progress:indeterminate { animation: none; } }
 
 @media (prefers-reduced-motion: reduce) { .refresh-button[aria-busy="true"] svg { animation: none; } }
+
+.header-actions { display:flex; align-items:center; gap:12px; min-width:0; }
+.preview-setting { display:flex; align-items:center; gap:9px; color:var(--muted); font-size:12px; cursor:pointer; white-space:nowrap; }
+.header-actions .quiet { min-height:36px; border-radius:8px; background:transparent; color:var(--muted); }
+.header-actions .quiet:hover { background:var(--surface-raised); color:var(--accent-fg); }
+.cache-button { position:relative; overflow:hidden; isolation:isolate; font-variant-numeric:tabular-nums; white-space:nowrap; min-width:94px; }
+#preview-cache-fill { position:absolute; inset:0; z-index:-1; pointer-events:none; background:color-mix(in srgb,var(--accent) 22%,transparent); transform:scaleX(var(--cache-usage,0)); transform-origin:left; transition:transform 220ms ease; }
+@media (prefers-reduced-motion:reduce) { #preview-cache-fill { transition:none; } }
+.card-media:focus-visible { outline:2px solid var(--accent); outline-offset:-3px; }
+@media (max-width:760px) { .store-header { padding:16px 20px; gap:16px; } .header-actions { gap:8px; } #repository { width:36px; padding:8px; } #repository span { display:none; } .preview-setting { font-size:11px; gap:7px; } }
+@media (prefers-reduced-motion:reduce) { .header-actions .slider-round, .header-actions .slider-round:before { transition:none; } }

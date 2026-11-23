@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld('noctuneLocale', {
 });
 
 contextBridge.exposeInMainWorld('addonStore', {
+    preview: (request, id, kind, channel) => ipcRenderer.invoke('addon-store:preview', request, id, kind, channel),
+    cancelPreview: request => ipcRenderer.invoke('addon-store:cancel-preview', request),
+    clearPreviews: () => ipcRenderer.invoke('addon-store:clear-previews'),
+    previewCache: () => ipcRenderer.invoke('addon-store:preview-cache'),
     onProgress: callback => {
         const listener = (_event, progress) => callback(progress);
         ipcRenderer.on('addon-store:progress', listener);
