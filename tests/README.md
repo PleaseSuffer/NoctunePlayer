@@ -199,8 +199,9 @@ Linux, где нативный `setOpacity` не действует. Прове�
 
 ## Анимированные превью магазина
 
-`node tests/main/animated-previews.cjs` checks the separate signed optional index,
-bounded downloads, hashes, cache, cancellation and offline behavior.
-`electron tests/native-animated-previews-probe.cjs` checks real sandboxed playback,
-the fade, static fallback, keyboard, reduced motion and cleanup with local media.
-See [authoring and delivery](../docs/theme-animated-previews.md).
+`node tests/main/animated-previews.cjs` проверяет отдельный подписанный индекс
+необязательных превью, ограничения загрузки, хеши, кэш, отмену и работу без сети.
+`electron tests/native-animated-previews-probe.cjs` проверяет воспроизведение
+через песочницу, плавный переход, статичный баннер при ошибке, клавиатуру,
+режим уменьшения движения и освобождение ресурсов на локальных роликах.
+Создание роликов и их доставка описаны в [документации превью](../docs/theme-animated-previews.md).

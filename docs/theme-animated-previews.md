@@ -1,53 +1,69 @@
-# Optional animated store previews
+# Анимированные превью магазина
 
-Theme videos are optional. A theme without a video keeps its ordinary static
-banner. Browsing the store never executes a theme script or captures user audio.
+Анимированные превью необязательны. Тема без ролика сохраняет обычный статичный
+баннер. Просмотр магазина не запускает код темы и не захватывает звук пользователя.
 
-The store waits 320 ms before downloading a hovered preview. Keyboard focus and
-a tap on the image also start previews; there are no play/pause buttons on cards.
-Only one video plays at a time. The poster
-stays visible while loading; a 220 ms fade reveals the decoded first frame.
-Network, verification and decoding failures retain the poster. Leaving a card,
-changing results, hiding/closing the window or disabling animations releases
-the video and its blob URL. Reduced motion always uses static previews.
+Загрузка начинается после наведения на карточку в течение 320 мс. Превью также
+запускается при фокусе с клавиатуры или касании изображения. Кнопок воспроизведения
+на карточках нет. Одновременно воспроизводится только один ролик.
+Статичная картинка остаётся видимой во время загрузки; после декодирования первого
+кадра видео плавно проявляется за 220 мс. Ошибки сети, проверки или декодирования
+оставляют статичную картинку на месте.
 
-The player-style **Animated previews** switch in the header persists locally.
-The adjacent cache button shows current usage in MB, always with one decimal
-place (including zero), and fills from 0 to 100% relative to the **50 MB** limit.
-It updates after downloads and manual clearing, and when the window regains focus.
-Clicking it clears videos on demand; the limit remains in the tooltip.
-The disk cache is bounded to 50,000,000 bytes, trims on startup and after new
-downloads, and automatically removes the least recently used clips first.
-SHA-256 filenames isolate versions; decoded videos are not cached by the app.
+Уход с карточки, изменение результатов поиска, скрытие или закрытие окна,
+а также отключение анимаций освобождают видео и его объектный URL (`blob:`).
+При системной настройке уменьшения движения (`prefers-reduced-motion`)
+используются только статичные превью.
 
-## Delivery and compatibility
+## Управление и кэш
 
-`addons/catalog/previews.json` is a separate, signed optional index. The existing
-marketplace catalog and theme packages are unchanged, so older players continue
-to load them. Entries match the exact theme ID, version, kind and channel.
-An absent index or entry is normal and leaves static cards working.
+Переключатель **«Анимированные превью»** находится в шапке магазина и использует
+общий стиль настроек плеера. Его состояние сохраняется локально.
+Соседняя кнопка кэша показывает текущий размер в МБ с одним знаком после запятой,
+включая ноль: `0,0 МБ`, `1,0 МБ`. Её фон заполняется от 0 до 100% относительно
+лимита **50 МБ**. Размер обновляется после загрузки, ручной очистки и возвращения
+фокуса окну. Нажатие очищает загруженные ролики; лимит указан в подсказке.
 
-Videos are silent WebM/VP9, normally 960×540, 4 seconds, 20 FPS. Limits are
-8 MiB per file, 1280×720 and 6 seconds. The trusted main process downloads on
-demand, validates public HTTPS/DNS, forbids URL changes, bounds time and bytes,
-and verifies the signed hash and WebM header. The renderer checks decoded
-dimensions and duration. CSP permits blob media, with no remote media sources.
+Дисковый кэш ограничен 50 000 000 байтами. При запуске и после новых загрузок
+приложение автоматически удаляет ролики, которыми дольше всего не пользовались,
+пока размер кэша не уложится в лимит. Имена файлов строятся по SHA-256,
+поэтому разные версии не подменяют друг друга. Приложение не хранит
+декодированные ролики в собственном кэше памяти.
 
-Only the small index is bundled in the application. Video files remain external
-under `addons/previews/<id>/<version>/preview.webm`. A video is not required to
-install or use a theme. Demonstrations are available for Rhodes Island Dark and
-Light 1.2.7 and Endfield Dark and Light 1.5.3. Other themes use the static fallback.
-Endfield clips use the 60–64 second analysis fragment of a locally supplied track.
+## Доставка и совместимость
 
-## Authoring
+`addons/catalog/previews.json` — отдельный подписанный индекс необязательных
+превью. Формат основного каталога магазина и пакетов тем не меняется, поэтому
+старые версии плеера продолжают их загружать. Запись превью привязана к точным
+ID, версии, типу и каналу темы. Отсутствие индекса или записи допустимо:
+карточка продолжает показывать статичный баннер.
 
-FFmpeg is a development tool supplied separately, not an application dependency.
-Generate a clip from a published theme package. Without `--audio` the spectrum
-is synthetic; with a local audio file, a four-second segment near its midpoint
-is decoded into memory and analysed with the player's Web Audio settings
-(8192 FFT, smoothing .35, -90 to -10 dB). The song is never changed or copied
-to the output; videos have no audio track. `--compare` additionally writes
-MP4 and GIF encodes of identical frames to the ignored development directory.
+Текущий профиль — WebM/VP9 без звука, **960×540, CRF 24, 4 секунды, 20 кадров/с**.
+Предельные значения: 8 МиБ на файл, 1280×720 и 6 секунд. Доверенный основной
+процесс загружает ролики по запросу, проверяет публичные адреса HTTPS и DNS,
+запрещает смену URL, ограничивает время и объём загрузки, сверяет подписанный
+хеш и заголовок WebM. Процесс интерфейса проверяет разрешение и длительность
+декодированного видео. Политика CSP разрешает медиа из `blob:`, без прямого
+доступа к удалённым источникам видео.
+
+В установщик входит только небольшой индекс. Ролики хранятся отдельно:
+`addons/previews/<id>/<version>/preview.webm`. Они не нужны для установки
+или работы темы. Превью доступны для Rhodes Island Dark и Light 1.2.7,
+Endfield Dark и Light 1.5.3. Остальные темы используют статичный баннер.
+
+## Создание и публикация
+
+FFmpeg устанавливается отдельно как инструмент разработки и не является
+зависимостью приложения. Генератор создаёт ролик из опубликованного пакета темы.
+Без `--audio` используется синтетический спектр. При передаче локального
+аудиофайла четырёхсекундный фрагмент из его середины декодируется в память
+и анализируется с настройками Web Audio плеера: FFT 8192, сглаживание 0,35,
+диапазон от −90 до −10 дБ. Параметр `--start` задаёт начало фрагмента в секундах.
+Исходный трек не изменяется и не копируется в результат; видео не содержит звука.
+
+Для Rhodes Island используется прежний фрагмент 52,88–56,88 секунды,
+для Endfield — 60–64 секунды. Имена и пути личных аудиофайлов не нужны для
+загрузки или воспроизведения готовых превью.
 
 ```powershell
 .\node_modules\electron\dist\electron.exe scripts/render-theme-preview.cjs rhodes-island-dark C:/tools/ffmpeg.exe
@@ -56,74 +72,66 @@ MP4 and GIF encodes of identical frames to the ignored development directory.
 node scripts/publish-previews.cjs C:/path/outside/repository/publisher.pem
 ```
 
-The renderer creates `preview.webm` and `metadata.json`. The publisher validates
-the existing pinned identity, computes sizes/hashes and signs the separate index.
-Published bytes must remain immutable; changed clips require a new theme version.
-Keep private keys outside the repository. Publish index and referenced files
-together; do not put videos/base64 into the marketplace catalog or theme assets.
+Генератор создаёт `preview.webm` и `metadata.json`. Параметр
+`--width 640|960|1280` выбирает разрешение; по умолчанию используется ширина 960.
+Параметр `--draft` сохраняет варианты для сравнения в игнорируемую папку
+`.development/preview-candidates`, не заменяя опубликованные файлы.
+Параметр `--compare` дополнительно кодирует одинаковые кадры в MP4 и GIF
+и сохраняет результаты в игнорируемой папке разработки.
 
-## Measured file sizes (previous 640×360 profile)
+Инструмент публикации проверяет закреплённую личность издателя, вычисляет
+размеры и хеши и подписывает отдельный индекс. Опубликованные файлы неизменяемы:
+для изменённого ролика нужна новая версия темы. Закрытые ключи следует хранить
+вне репозитория. Индекс и файлы, на которые он ссылается, публикуются вместе.
+Видео и его представление в base64 не добавляются в основной каталог магазина
+или обязательные ресурсы темы.
 
-Same 80 frames, 640×360, four seconds at 20 FPS; audio-driven Rhodes Island 1.2.5.
-VP9 CRF 36, H.264 CRF 26, GIF with a generated palette and dithering. These are
-size measurements for the selected encoding profiles, not a perceptual-quality
-or CPU/memory benchmark. The audio analysis fragment was 52.88–56.88 seconds.
+## Сравнение размеров
 
-| Theme | WebM bytes | MP4 bytes | GIF bytes |
+Размеры превью и пакетов тем учитываются отдельно: видео не включено в пакет
+темы. Во всех вариантах ниже сохранены треки, фрагменты, длительность 4 секунды
+и частота 20 кадров/с. Для WebM используется VP9 CRF 24. Все размеры — в байтах.
+
+| Тема | Пакет темы | WebM 1280×720 | WebM 960×540 | WebM 640×360 |
+| --- | ---: | ---: | ---: | ---: |
+| Rhodes Island Dark | 1 301 996 | 541 706 | 368 233 | 217 223 |
+| Rhodes Island Light | 1 303 184 | 547 295 | 370 817 | 214 213 |
+| Endfield Dark | 1 544 008 | 916 007 | 612 782 | 342 362 |
+| Endfield Light | 1 555 807 | 838 377 | 552 636 | 309 257 |
+
+Выбранный профиль **960×540, VP9 CRF 24** уменьшает размер на 32–34%
+относительно 1280×720. Вариант 640×360 меньше примерно на 60–63%, но оставляет
+меньше разрешения для увеличенных карточек и экранов с высокой плотностью
+пикселей. Пакеты тем занимают 1,30–1,56 МБ; HD-превью занимали 42–59%
+размера соответствующего пакета.
+
+### Сравнение форматов на прежнем профиле 640×360
+
+Измерения выполнены на одинаковых 80 кадрах Rhodes Island 1.2.5: 4 секунды,
+20 кадров/с, фрагмент анализа 52,88–56,88 секунды. Использованы VP9 CRF 36,
+H.264 CRF 26 и GIF с построенной палитрой и дизерингом. Это сравнение размера
+при выбранных настройках кодирования; оно не оценивает равенство визуального
+качества, нагрузку на процессор или расход памяти. Все размеры — в байтах.
+
+| Вариант темы | WebM | MP4 | GIF |
 | --- | ---: | ---: | ---: |
-| Dark | 116,401 | 112,487 | 3,124,072 |
-| Light | 111,179 | 115,244 | 3,362,558 |
+| Тёмный | 116 401 | 112 487 | 3 124 072 |
+| Светлый | 111 179 | 115 244 | 3 362 558 |
 
-The two video formats are nearly equal in combined size; GIF is about 28.5
-times larger than WebM in this sample. WebM remains the first supported profile.
+Суммарные размеры WebM и MP4 почти равны. В этом сравнении GIF примерно
+в 28,5 раза тяжелее WebM. Для хранения превью выбран WebM.
 
-## Validation
+## Проверки
 
 ```powershell
 node tests/main/animated-previews.cjs
 .\node_modules\electron\dist\electron.exe tests/native-animated-previews-probe.cjs
 ```
 
-The native probe uses an isolated profile and local media, with no network or
-user library access. It checks real sandboxed IPC, playback, the fade, optional
-static cards, hover cancellation, late replies, failure fallback, keyboard,
-reduced motion and cleanup. Screenshots are in the ignored
-`tests/.artifacts/animated-previews/` directory.
-
-## Previous HD profile
-
-The HD comparison clips render natively at 1280×720, VP9 CRF 24 (previously 36),
-20 FPS, four seconds, without audio. Rhodes Island keeps the same midpoint
-fragment (52.88–56.88 seconds); Endfield keeps 60–64 seconds.
-
-| Theme | Version | WebM bytes |
-| --- | --- | ---: |
-| Rhodes Island Dark | 1.2.6 | 541,706 |
-| Rhodes Island Light | 1.2.6 | 547,295 |
-| Endfield Dark | 1.5.2 | 916,007 |
-| Endfield Light | 1.5.2 | 838,377 |
-
-Earlier packages and clips remain immutable. The signed preview index selects
-the HD assets for the new theme versions.
-
-## Resolution comparison at VP9 CRF 24
-
-All clips use the same tracks, analysis fragments, four-second duration and
-20 FPS. Sizes are separate: the preview is not embedded in the theme package.
-
-| Theme | Theme package bytes | 1280×720 WebM | 960×540 WebM | 640×360 WebM |
-| --- | ---: | ---: | ---: | ---: |
-| Rhodes Island Dark | 1,301,996 | 541,706 | 368,233 | 217,223 |
-| Rhodes Island Light | 1,303,184 | 547,295 | 370,817 | 214,213 |
-| Endfield Dark | 1,544,008 | 916,007 | 612,782 | 342,362 |
-| Endfield Light | 1,555,807 | 838,377 | 552,636 | 309,257 |
-
-Current profile: **960×540, VP9 CRF 24**, about 32–34% smaller than HD.
-The current theme versions are Rhodes Island 1.2.7 and Endfield 1.5.3.
-The 640×360 variant is roughly 60–63% smaller than HD, but has less resolution
-for enlarged cards and high-DPI displays. Theme packages are 1.30–1.56 MB;
-the old HD previews were 42–59% of their package sizes, not equal in size.
-
-Use `--width 640|960|1280` to select resolution. `--draft` places candidates
-in ignored `.development/preview-candidates` directories for comparison without
-replacing versioned published assets.
+Проверка в Electron использует изолированный профиль и локальные ролики,
+не обращаясь к сети и личной музыкальной библиотеке. Проверяются реальный IPC
+через песочницу, воспроизведение, плавный переход, карточки без видео,
+отмена наведения, запоздалые ответы, статичный баннер при ошибке, клавиатура,
+режим уменьшения движения, освобождение ресурсов и индикатор кэша.
+Снимки окна сохраняются в игнорируемую папку
+`tests/.artifacts/animated-previews/`.
