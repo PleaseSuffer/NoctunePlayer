@@ -406,11 +406,15 @@
         .context-menu {
             display: none;
             position: fixed;
+            min-width: min(210px, calc(100vw - 16px));
+            max-width: min(320px, calc(100vw - 16px));
+            max-height: calc(100vh - 16px);
+            overflow-y: auto;
             background: var(--container-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            z-index: 1000;
+            z-index: 100100;
             backdrop-filter: blur(10px);
         }
         .context-menu button {
@@ -425,8 +429,12 @@
             color: var(--text-color);
             cursor: pointer;
             font-size: 13px;
+            line-height: 1.35;
         }
+        .context-menu button svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .context-menu button span { min-width: 0; overflow-wrap: anywhere; }
         .context-menu button:hover { background: var(--accent-color); color: #fff; }
+        .context-menu button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
 
         .main-panel {
             flex: 1 1 0;

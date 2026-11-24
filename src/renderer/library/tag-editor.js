@@ -123,6 +123,6 @@
         const button = row?.querySelector('.track-item-action');
         if (!button) return;
         event.preventDefault();
-        button.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: event.clientX + 140, clientY: event.clientY }));
+        button.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: event.clientX, clientY: event.clientY }));
     });
 })();

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="../shared/settings-controls.css">
     <link rel="stylesheet" href="styles/addons.css">
     <link rel="stylesheet" href="styles/tag-editor.css">
+    <link rel="stylesheet" href="styles/queue.css">
     <link rel="stylesheet" href="../shared/addon-permission-view.css">
 <script src="../shared/i18n.js"></script>
 <script src="core/i18n.js"></script>
@@ -72,6 +73,7 @@
             <div class="header">
                 <h2><b>Noctune</b></h2>
                 <div style="display: flex; gap: 10px;">
+                    <button class="control-btn active" id="open-eq-btn" title="Настройка эквалайзера" data-i18n-title="player.interface.equalizerSettings"><i data-lucide="sliders"></i></button>
                     <button class="theme-toggle" id="theme-toggle" title="Переключить тему" style="padding:6px 10px;" data-i18n-title="player.interface.switchTheme"><i data-lucide="moon"></i></button>
                     <button class="theme-toggle" id="btn-minimize" title="Свернуть" style="border-color: #e74c3c; color: #e74c3c; padding:6px 10px;" data-i18n-title="player.interface.minimize"><i data-lucide="minimize-2"></i></button>
                 </div>
@@ -112,7 +114,7 @@
                         <button class="control-btn play-pause" id="btn-play-pause" title="Воспроизвести" data-i18n-title="player.interface.play"><i data-lucide="play" id="main-play-icon"></i></button>
                         <button class="control-btn" id="btn-next" title="Следующий" data-i18n-title="player.interface.next"><i data-lucide="skip-forward"></i></button>
                         <button class="control-btn" id="btn-repeat" title="Повторять этот трек" data-i18n-title="playback.repeat.track"><i data-lucide="repeat-1"></i></button>
-                        <button class="control-btn active" id="open-eq-btn" title="Настройка эквалайзера" data-i18n-title="player.interface.equalizerSettings"><i data-lucide="sliders"></i></button>
+                        <button class="control-btn" id="btn-queue" title="Очередь воспроизведения" aria-label="Очередь воспроизведения" aria-expanded="false" aria-controls="playback-queue" data-i18n-title="queue.title"><i data-lucide="list-music"></i><span id="queue-badge"></span></button>
                         <button class="control-btn" id="btn-lyrics" title="Текст песни" aria-label="Текст песни" data-i18n-title="player.interface.lyrics" data-i18n-aria-label="player.interface.lyrics"><i data-lucide="text-initial"></i></button>
                     </div>
 
@@ -154,6 +156,7 @@
         </div>
         <div class="mini-controls">
             <button class="mini-btn" id="mini-btn-lyrics" title="Текст песни" aria-label="Текст песни" data-i18n-title="player.interface.lyrics" data-i18n-aria-label="player.interface.lyrics"><i data-lucide="text-initial"></i></button>
+            <button class="mini-btn" id="mini-btn-queue" title="Очередь воспроизведения" aria-label="Очередь воспроизведения" aria-expanded="false" aria-controls="playback-queue" data-i18n-title="queue.title"><i data-lucide="list-music"></i></button>
             <button class="mini-btn" id="mini-btn-shuffle" title="Случайный порядок" data-i18n-title="player.interface.shuffle"><i data-lucide="shuffle"></i></button>
             <button class="mini-btn" id="mini-btn-prev"><i data-lucide="skip-back"></i></button>
             <button class="mini-btn play-pause" id="mini-btn-play-pause"><i data-lucide="play" id="mini-play-icon"></i></button>
@@ -211,8 +214,25 @@
         </div>
     </div>
 
-    <div class="context-menu" id="context-menu">
-        <button id="menu-play-next"><i data-lucide="arrow-right-to-line"></i> <span data-i18n="player.interface.playNext">Воспроизвести следующим</span></button>
+    <aside id="playback-queue" class="playback-queue" role="dialog" aria-modal="false" aria-labelledby="queue-title" hidden>
+        <header class="queue-header">
+            <div><h2 id="queue-title" data-i18n="queue.title">Очередь воспроизведения</h2></div>
+            <button type="button" id="queue-close" class="queue-action" aria-label="Закрыть" data-i18n-aria-label="player.interface.close"><i data-lucide="x"></i></button>
+        </header>
+        <section class="queue-current"><span class="queue-label" data-i18n="queue.now">Сейчас играет</span><div class="queue-current-row"><div class="queue-current-info"><div id="queue-current-title"></div><div id="queue-current-artist" class="queue-subtitle"></div></div><div class="queue-current-controls" id="queue-current-controls"></div></div></section>
+        <div class="queue-toolbar"><h3><span data-i18n="queue.next">Следом</span> <span id="queue-count">0</span></h3><button type="button" id="queue-clear" class="queue-clear" data-i18n="queue.clear">Очистить</button></div>
+        <div class="queue-scroll custom-scroll" id="queue-list-scroll">
+            <div id="queue-empty"><i data-lucide="list-plus"></i><strong data-i18n="queue.empty">Пока ничего не добавлено</strong><p data-i18n="queue.emptyHint">Перетащите треки сюда или выберите «В очередь» в меню трека.</p></div>
+            <ol id="queue-list" aria-label="Следом" data-i18n-aria-label="queue.next"></ol>
+            <button type="button" class="queue-clear queue-more" id="queue-more" hidden data-i18n="queue.more">Показать ещё</button>
+        </div>
+        <footer class="queue-footer"><p class="queue-drag-hint" id="queue-drag-hint"></p><p id="queue-note"></p></footer>
+    </aside>
+
+    <div class="context-menu" id="context-menu" role="menu">
+        <button id="menu-play"><i data-lucide="play"></i> <span data-i18n="player.interface.play">Воспроизвести</span></button>
+        <button id="menu-play-next"><i data-lucide="list-start"></i> <span data-i18n="player.interface.playNext">Воспроизвести следующим</span></button>
+        <button id="menu-add-queue"><i data-lucide="list-plus"></i> <span data-i18n="queue.add">Добавить в очередь</span></button>
         <button id="menu-edit-tags" style="display:none;"><i data-lucide="tags"></i> <span data-i18n="tagEditor.menu">Редактировать теги</span></button>
         <button id="menu-track-cover" style="display:none;"><i data-lucide="refresh-cw"></i> <span data-i18n="player.interface.refreshArtwork">Обновить обложку</span></button>
         <button id="menu-check-radio"><i data-lucide="wifi"></i> <span data-i18n="player.interface.checkAvailability">Проверить доступность</span></button>
@@ -2714,6 +2734,8 @@
     <script src="addons/collections.js"></script>
     <script src="../shared/addon-localization.js"></script>
     <script src="addons/interface.js"></script>
+    <script src="playback/queue-model.js"></script>
+    <script src="playback/queue.js"></script>
     <script src="addons/host.js"></script>
     <script src="ui/addon-settings.js"></script>
     <script src="ui/addon-contributions.js"></script>

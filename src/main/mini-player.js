@@ -303,7 +303,7 @@ function createMiniPlayer({ app, BrowserWindow, ipcMain, screen, getMainWindow, 
         if (action === 'open' && isMain(event)) {
             open(command.replace !== false);
         } else if (action === 'expand') restoreMain();
-        else if (action === 'lyrics' && isMini(event)) { restoreMain(); sendMain('mini-player:command', { action: 'lyrics' }); }
+        else if (['lyrics', 'queue'].includes(action) && isMini(event)) { restoreMain(); sendMain('mini-player:command', { action }); }
         else if (action === 'settings') { restoreMain(); sendMain('mini-player:command', { action: 'settings' }); }
         else if (action === 'close') closeMini();
         else if (action === 'minimize') minimizeMini();

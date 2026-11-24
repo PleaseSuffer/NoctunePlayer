@@ -54,6 +54,11 @@
                 mainPlayer.classList.remove('minimized'); miniPlayer.classList.remove('active');
                 document.getElementById('btn-lyrics')?.click();
             }
+            else if (command.action === 'queue') {
+                mainPlayer.classList.remove('minimized'); miniPlayer.classList.remove('active');
+                const button = document.getElementById('btn-queue');
+                if (button?.getAttribute('aria-expanded') !== 'true') button?.click();
+            }
             else if (command.action === 'settings') {
                 mainPlayer.classList.remove('minimized'); miniPlayer.classList.remove('active');
                 document.getElementById('settings-fab').click();

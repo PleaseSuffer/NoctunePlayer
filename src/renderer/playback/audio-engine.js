@@ -608,7 +608,7 @@
             }, 50);
         }
 
-        async function playTrack(orderIndex, startPosition = 0) {
+        async function playTrack(orderIndex, startPosition = 0, options = {}) {
             if (!Number.isInteger(orderIndex) || orderIndex < 0 || orderIndex >= playlistOrder.length || !fileEntries[playlistOrder[orderIndex]]) return;
 
             // Синхронизируем позицию курсора в виртуальном плейлисте
@@ -643,6 +643,7 @@
                 const collection=userPlaylists.find(item=>item.id===activePlaylistId);
                 if(collection)collection.playingEntryId=entry.entryId;
             }
+            window.playbackQueue?.trackSelected(entry, orderIndex);
             globalThis.addonEvents?.begin(entry);
             
             if (entry.kind === 'radio') {
@@ -859,7 +860,7 @@
                     // Устанавливаем источник — браузер начинает буферизацию немедленно
                     const fileUrl = `file://${filePath.replace(/\\/g, '/')}`;
                     localAudioElement.src = provider ? stream : fileUrl;
-                    if (provider) window.addonProviders.watch(localAudioElement, entry, myToken);
+                    if (provider) window.addonProviders.watch(localAudioElement, entry, myToken, options);
                     localAudioElement.load();
 
                     // Инициализируем переменные длительности как 0, обновим по событию
@@ -932,6 +933,12 @@
                         const message = String(e.message || (globalThis.noctuneI18n?.t("playback.audioEngine.downloadError", {}) ?? "Ошибка загрузки")).replace(/https?:\/\/\S+/g, (globalThis.noctuneI18n?.t("playback.audioEngine.streamAddressHidden", {}) ?? "[адрес потока скрыт]")).slice(0, 240);
                         statusText.textContent = entry.kind === 'provider' ? message : (globalThis.noctuneI18n?.t("playback.audioEngine.downloadError", {}) ?? "Ошибка загрузки");
                         globalThis.addonEvents?.emit('playback.error', { error: { code: e.code || 'LOAD_FAILED', message } });
+                        if (options.queuePlayback) {
+                            updatePlayIcons(false);
+                            const error = e instanceof Error ? e : new Error(String(e));
+                            error.queueLoadToken = myToken;
+                            throw error;
+                        }
                     }
                 } finally {
                     if (myToken === _loadToken) _trackLoading = false;
@@ -1052,7 +1059,7 @@
                     isPlaying,
                     trackTitle: title.length > 40 ? title.slice(0, 38) + '…' : title,
                     prevEnabled: hasPlaylist && currentIndex > 0,
-                    nextEnabled: externalAudioQueue.length > 0 || (hasPlaylist && currentIndex < playlistOrder.length - 1),
+                    nextEnabled: window.playbackQueue ? window.playbackQueue.view().length > 0 : externalAudioQueue.length > 0 || (hasPlaylist && currentIndex < playlistOrder.length - 1),
                 });
             } catch(e) {}
             pushDiscordActivity();
@@ -1249,7 +1256,7 @@
                 if (nextOrder !== -1) { playTrack(nextOrder, 0); return; }
             }
 
-            if (await playQueuedAudioFile(endedToken)) return;
+            if (await playQueuedAudioFile(endedToken, { automatic: document.getElementById('setting-autonext')?.checked !== false })) return;
             if (endedToken !== _loadToken) return;
 
             // Проверяем настройку автоперехода к следующему треку

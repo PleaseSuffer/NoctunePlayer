@@ -56,6 +56,7 @@ async function openExternalAudioFiles(request) {
 
     stopTrack();
     externalAudioQueue.length = 0;
+    globalThis.addonEvents?.emit('queue.changed');
     const playlist = action === 'new-playlist'
         ? externalFilePlaylist(`pl_external_${Date.now()}_${++externalPlaylistSerial}`, (globalThis.noctuneI18n?.t("library.openAudioFiles.newPlaylist", {}) ?? "Новый плейлист"))
         : externalFilePlaylist();
@@ -67,17 +68,68 @@ async function openExternalAudioFiles(request) {
     if (index >= 0) await playTrack(index);
 }
 
-async function playQueuedAudioFile(token = _loadToken) {
-    while (externalAudioQueue.length) {
-        const next = externalAudioQueue.shift();
-        globalThis.addonEvents?.emit('queue.changed');
+function notifyQueueTrackUnavailable(entry) {
+    const title = entry.provider?.track?.title || entry.title || entry.name || (globalThis.noctuneI18n?.t('queue.unknownTrack') ?? 'Без названия');
+    const message = globalThis.noctuneI18n?.t('queue.unavailable', { title }) ?? `Трек «${title}» недоступен и пропущен.`;
+    const identity = entry.provider ? `${entry.provider.addonId}:${entry.provider.providerId}:${entry.provider.track.id}` : title;
+    globalThis.showNotification?.(message, 'warning', globalThis.noctuneI18n?.t('queue.title'), null, { replaceKey: 'queue-unavailable:' + identity });
+    globalThis.playbackQueue?.markUnavailable?.(entry);
+}
+
+async function playQueuedProviderTrack(next, token) {
+    const provider = next.provider;
+    const matches = track => track && track.addonId === provider.addonId && track.providerId === provider.providerId && track.trackId === provider.track.id;
+    const candidates = userPlaylists.filter(playlist => playlist.type === 'provider');
+    const playlist = next.playlistId ? candidates.find(playlist => playlist.id === next.playlistId)
+        : candidates.find(playlist => playlist.tracks?.some(matches));
+    try {
+        if (!playlist) {
+            if (next.playlistId) throw new Error('Queued source playlist is no longer available');
+            // SDK search results may have no loaded collection. Existing collections are preferred.
+            await window.addonProviders.play(provider.addonId, { provider: provider.providerId, track: provider.track, queuePlayback: true });
+        } else {
+            const entryId = next.entryId || provider.track.entryId;
+            const track = (entryId && playlist.tracks.find(track => matches(track) && track.entryId === entryId)) || playlist.tracks.find(matches);
+            if (!track) throw new Error('Queued track is no longer in its source playlist');
+            if (currentPlaylistId !== playlist.id) await selectPlaylist(playlist.id);
+            if (token !== _loadToken) return { played: true, token: _loadToken };
+            const position = playlistOrder.findIndex(index => fileEntries[index] === track || (matches(fileEntries[index]) && (!entryId || fileEntries[index].entryId === entryId)));
+            if (position < 0) throw new Error('Queued track is no longer available');
+            await playTrack(position, 0, { queuePlayback: true });
+        }
+        return { played: true, token: _loadToken };
+    } catch (error) {
+        if ((error.queueLoadToken ?? token) !== _loadToken) return { played: true, token: _loadToken };
+        notifyQueueTrackUnavailable(next);
+        return { played: false, token: _loadToken };
+    }
+}
+
+async function playQueuedAudioFile(token = _loadToken, options = {}) {
+    if (globalThis.playbackQueue && !options.bypassTimeline) return globalThis.playbackQueue.advance(token, options);
+    let attempts = 0;
+    while (externalAudioQueue.length && (!options.single || attempts++ === 0)) {
+        if (token !== _loadToken) return true;
+        const next = externalAudioQueue[0];
         if (next.provider) {
             if (token !== _loadToken) return true;
-            try { await window.addonProviders.play(next.provider.addonId, { provider: next.provider.providerId, track: next.provider.track }); return true; } catch (_) { continue; }
+            externalAudioQueue.shift();
+            globalThis.addonEvents?.emit('queue.changed');
+            const result = await playQueuedProviderTrack(next, token);
+            if (result.played) return true;
+            token = result.token;
+            options.resumeToken = token;
+            continue;
         }
-        if (!userPlaylists.some(value => value.id === next.playlistId && value.type === 'folder')) continue;
-        if (!(await validatedAudioPaths([next.path])).length) continue;
+        const exists = userPlaylists.some(value => value.id === next.playlistId && (value.type === 'folder' || (next.kind === 'radio' && value.type === 'radio')));
+        const valid = exists && (next.kind === 'radio' || (await validatedAudioPaths([next.path])).length > 0);
         if (token !== _loadToken) return true;
+        // A drag, removal or clear during validation must take effect before playback.
+        if (externalAudioQueue[0] !== next) continue;
+        if (options.single && globalThis.playbackQueue?.view()[0] !== next) return false;
+        externalAudioQueue.shift();
+        globalThis.addonEvents?.emit('queue.changed');
+        if (!valid) continue;
         if (currentPlaylistId !== next.playlistId) await selectPlaylist(next.playlistId);
         if (token !== _loadToken) return true;
         const index = playlistOrder.findIndex(id => fileEntries[id]?.path === next.path);

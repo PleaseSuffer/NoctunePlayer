@@ -1,0 +1,24 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let serial=0;
+function setup(){
+ const listeners=[],notes=[],played=[];
+ const track=(id,entryId)=>({kind:'provider',addonId:'owner',providerId:'service',trackId:id,entryId,title:id});
+ const c={console,crypto:{randomUUID:()=>`queue-${++serial}`},userPlaylists:[{id:'local',type:'folder',files:['a.wav','b.wav','c.wav']},{id:'service',type:'provider',tracks:[track('good','one'),track('bad','two')]}],currentPlaylistId:'local',activePlaylistId:'local',currentIndex:-1,fileEntries:[],playlistOrder:[],parsedMetadataCache:{},isPlaying:false,_trackLoading:false,_loadToken:1,isShuffle:false,shuffleList:[],repeatMode:0,statusText:{},showNotification:message=>notes.push(message),noctune:{onOpenAudioFiles(){}},addonEvents:{on:fn=>listeners.push(fn),emit:type=>listeners.forEach(fn=>fn({type}))},validatedAudioPaths:async value=>value,addonProviders:{play(){throw Error('Loaded collections must never fall back to creating a selection playlist')}},notes,played};
+ c.window=c;
+ c.selectPlaylist=async id=>{c.currentPlaylistId=id;const pl=c.userPlaylists.find(pl=>pl.id===id);c.fileEntries=pl.tracks?.slice()||pl.files.map(path=>({kind:'file',path,name:path}));c.playlistOrder=c.fileEntries.map((_,i)=>i)};
+ c.playTrack=async(index,start,options={})=>{const entry=c.fileEntries[c.playlistOrder[index]];c._loadToken++;const token=c._loadToken;c.currentIndex=index;c.activePlaylistId=c.currentPlaylistId;c.playbackQueue.trackSelected(entry,index);if(c.block)await new Promise(resolve=>{c.release=resolve});if(entry.trackId==='bad'||(c.failAll&&entry.kind==='provider')){const error=new Error('Unavailable');error.queueLoadToken=token;throw error;}c.played.push(entry.path||entry.trackId);};
+ vm.createContext(c);vm.runInContext(fs.readFileSync('src/renderer/library/open-audio-files.js','utf8'),c);vm.runInContext(fs.readFileSync('src/renderer/playback/queue-model.js','utf8'),c);
+ c.enqueue=(id='good',source='service')=>{const entry={playlistId:source,entryId:id==='good'?'one':'two',provider:{addonId:'owner',providerId:'service',track:{id,title:id}}};c.pending=entry;vm.runInContext('externalAudioQueue.push(pending)',c);return entry};
+ c.next=()=>vm.runInContext('playQueuedAudioFile()',c);return c;
+}
+(async()=>{
+ let c=setup();await c.selectPlaylist('local');await c.playTrack(0);c.enqueue();await c.next();assert.equal(c.activePlaylistId,'service');assert.equal(c.userPlaylists.length,2);assert.deepEqual(c.played,['a.wav','good']);
+ c.enqueue('bad');await c.next();assert.deepEqual(c.played,['a.wav','good','b.wav'],'a failed resolver advances the original local playlist');assert.equal(c.notes.length,1);assert.match(c.notes[0],/bad/);
+ c=setup();await c.selectPlaylist('local');await c.playTrack(0);const withoutSource=c.enqueue();delete withoutSource.playlistId;await c.next();assert.equal(c.activePlaylistId,'service','SDK entries reuse an existing collection even without a saved source ID');
+ c=setup();await c.selectPlaylist('local');await c.playTrack(0);c.enqueue('good','deleted');await c.next();assert.deepEqual(c.played,['a.wav','b.wav']);assert.equal(c.notes.length,1);assert.equal(c.userPlaylists.length,2);
+ c=setup();await c.selectPlaylist('local');await c.playTrack(0);c.enqueue();c.userPlaylists[1].tracks=[];await c.next();assert.deepEqual(c.played,['a.wav','b.wav']);assert.equal(c.notes.length,1);
+ c=setup();await c.selectPlaylist('local');await c.playTrack(0);c.enqueue('bad');c.block=true;const pending=c.next();while(!c.release)await Promise.resolve();const release=c.release;c.block=false;await c.selectPlaylist('local');await c.playTrack(1);release();await pending;assert.deepEqual(c.played,['a.wav','b.wav']);assert.equal(c.notes.length,0,'late errors never announce or skip after a user selection');assert.deepEqual(Array.from(c.playbackQueue.view(),entry=>entry.path),['c.wav']);
+ c=setup();await c.selectPlaylist('service');c.repeatMode=2;await c.playTrack(0);c.failAll=true;await c.next();assert.deepEqual(c.played,['good']);assert.equal(c.notes.length,2,'a fully unavailable repeated playlist is attempted once per track');assert.equal(c.playbackQueue.view().length,0);
+ c=setup();const duplicate={...c.userPlaylists[1].tracks[0],entryId:'duplicate'};c.userPlaylists[1].tracks.push(duplicate);await c.selectPlaylist('local');await c.playTrack(0);const requested=c.enqueue();requested.entryId='duplicate';await c.next();assert.equal(c.fileEntries[c.playlistOrder[c.currentIndex]].entryId,'duplicate','duplicate tracks prefer their original occurrence');
+ console.log('PASS provider queue: source IDs and occurrences, SDK collection reuse, unavailable/missing skips, original timeline continuation, no playlist copies and stale-error cancellation');
+})().catch(error=>{console.error(error);process.exitCode=1});

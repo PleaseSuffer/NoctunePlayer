@@ -104,9 +104,23 @@
             if (method === 'playback.seek') { if (isRadioMode || !audio() || !Number.isFinite(audio().duration)) throw new Error((globalThis.noctuneI18n?.t("extensions.playerApi.seekingUnavailable", {}) ?? "Перемотка недоступна")); audio().currentTime = number(args.position, 0, audio().duration); return; }
             if (method === 'playback.volume') { volumeSlider.value = number(args.value, Number(volumeSlider.min), Number(volumeSlider.max)); volumeSlider.dispatchEvent(new Event('input', { bubbles: true })); return; }
             if (method === 'playback.speed') { if (isRadioMode || !audio()) throw new Error((globalThis.noctuneI18n?.t("extensions.playerApi.playbackSpeedUnavailable", {}) ?? "Скорость недоступна")); audio().playbackRate = number(args.value, .25, 4); return; }
-            if (method === 'queue.read') return externalAudioQueue.map((entry, i) => ({ id: entry.queueId || (entry.queueId = crypto.randomUUID()), trackId: opaque(entry.provider ? `provider:${entry.provider.addonId}:${entry.provider.providerId}:${entry.provider.track.id}` : entry.path), playlistId: entry.playlistId || null, index: i }));
+            if (method === 'queue.read') return (window.playbackQueue?.view() || externalAudioQueue).map((entry, i) => ({ id: entry.queueId || (entry.queueId = crypto.randomUUID()), trackId: opaque(entry.provider ? `provider:${entry.provider.addonId}:${entry.provider.providerId}:${entry.provider.track.id}` : entry.path), playlistId: entry.playlistId || null, index: i }));
             if (method === 'queue.add') { if (externalAudioQueue.length >= 500) throw new Error((globalThis.noctuneI18n?.t("extensions.collections.queueIsFull", {}) ?? "Очередь заполнена")); const entry = entryFor(args.trackId), queueId = crypto.randomUUID(); externalAudioQueue.push({ ...entry, queueId }); emit('queue.changed'); return queueId; }
-            if (method === 'queue.remove' || method === 'queue.reorder') { const index = externalAudioQueue.findIndex(entry => entry.queueId === args.id); if (index < 0) throw new Error((globalThis.noctuneI18n?.t("extensions.playerApi.queueItemMissing", {}) ?? "Элемент очереди отсутствует")); const target = method === 'queue.reorder' ? Math.trunc(number(args.index, 0, externalAudioQueue.length - 1)) : 0; const [entry] = externalAudioQueue.splice(index, 1); if (method === 'queue.reorder') externalAudioQueue.splice(target, 0, entry); emit('queue.changed'); return; }
+            if (method === 'queue.remove' || method === 'queue.reorder') {
+                const queue = window.playbackQueue?.view() || externalAudioQueue;
+                const index = queue.findIndex(entry => entry.queueId === args.id);
+                if (index < 0) throw new Error((globalThis.noctuneI18n?.t("extensions.playerApi.queueItemMissing", {}) ?? "Элемент очереди отсутствует"));
+                const target = method === 'queue.reorder' ? Math.trunc(number(args.index, 0, queue.length - 1)) : 0;
+                if (window.playbackQueue) {
+                    if (method === 'queue.reorder') window.playbackQueue.move(args.id, target);
+                    else window.playbackQueue.remove(args.id);
+                } else {
+                    const [entry] = externalAudioQueue.splice(index, 1);
+                    if (method === 'queue.reorder') externalAudioQueue.splice(target, 0, entry);
+                    emit('queue.changed');
+                }
+                return;
+            }
             if (method === 'playlists.read') return userPlaylists.filter(pl=>pl.type!=='provider').map(playlistView);
             if (['playlists.addTracks','playlists.removeTracks','playlists.reorder'].includes(method)) return editPlaylist(id, args, method.split('.')[1]);
             if (method === 'playlists.create') { const pl = { id: 'pl_' + crypto.randomUUID(), name: text(args.name), type: 'folder', path: null, files: [], stations: [] }; userPlaylists.push(pl); changedPlaylist(id); return pl.id; }

@@ -110,7 +110,6 @@ body.no-blur .addon-dropdown-menu { backdrop-filter: none; background: var(--bg-
 .provider-track.active .provider-inline-action { color: var(--accent-contrast, #fff); }
 .provider-track.active .provider-inline-action:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 .provider-track.active .provider-inline-action:focus-visible { outline-color: var(--accent-contrast, #fff); }
-.provider-context-menu { position: fixed; z-index: 100100; min-width: 210px; }
 .provider-load-more { justify-content: center; cursor: default; }
 .provider-empty { color: var(--text-muted); cursor: default; }
 .provider-track:focus-visible, .service-playlist-card:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }

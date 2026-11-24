@@ -97,7 +97,7 @@
             const index = pl.tracks.findIndex(item => item.trackId === track.trackId);
             if (index < 0) pl.tracks.push(track); else pl.tracks[index] = track;
             renderPlaylistsDropdown(); await selectPlaylist(pl.id);
-            return playTrack(index < 0 ? pl.tracks.length - 1 : index);
+            return playTrack(index < 0 ? pl.tracks.length - 1 : index, 0, { queuePlayback: args.queuePlayback === true });
         },
         render(pl) {
             fileEntries = pl.tracks.slice(); playlistOrder = fileEntries.map((_, i) => i); parsedMetadataCache = {}; currentIndex = -1; playlistElem.replaceChildren();
@@ -110,7 +110,7 @@
             if (!descriptor || typeof descriptor.url !== 'string' || (descriptor.transport && descriptor.transport !== 'direct')) throw new Error((globalThis.noctuneI18n?.t("extensions.providers.directAudioStreamsWithoutDrmAreSupported", {}) ?? "Поддерживаются прямые аудиопотоки без DRM"));
             return noctune.addons.services(entry.addonId, provider.hash, 'providers.stream', { url: descriptor.url, oauth: descriptor.oauth, credential: descriptor.credential, headers: descriptor.headers });
         },
-        watch(element, entry, token) {
+        watch(element, entry, token, options = {}) {
             let retried = false, failed = false;
             element._noctuneProvider = true;
             const failure = error => {
@@ -118,6 +118,10 @@
                 failed = true;
                 addonEvents.emit('playback.error', { error: { code: error.code || 'STREAM_UNAVAILABLE', message: error.message }, retryable: false });
                 stopTrack(); updatePlayIcons(false); statusText.textContent = error.message;
+                if (options.queuePlayback && window.playbackQueue) {
+                    notifyQueueTrackUnavailable({ provider: { addonId: entry.addonId, providerId: entry.providerId, track: { id: entry.trackId, title: entry.title } } });
+                    window.playbackQueue.advance(_loadToken, { automatic: document.getElementById('setting-autonext')?.checked !== false }).catch(console.error);
+                }
             };
             element.addEventListener('error', async () => {
                 if (token !== _loadToken) return;

@@ -1,3 +1,20 @@
+        function showPlaylistTrackMenu(event, index) {
+            const entry = fileEntries[index];
+            if (!entry) return;
+            document.dispatchEvent(new Event('playlist-context-menu-open'));
+            selectedTrackIndexInMenu = index;
+            updateTrackCoverMenu(index);
+            const radio = entry.kind === 'radio';
+            document.getElementById('menu-edit-radio').style.display = radio ? 'flex' : 'none';
+            document.getElementById('menu-check-radio').style.display = radio ? 'flex' : 'none';
+            document.getElementById('menu-play-next').style.display = radio ? 'none' : 'flex';
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = Math.max(8, Math.min(event.clientX, innerWidth - contextMenu.offsetWidth - 8)) + 'px';
+            contextMenu.style.top = Math.max(8, Math.min(event.clientY, innerHeight - contextMenu.offsetHeight - 8)) + 'px';
+            for (const button of contextMenu.querySelectorAll('button')) button.setAttribute('role', 'menuitem');
+            contextMenu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+        }
+
         let trackCoverMenuSerial = 0;
         let trackCoverMenuInfo = null;
         async function updateTrackCoverMenu(index) {
@@ -327,14 +344,7 @@
             document.querySelectorAll('.radio-item-action').forEach(b => {
                 b.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
-                    updateTrackCoverMenu(selectedTrackIndexInMenu);
-                    document.getElementById('menu-edit-radio').style.display = 'flex';
-                    document.getElementById('menu-check-radio').style.display = 'flex';
-                    document.getElementById('menu-play-next').style.display = 'none';
-                    contextMenu.style.top = `${e.clientY}px`;
-                    contextMenu.style.left = `${e.clientX - 140}px`;
-                    contextMenu.style.display = 'block';
+                    showPlaylistTrackMenu(e, parseInt(e.currentTarget.getAttribute('data-id')));
                 });
             });
 
@@ -448,14 +458,7 @@
                     });
                     li.querySelector('.track-item-action').addEventListener('click', (e) => {
                         e.stopPropagation();
-                        selectedTrackIndexInMenu = trackIndex;
-                        updateTrackCoverMenu(selectedTrackIndexInMenu);
-                        document.getElementById('menu-edit-radio').style.display = 'none';
-                        document.getElementById('menu-check-radio').style.display = 'none';
-                        document.getElementById('menu-play-next').style.display = 'flex';
-                        contextMenu.style.top = `${e.clientY}px`;
-                        contextMenu.style.left = `${e.clientX - 140}px`;
-                        contextMenu.style.display = 'block';
+                        showPlaylistTrackMenu(e, trackIndex);
                     });
                     playlistElem.appendChild(li);
                 }
@@ -563,14 +566,7 @@
                     });
                     li.querySelector('.track-item-action').addEventListener('click', (e) => {
                         e.stopPropagation();
-                        selectedTrackIndexInMenu = trackIndex;
-                        updateTrackCoverMenu(selectedTrackIndexInMenu);
-                        document.getElementById('menu-edit-radio').style.display = 'none';
-                        document.getElementById('menu-check-radio').style.display = 'none';
-                        document.getElementById('menu-play-next').style.display = 'flex';
-                        contextMenu.style.top = `${e.clientY}px`;
-                        contextMenu.style.left = `${e.clientX - 140}px`;
-                        contextMenu.style.display = 'block';
+                        showPlaylistTrackMenu(e, trackIndex);
                     });
                     playlistElem.appendChild(li);
                 }
@@ -702,18 +698,7 @@
                     b.addEventListener('click', (e) => {
                         e.stopPropagation();
 
-                        selectedTrackIndexInMenu = parseInt(
-                            e.currentTarget.getAttribute('data-id')
-                        );
-                        updateTrackCoverMenu(selectedTrackIndexInMenu);
-
-                        document.getElementById('menu-edit-radio').style.display = 'none';
-                        document.getElementById('menu-check-radio').style.display = 'none';
-                        document.getElementById('menu-play-next').style.display = 'flex';
-
-                        contextMenu.style.top = `${e.clientY}px`;
-                        contextMenu.style.left = `${e.clientX - 140}px`;
-                        contextMenu.style.display = 'block';
+                        showPlaylistTrackMenu(e, parseInt(e.currentTarget.getAttribute('data-id')));
                     });
                 });
 
@@ -761,6 +746,9 @@
                         if (metaElem) metaElem.textContent = `${formatTime(duration)} | ${kbps}kbps`;
                     } catch (e) {}
                 }));
+                if (i === 0 || (i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= targetEntries.length) {
+                    window.addonEvents?.emit('queue.metadata');
+                }
             }
         }
 
@@ -797,14 +785,7 @@
             document.querySelectorAll('.track-item-action').forEach(b => {
                 b.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    selectedTrackIndexInMenu = parseInt(e.currentTarget.getAttribute('data-id'));
-                    updateTrackCoverMenu(selectedTrackIndexInMenu);
-                    document.getElementById('menu-edit-radio').style.display = 'none';
-                    document.getElementById('menu-check-radio').style.display = 'none';
-                    document.getElementById('menu-play-next').style.display = 'flex';
-                    contextMenu.style.top = `${e.clientY}px`;
-                    contextMenu.style.left = `${e.clientX - 140}px`;
-                    contextMenu.style.display = 'block';
+                    showPlaylistTrackMenu(e, parseInt(e.currentTarget.getAttribute('data-id')));
                 });
             });
 
@@ -819,14 +800,26 @@
             processMetadataSequentially();
         }
 
-        document.addEventListener('click', () => {
-            contextMenu.style.display = 'none';
+        document.addEventListener('click', () => { contextMenu.style.display = 'none'; });
+        document.addEventListener('playlist-context-menu-open', () => { contextMenu.style.display = 'none'; });
+        document.addEventListener('scroll', event => { if (!event.target.closest?.('.context-menu')) contextMenu.style.display = 'none'; }, true);
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') contextMenu.style.display = 'none'; });
+
+        document.getElementById('menu-play').addEventListener('click', () => {
+            const position = playlistOrder.indexOf(selectedTrackIndexInMenu);
+            if (position >= 0) playTrack(position);
         });
 
         document.getElementById('menu-play-next').addEventListener('click', () => {
             if (selectedTrackIndexInMenu !== -1) {
-                playNextIndex = selectedTrackIndexInMenu;
+                enqueuePlaylistTrack(selectedTrackIndexInMenu, true);
                 statusText.textContent = (globalThis.noctuneI18n?.t("library.playlists.nextTrackSet", {}) ?? "Следующий трек назначен");
+            }
+        });
+
+        document.getElementById('menu-add-queue').addEventListener('click', () => {
+            if (enqueuePlaylistTrack(selectedTrackIndexInMenu)) {
+                statusText.textContent = globalThis.noctuneI18n.t('queue.added');
             }
         });
 

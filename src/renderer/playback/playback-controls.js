@@ -37,25 +37,22 @@
         /** Создаёт виртуальный перемешанный плейлист (алгоритм Фишера-Йейтса).
          *  Если currentIndex >= 0, текущий трек ставится на позицию 0 (уже «сыгран»),
          *  остальные треки идут в случайном порядке — курсор встаёт на 0. */
-        function buildShuffleList() {
-            const len = playlistOrder.length;
-            shuffleList = Array.from({ length: len }, (_, i) => i); // orderIndex-ы
-            // Фишер-Йейтс
-            for (let i = len - 1; i > 0; i--) {
+        function createShuffleOrder(length, current) {
+            const order = Array.from({ length }, (_, index) => index);
+            for (let i = length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [shuffleList[i], shuffleList[j]] = [shuffleList[j], shuffleList[i]];
+                [order[i], order[j]] = [order[j], order[i]];
             }
-            // Ставим текущий трек первым, чтобы курсор 0 = «мы здесь»
-            if (currentIndex >= 0) {
-                const pos = shuffleList.indexOf(currentIndex);
-                if (pos > 0) {
-                    shuffleList.splice(pos, 1);
-                    shuffleList.unshift(currentIndex);
-                }
-                currentShufflePos = 0;
-            } else {
-                currentShufflePos = -1;
+            if (current >= 0) {
+                const position = order.indexOf(current);
+                if (position > 0) order.unshift(order.splice(position, 1)[0]);
             }
+            return order;
+        }
+
+        function buildShuffleList() {
+            shuffleList = createShuffleOrder(playlistOrder.length, currentIndex);
+            currentShufflePos = currentIndex >= 0 ? 0 : -1;
         }
 
         /** Обновляет currentShufflePos при переходе к треку с orderIndex = orderIdx в shuffle-режиме.
@@ -75,6 +72,7 @@
         function getNextTrackIndex(forward = true) {
             if (playlistOrder.length === 0) return -1;
             if (repeatMode === 1) return currentIndex;
+            if (forward && window.playbackQueue?.managed) return window.playbackQueue.nextIndex();
 
             if (isShuffle) {
                 if (shuffleList.length === 0) buildShuffleList();
