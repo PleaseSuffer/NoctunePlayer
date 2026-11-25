@@ -27,7 +27,9 @@ const {createSceneThemeStore}=require('../../src/main/scene-themes');
   const order=JSON.parse(await fs.readFile(path.join(sourceDirectory,'order.json'),'utf8'));
   assert.equal(new Set(order).size,order.length,'community order contains no duplicates');
   assert(order.every(id=>sourceThemes.includes(id)),'community order references existing source themes');
-  const expectedOrder=[...order,...sourceThemes.filter(id=>!order.includes(id))];
+  const publishedIds=new Set(community.map(entry=>entry.id));
+  assert(community.every(entry=>sourceThemes.includes(entry.id)),'every published community theme has sources');
+  const expectedOrder=[...order,...sourceThemes.filter(id=>!order.includes(id))].filter(id=>publishedIds.has(id));
   assert.deepEqual(community.map(entry=>entry.id),expectedOrder,'published themes match source folders and configured community order');
   assert(community.every(entry=>entry.publisher===null),'community themes do not claim an official publisher');
   for(const entry of (await b.list()).entries.filter(entry=>entry.channel==='community')){
