@@ -20,13 +20,23 @@ const {createSceneThemeStore}=require('../../src/main/scene-themes');
    const list=await catalog.list(true);assert.equal(list.source,'network');assert(!list.message);
    for(const entry of list.entries){assert(entry.compatible);assert(!entry.description.startsWith('extension.'));const candidate=await catalog.prepare(entry.id,entry.kind,entry.channel);if(candidate.ticket)store.discard(candidate.ticket);else assert(candidate.theme);}
   }
-  assert.equal(requested.size,15,'both signed catalogs and all thirteen packages are accessible and valid');
+  assert.deepEqual(requested,new Set(files.keys()),'both signed catalogs and every referenced package are fetched and validated');
   const community=(await b.list()).entries.filter(entry=>entry.kind==='theme'&&entry.channel==='community');
-  assert.deepEqual(community.map(entry=>entry.id),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light','perlica-afterimage']);
-  assert(community.every(entry=>entry.author==='Noctune Community'&&entry.publisher===null));
-  const yandex=(await b.list()).entries.find(entry=>entry.id==='yandex-music');
-  assert.equal(yandex.author,'Noctune Community');assert.equal(yandex.channel,'community');assert.equal(yandex.publisher,null);
+  const sourceDirectory=path.resolve('themes/community');
+  const sourceThemes=(await fs.readdir(sourceDirectory,{withFileTypes:true})).filter(item=>item.isDirectory()&&!item.isSymbolicLink()).map(item=>item.name).sort((a,b)=>a.localeCompare(b));
+  const order=JSON.parse(await fs.readFile(path.join(sourceDirectory,'order.json'),'utf8'));
+  assert.equal(new Set(order).size,order.length,'community order contains no duplicates');
+  assert(order.every(id=>sourceThemes.includes(id)),'community order references existing source themes');
+  const expectedOrder=[...order,...sourceThemes.filter(id=>!order.includes(id))];
+  assert.deepEqual(community.map(entry=>entry.id),expectedOrder,'published themes match source folders and configured community order');
+  assert(community.every(entry=>entry.publisher===null),'community themes do not claim an official publisher');
+  for(const entry of (await b.list()).entries.filter(entry=>entry.channel==='community')){
+   const parent=entry.kind==='theme'?'themes/community':'addons/community';
+   const manifest=JSON.parse(await fs.readFile(path.join(parent,entry.id,'manifest.json'),'utf8'));
+   assert.equal(entry.id,manifest.id);assert.equal(entry.author,manifest.author,'published author matches source');
+   assert.equal(entry.version,manifest.version,'published version matches source');
+  }
   assert((await a.list()).entries.every(entry=>entry.author==='Noctune'&&entry.channel===undefined));
-  console.log('PASS: publication URLs, signed network snapshots, localized cards, community theme order and all thirteen package hashes/metadata/install previews.');
+  console.log('PASS: publication URLs, signed network snapshots, localized cards, community theme order and all referenced package hashes/metadata/install previews.');
  }finally{await fs.rm(root,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

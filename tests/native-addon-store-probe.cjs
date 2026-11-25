@@ -58,6 +58,7 @@ let networkCalls=0, offline=false, marketplaceOffline=false;
     }});
     const marketplaceModule=require(path.join(source,'src/main/addons/marketplace'));
     const marketplaceSeed=require(path.join(source,'addons/catalog/marketplace.json'));
+    const communityThemes=marketplaceSeed.entries.filter(entry=>entry.kind==='theme'&&entry.channel==='community');
     const originalMarketplace=marketplaceModule.createMarketplaceCatalog;
     marketplaceModule.createMarketplaceCatalog=options=>originalMarketplace({...options,fetch:async (url,options)=>{
         networkCalls++;if(offline||marketplaceOffline)throw Error('Offline');
@@ -117,9 +118,9 @@ let networkCalls=0, offline=false, marketplaceOffline=false;
                 assert.equal(await run(shop,`document.getElementById('community-actions').hidden`),tab!=='community');
                 assert.equal(await run(shop,`(()=>{const cards=[...document.querySelectorAll('.store-card')];return cards.every(a=>cards.every(b=>Math.abs(a.offsetTop-b.offsetTop)>1||Math.abs(a.getBoundingClientRect().height-b.getBoundingClientRect().height)<1));})()`),true,'cards in a row have equal height');
                 if(section==='themes'&&tab==='community'){
-                    assert.deepEqual(await run(shop,`[...document.querySelectorAll('.store-card')].map(card=>card.dataset.addonId)`),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light']);
+                    assert.deepEqual(await run(shop,`[...document.querySelectorAll('.store-card')].map(card=>card.dataset.addonId)`),communityThemes.map(entry=>entry.id),'theme cards preserve catalog order');
                     assert.equal(await run(shop,`!!document.querySelector('.card-author .lucide-badge-check')`),false);
-                    assert.equal(await run(shop,`[...document.querySelectorAll('.card-author')].every(author=>author.textContent==='Noctune Community')`),true);
+                    assert.deepEqual(await run(shop,`[...document.querySelectorAll('.card-author')].map(author=>author.textContent)`),communityThemes.map(entry=>entry.author),'card authors match catalog metadata');
                 }
                 assert.equal(await run(shop,`document.documentElement.scrollWidth>innerWidth`),false);
                 await shop.webContents.capturePage();
