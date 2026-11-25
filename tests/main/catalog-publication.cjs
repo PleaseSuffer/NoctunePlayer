@@ -20,13 +20,13 @@ const {createSceneThemeStore}=require('../../src/main/scene-themes');
    const list=await catalog.list(true);assert.equal(list.source,'network');assert(!list.message);
    for(const entry of list.entries){assert(entry.compatible);assert(!entry.description.startsWith('extension.'));const candidate=await catalog.prepare(entry.id,entry.kind,entry.channel);if(candidate.ticket)store.discard(candidate.ticket);else assert(candidate.theme);}
   }
-  assert.equal(requested.size,14,'both signed catalogs and all twelve packages are accessible and valid');
+  assert.equal(requested.size,15,'both signed catalogs and all thirteen packages are accessible and valid');
   const community=(await b.list()).entries.filter(entry=>entry.kind==='theme'&&entry.channel==='community');
-  assert.deepEqual(community.map(entry=>entry.id),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light']);
+  assert.deepEqual(community.map(entry=>entry.id),['rhodes-island-dark','rhodes-island-light','endfield-dark','endfield-light','perlica-afterimage']);
   assert(community.every(entry=>entry.author==='Noctune Community'&&entry.publisher===null));
   const yandex=(await b.list()).entries.find(entry=>entry.id==='yandex-music');
   assert.equal(yandex.author,'Noctune Community');assert.equal(yandex.channel,'community');assert.equal(yandex.publisher,null);
   assert((await a.list()).entries.every(entry=>entry.author==='Noctune'&&entry.channel===undefined));
-  console.log('PASS: publication URLs, signed network snapshots, localized cards, community theme order and all twelve package hashes/metadata/install previews.');
+  console.log('PASS: publication URLs, signed network snapshots, localized cards, community theme order and all thirteen package hashes/metadata/install previews.');
  }finally{await fs.rm(root,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

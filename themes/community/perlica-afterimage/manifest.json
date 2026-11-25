@@ -1,0 +1,200 @@
+{
+  "apiVersion": 2,
+  "id": "perlica-afterimage",
+  "name": "Perlica / Afterimage",
+  "description": "Светлая станция, голубая телеметрия и скрытая память. Басовые удары раскрывают фрагменты второго состояния Перлики.",
+  "author": "Noctune Community",
+  "version": "1.7.1",
+  "width": 1920,
+  "height": 1080,
+  "preview": "preview",
+  "palette": {
+    "background": "#eef3f4",
+    "accent": "#268eaf",
+    "gradient": [
+      "#8ed9ea",
+      "#4fb9d4",
+      "#467a9e"
+    ]
+  },
+  "capabilities": {
+    "visualizer": "bars",
+    "visualizers": [
+      "bars"
+    ],
+    "motion": true
+  },
+  "runtimeRequirements": {
+    "dom": false
+  },
+  "quality": "balanced",
+  "parameterSchema": {
+    "sensitivity": {
+      "type": "slider",
+      "label": {
+        "ru": "Чувствительность к басу",
+        "en": "Bass sensitivity"
+      },
+      "default": 1,
+      "min": 0.4,
+      "max": 2,
+      "step": 0.1
+    },
+    "glitch": {
+      "type": "slider",
+      "label": {
+        "ru": "Сила разрывов",
+        "en": "Glitch strength"
+      },
+      "default": 0.8,
+      "min": 0,
+      "max": 1.5,
+      "step": 0.1
+    },
+    "recovery": {
+      "type": "slider",
+      "label": {
+        "ru": "Длительность следа",
+        "en": "Afterimage duration"
+      },
+      "default": 0.28,
+      "min": 0.15,
+      "max": 0.6,
+      "step": 0.05
+    },
+    "telemetry": {
+      "type": "toggle",
+      "label": {
+        "ru": "Телеметрия и тревоги",
+        "en": "Telemetry and alerts"
+      },
+      "default": true
+    },
+    "spectrum": {
+      "type": "toggle",
+      "label": {
+        "ru": "Спектр сигнала",
+        "en": "Signal spectrum"
+      },
+      "default": true
+    },
+    "stars": {
+      "type": "toggle",
+      "label": {
+        "ru": "Звёзды за стеклом",
+        "en": "Stars beyond the window"
+      },
+      "default": true
+    },
+    "corruption": {
+      "type": "slider",
+      "label": {
+        "ru": "Порча интерфейса",
+        "en": "Interface corruption"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 1.5,
+      "step": 0.1
+    },
+    "animatedText": {
+      "type": "toggle",
+      "label": {
+        "ru": "Живая телеметрия",
+        "en": "Animated telemetry"
+      },
+      "default": true
+    },
+    "textFloat": {
+      "type": "slider",
+      "label": {
+        "ru": "Движение текста",
+        "en": "Text drift"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "density": {
+      "type": "slider",
+      "label": {
+        "ru": "Память при плотном басе",
+        "en": "Sustained bass memory"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 1.5,
+      "step": 0.1
+    },
+    "textGlitch": {
+      "type": "toggle",
+      "label": {
+        "ru": "Глитчи текста на сильном басе",
+        "en": "Strong bass text glitches"
+      },
+      "default": true
+    },
+    "lightMotion": {
+      "type": "slider",
+      "label": {
+        "ru": "Световые импульсы",
+        "en": "Travelling light"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 1.5,
+      "step": 0.1
+    },
+    "bassFloor": {
+      "type": "slider",
+      "label": {
+        "ru": "Минимальный бас (dB)",
+        "en": "Minimum bass (dB)"
+      },
+      "default": -46,
+      "min": -60,
+      "max": -26,
+      "step": 1
+    },
+    "bassSelectivity": {
+      "type": "slider",
+      "label": {
+        "ru": "Отбор басовых пиков",
+        "en": "Bass peak selectivity"
+      },
+      "default": 0.35,
+      "min": 0.15,
+      "max": 0.65,
+      "step": 0.05
+    },
+    "parallax": {
+      "type": "slider",
+      "label": {
+        "ru": "Глубина параллакса",
+        "en": "Parallax depth"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "frameLineLimit": {
+      "type": "slider",
+      "label": {
+        "ru": "Лимит линий на рамке",
+        "en": "Frame line limit"
+      },
+      "default": 8,
+      "min": 2,
+      "max": 16,
+      "step": 1
+    }
+  },
+  "assets": {
+    "calm": "assets/calm.png",
+    "grief": "assets/grief.png",
+    "preview": "assets/preview.png"
+  },
+  "script": "scene.js"
+}
