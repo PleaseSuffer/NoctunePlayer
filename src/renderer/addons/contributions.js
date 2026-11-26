@@ -43,6 +43,7 @@
     }
     function applyAppearance(emit = true) {
         const state = appearanceState();
+        window.beginAppearanceUpdate?.();
         if (state.effectiveMode === 'dark') document.body.setAttribute('data-theme','dark'); else document.body.removeAttribute('data-theme');
         const themeToggle=document.getElementById('theme-toggle');if(themeToggle&&window.AddonPermissionView)themeToggle.replaceChildren(AddonPermissionView.icon(state.effectiveMode==='dark'?'Sun':'Moon','theme-icon'));
         const toggle = document.getElementById('setting-dark-theme'); if (toggle) toggle.checked = state.effectiveMode === 'dark';
@@ -56,7 +57,18 @@
         if (emit) window.addonEvents.emit('appearance.changed', { mode: state.mode, effectiveMode: state.effectiveMode });
     }
     system.addEventListener('change', () => { if (appearanceState().mode === 'system') applyAppearance(); });
-    const userModeChanged = () => { base.mode = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; if (appStorage.getItem('setting_addon_appearance')) appStorage.setItem('setting_addon_appearance', JSON.stringify(base)); applyAppearance(); };
+    const userModeChanged = () => {
+        base.mode = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        if (appStorage.getItem('setting_addon_appearance')) appStorage.setItem('setting_addon_appearance', JSON.stringify(base));
+        // The player already applied this mode, glass and contrast. Reapply only
+        // when an extension/base palette actually needs to override that state.
+        if (!layers.size && !Object.keys(base.palette).length && !style) {
+            if (base.mode === 'light' && document.body.hasAttribute('data-theme')) document.body.removeAttribute('data-theme');
+            window.addonEvents.emit('appearance.changed', { mode: base.mode, effectiveMode: base.mode });
+            return;
+        }
+        applyAppearance();
+    };
     document.getElementById('setting-dark-theme')?.addEventListener('change', userModeChanged);
     document.getElementById('theme-toggle')?.addEventListener('click', userModeChanged);
     function catalog(owner, id) { const item = catalogs.get(key(owner,id)); if (!item) throw new Error((globalThis.noctuneI18n?.t("extensions.contributions.catalogDisabled", {}) ?? "Каталог выключен")); return item; }

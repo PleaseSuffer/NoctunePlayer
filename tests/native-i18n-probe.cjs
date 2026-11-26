@@ -53,6 +53,7 @@ require(archive ? path.join(path.resolve(archive), 'src/main/index.js') : '../sr
     })()`);
     assert.deepEqual(dropdown, {afterPerformance:true,open:'true',last:'en',closed:'false',label:'English'});
     const editor = await main.webContents.executeJavaScript(`(() => {
+        document.querySelector('[data-panel="panel-playlists"]').click();
         userPlaylists = [{id:'editor-current',name:'Current',type:'folder',files:[]},{id:'editor-target',name:'Radio target',type:'radio',stations:[]}];
         currentPlaylistId='editor-current'; activePlaylistId='editor-current';
         renderPlaylistsDropdown(); renderPlEditor();

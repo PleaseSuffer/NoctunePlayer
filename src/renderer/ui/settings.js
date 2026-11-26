@@ -40,12 +40,14 @@
                 refreshSettingsUI();
                 window.notificationCenter?.visit();
                 buildSettingsToc();
+                document.dispatchEvent(new Event('settings-opened'));
             });
             function closeSettings() {
                 window.effectsPerformance?.setSettingsOpen(false);
                 clickedTocTarget = null;
                 overlay.classList.remove('open');
                 fab.classList.remove('open');
+                document.dispatchEvent(new Event('settings-closed'));
             }
             closeBtn.addEventListener('click', closeSettings);
             overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSettings(); });
@@ -61,10 +63,21 @@
                     document.getElementById(target).classList.add('active');
                     if (settingsContent) settingsContent.scrollTo({ top: 0, behavior: 'instant' });
                     window.notificationCenter?.visit();
-                    if (target === 'panel-general') renderPlEditor();
+                    if (target === 'panel-playlists') renderPlEditor();
                     buildSettingsToc();
+                    document.dispatchEvent(new CustomEvent('settings-panel-changed', { detail: target }));
                 });
             });
+
+            window.openSettingsPanel = panelId => {
+                window.settingsSearch?.clear();
+                const target = [...navItems].find(item => item.dataset.panel === panelId);
+                if (!target) return;
+                if (!overlay.classList.contains('open')) fab.click();
+                target.click();
+            };
+            document.getElementById('btn-playlist-settings').addEventListener('click', () => window.openSettingsPanel('panel-playlists'));
+            document.getElementById('settings-create-playlist').addEventListener('click', () => document.getElementById('btn-create-playlist').click());
 
             // ====================================================
             // ЯРЛЫКИ РАЗДЕЛОВ (быстрые якоря справа от модалки настроек)
@@ -1277,6 +1290,7 @@
             }
 
             function refreshAccentFg(color) {
+                window.beginAppearanceUpdate?.();
                 const current = color || getComputedStyle(document.body).getPropertyValue('--accent-color').trim() || '#4a90e2';
                 const safeFg = computeAccentFg(current);
                 // Contrast against the accent used as a selected-row background.
@@ -1286,19 +1300,22 @@
                 const rgb = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
                 const luminance = rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
                 const contrast = luminance > .179 ? '#000000' : '#ffffff';
-                document.documentElement.style.setProperty('--accent-contrast', contrast);
-                document.body.style.setProperty('--accent-contrast', contrast);
+                for (const element of [document.documentElement, document.body]) {
+                    if (element.style.getPropertyValue('--accent-contrast') !== contrast) element.style.setProperty('--accent-contrast', contrast);
+                }
                 if (addonAccentStyle) {
-                    document.documentElement.style.setProperty('--addon-accent-fg', safeFg);
+                    if (document.documentElement.style.getPropertyValue('--addon-accent-fg') !== safeFg) document.documentElement.style.setProperty('--addon-accent-fg', safeFg);
                     return;
                 }
-                document.documentElement.style.setProperty('--accent-fg', safeFg);
-                document.body.style.setProperty('--accent-fg', safeFg);
+                for (const element of [document.documentElement, document.body]) {
+                    if (element.style.getPropertyValue('--accent-fg') !== safeFg) element.style.setProperty('--accent-fg', safeFg);
+                }
             }
 
             // ---- APPEARANCE: Dark theme toggle in settings ----
             const settingDark = document.getElementById('setting-dark-theme');
             settingDark.addEventListener('change', () => {
+                window.beginAppearanceUpdate?.();
                 if (settingDark.checked) {
                     document.body.setAttribute('data-theme', 'dark');
                     appStorage.setItem('player_theme', 'dark');
@@ -1309,15 +1326,15 @@
                     themeToggle.innerHTML = '<i data-lucide="moon"></i>';
                 }
                 lucide.createIcons({ root: themeToggle });
-                refreshAccentFg(); // светлота считалась под старую тему — пересчитываем
                 if (typeof applyGlassOpacity === 'function') applyGlassOpacity(); // альфа фона зависит от базового RGB темы
+                refreshAccentFg(); // Read the effective accent after all palette writes.
                 if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             });
             // Sync with main theme toggle
             themeToggle.addEventListener('click', () => {
                 settingDark.checked = document.body.getAttribute('data-theme') === 'dark';
-                refreshAccentFg();
                 if (typeof applyGlassOpacity === 'function') applyGlassOpacity();
+                refreshAccentFg();
                 if (typeof refreshWaveformColorIfNeeded === 'function') refreshWaveformColorIfNeeded();
             });
 
@@ -1325,6 +1342,7 @@
             const swatches = document.querySelectorAll('.accent-swatch');
             const colorPicker = document.getElementById('accent-color-picker');
             function setAccentColor(color) {
+                window.beginAppearanceUpdate?.();
                 document.documentElement.style.setProperty('--accent-color', color);
                 document.body.style.setProperty('--accent-color', color);
                 appStorage.setItem('setting_accent_color', color);
@@ -1602,6 +1620,7 @@
             const glassOpacityLabel = document.getElementById('setting-glass-opacity-value-label');
 
             function applyGlassOpacity() {
+                window.beginAppearanceUpdate?.();
                 const isDark = document.body.getAttribute('data-theme') === 'dark';
                 const baseRGB = isDark ? '30, 30, 30' : '255, 255, 255';
                 const alpha = window.glassOpacityEnabled
@@ -2986,7 +3005,7 @@
                 const version = document.getElementById('app-version').textContent;
                 document.getElementById('settings-app-version').textContent = version;
                 document.getElementById('update-current-version').textContent = version;
-                if (document.getElementById('panel-general').classList.contains('active')) renderPlEditor();
+                if (document.getElementById('panel-playlists').classList.contains('active')) renderPlEditor();
             }
 
             function restoreSettings() {
@@ -3628,7 +3647,7 @@
                 document.getElementById('update-current-version').textContent = verText;
 
                 // Playlist editor (if panel is active)
-                if (document.getElementById('panel-general').classList.contains('active')) renderPlEditor();
+                if (document.getElementById('panel-playlists').classList.contains('active')) renderPlEditor();
             }
 
             // Восстанавливает реальный фон (картинку/видео) из настроек.

@@ -1798,5 +1798,12 @@
   "ui.addonSettings.actions": "Действия расширения",
   "ui.addonSettings.actionGroup.commands": "Команды",
   "ui.addonSettings.actionGroup.settings": "Настройки",
-  "ui.addonSettings.actionGroup.updates": "Обновления"
+  "ui.addonSettings.actionGroup.updates": "Обновления",
+  "settings.playlists.create": "Создать",
+  "settings.search.placeholder": "Найти настройку…",
+  "settings.search.label": "Поиск по настройкам",
+  "settings.search.clear": "Очистить поиск",
+  "settings.search.empty": "Ничего не найдено",
+  "settings.search.emptyHint": "Попробуйте другое название или выберите другой раздел.",
+  "settings.search.results": "Совпадений в разделе: {count} · Всего: {total}"
 }

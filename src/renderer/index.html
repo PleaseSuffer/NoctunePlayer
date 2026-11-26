@@ -39,11 +39,8 @@
                 <button class="btn-icon-only" id="btn-create-playlist" title="Создать плейлист" data-i18n-title="player.interface.createPlaylist">
                     <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
                 </button>
-                <button class="btn-icon-only" id="btn-edit-playlist" title="Переименовать плейлист" data-i18n-title="player.interface.renamePlaylist">
-                    <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i>
-                </button>
-                <button class="btn-icon-only" id="btn-delete-playlist" title="Удалить плейлист" style="color: #e74c3c;" data-i18n-title="player.interface.deletePlaylist">
-                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                <button class="btn-icon-only" id="btn-playlist-settings" title="Плейлисты и радио" aria-label="Плейлисты и радио" data-i18n-title="settings.general.playlistsAndRadio" data-i18n-aria-label="settings.general.playlistsAndRadio">
+                    <i data-lucide="settings-2" style="width:16px;height:16px;"></i>
                 </button>
             </div>
 
@@ -409,13 +406,25 @@
         <div class="settings-modal">
             <div class="settings-modal-header">
                 <h2><i data-lucide="settings" style="width:18px;height:18px;color:var(--accent-color);"></i> <span data-i18n="player.interface.settings">Настройки</span></h2>
-                <button class="actions-btn" id="settings-close-btn"><i data-lucide="x"></i></button>
+                <div class="settings-header-actions">
+                    <div class="settings-search-control" id="settings-search-control">
+                        <div class="settings-search-field" id="settings-search-field" inert>
+                            <input type="search" id="settings-search-input" autocomplete="off" spellcheck="false" placeholder="Найти настройку…" aria-label="Поиск по настройкам" data-i18n-placeholder="settings.search.placeholder" data-i18n-aria-label="settings.search.label">
+                            <button type="button" class="actions-btn" id="settings-search-clear" title="Очистить поиск" aria-label="Очистить поиск" data-i18n-title="settings.search.clear" data-i18n-aria-label="settings.search.clear" hidden><i data-lucide="x" aria-hidden="true"></i></button>
+                        </div>
+                        <button type="button" class="actions-btn" id="settings-search-toggle" title="Поиск по настройкам" aria-label="Поиск по настройкам" data-i18n-title="settings.search.label" data-i18n-aria-label="settings.search.label" aria-expanded="false" aria-controls="settings-search-field"><i data-lucide="search" aria-hidden="true"></i></button>
+                    </div>
+                    <button class="actions-btn" id="settings-close-btn" title="Закрыть" aria-label="Закрыть" data-i18n-title="player.interface.close" data-i18n-aria-label="player.interface.close"><i data-lucide="x"></i></button>
+                </div>
             </div>
             <div class="settings-modal-body">
                 <!-- Nav -->
-                <nav class="settings-nav">
+                <nav class="settings-nav custom-scroll">
                     <div class="settings-nav-item active" data-panel="panel-general">
                         <i data-lucide="layout-grid" style="width:15px;height:15px;"></i> <span data-i18n="player.interface.general">Основные</span>
+                    </div>
+                    <div class="settings-nav-item" data-panel="panel-playlists">
+                        <i data-lucide="list-music" style="width:15px;height:15px;"></i> <span data-i18n="settings.general.playlistsAndRadio">Плейлисты и радио</span>
                     </div>
                     <div class="settings-nav-item" data-panel="panel-player">
                         <i data-lucide="music-2" style="width:15px;height:15px;"></i> <span data-i18n="player.interface.player">Плеер</span>
@@ -445,27 +454,11 @@
 
                 <!-- Content -->
                 <div class="settings-content custom-scroll">
+                    <div id="settings-search-empty" class="settings-search-empty" hidden><i data-lucide="search-x" aria-hidden="true"></i><strong data-i18n="settings.search.empty">Ничего не найдено</strong><p data-i18n="settings.search.emptyHint">Попробуйте другое название или выберите другой раздел.</p></div>
+                    <div id="settings-search-status" class="settings-search-status" role="status" aria-live="polite"></div>
 
                     <!-- === ОСНОВНЫЕ === -->
                     <div class="settings-panel active" id="panel-general">
-
-                        <div class="settings-section-title" data-i18n="settings.general.playlistsAndRadio">Плейлисты и радио</div>
-                        <div class="settings-card">
-                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;" data-i18n="settings.general.dragItemsToReorderThisOrderIsUsedInTheDropdown">
-                                Перетащите элементы для изменения порядка. Порядок применяется в выпадающем списке.
-                            </div>
-                            <ul class="pl-editor-list custom-scroll" id="pl-editor-list">
-                                <!-- filled by JS -->
-                            </ul>
-                            <div style="display:flex;gap:8px;margin-top:12px;">
-                                <button class="btn" id="btn-import-m3u" style="flex:1;padding:8px 12px;font-size:12px;background:var(--container-bg);color:var(--text-color);border:1px solid var(--border-color);">
-                                    <i data-lucide="file-input" style="width:13px;height:13px;"></i> <span data-i18n="settings.general.importM3u">Импорт .m3u</span>
-                                </button>
-                            </div>
-                            <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
-                                <span data-i18n="settings.general.exportIndividualPlaylistsUsingThe">Экспорт отдельного плейлиста — кнопкой</span> <i data-lucide="download" style="width:11px;height:11px;vertical-align:-1px;"></i> <span data-i18n="settings.playlists.exportHintSuffix">у него в списке выше. Радио и локальные плейлисты поддерживаются в обе стороны.</span>
-                            </div>
-                        </div>
 
                         <div class="settings-section-title" data-i18n="settings.general.behavior">Поведение</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
@@ -577,6 +570,28 @@
                     </div>
 
                     <!-- === ПЛЕЕР === -->
+                    <div class="settings-panel" id="panel-playlists">
+                        <div class="settings-section-title" data-i18n="settings.general.playlistsAndRadio">Плейлисты и радио</div>
+                        <div class="settings-card">
+                            <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;" data-i18n="settings.general.dragItemsToReorderThisOrderIsUsedInTheDropdown">
+                                Перетащите элементы для изменения порядка. Порядок применяется в выпадающем списке.
+                            </div>
+                            <ul class="pl-editor-list custom-scroll" id="pl-editor-list">
+                                <!-- filled by JS -->
+                            </ul>
+                            <button type="button" class="btn settings-playlist-create" id="settings-create-playlist"><i data-lucide="list-plus" aria-hidden="true"></i><span data-i18n="settings.playlists.create">Создать</span></button>
+                            <div style="display:flex;gap:8px;margin-top:8px;">
+                                <button class="btn" id="btn-import-m3u" style="flex:1;padding:8px 12px;font-size:12px;background:var(--container-bg);color:var(--text-color);border:1px solid var(--border-color);">
+                                    <i data-lucide="file-input" style="width:13px;height:13px;"></i> <span data-i18n="settings.general.importM3u">Импорт .m3u</span>
+                                </button>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+                                <span data-i18n="settings.general.exportIndividualPlaylistsUsingThe">Экспорт отдельного плейлиста — кнопкой</span> <i data-lucide="download" style="width:11px;height:11px;vertical-align:-1px;"></i> <span data-i18n="settings.playlists.exportHintSuffix">у него в списке выше. Радио и локальные плейлисты поддерживаются в обе стороны.</span>
+                            </div>
+                        </div>
+
+                    </div>
+
                     <div class="settings-panel" id="panel-player">
                         <div class="settings-section-title" data-i18n="settings.player.playback">Воспроизведение</div>
                         <div class="settings-card" style="display:flex;flex-direction:column;gap:0;">
@@ -2730,6 +2745,7 @@
     <script src="core/i18n-initial.js"></script>
 <script src="core/dom-refs-state.js"></script>
     <script src="core/effects-performance.js"></script>
+    <script src="core/appearance-updates.js"></script>
     <script src="ui/notifications.js"></script>
     <script src="effects/background-fx.js"></script>
     <script src="effects/image-audio-response.js"></script>
@@ -2755,6 +2771,8 @@
     <script src="effects/visualizer.js"></script>
     <script src="core/bootstrap.js"></script>
     <script src="ui/settings.js"></script>
+    <script src="ui/settings-search-beacons.js"></script>
+    <script src="ui/settings-search.js"></script>
     <script src="ui/scene-settings.js"></script>
     <script src="../shared/addon-permissions.js"></script>
     <script src="../shared/addon-assets.js"></script>

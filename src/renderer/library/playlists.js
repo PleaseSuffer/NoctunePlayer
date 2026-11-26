@@ -53,6 +53,7 @@
         function savePlaylistsToStorage() {
             appStorage.setItem('noctune_playlists', JSON.stringify(userPlaylists.filter(pl => pl.type !== 'provider')));
             globalThis.addonEvents?.playlistsChanged?.();
+            if (document.getElementById('panel-playlists')?.classList.contains('active')) window.renderPlEditor?.();
         }
 
         function loadPlaylistsFromStorage() {
@@ -111,14 +112,10 @@
                 playlistsDropdownMenu.innerHTML = ("<div class=\"pd-menu-empty\">" + (globalThis.noctuneI18n?.t("player.interface.noPlaylists", {}) ?? "Нет плейлистов") + "</div>");
                 pdSelectedLabel.textContent = (globalThis.noctuneI18n?.t("player.interface.noPlaylists", {}) ?? "Нет плейлистов");
                 pdSelectedIcon.innerHTML = '<i data-lucide="list-music" style="width:15px;height:15px;"></i>';
-                btnEditPlaylist.disabled = true;
-                btnDeletePlaylist.disabled = true;
                 lucide.createIcons();
                 return;
             }
 
-            btnEditPlaylist.disabled = false;
-            btnDeletePlaylist.disabled = false;
 
             userPlaylists.forEach(pl => {
                 const iconName = getPlaylistIcon(pl);
@@ -151,8 +148,6 @@
             if (!pl) return;
             const iconName = getPlaylistIcon(pl);
             pdSelectedLabel.textContent = pl.name;
-            btnEditPlaylist.disabled=pl.type==='provider';btnDeletePlaylist.disabled=false;
-            btnDeletePlaylist.title=pl.type==='provider'?(globalThis.noctuneI18n?.t("library.playlists.closeServicePlaylist", {}) ?? "Закрыть сервисный плейлист"):(globalThis.noctuneI18n?.t("player.interface.deletePlaylist", {}) ?? "Удалить плейлист");
             pdSelectedIcon.innerHTML = `<i data-lucide="${iconName}" style="width:15px;height:15px;"></i>`;
             // Update active state in menu
             playlistsDropdownMenu.querySelectorAll('.pd-menu-item').forEach(item => {
@@ -172,7 +167,6 @@
             document.getElementById('playlist-rename-input').focus();
         }
         window.openPlaylistRename = openPlaylistRename;
-        btnEditPlaylist.addEventListener('click', () => openPlaylistRename());
 
         document.getElementById('btn-save-rename').addEventListener('click', () => {
             const newName = document.getElementById('playlist-rename-input').value.trim();
@@ -200,7 +194,6 @@
             lucide.createIcons();
         }
         window.openPlaylistDelete = openPlaylistDelete;
-        btnDeletePlaylist.addEventListener('click', () => openPlaylistDelete());
 
         function closeDeleteModal() {
             document.getElementById('delete-playlist-modal').style.display = 'none';

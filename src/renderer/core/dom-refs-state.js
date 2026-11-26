@@ -29,8 +29,6 @@
         }
 
         const btnCreatePlaylist = document.getElementById('btn-create-playlist');
-        const btnEditPlaylist = document.getElementById('btn-edit-playlist');
-        const btnDeletePlaylist = document.getElementById('btn-delete-playlist');
         
         const trackTitle = document.getElementById('track-title');
         const trackArtist = document.getElementById('track-artist');

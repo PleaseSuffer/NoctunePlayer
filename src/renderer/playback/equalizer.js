@@ -286,12 +286,14 @@
         }
 
         themeToggle.addEventListener('click', () => {
+            window.beginAppearanceUpdate?.();
             const isDark = document.body.getAttribute('data-theme') === 'dark';
             const newTheme = isDark ? 'light' : 'dark';
-            document.body.setAttribute('data-theme', newTheme);
+            if (newTheme === 'dark') document.body.setAttribute('data-theme', 'dark');
+            else document.body.removeAttribute('data-theme');
             appStorage.setItem('player_theme', newTheme);
             themeToggle.innerHTML = isDark ? '<i data-lucide="moon"></i>' : '<i data-lucide="sun"></i>';
-            lucide.createIcons();
+            lucide.createIcons({ root: themeToggle });
         });
 
         openEqBtn.addEventListener('click', () => {
