@@ -1,134 +1,285 @@
-        // ========================
-        // NOTIFICATION SYSTEM
-        // ========================
-        const notifStack = document.getElementById('notification-stack');
-        let notifCount = 0;
-        const MAX_NOTIFS = 3;
-
-        function showNotification(msg, type = 'error', title = null, stackTrace = null, options = {}) {
-            // Check if notifications enabled
-            const notifToggle = document.getElementById('setting-notifications');
-            if (notifToggle && !notifToggle.checked) return;
-
-            if (options.replaceKey) {
-                for (const previous of notifStack.querySelectorAll('.notification-toast')) {
-                    if (previous.dataset.replaceKey === options.replaceKey) previous.remove();
-                }
-            }
-
-            // Max 3 toasts
-            const existing = notifStack.querySelectorAll('.notification-toast');
-            if (existing.length >= MAX_NOTIFS) {
-                const oldest = notifStack.querySelector('.notification-toast');
-                if (oldest) oldest.remove();
-            }
-
-            const icons  = { error: 'alert-circle', warning: 'alert-triangle', info: 'info' };
-            const titles = { error: (globalThis.noctuneI18n?.t("ui.notifications.error", {}) ?? "Ошибка"), warning: (globalThis.noctuneI18n?.t("ui.notifications.warning", {}) ?? "Предупреждение"), info: (globalThis.noctuneI18n?.t("ui.notifications.information", {}) ?? "Информация") };
-            const iconName  = icons[type]  || 'info';
-            const titleText = title || titles[type] || (globalThis.noctuneI18n?.t("ui.notifications.notification", {}) ?? "Уведомление");
-
-            const copyText = options.copyText || (type === 'error' ? stackTrace : null);
-            const copyLabel = options.copyText ? (globalThis.noctuneI18n?.t("ui.notifications.copyError", {}) ?? "Скопировать ошибку") : (globalThis.noctuneI18n?.t("ui.notifications.copyStackTrace", {}) ?? "Скопировать stack trace");
-            const copyBtnHtml = copyText ? `
-                <button class="notification-toast-copy-stack" title="${copyLabel}">
-                    <i data-lucide="clipboard" style="width:11px;height:11px;"></i>
-                    ${copyLabel}
-                </button>` : '';
-
-            // Опциональные кнопки-действия (например, "Скачать"/"Установить" у
-            // toast'ов автообновления) — рендерятся тем же стилем, что и кнопка
-            // копирования стека.
-            const actions = Array.isArray(options.actions) ? options.actions : [];
-            const actionsHtml = actions.length ? `
-                <div class="notification-toast-actions">
-                    ${actions.map((a, i) => `<button class="notification-toast-action${a.primary ? ' primary' : ''}" data-action-idx="${i}">${a.label}</button>`).join('')}
-                </div>` : '';
-
-            // Угловая кнопка-иконка в правом нижнем углу — для быстрых
-            // контекстных действий без текста (например, "показать файл в
-            // папке" у уведомления об экспорте). Один такой слот на toast.
-            const cornerAction = options.cornerAction || null;
-            const cornerActionHtml = cornerAction ? `
-                <button class="notification-toast-corner-action" title="${cornerAction.title || ''}">
-                    <i data-lucide="${cornerAction.icon || 'external-link'}" style="width:13px;height:13px;"></i>
-                </button>` : '';
-
-            const toast = document.createElement('div');
-            toast.className = 'notification-toast' + (cornerAction ? ' has-corner-action' : '');
-            if (options.replaceKey) toast.dataset.replaceKey = options.replaceKey;
-            toast.innerHTML = ("\n                <div class=\"notification-toast-icon " + (type) + "\">\n                    <i data-lucide=\"" + (iconName) + "\" style=\"width:16px;height:16px;\"></i>\n                </div>\n                <div class=\"notification-toast-body\">\n                    <div class=\"notification-toast-title\">" + (titleText) + "</div>\n                    <div class=\"notification-toast-msg\"></div>\n                    " + (copyBtnHtml) + "\n                    " + (actionsHtml) + "\n                </div>\n                <button class=\"notification-toast-close\" title=\"" + (globalThis.noctuneI18n?.legacyHtml("player.interface.close", {p0: (type), p1: (iconName), p2: (titleText), p3: (copyBtnHtml), p4: (actionsHtml), p5: (cornerActionHtml)}) ?? "Закрыть".replace(/\{p(\d+)\}/g, (_, i) => Object.values({p0: (type), p1: (iconName), p2: (titleText), p3: (copyBtnHtml), p4: (actionsHtml), p5: (cornerActionHtml)})[i])) + "\">\n                    <i data-lucide=\"x\" style=\"width:13px;height:13px;\"></i>\n                </button>\n                " + (cornerActionHtml) + "\n            ");
-            toast.querySelector('.notification-toast-msg').textContent = msg;
-
-            const closeBtn = toast.querySelector('.notification-toast-close');
-            closeBtn.addEventListener('click', () => dismissToast(toast));
-
-            if (cornerAction) {
-                const cornerBtn = toast.querySelector('.notification-toast-corner-action');
-                if (cornerBtn) cornerBtn.addEventListener('click', () => {
-                    try { cornerAction.onClick && cornerAction.onClick(); } finally {
-                        if (cornerAction.dismissOnClick) dismissToast(toast);
-                    }
-                });
-            }
-
-            actions.forEach((a, i) => {
-                const btn = toast.querySelector(`.notification-toast-action[data-action-idx="${i}"]`);
-                if (btn) btn.addEventListener('click', () => {
-                    try { a.onClick && a.onClick(); } finally {
-                        if (a.dismissOnClick !== false) dismissToast(toast);
-                    }
-                });
-            });
-
-            // Обработчик копирования stack trace
-            const copyBtn = toast.querySelector('.notification-toast-copy-stack');
-            if (copyBtn && copyText) {
-                copyBtn.addEventListener('click', () => {
-                    navigator.clipboard.writeText(copyText).then(() => {
-                        copyBtn.classList.add('copied');
-                        copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> ' + (globalThis.noctuneI18n?.legacyHtml('ui.notifications.copied') ?? 'Скопировано');
-                        lucide.createIcons({ nodes: [copyBtn] });
-                        setTimeout(() => {
-                            copyBtn.classList.remove('copied');
-                            copyBtn.innerHTML = '<i data-lucide="clipboard" style="width:11px;height:11px;"></i> ' + copyLabel;
-                            lucide.createIcons({ nodes: [copyBtn] });
-                        }, 2000);
-                    }).catch(() => {
-                        // Fallback для старых браузеров
-                        const ta = document.createElement('textarea');
-                        ta.value = copyText;
-                        ta.style.position = 'fixed';
-                        ta.style.opacity = '0';
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(ta);
-                        copyBtn.classList.add('copied');
-                        copyBtn.innerHTML = '<i data-lucide="check" style="width:11px;height:11px;"></i> ' + (globalThis.noctuneI18n?.legacyHtml('ui.notifications.copied') ?? 'Скопировано');
-                        lucide.createIcons({ nodes: [copyBtn] });
-                        setTimeout(() => {
-                            copyBtn.classList.remove('copied');
-                            copyBtn.innerHTML = '<i data-lucide="clipboard" style="width:11px;height:11px;"></i> ' + copyLabel;
-                            lucide.createIcons({ nodes: [copyBtn] });
-                        }, 2000);
-                    });
-                });
-            }
-
-            notifStack.appendChild(toast);
-            lucide.createIcons();
-
-            // Toast'ы с кнопками-действиями (например, обновления) не гаснут
-            // сами по себе — пользователь должен успеть решить, а не потерять
-            // предложение скачать/установить обновление за 6 секунд.
-            if (!actions.length) {
-                const timer = setTimeout(() => dismissToast(toast), 6000);
-                toast._dismissTimer = timer;
-            }
-
-            return toast;
+// Notifications share one identity across toast, history and live updates.
+const notifStack = document.getElementById('notification-stack');
+const notificationCenter = (() => {
+    const STORAGE_KEY = 'notification_history_v1';
+    const records = new Map();
+    const toasts = new Map();
+    let saveTimer;
+    let historyFilter = 'all';
+    const filters = { all: 'bell', important: 'bell-ring', system: 'monitor', extensions: 'puzzle' };
+    const text = key => { const catalogKey = 'notifications.' + key; return globalThis.noctuneI18n?.t(catalogKey) || key; };
+    const el = (tag, className, value) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (value !== undefined) node.textContent = value;
+        return node;
+    };
+    try {
+        const saved = JSON.parse(appStorage.getItem(STORAGE_KEY) || '[]');
+        if (Array.isArray(saved)) for (const row of saved.slice(-200)) {
+            if (!row || typeof row.id !== 'string' || typeof row.message !== 'string' || !Number.isFinite(row.createdAt)) continue;
+            records.set(row.id, { ...row, actions: [], cornerAction: null, active: false });
         }
+    } catch { /* A damaged history must not prevent startup. */ }
+    function flush() {
+        clearTimeout(saveTimer); saveTimer = null;
+        const rows = [...records.values()].map(({ actions, cornerAction, ...row }) => row);
+        // Bound both record count and persisted diagnostics size.
+        let serialized = JSON.stringify(rows);
+        const encoder = new TextEncoder();
+        while (rows.length && encoder.encode(serialized).byteLength > 2 * 1024 * 1024) { rows.shift(); serialized = JSON.stringify(rows); }
+        appStorage.setItem(STORAGE_KEY, serialized);
+    }
+    window.addEventListener('beforeunload', flush);
+    function visible() {
+        return document.getElementById('settings-overlay')?.classList.contains('open') && document.getElementById('panel-notifications')?.classList.contains('active');
+    }
+    function changed(rebuild = true) {
+        while (records.size > 200) {
+            const candidate = [...records.values()].find(row => !row.pinned && !toasts.has(row.id)) || [...records.values()].find(row => !toasts.has(row.id));
+            if (!candidate) break;
+            records.delete(candidate.id);
+        }
+        if (visible()) for (const row of records.values()) row.read = true;
+        if (!saveTimer) saveTimer = setTimeout(flush, 500);
+        badges();
+        if (rebuild && visible()) renderHistory();
+    }
+    function badges() {
+        const unread = [...records.values()].filter(row => !row.read);
+        const enabled = appStorage.getItem('notification_badges') !== '0';
+        document.querySelector('[data-panel="panel-notifications"]')?.classList.toggle('has-new-notifications', enabled && unread.length > 0);
+        document.getElementById('settings-fab')?.classList.toggle('has-new-notifications', enabled && unread.some(row => row.important));
+        const status = document.getElementById('notification-history-count');
+        if (status) status.textContent = historyFilter === 'all' ? String(records.size) : `${[...records.values()].filter(matchesHistoryFilter).length} / ${records.size}`;
+    }
+    function dismiss(id) {
+        const toast = toasts.get(id);
+        if (!toast) return false;
+        clearTimeout(toast._dismissTimer);
+        toast.remove(); toasts.delete(id);
+        const row = records.get(id);
+        if (row) row.active = false;
+        changed(); return true;
+    }
+    function remove(id) { dismiss(id); records.delete(id); changed(); }
+    function button(label, callback, className = 'notification-toast-action') {
+        const node = el('button', className, label); node.type = 'button';
+        node.addEventListener('click', callback); return node;
+    }
+    function icon(name) {
+        const node = el('i'); node.dataset.lucide = name; node.setAttribute('aria-hidden', 'true'); return node;
+    }
+    function iconButton(name, label, callback, extraClass = '') {
+        const node = button('', callback, 'notification-tool ' + extraClass);
+        node.title = label; node.setAttribute('aria-label', label); node.append(icon(name)); return node;
+    }
+    function card(row, history = false) {
+        const node = el('div', history ? 'notification-history-card' : 'notification-toast');
+        node.dataset.notificationId = row.id;
+        if (row.key) node.dataset.replaceKey = row.key;
+        node.classList.toggle('is-important', !!row.important);
+        const body = el('div', 'notification-toast-body');
+        const titleKey = 'ui.notifications.' + ({ error: 'error', warning: 'warning' }[row.type] || 'information');
+        node.dataset.type = row.type;
+        const heading = el('div', 'notification-toast-title', row.title || globalThis.noctuneI18n?.t(titleKey) || row.type);
+        const meta = [row.source, row.pinned ? text('pinned') : '', row.important ? text('important') : '', history ? new Date(row.createdAt).toLocaleString() : ''].filter(Boolean).join(' · ');
+        body.append(heading, el('div', 'notification-history-meta', meta), el('div', 'notification-toast-msg', row.message));
+        if (row.progress !== undefined) {
+            const progress = el('progress', 'notification-progress'); progress.max = 1;
+            if (row.progress !== null) progress.value = row.progress;
+            progress.setAttribute('aria-label', row.progressLabel || row.title || text('progress'));
+            body.append(progress);
+            if (row.progressLabel) body.append(el('div', 'notification-history-meta notification-progress-label', row.progressLabel));
+        }
+        const actions = el('div', 'notification-toast-actions');
+        const copy = iconButton('copy', text('copy'), async () => {
+            try { await navigator.clipboard.writeText(row.copyText || row.message); }
+            catch { const area = el('textarea'); area.value = row.copyText || row.message; document.body.append(area); area.select(); document.execCommand('copy'); area.remove(); }
+            copy.replaceChildren(icon('check')); copy.classList.add('copied');
+            copy.title = globalThis.noctuneI18n?.t('ui.notifications.copied') || text('copy');
+            globalThis.lucide?.createIcons({ root: copy });
+            setTimeout(() => {
+                copy.replaceChildren(icon('copy')); copy.classList.remove('copied'); copy.title = text('copy');
+                globalThis.lucide?.createIcons({ root: copy });
+            }, 1600);
+        }, 'notification-toast-copy-stack');
+        for (const action of row.actions || []) {
+            const control = button(action.label, async () => {
+                control.disabled = true;
+                try {
+                    await action.onClick?.();
+                    // A command may have replaced this notification while running.
+                    if (action.dismissOnClick !== false && records.get(row.id) === row) dismiss(row.id);
+                } catch (error) { showNotification(String(error.message || error), 'error'); }
+                finally { control.disabled = false; }
+            }, 'notification-toast-action' + (action.primary ? ' primary' : ''));
+            actions.append(control);
+        }
+        if (row.cornerAction) actions.append(button(row.cornerAction.title || text('open'), async () => {
+            try { await row.cornerAction.onClick?.(); if (row.cornerAction.dismissOnClick) dismiss(row.id); }
+            catch (error) { showNotification(String(error.message || error), 'error'); }
+        }));
+        body.append(actions);
+        const statusIcon = el('div', 'notification-toast-icon ' + row.type);
+        const glyph = el('i'); glyph.dataset.lucide = ({error: 'alert-circle', warning: 'alert-triangle', success: 'circle-check'}[row.type] || 'info');
+        statusIcon.append(glyph); node.append(statusIcon, body);
+        const tools = el('div', 'notification-tools');
+        const pin = iconButton(row.pinned ? 'pin-off' : 'pin', row.pinned ? text('unpin') : text('pin'), () => update(row.id, { pinned: !row.pinned }));
+        pin.setAttribute('aria-pressed', String(!!row.pinned));
+        const close = iconButton('x', history ? text('delete') : (globalThis.noctuneI18n?.t('player.interface.close') || 'Close'), () => history ? remove(row.id) : dismiss(row.id), 'notification-remove');
+        tools.append(copy, pin, close);
+        node.append(tools); globalThis.lucide?.createIcons({ root: node }); return node;
+    }
+    function mount(row, existingOnly = false) {
+        const previous = toasts.get(row.id);
+        if (existingOnly && !previous) return;
+        const enabled = document.getElementById('setting-notifications');
+        if (enabled && !enabled.checked) return;
+        if (!previous && toasts.size >= 3) {
+            const candidate = [...toasts.keys()].find(id => !records.get(id)?.pinned);
+            if (!candidate) return; // All slots pinned: retain overflow in history.
+            dismiss(candidate);
+        }
+        const node = card(row);
+        if (previous) { clearTimeout(previous._dismissTimer); node.style.animation = 'none'; previous.replaceWith(node); }
+        else notifStack.append(node);
+        toasts.set(row.id, node); row.active = true;
+        if (!row.pinned && !row.actions?.length && row.duration !== 0) {
+            const expire = () => { node._dismissTimer = setTimeout(() => dismiss(row.id), row.duration || 8000); };
+            node.addEventListener('mouseenter', () => clearTimeout(node._dismissTimer));
+            node.addEventListener('mouseleave', expire);
+            node.addEventListener('focusin', () => clearTimeout(node._dismissTimer));
+            node.addEventListener('focusout', expire); expire();
+        }
+    }
+    function show(message, type, title, stack, options = {}) {
+        const key = options.replaceKey;
+        const previous = key && [...records.values()].find(row => row.key === key);
+        const id = previous?.id || crypto.randomUUID();
+        const row = { id, key, message: String(message).slice(0, 16000), type, title: title ? String(title).slice(0, 200) : '',
+            source: options.source || '', owner: options.owner || '', createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now(),
+            read: false, important: options.important === true, pinned: options.pinned === true,
+            progress: options.progress, progressLabel: options.progressLabel, duration: options.duration,
+            copyText: String(options.copyText || stack || '').slice(0, 65536), actions: options.actions || [], cornerAction: options.cornerAction || null };
+        records.set(id, row); mount(row); changed();
+        const toast = toasts.get(id);
+        if (toast) { toast.notificationId = id; toast.update = patch => update(id, patch); toast.dismiss = () => dismiss(id); }
+        return toast;
+    }
+    function refreshLiveCard(node, row) {
+        node.querySelector('.notification-toast-msg').textContent = row.message;
+        if (row.title) node.querySelector('.notification-toast-title').textContent = row.title;
+        let progress = node.querySelector('progress');
+        let label = node.querySelector('.notification-progress-label');
+        if (row.progress === undefined) { progress?.remove(); label?.remove(); return; }
+        if (!progress) {
+            progress = el('progress', 'notification-progress'); progress.max = 1;
+            node.querySelector('.notification-toast-actions').before(progress);
+        }
+        if (row.progress === null) progress.removeAttribute('value'); else progress.value = row.progress;
+        progress.setAttribute('aria-label', row.progressLabel || row.title || text('progress'));
+        if (row.progressLabel) {
+            if (!label) { label = el('div', 'notification-history-meta notification-progress-label'); progress.after(label); }
+            label.textContent = row.progressLabel;
+        } else label?.remove();
+    }
+    function update(id, patch) {
+        const row = records.get(id); if (!row) return false;
+        const allowed = ['message', 'title', 'type', 'pinned', 'important', 'progress', 'progressLabel', 'actions', 'duration', 'copyText'];
+        const next = { ...row, ...Object.fromEntries(Object.entries(patch).filter(([key]) => allowed.includes(key))), updatedAt: Date.now() };
+        // Progress ticks preserve read state and never resurrect a dismissed toast.
+        const live = Object.keys(patch).every(key => ['message', 'progress', 'progressLabel', 'copyText'].includes(key));
+        if (live) {
+            // Preserve control focus and pointer targets while progress/speed changes.
+            Object.assign(row, next);
+            const toast = toasts.get(id); if (toast) refreshLiveCard(toast, row);
+            const history = document.getElementById('notification-history-list');
+            const card = history && [...history.children].find(node => node.dataset.notificationId === id);
+            if (card) refreshLiveCard(card, row);
+            changed(false);
+        } else { records.set(id, next); mount(next, true); changed(); }
+        return true;
+    }
+    function matchesHistoryFilter(row) {
+        return historyFilter === 'important' ? row.important : historyFilter === 'system' ? !row.owner : historyFilter === 'extensions' ? !!row.owner : true;
+    }
+    function renderHistory() {
+        const list = document.getElementById('notification-history-list'); if (!list) return;
+        const rows = [...records.values()].filter(matchesHistoryFilter).sort((a, b) => Number(b.pinned) - Number(a.pinned) || Number(b.important) - Number(a.important) || b.createdAt - a.createdAt);
+        list.replaceChildren();
+        for (const row of rows) list.append(card(row, true));
+        const count = document.getElementById('notification-history-count');
+        if (count) count.textContent = historyFilter === 'all' ? String(records.size) : `${rows.length} / ${records.size}`;
+        if (!rows.length) {
+            const empty = el('div', 'notification-history-empty');
+            const badge = el('div', 'notification-empty-icon'); badge.append(icon(records.size ? 'list-filter' : 'bell-check'));
+            empty.append(badge, el('h3', '', text(records.size ? 'emptyFilter' : 'empty')), el('p', '', text(records.size ? 'emptyFilterDescription' : 'emptyDescription')));
+            list.append(empty); globalThis.lucide?.createIcons({ root: empty });
+        }
+    }
+    function updateFilter() {
+        const trigger = document.getElementById('notification-history-filter');
+        if (!trigger) return;
+        const label = trigger.querySelector('.pd-label'); label.textContent = text(historyFilter);
+        trigger.querySelector('.pd-icon').replaceChildren(icon(filters[historyFilter]));
+        for (const option of document.querySelectorAll('#notification-filter-menu [data-filter]')) {
+            const selected = option.dataset.filter === historyFilter;
+            option.classList.toggle('active', selected); option.setAttribute('aria-selected', String(selected));
+        }
+        globalThis.lucide?.createIcons({ root: trigger });
+    }
+    function initFilter() {
+        const wrapper = document.getElementById('notification-filter-dropdown');
+        const trigger = document.getElementById('notification-history-filter');
+        const menu = document.getElementById('notification-filter-menu');
+        if (!wrapper || !trigger || !menu) return;
+        const options = [...menu.querySelectorAll('[data-filter]')];
+        function open(value, focus = false) {
+            menu.classList.toggle('open', value); trigger.classList.toggle('open', value);
+            trigger.setAttribute('aria-expanded', String(value));
+            if (value && focus) (options.find(option => option.dataset.filter === historyFilter) || options[0]).focus();
+        }
+        trigger.addEventListener('click', () => open(!menu.classList.contains('open')));
+        for (const option of options) option.addEventListener('click', () => {
+            historyFilter = option.dataset.filter; updateFilter(); renderHistory(); open(false); trigger.focus();
+        });
+        document.addEventListener('click', event => { if (!wrapper.contains(event.target)) open(false); });
+        wrapper.addEventListener('focusout', event => { if (!wrapper.contains(event.relatedTarget)) open(false); });
+        wrapper.addEventListener('keydown', event => {
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); open(false); trigger.focus(); }
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                if (!menu.classList.contains('open')) { open(true, true); return; }
+                const index = options.indexOf(document.activeElement);
+                options[event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length].focus();
+            }
+        });
+        updateFilter();
+    }
+    function visit() { if (visible()) { for (const row of records.values()) row.read = true; changed(); } }
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('notification-badges');
+        if (toggle) { toggle.checked = appStorage.getItem('notification_badges') !== '0'; toggle.addEventListener('change', () => { appStorage.setItem('notification_badges', toggle.checked ? '1' : '0'); badges(); }); }
+        document.getElementById('notification-history-clear')?.addEventListener('click', () => {
+            for (const row of records.values()) if (!row.pinned && !row.active) records.delete(row.id);
+            changed(); renderHistory();
+        });
+        document.getElementById('notification-history-read')?.addEventListener('click', () => { for (const row of records.values()) row.read = true; changed(); });
+        initFilter();
+        badges(); renderHistory();
+    });
+    globalThis.noctuneI18n?.onChange?.(() => { badges(); updateFilter(); if (visible()) renderHistory(); });
+    return { show, update, dismiss, visit,
+        find: key => [...records.values()].find(row => row.key === key)?.id,
+        cleanup(owner) { for (const row of records.values()) if (row.owner === owner) { dismiss(row.id); row.actions = []; row.pinned = false; row.progress = undefined; } changed(); },
+    };
+})();
+window.notificationCenter = notificationCenter;
+function showNotification(msg, type = 'error', title = null, stackTrace = null, options = {}) {
+    return notificationCenter.show(msg, type, title, stackTrace, options);
+}
+function dismissToast(toast) { notificationCenter.dismiss(toast?.dataset.notificationId); }
 
         document.addEventListener('DOMContentLoaded', async () => {
             const currentVersionEl = document.getElementById('update-current-version');
@@ -149,13 +300,6 @@
                 console.error((globalThis.noctuneI18n?.t("ui.notifications.couldNotGetApplicationVersion", {}) ?? "Не удалось получить версию приложения:"), e);
             }
         });
-
-        function dismissToast(toast) {
-            if (!toast.isConnected) return;
-            clearTimeout(toast._dismissTimer);
-            toast.classList.add('hiding');
-            setTimeout(() => { if (toast.isConnected) toast.remove(); }, 320);
-        }
 
         // ── Кольцевой буфер последних логов (50 записей) ─────────────────
         const LOG_BUFFER_SIZE = 50;
@@ -276,7 +420,7 @@
             const stack = errObj ? buildFullTrace(errObj, args) : null;
 
             if (msg && !msg.includes('ResizeObserver') && !msg.includes('favicon') && !msg.includes('AbortError')) {
-                showNotification(msg.substring(0, 200), 'error', null, stack);
+                showNotification(msg.substring(0, 200), 'error', null, stack, { copyText: stack || msg });
             }
         };
         const _origConsoleWarn = console.warn.bind(console);
@@ -285,7 +429,7 @@
             _pushLog('WARN', args);
             const msg = args.map(a => (typeof a === 'object' ? (a?.message || JSON.stringify(a)) : String(a))).join(' ');
             if (msg && !msg.includes('ResizeObserver')) {
-                showNotification(msg.substring(0, 200), 'warning');
+                showNotification(msg.substring(0, 200), 'warning', null, null, { copyText: msg });
             }
         };
 

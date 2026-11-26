@@ -35,7 +35,7 @@ src/
       settings.js                 Основные настройки и оформление
       performance-settings.js     Переключатель GPU, перезапуск и выбор FPS
       system-integration.js       Кнопки регистрации и выбора плеера по умолчанию
-      notifications.js            Уведомления
+      notifications.js            Toast, постоянная история, прогресс и индикаторы уведомлений
       hotkeys.js                  Горячие клавиши
     updates/                       Интерфейс обновления приложения
     styles/                        Стили интерфейса

@@ -23,7 +23,9 @@
             const permission=method.startsWith('ui.')?'ui.elements':method;
             if(!grants.has(permission))error();
             if(method==='notifications.dismiss'){
-                if(!validId(args.key))error();let removed=false;
+                if(!validId(args.key))error();
+                if(globalThis.notificationCenter){const id=globalThis.notificationCenter.find(owner+':'+args.key);return id?globalThis.notificationCenter.dismiss(id):false;}
+                let removed=false;
                 for(const toast of document.querySelectorAll('#notification-stack .notification-toast'))if(toast.dataset.replaceKey===owner+':'+args.key){toast.remove();removed=true;}
                 return removed;
             }
@@ -33,6 +35,6 @@
             if(typeof args.label!=='string'||!args.label.trim()||args.label.length>120||typeof args.value!=='string'||args.value.length>500||args.progress!==undefined&&(!Number.isFinite(args.progress)||args.progress<0||args.progress>1)||!items.has(args.id)&&items.size>=8)error();
             items.set(args.id,{label:args.label,value:args.value,progress:args.progress});elements.set(owner,items);render();return null;
         },
-        cleanup(owner){elements.delete(owner);for(const toast of document.querySelectorAll('#notification-stack .notification-toast'))if(toast.dataset.replaceKey?.startsWith(owner+':'))toast.remove();render();},
+        cleanup(owner){elements.delete(owner);globalThis.notificationCenter?.cleanup(owner);for(const toast of document.querySelectorAll('#notification-stack .notification-toast'))if(toast.dataset.replaceKey?.startsWith(owner+':'))toast.remove();render();},
     };
 });

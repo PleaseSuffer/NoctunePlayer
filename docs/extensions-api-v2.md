@@ -132,3 +132,11 @@ await api.i18n.register({
 
 API v1 не получает `api.i18n` и не может запрашивать `i18n.register`.
 Типы находятся в [addons/sdk.d.ts](../addons/sdk.d.ts).
+
+## История и прогресс уведомлений
+
+SDK 2 поддерживает `api.notifications.show`, `update`, `dismiss` и совместимый
+`api.notify`. Параметры, ограничения и пример загрузки описаны в
+[разделе уведомлений SDK 1](extensions-api-v1.md#история-и-обновляемые-уведомления).
+Ключевые обновления доступны с `notifications.show`; закрытие toast требует
+`notifications.dismiss`.

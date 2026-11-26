@@ -40,8 +40,8 @@
                         },
                         readText(file) { if (!Object.hasOwn(data.files, file) || typeof data.files[file] !== 'string') throw new Error((globalThis.noctuneI18n?.t("extensions.host.fileMissingFromPackage", {}) ?? "Файл отсутствует в пакете")); return data.files[file]; },
                         storage: Object.freeze({ get: key => call('storage.get', { key }), set: (key, value) => call('storage.set', { key, value }) }),
-                        notify: (message, options = {}) => call('notify', { message, key: options.key }),
-                        notifications: { show: (message, options = {}) => call('notify', {message,key:options.key}), dismiss: args => call('notifications.dismiss',args) },
+                        notify: (message, options = {}) => call('notify', { ...options, message }),
+                        notifications: { show: (message, options = {}) => call('notify', { ...options, message }), update: args => call('notifications.update', args), dismiss: args => call('notifications.dismiss',args) },
                         ui: {set: args => call('ui.set',args),remove: args => call('ui.remove',args)},
                         player: Object.freeze({ current: () => call('playback.read', {}) }),
                         network: Object.freeze({ text: url => call('network', { url }), json: async url => JSON.parse(await call('network', { url })) }),
@@ -224,16 +224,12 @@
                     value = window.noctuneI18n.register(m.id, args.pack);
                 } else if (['ui.set','ui.remove','notifications.dismiss'].includes(data.method)) {
                     value = window.addonInterface.invoke(m.id,data.method,args,grants);
-                } else if (data.method === 'notify') {
-                    if (!grants.has('notifications.show') || typeof args.message !== 'string' || args.message.length > 500) throw new Error((globalThis.noctuneI18n?.t("extensions.host.notificationPermissionMissing", {}) ?? "Уведомление не разрешено"));
-                    if (args.key !== undefined && (typeof args.key !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(args.key))) throw new Error((globalThis.noctuneI18n?.t("extensions.host.invalidNotificationKey", {}) ?? "Некорректный ключ уведомления"));
-                    if (args.key === undefined) {
-                        if (item.lastNotification && performance.now() - item.lastNotification < 3000) throw new Error((globalThis.noctuneI18n?.t("extensions.host.notificationsAreLimitedToOneEveryThreeSeconds", {}) ?? "Уведомления доступны раз в три секунды"));
+                } else if (data.method === 'notify' || data.method === 'notifications.update') {
+                    if (data.method === 'notify' && args.key === undefined) {
+                        if (item.lastNotification && performance.now() - item.lastNotification < 3000) throw new Error(globalThis.noctuneI18n?.t('extensions.host.notificationsAreLimitedToOneEveryThreeSeconds') ?? 'Notifications are limited to one every three seconds');
                         item.lastNotification = performance.now();
                     }
-                    // Existing toast markup interpolates strings, so escape addon text.
-                    const escape = text => text.replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
-                    showNotification(args.message, 'info', escape(m.name), null, { replaceKey: args.key === undefined ? undefined : m.id + ':' + args.key });
+                    value = window.addonNotifications(m, data.method, args, grants, (owner, action) => command(owner, action, { concurrent: true }));
                 } else if (data.method === 'playback.read') {
                     if (!grants.has('playback.read')) throw new Error((globalThis.noctuneI18n?.t("extensions.host.currentTrackAccessDenied", {}) ?? "Нет доступа к текущему треку"));
                     value = window.addonEvents.snapshot();
@@ -293,10 +289,10 @@
         for (const [id, item] of running) if (available.get(id)?.digest !== item.digest) stop(id);
         for (const pkg of packages) if (!running.has(pkg.manifest.id)) start(pkg);
     }
-    function command(id, command) {
+    function command(id, command, { concurrent = false } = {}) {
         const item = running.get(id);
         if (!item?.ready) return Promise.reject(new Error((globalThis.noctuneI18n?.t("extensions.host.extensionIsNotRunning", {}) ?? "Расширение не запущено")));
-        if (item.commands.size) return Promise.reject(new Error((globalThis.noctuneI18n?.t("extensions.host.previousCommandIsStillRunning", {}) ?? "Предыдущая команда ещё выполняется")));
+        if (item.commands.size >= 4 || item.commands.size && !concurrent) return Promise.reject(new Error((globalThis.noctuneI18n?.t("extensions.host.previousCommandIsStillRunning", {}) ?? "Предыдущая команда ещё выполняется")));
         return new Promise((resolve, reject) => {
             const token = crypto.randomUUID();
             const timer = setTimeout(() => stop(id, { status: 'error', message: (globalThis.noctuneI18n?.t("extensions.host.commandDidNotFinishWithin5Minutes", {}) ?? "Команда не завершилась за 5 минут") }), 310000);

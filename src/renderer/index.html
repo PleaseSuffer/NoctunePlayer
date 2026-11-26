@@ -435,6 +435,9 @@
                     <div class="settings-nav-item" data-panel="panel-hotkeys">
                         <i data-lucide="keyboard" style="width:15px;height:15px;"></i> <span data-i18n="player.interface.hotkeys">Горячие клавиши</span>
                     </div>
+                    <div class="settings-nav-item" data-panel="panel-notifications">
+                        <i data-lucide="bell" style="width:15px;height:15px;"></i> <span data-i18n="notifications.history">Уведомления</span>
+                    </div>
                     <div class="settings-nav-item" data-panel="panel-about">
                         <i data-lucide="info" style="width:15px;height:15px;"></i> <span data-i18n="player.interface.about">О программе</span>
                     </div>
@@ -2554,6 +2557,35 @@
                     </div>
 
                     <!-- === О ПРОГРАММЕ === -->
+                    <div class="settings-panel" id="panel-notifications">
+                        <div class="settings-section-title" data-i18n="notifications.history">Уведомления</div>
+                        <div class="settings-card">
+                            <div class="settings-row">
+                                <div><div class="settings-row-label" data-i18n="notifications.badges">Индикаторы новых уведомлений</div><div class="settings-row-desc" data-i18n="notifications.badgesDescription">Точка на вкладке — новые события, на шестерёнке — важные.</div></div>
+                                <label class="toggle-switch"><input type="checkbox" id="notification-badges" checked><span class="slider-round"></span></label>
+                            </div>
+                        </div>
+                        <div class="notification-history-toolbar">
+                            <div class="viz-type-dropdown-wrapper" id="notification-filter-dropdown">
+                                <button type="button" class="viz-type-dropdown-btn" id="notification-history-filter" aria-label="Фильтр уведомлений" data-i18n-aria-label="notifications.filter" aria-haspopup="listbox" aria-expanded="false" aria-controls="notification-filter-menu">
+                                    <span class="pd-icon"><i data-lucide="bell"></i></span><span class="pd-label" data-i18n="notifications.all">Все</span><span class="pd-chevron"><i data-lucide="chevron-down"></i></span>
+                                </button>
+                                <div class="viz-type-dropdown-menu" id="notification-filter-menu" role="listbox" aria-label="Фильтр уведомлений" data-i18n-aria-label="notifications.filter">
+                                    <button type="button" class="viz-type-menu-item active" role="option" aria-selected="true" data-filter="all"><i data-lucide="bell"></i><span data-i18n="notifications.all">Все</span></button>
+                                    <button type="button" class="viz-type-menu-item" role="option" aria-selected="false" data-filter="important"><i data-lucide="bell-ring"></i><span data-i18n="notifications.important">Важные</span></button>
+                                    <button type="button" class="viz-type-menu-item" role="option" aria-selected="false" data-filter="system"><i data-lucide="monitor"></i><span data-i18n="notifications.system">Системные</span></button>
+                                    <button type="button" class="viz-type-menu-item" role="option" aria-selected="false" data-filter="extensions"><i data-lucide="puzzle"></i><span data-i18n="notifications.extensions">Расширения</span></button>
+                                </div>
+                            </div>
+                            <span id="notification-history-count" class="notification-history-count"></span>
+                            <div class="notification-history-actions">
+                                <button type="button" class="notification-tool" id="notification-history-read" title="Прочитать все" aria-label="Прочитать все" data-i18n-title="notifications.markRead" data-i18n-aria-label="notifications.markRead"><i data-lucide="eye" aria-hidden="true"></i></button>
+                                <button type="button" class="notification-tool notification-remove" id="notification-history-clear" title="Очистить историю" aria-label="Очистить историю" data-i18n-title="notifications.clear" data-i18n-aria-label="notifications.clear"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <p class="settings-row-desc" data-i18n="notifications.retention">Последние 200 уведомлений. Очистка сохраняет активные и закреплённые записи. Закрытие toast не удаляет запись из истории.</p>
+                        <div id="notification-history-list"></div>
+                    </div>
                     <div class="settings-panel" id="panel-about">
                         <div class="about-card">
                             <div class="about-logo">Noctune</div>
@@ -2736,6 +2768,7 @@
     <script src="addons/interface.js"></script>
     <script src="playback/queue-model.js"></script>
     <script src="playback/queue.js"></script>
+    <script src="addons/notifications.js"></script>
     <script src="addons/host.js"></script>
     <script src="ui/addon-settings.js"></script>
     <script src="ui/addon-contributions.js"></script>

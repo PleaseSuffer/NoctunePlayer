@@ -26,6 +26,17 @@
             let _manualCheck = false;
             let _lastErrorToast = null;
 
+            const updateNotificationKey = 'player-update';
+            function startDownload(version) {
+                showNotification(
+                    (globalThis.noctuneI18n?.t('updates.updater.downloadingVersionV', {p0: version}) ?? `Скачивается версия v${version}...`),
+                    'info', globalThis.noctuneI18n?.t('updates.updater.downloadingUpdate') ?? 'Загрузка обновления', null,
+                    { replaceKey: updateNotificationKey, important: true, pinned: true, progress: null }
+                );
+                setActionButton('hidden');
+                Promise.resolve(noctune.updater.download()).catch(showUpdateError);
+            }
+
             function skippedVersions() {
                 try {
                     const versions = JSON.parse(appStorage.getItem('setting_skipped_update_versions') || '[]');
@@ -39,6 +50,8 @@
                 if (version === '?') return;
                 appStorage.setItem('setting_skipped_update_versions', JSON.stringify([...new Set([...skippedVersions(), version])]));
                 _pendingVersion = null;
+                const id = globalThis.notificationCenter?.find(updateNotificationKey);
+                if (id) { globalThis.notificationCenter.update(id, { important: false, pinned: false, progress: undefined, actions: [] }); globalThis.notificationCenter.dismiss(id); }
                 statusMsg.textContent = (globalThis.noctuneI18n?.t("updates.updater.versionVSkippedYouCanInstallItUsingAManualUpdateCheck", {p0: (version)}) ?? "Версия v{p0} пропущена. Её можно установить через ручную проверку обновлений.".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (version)})[k] ?? "{"+k+"}"));
                 statusMsg.style.color = '';
                 setActionButton('hidden');
@@ -58,6 +71,8 @@
                 const message = missingMetadata
                     ? (globalThis.noctuneI18n?.t("updates.updater.automaticUpdatesAreNotYetAvailableForThisPlatform", {}) ?? "Автообновление для этой платформы пока недоступно.")
                     : (globalThis.noctuneI18n?.t("updates.updater.couldNotUpdateTryAgainLater", {}) ?? "Не удалось выполнить обновление. Попробуйте позже.");
+                const id = globalThis.notificationCenter?.find(updateNotificationKey);
+                if (id) globalThis.notificationCenter.update(id, { message, type: 'error', pinned: false, progress: undefined, actions: [], copyText: details });
                 statusMsg.textContent = message;
                 statusMsg.style.color = '#ff6b6b';
                 // Фоновая проверка не отвлекает toast'ом. При ручной проверке
@@ -169,6 +184,8 @@
             });
 
             noctune.updater.onNotAvailable(() => {
+                const id = globalThis.notificationCenter?.find(updateNotificationKey);
+                if (id) { globalThis.notificationCenter.update(id, { important: false, pinned: false, progress: undefined, actions: [] }); globalThis.notificationCenter.dismiss(id); }
                 statusMsg.textContent = (globalThis.noctuneI18n?.t("updates.updater.youAreRunningTheLatestVersion", {}) ?? "У вас установлена самая свежая версия.");
                 statusMsg.style.color = '#2ecc71';
                 setActionButton('hidden');
@@ -203,17 +220,14 @@
                     // но установка всё равно только вручную (см. onDownloaded).
                     // Кнопку тут не показываем — скачивание уже пошло само.
                     if (_pendingVersion !== version && _downloadedVersion !== version) {
-                        noctune.updater.download();
-                        showNotification((globalThis.noctuneI18n?.t("updates.updater.downloadingVersionV", {p0: (version)}) ?? "Скачивается версия v{p0}...".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (version)})[k] ?? "{"+k+"}")), 'info', (globalThis.noctuneI18n?.t("updates.updater.updateFound", {}) ?? "Обновление найдено"));
+                        startDownload(version);
                     }
                     _pendingVersion = version;
                     return;
                 }
 
                 setActionButton('download', () => {
-                    noctune.updater.download();
-                    setActionButton('hidden');
-                    showNotification((globalThis.noctuneI18n?.t("updates.updater.downloadingVersionV", {p0: (version)}) ?? "Скачивается версия v{p0}...".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (version)})[k] ?? "{"+k+"}")), 'info', (globalThis.noctuneI18n?.t("updates.updater.downloadingUpdate", {}) ?? "Загрузка обновления"));
+                    startDownload(version);
                 });
 
                 // Toast — по-прежнему показываем (удобно, если окно свёрнуто в
@@ -229,14 +243,13 @@
                     (globalThis.noctuneI18n?.t("updates.updater.updateFound", {}) ?? "Обновление найдено"),
                     null,
                     {
+                        replaceKey: updateNotificationKey, important: true,
                         actions: [
                             {
                                 label: (globalThis.noctuneI18n?.t("updates.updater.download", {}) ?? "Скачать"),
                                 primary: true,
                                 onClick: () => {
-                                    noctune.updater.download();
-                                    setActionButton('hidden');
-                                    showNotification((globalThis.noctuneI18n?.t("updates.updater.downloadingVersionV", {p0: (version)}) ?? "Скачивается версия v{p0}...".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (version)})[k] ?? "{"+k+"}")), 'info', (globalThis.noctuneI18n?.t("updates.updater.downloadingUpdate", {}) ?? "Загрузка обновления"));
+                                    startDownload(version);
                                 }
                             },
                             { label: (globalThis.noctuneI18n?.t("updates.updater.later", {}) ?? "Позже"), onClick: () => {} },
@@ -247,7 +260,15 @@
             });
 
             noctune.updater.onProgress((progress) => {
-                const pct = Math.round((progress && progress.percent) || 0);
+                const pct = Math.max(0, Math.min(100, Math.round(Number(progress?.percent) || 0)));
+                const id = globalThis.notificationCenter?.find(updateNotificationKey);
+                if (id) {
+                    const speed = Number(progress?.bytesPerSecond) || 0;
+                    globalThis.notificationCenter.update(id, {
+                        progress: pct / 100,
+                        progressLabel: `${pct}% · ${(speed / 1024 / 1024).toFixed(1)} MB/s`,
+                    });
+                }
                 statusMsg.textContent = (globalThis.noctuneI18n?.t("updates.download.progressNotification", {p0: (pct)}) ?? "Загрузка обновления: {p0}%".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (pct)})[k] ?? "{"+k+"}"));
                 statusMsg.style.color = '';
                 btnAction.style.display = 'flex';
@@ -270,6 +291,7 @@
                     (globalThis.noctuneI18n?.t("updates.updater.updateReady", {}) ?? "Обновление готово"),
                     null,
                     {
+                        replaceKey: updateNotificationKey, important: true,
                         actions: [
                             {
                                 label: (globalThis.noctuneI18n?.t("updates.updater.installAndRestart", {}) ?? "Установить и перезапустить"),

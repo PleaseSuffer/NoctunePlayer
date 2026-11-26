@@ -38,6 +38,7 @@
                 overlay.classList.add('open');
                 fab.classList.add('open');
                 refreshSettingsUI();
+                window.notificationCenter?.visit();
                 buildSettingsToc();
             });
             function closeSettings() {
@@ -59,6 +60,7 @@
                     const target = item.dataset.panel;
                     document.getElementById(target).classList.add('active');
                     if (settingsContent) settingsContent.scrollTo({ top: 0, behavior: 'instant' });
+                    window.notificationCenter?.visit();
                     if (target === 'panel-general') renderPlEditor();
                     buildSettingsToc();
                 });

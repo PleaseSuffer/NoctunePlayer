@@ -10,9 +10,14 @@ const wait=async fn=>{for(let i=0;i<300;i++){try{if(await fn())return;}catch(_){
 const run=code=>main.webContents.executeJavaScript(code);
 (async()=>{
  const {createAddonStore}=require('../src/main/addons/store');const store=createAddonStore({directory:path.join(profile,'addons'),appVersion:'1.4.1'});
- const pkg={format:'noctune-addon',formatVersion:1,manifest:{id:'interface-probe',name:'Interface probe',description:'Native SDK test',author:'Tests',version:'1.0.0',revision:1,apiVersion:1,minNoctuneVersion:'1.4.1',type:'extension',entry:'main.js',permissions:['ui.elements','notifications.show','notifications.dismiss','hotkeys.register','hotkeys.list','hotkeys.unregister'],commands:[{id:'probe',title:'Probe'}]},files:{'main.js':`NoctuneAddon.define(async api=>{api.onCommand('probe',async()=>{
+ const pkg={format:'noctune-addon',formatVersion:1,manifest:{id:'interface-probe',name:'Interface probe',description:'Native SDK test',author:'Tests',version:'1.0.0',revision:1,apiVersion:1,minNoctuneVersion:'1.4.1',type:'extension',entry:'main.js',permissions:['ui.elements','notifications.show','notifications.dismiss','hotkeys.register','hotkeys.list','hotkeys.unregister'],commands:[{id:'probe',title:'Probe'},{id:'work',title:'Work'},{id:'cancel',title:'Cancel'}]},files:{'main.js':`NoctuneAddon.define(async api=>{let finish;
+ api.onCommand('work',async()=>{await api.notifications.show('Working',{key:'work',pinned:true,actions:[{label:'Cancel work',command:'cancel',dismissOnClick:false}]});await new Promise(resolve=>finish=resolve);await api.notifications.update({key:'work',message:'Cancelled',pinned:false,actions:[]});});
+ api.onCommand('cancel',async()=>{finish();});
+ api.onCommand('probe',async()=>{
  await api.ui.set({id:'status',label:'SDK status',value:'<img src=x onerror=alert(1)>',progress:0.5});
- await api.notifications.show('SDK notification',{key:'probe'});
+ await api.notifications.show('SDK notification',{key:'probe',pinned:true,important:true,progress:null,actions:[{label:'Inspect',command:'probe'}]});
+ if(!await api.notifications.update({key:'probe',message:'SDK updated',progress:0.6,progressLabel:'60% · 4 MB/s'}))throw Error('Update did not find own notification');
+ if(await api.notifications.update({key:'absent',message:'Missing'}))throw Error('Update created missing notification');
  if(!await api.notifications.dismiss({key:'probe'}))throw Error('Notification not dismissed');
  await api.hotkeys.register({command:'probe'});
  const keys=await api.hotkeys.list();if(keys.length!==1||keys[0].command!=='probe')throw Error('Wrong own hotkeys');
@@ -27,11 +32,16 @@ const run=code=>main.webContents.executeJavaScript(code);
  assert.equal(await run(`document.querySelector('[data-addon-elements="interface-probe"] span').textContent`),'<img src=x onerror=alert(1)>');
  assert.equal(await run(`document.querySelector('[data-addon-elements="interface-probe"] progress').value`),0.5);
  assert.equal(await run(`!!document.querySelector('[data-addon-elements="interface-probe"] img')`),false);
+ await run(`void(window.__notificationWork=addonHost.command('interface-probe','work'))`);
+ await wait(()=>run(`!!document.querySelector('[data-replace-key="interface-probe:work"] .notification-toast-action')`));
+ await run(`document.querySelector('[data-replace-key="interface-probe:work"] .notification-toast-action').click()`);
+ await run(`window.__notificationWork`);
+ assert.equal(await run(`document.querySelector('[data-replace-key="interface-probe:work"]').textContent.includes('Cancelled')`),true);
  for(const group of ['ui','notifications','hotkeys'])assert.equal(await run(`!!document.querySelector('#addons-list [data-addon-id="interface-probe"] [data-namespace="${group}"]')`),true);
  await run(`noctune.addons.setEnabled('interface-probe',false)`);
  await run(`window.addonHost.refresh()`);
  assert.equal(await run(`!!document.querySelector('[data-addon-elements="interface-probe"]')`),false);
- console.log('PASS: real Worker SDK bridge, safe UI/progress, own notification dismissal, hotkey list/unregister, separate permission cards and stop cleanup.');
+ console.log('PASS: real Worker SDK bridge, safe UI/progress, live notifications, cancellation during a running command, own dismissal, hotkey list/unregister, separate permission cards and stop cleanup.');
  if(process.env.NOCTUNE_TEST_CLEANUP)fs.writeFileSync(process.env.NOCTUNE_TEST_CLEANUP,JSON.stringify([profile]));app.exit(0);
 })().catch(error=>{console.error(error);if(process.env.NOCTUNE_TEST_CLEANUP)fs.writeFileSync(process.env.NOCTUNE_TEST_CLEANUP,JSON.stringify([profile]));app.exit(1);});
 setTimeout(()=>app.exit(1),45000);

@@ -1,3 +1,10 @@
+/** Shared by SDK 1 and 2; requires notifications.show. Progress is 0..1, null is indeterminate. */
+interface NotificationOptions {
+    key?: string; title?: string; type?: 'info' | 'warning' | 'error' | 'success';
+    important?: boolean; pinned?: boolean; progress?: number | null; progressLabel?: string;
+    copyText?: string; duration?: number;
+    actions?: {label: string; command: string; primary?: boolean; dismissOnClick?: boolean}[];
+}
 /** Noctune extensions SDK 1 and 2. */
 type SettingField = { label: string; description?: string; visibleWhen?: { field: string; equals: string | number | boolean } } & (
     { type: 'toggle'; default: boolean } |
@@ -79,8 +86,8 @@ interface NoctuneAddonApi {
         cancel(args:{id:string}):Promise<DownloadJob>;
     };
     ui: {set(args:{id:string;label:string;value:string;progress?:number}):Promise<void>;remove(args:{id:string}):Promise<boolean>};
-    notifications: {show(message:string,options?:{key?:string}):Promise<void>;dismiss(args:{key:string}):Promise<boolean>};
-    notify(message: string, options?: {key?: string}): Promise<void>;
+    notifications: {show(message:string,options?:NotificationOptions):Promise<void>;update(args:Omit<NotificationOptions, 'key'> & {key:string;message?:string}):Promise<boolean>;dismiss(args:{key:string}):Promise<boolean>};
+    notify(message: string, options?: NotificationOptions): Promise<void>;
     player: {
         current(): Promise<TrackState>; play(options?: TrackContext & { trackId?: string }): Promise<void>;
         pause(context?: TrackContext): Promise<void>; stop(context?: TrackContext): Promise<void>;

@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict');
+const create=require('../../src/renderer/addons/notifications');
+const records=new Map(),calls=[];
+const api=create({find:key=>records.has(key)?key:undefined,show:(message,type,title,stack,options)=>{records.set(options.replaceKey,{message,type,title,...options});},update:(id,patch)=>{Object.assign(records.get(id),patch);return true;}});
+const manifest={id:'first',name:'First',commands:[{id:'cancel'}]}, grants=new Set(['notifications.show']);
+const call=(method,args,rights=grants,m=manifest)=>api(m,method,args,rights,(...args)=>calls.push(args));
+assert.throws(()=>call('notify',{message:'Denied'},new Set()));
+for(const args of [{message:'x',key:'../bad'},{message:'x',progress:NaN},{message:'x',progress:1.01},{message:'x',progress:-1},{message:'x',pinned:'true'},{message:'x',important:1},{message:'x',duration:1},{message:'x',actions:[{label:'Cancel',command:'unknown'}]},{message:'x'.repeat(501)},{message:'x',actions:Array(4).fill({label:'X',command:'cancel'})}]) assert.throws(()=>call('notify',args));
+call('notify',{message:'<img>',key:'task',pinned:true,important:true,progress:null,actions:[{label:'Cancel',command:'cancel'}]});
+assert.equal(records.get('first:task').message,'<img>');
+records.get('first:task').actions[0].onClick();assert.deepEqual(calls,[['first','cancel']]);
+assert.equal(call('notifications.update',{key:'task',progress:0.5,message:'50%'}),true);
+assert.equal(records.size,1);assert.equal(records.get('first:task').progress,0.5);
+assert.equal(records.get('first:task').pinned,true,'patch preserves unspecified fields');
+assert.equal(call('notifications.update',{key:'task',message:'Foreign'},grants,{...manifest,id:'second'}),false);
+assert.equal(call('notifications.update',{key:'missing',progress:0}),false);
+assert.throws(()=>call('notifications.update',{message:'Needs key'}));
+console.log('PASS: notification SDK permissions, validation, partial updates, command routing, ownership and missing-key behavior.');
