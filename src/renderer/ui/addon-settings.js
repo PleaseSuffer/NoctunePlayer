@@ -125,6 +125,31 @@
         control.addEventListener('click', () => task(() => action(control)));
         target.append(control); return control;
     }
+    function actionSection() {
+        const element = node('details', 'addon-actions addon-disclosure'); element.dataset.addonSection = 'actions';
+        const summary = AddonPermissionView.summary(globalThis.noctuneI18n?.t('ui.addonSettings.actions') ?? 'Действия расширения', 'Zap');
+        const count = node('span', 'addon-action-count'); summary.insertBefore(count, summary.lastElementChild);
+        element.append(summary);
+        const groups = new Map();
+        let total = 0;
+        return {
+            element,
+            add(group, label, symbol, action, { primary = false } = {}) {
+                if (!groups.has(group)) {
+                    const section = node('section', 'addon-action-group'); section.dataset.actionGroup = group;
+                    const key = 'ui.addonSettings.actionGroup.' + group;
+                    section.append(node('h4', 'addon-action-group-title', globalThis.noctuneI18n?.t(key) || group));
+                    const order = { commands: 0, settings: 1, updates: 2 };
+                    const next = [...element.children].find(section => order[section.dataset.actionGroup] > order[group]);
+                    element.insertBefore(section, next || null); groups.set(group, section);
+                }
+                const control = button('', action, groups.get(group));
+                control.className = 'addon-action-button' + (primary ? ' is-primary' : '');
+                control.append(AddonPermissionView.icon(symbol, 'addon-action-icon'), node('span', '', label));
+                count.textContent = String(++total); return control;
+            },
+        };
+    }
     async function task(action) {
         if (busy) return;
         busy = true; panel.setAttribute('aria-busy', 'true');
@@ -166,7 +191,8 @@
                 badge.title = (globalThis.noctuneI18n?.t("ui.addonSettings.signatureVerifiedUsingTheKeyBundledWithNoctune", {p0: (addon.verifiedPublisher)}) ?? "Подпись {p0} проверена по ключу, встроенному в Noctune".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (addon.verifiedPublisher)})[k] ?? "{"+k+"}"));
                 info.append(badge);
             }
-            header.append(info);
+            const headerControls = node('div', 'addon-card-controls');
+            header.append(info, headerControls);
             if (!addon.broken) {
                 const toggle = node('label', 'toggle-switch'), input = node('input'); input.type = 'checkbox'; input.checked = addon.enabled; input.disabled = !addon.compatible;
                 input.setAttribute('aria-label', (globalThis.noctuneI18n?.t("ui.addonSettings.enable", {}) ?? "Включить ") + addon.name);
@@ -175,29 +201,35 @@
                     if (busy) { input.checked = !enabled; return; }
                     task(async () => { try { await api.setEnabled(addon.id, enabled); await changed(); } catch (error) { input.checked = !enabled; throw error; } });
                 });
-                toggle.append(input, node('span', 'slider-round')); header.append(toggle);
+                toggle.append(input, node('span', 'slider-round')); headerControls.append(toggle);
             }
             card.append(header, node('p', 'settings-row-desc', addon.description), node('div', 'addon-runtime-status settings-row-desc', runtimeStatus(addon)));
-            const actions = node('div', 'addons-toolbar');
+            const actions = actionSection();
             if (!addon.broken) {
                 for (const command of hasPanel(addon) ? [] : addon.commands) {
-                    const control = button(command.title, () => window.addonHost.command(addon.id, command.id), actions);
+                    const control = actions.add('commands', command.title, 'Zap', () => window.addonHost.command(addon.id, command.id));
                     control.dataset.addonCommand = command.id;
                 }
-                if (addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune')) button((globalThis.noctuneI18n?.t("ui.addonSettings.checkForUpdate", {}) ?? "Проверить обновление"), () => check(addon), actions);
-                if (updates.has(addon.id)) button((globalThis.noctuneI18n?.t("ui.addonSettings.updateTo", {}) ?? "Обновить до ") + updates.get(addon.id).version, () => showReview(updates.get(addon.id)), actions);
-                if (addon.rollbackAvailable) button((globalThis.noctuneI18n?.t("ui.addonSettings.restorePreviousVersion", {}) ?? "Вернуть предыдущую версию"), async () => {
+                if (addon.signed && (addon.update || addon.verifiedPublisher === 'Noctune')) actions.add('updates', (globalThis.noctuneI18n?.t("ui.addonSettings.checkForUpdate", {}) ?? "Проверить обновление"), 'RefreshCw', () => check(addon));
+                if (updates.has(addon.id)) actions.add('updates', (globalThis.noctuneI18n?.t("ui.addonSettings.updateTo", {}) ?? "Обновить до ") + updates.get(addon.id).version, 'Download', () => showReview(updates.get(addon.id)), { primary: true });
+                if (addon.rollbackAvailable) actions.add('updates', (globalThis.noctuneI18n?.t("ui.addonSettings.restorePreviousVersion", {}) ?? "Вернуть предыдущую версию"), 'History', async () => {
                     if (!window.confirm((globalThis.noctuneI18n?.t("ui.addonSettings.restoreThePreviousVersionOf", {p0: (addon.name)}) ?? "Вернуть предыдущую версию «{p0}»?".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (addon.name)})[k] ?? "{"+k+"}")))) return;
                     await api.rollback(addon.id); await changed(); status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.previousVersionRestored", {}) ?? "Предыдущая версия восстановлена");
-                }, actions);
+                });
             }
-            button((globalThis.noctuneI18n?.t("player.interface.delete", {}) ?? "Удалить"), async () => {
+            const removeSlot = node('div', 'addon-remove-slot');
+            const remove = button('', async () => {
                 if (!window.confirm((globalThis.noctuneI18n?.t("ui.addonSettings.removeAndItsSettings", {p0: (addon.name)}) ?? "Удалить «{p0}» и его настройки?".replace(/\{(p\d+)\}/g, (_, k) => ({p0: (addon.name)})[k] ?? "{"+k+"}")))) return;
                 await api.remove(addon.id); await changed(); status.textContent = (globalThis.noctuneI18n?.t("ui.addonSettings.extensionRemoved", {}) ?? "Расширение удалено");
-            }, actions);
-            card.append(actions);
+            }, removeSlot);
+            remove.className = 'addon-remove-button';
+            remove.title = globalThis.noctuneI18n?.t('ui.addonSettings.removeExtension', {name: addon.name}) ?? `Удалить расширение «${addon.name}»`;
+            remove.setAttribute('aria-label', remove.title);
+            remove.append(AddonPermissionView.icon('Trash2', 'addon-remove-icon'));
+            headerControls.append(removeSlot);
             if (!addon.broken) {
                 const detail = node('details', 'addon-details addon-disclosure'); detail.append(AddonPermissionView.summary((globalThis.noctuneI18n?.t("ui.addonSettings.permissionsAndUpdates", {}) ?? "Разрешения и обновления"), 'ShieldCheck'));
+                detail.dataset.addonSection = 'permissions';
                 const permissions = node('ul', 'addon-permission-list');
                 AddonPermissionView.render(permissions, addon);
                 if (addon.permissions.length) detail.append(permissions);
@@ -212,7 +244,7 @@
                 card.append(detail);
             }
             if (!addon.broken && hasPanel(addon)) {
-                button((globalThis.noctuneI18n?.t("ui.addonSettings.configureIntegration", {}) ?? "Настроить интеграцию"), () => { document.querySelector('[data-panel="panel-integrations"]').click(); document.getElementById('integration-addon-'+addon.id)?.scrollIntoView({block:'start'}); }, actions);
+                actions.add('settings', (globalThis.noctuneI18n?.t("ui.addonSettings.configureIntegration", {}) ?? "Настроить интеграцию"), 'Settings2', () => { document.querySelector('[data-panel="panel-integrations"]').click(); document.getElementById('integration-addon-'+addon.id)?.scrollIntoView({block:'start'}); });
                 const integration = node('article','settings-card integration-card addon-card'); integration.id='integration-addon-'+addon.id; integration.dataset.addonId=addon.id;
                 if(addon.artwork?.banner){const banner=node('img','addon-banner');banner.src=addon.artwork.banner;banner.alt='';banner.addEventListener('error',()=>banner.remove());integration.append(banner);}
                 const heading=node('div','addon-card-header'),info=node('div','addon-card-info');
@@ -231,6 +263,7 @@
                 const library=node('div','integration-library-slot');library.dataset.librarySlot=addon.id;
                 integration.append(controls,library); await renderConfiguration(addon,integration,nextControls); nextIntegrations.append(integration);
             } else if (!addon.broken && (addon.settings || addon.oauth || addon.credentials)) await renderConfiguration(addon,card,nextControls);
+            if (actions.element.querySelector('.addon-action-button')) card.insertBefore(actions.element, card.querySelector(':scope > .addon-disclosure'));
             nextList.append(card);
         }
         if (sequence !== reloadSequence) return;
@@ -240,7 +273,7 @@
             for (const card of next.children) {
                 const previous = [...current.children].find(item=>item.dataset.addonId===card.dataset.addonId);
                 const details = previous?.querySelectorAll('.addon-disclosure');
-                card.querySelectorAll('.addon-disclosure').forEach((detail,index)=>{ detail.open=!!details?.[index]?.open; });
+                card.querySelectorAll('.addon-disclosure').forEach(detail=>{ detail.open=!![...(details || [])].find(previous=>previous.dataset.addonSection===detail.dataset.addonSection)?.open; });
             }
         }
         closeDropdown(); addons = nextAddons;
@@ -252,7 +285,8 @@
     }
     async function renderConfiguration(addon, card, controls) {
         const section = node('details', 'addon-configuration addon-disclosure'); section.append(AddonPermissionView.summary(hasPanel(addon)?(globalThis.noctuneI18n?.t("ui.addonSettings.connectionAndOptions", {}) ?? "Подключение и параметры"):(globalThis.noctuneI18n?.t("addonPermissions.extensionSettings", {}) ?? "Настройки расширения"), 'Settings2'));
-        if(hasPanel(addon)&&addon.commands.length){const actions=node('div','addons-toolbar');for(const command of addon.commands){const control=button(command.title,()=>window.addonHost.command(addon.id,command.id),actions);control.dataset.addonCommand=command.id;}section.append(actions);}
+        section.dataset.addonSection = 'configuration';
+        if(hasPanel(addon)&&addon.commands.length){const actions=actionSection();for(const command of addon.commands){const control=actions.add('commands',command.title,'Zap',()=>window.addonHost.command(addon.id,command.id));control.dataset.addonCommand=command.id;}card.append(actions.element);}
         let values = await api.settings(addon.id), saving = Promise.resolve();
         const visibility = () => { for (const row of section.querySelectorAll('[data-setting-key]')) { const when=addon.settings[row.dataset.settingKey].visibleWhen; row.hidden=!!when && values[when.field]!==when.equals; } };
         const ordered = hasPanel(addon) ? [...new Set([...addon.ui.integrations.sections.flatMap(section=>section.fields),...Object.keys(addon.settings||{})])] : Object.keys(addon.settings||{});

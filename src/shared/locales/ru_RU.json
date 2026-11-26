@@ -1793,5 +1793,10 @@
   "notifications.extensions": "Расширения",
   "notifications.emptyDescription": "Здесь появятся уведомления плеера и расширений. Вы всегда сможете вернуться к ним позже.",
   "notifications.emptyFilter": "Здесь пока пусто",
-  "notifications.emptyFilterDescription": "Уведомлений в этой категории нет. Выберите другой фильтр, чтобы посмотреть остальные события."
+  "notifications.emptyFilterDescription": "Уведомлений в этой категории нет. Выберите другой фильтр, чтобы посмотреть остальные события.",
+  "ui.addonSettings.removeExtension": "Удалить расширение «{name}»",
+  "ui.addonSettings.actions": "Действия расширения",
+  "ui.addonSettings.actionGroup.commands": "Команды",
+  "ui.addonSettings.actionGroup.settings": "Настройки",
+  "ui.addonSettings.actionGroup.updates": "Обновления"
 }

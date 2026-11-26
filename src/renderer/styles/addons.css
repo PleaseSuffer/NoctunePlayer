@@ -23,6 +23,25 @@
 .addon-card { display: flex; flex-direction: column; gap: 12px; margin-bottom: 0; }
 .addon-card-header { display: flex; align-items: center; gap: 20px; }
 .addon-card-info { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.addon-card-controls { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.addon-remove-slot { display: flex; align-items: center; }
+.addon-card-controls:has(.toggle-switch) .addon-remove-slot { border-left: 1px solid var(--border-color); padding-left: 12px; }
+.addon-remove-button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.addon-remove-icon { width: 16px; height: 16px; pointer-events: none; }
+.addon-remove-button:hover { background: rgba(231,76,60,0.09); color: #e74c3c; }
+.addon-remove-button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+.addon-card > .addons-toolbar:empty { display: none; }
+.addon-action-count { padding: 2px 6px; border-radius: 5px; background: var(--track-hover); color: var(--text-muted); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.addon-action-group { margin-top: 10px; padding: 10px 5px 5px; border: 1px solid var(--border-color); border-radius: 10px; background: color-mix(in srgb, var(--track-hover) 50%, transparent); }
+.addon-action-group-title { margin: 0 7px 6px; color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.addon-action-button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 38px; padding: 9px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--text-color); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.addon-action-button > span { min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.addon-action-icon { width: 16px; height: 16px; flex: 0 0 auto; color: var(--accent-fg); }
+.addon-action-button:hover:not(:disabled) { background: var(--track-hover); }
+.addon-action-button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: -2px; }
+.addon-action-button:disabled { opacity: .45; cursor: not-allowed; }
+.addon-action-button.is-primary { background: color-mix(in srgb, var(--accent-color) 12%, transparent); color: var(--accent-fg); font-weight: 600; }
+.addon-action-button.is-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-color) 20%, transparent); }
 .addon-name { margin: 0 0 5px; font-size: 15px; font-weight: 600; }
 .addon-runtime-status { color: var(--accent-fg); }
 .addon-details { font-size: 12px; overflow-wrap: anywhere; }

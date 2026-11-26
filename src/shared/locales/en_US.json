@@ -1793,5 +1793,10 @@
   "notifications.extensions": "Extensions",
   "notifications.emptyDescription": "Notifications from the player and extensions will appear here. You can come back to them anytime.",
   "notifications.emptyFilter": "Nothing here yet",
-  "notifications.emptyFilterDescription": "There are no notifications in this category. Choose another filter to see the other events."
+  "notifications.emptyFilterDescription": "There are no notifications in this category. Choose another filter to see the other events.",
+  "ui.addonSettings.removeExtension": "Remove extension “{name}”",
+  "ui.addonSettings.actions": "Extension actions",
+  "ui.addonSettings.actionGroup.commands": "Commands",
+  "ui.addonSettings.actionGroup.settings": "Settings",
+  "ui.addonSettings.actionGroup.updates": "Updates"
 }

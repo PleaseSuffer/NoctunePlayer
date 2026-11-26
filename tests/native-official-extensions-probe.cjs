@@ -16,6 +16,8 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const run=(window,code)=>window.webContents.executeJavaScript(code,true);
 async function waitFor(callback,label){const until=Date.now()+15000;let last;while(Date.now()<until){try{if(await callback())return;}catch(error){last=error;}await delay(60);}throw Error('Timed out: '+label+(last?' '+last.message:''));}
 if(archive){app.setAppPath(source);Object.defineProperty(app,'isPackaged',{value:true});require(path.join(source,'node_modules/electron-updater')).autoUpdater.checkForUpdates=async()=>null;}
+const scenes=require(path.join(source,'src/main/scene-themes')),createScenes=scenes.createSceneThemeStore;
+scenes.createSceneThemeStore=options=>createScenes({...options,directory:()=>path.join(profile,'themes/user'),userThemesDirectory:path.join(profile,'themes/sources'),builtinDirectory:path.join(root,'themes/official')});
 require(path.join(source,'src/main/index.js'));
 (async()=>{
     let main;
@@ -53,7 +55,7 @@ require(path.join(source,'src/main/index.js'));
         assert(Math.abs(state.top-before)<=1,'scroll position survives '+(enabled?'enabling':'disabling'));
     }
     const click = async selector => {
-        await run(main,`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);await delay(150);
+        await run(main,`(()=>{const target=document.querySelector(${JSON.stringify(selector)}),actions=target.closest('.addon-actions');if(actions&&!actions.open)actions.querySelector('summary').click();target.scrollIntoView({block:'center'});})()`);await delay(150);
         const point=await run(main,`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};})()`);
         main.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...point});
         main.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,...point});await delay(100);
