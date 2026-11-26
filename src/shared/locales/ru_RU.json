@@ -1805,5 +1805,6 @@
   "settings.search.clear": "Очистить поиск",
   "settings.search.empty": "Ничего не найдено",
   "settings.search.emptyHint": "Попробуйте другое название или выберите другой раздел.",
-  "settings.search.results": "Совпадений в разделе: {count} · Всего: {total}"
+  "settings.search.results": "Совпадений в разделе: {count} · Всего: {total}",
+  "settings.search.layout": "Результаты для «{query}» (другая раскладка)"
 }

@@ -14,17 +14,10 @@
     const nav = [...document.querySelectorAll('.settings-nav-item')];
     const unitSelector = '.settings-row, .settings-option-group, .settings-card, .settings-section-title, .addon-disclosure, .addon-action-group, .addon-permission-group, .integration-card-body, [data-settings-detail], .pl-editor-item, .about-card, .notification-history-card, .notification-history-toolbar';
     const ignored = 'script, style, input, textarea, select, svg, [aria-hidden="true"], [hidden], [role="listbox"], .viz-type-dropdown-menu, .settings-search-count';
-    const normalize = value => String(value).toLocaleLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
-    // Keep the examples in docs/settings-search.md aligned with this dictionary.
-    const aliases = [
-        [/setting-normalize/, 'нормализация громкость треков normalization volume leveling'],
-        [/setting-replaygain/, 'replaygain теги громкости нормализация'],
-        [/setting-crossfade/, 'кроссфейд плавный переход затухание crossfade'],
-        [/mini-player|mini-/, 'мини плеер миниплеер mini player'],
-        [/glass-opacity|opacity/, 'прозрачность прозрачный opacity transparency'],
-        [/cover-cache/, 'кэш кеш обложки cache artwork'],
-        [/auto-check-updates|check-on-startup/, 'обновления проверка update startup'],
-    ];
+    const { normalize, tokenize, alternateLayout, wordsFor } = window.noctuneSettingsSearchTerms;
+    const catalogs = globalThis.NoctuneLocaleCatalog || {};
+    const translations = key => [catalogs.ru?.[key], catalogs.en?.[key]].filter(Boolean).join(' ');
+    let correctedQuery = '';
     let tokens = [], timer, applying = false, autoNavigating = false;
     const originalDetails = new Map();
     const counts = new Map();
@@ -75,7 +68,16 @@
             if (control.closest('[hidden], [role="listbox"]')) continue;
             const entry = owner(control); if (!entry) continue;
             if (control.tagName === 'BUTTON') entry.text += ' ' + (control.title || control.getAttribute('aria-label') || '');
-            for (const [pattern, words] of aliases) if (pattern.test(control.id)) entry.text += ' ' + words;
+            entry.text += ' ' + wordsFor(control.id);
+        }
+        // Index static translated labels, never input values or private field contents.
+        for (const label of panel.querySelectorAll('[data-i18n], [data-i18n-title], [data-i18n-aria-label]')) {
+            if (label.closest(ignored)) continue;
+            const entry = owner(label); if (!entry) continue;
+            for (const attr of ['data-i18n', 'data-i18n-title', 'data-i18n-aria-label']) {
+                const key = label.getAttribute(attr);
+                if (key) entry.text += ' ' + translations(key);
+            }
         }
         function visit(items, context) {
             let sectionContext = context, heading = null, count = 0;
@@ -107,7 +109,8 @@
             }
             return count;
         }
-        const count = visit(roots, normalize(nav.find(item => item.dataset.panel === panel.id)?.querySelector('[data-i18n]')?.textContent || ''));
+        const label = nav.find(item => item.dataset.panel === panel.id)?.querySelector('[data-i18n]');
+        const count = visit(roots, normalize((label?.textContent || '') + ' ' + translations(label?.dataset.i18n)));
         for (const entry of entries.values()) {
             decorate(entry.node, 'settings-search-hidden', !entry.keep);
             if (!entry.keep) continue;
@@ -127,17 +130,17 @@
         const count = counts.get(active?.id) || 0;
         empty.hidden = !tokens.length || count > 0;
         const total = [...counts.values()].reduce((sum, value) => sum + value, 0);
-        status.textContent = tokens.length ? message('results', { count, total }) : '';
+        status.textContent = tokens.length ? [correctedQuery ? message('layout', { query: correctedQuery }) : '', message('results', { count, total })].filter(Boolean).join(' · ') : '';
     }
     function apply({ navigate = false } = {}) {
         clearTimeout(timer); timer = null; if (applying) return;
         applying = true; observer.disconnect(); reset();
-        tokens = normalize(input.value).match(/[\p{L}\p{N}]+/gu) || [];
+        tokens = tokenize(input.value); correctedQuery = '';
         counts.clear();
         overlay.classList.toggle('settings-search-active', !!tokens.length);
         clearButton.hidden = !input.value;
-        const ranges = [];
-        if (tokens.length) {
+        function collect() {
+            const ranges = [];
             for (const panel of panels) {
                 const { count, textNodes } = indexPanel(panel); counts.set(panel.id, count);
                 if (globalThis.Highlight && globalThis.CSS?.highlights) for (const text of textNodes) {
@@ -149,6 +152,22 @@
                             const range = document.createRange(); range.setStart(text, position); range.setEnd(text, position + token.length); ranges.push(range);
                             start = position + token.length;
                         }
+                    }
+                }
+            }
+            return ranges;
+        }
+        if (tokens.length) {
+            let ranges = collect();
+            if (![...counts.values()].some(Boolean)) {
+                const alternative = alternateLayout(input.value);
+                if (alternative && normalize(alternative) !== normalize(input.value)) {
+                    reset(); counts.clear(); tokens = tokenize(alternative);
+                    ranges = tokens.length ? collect() : [];
+                    if ([...counts.values()].some(Boolean)) correctedQuery = alternative;
+                    else {
+                        reset(); counts.clear(); tokens = tokenize(input.value);
+                        ranges = collect();
                     }
                 }
             }

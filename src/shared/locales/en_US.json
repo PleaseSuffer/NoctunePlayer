@@ -1805,5 +1805,6 @@
   "settings.search.clear": "Clear search",
   "settings.search.empty": "No settings found",
   "settings.search.emptyHint": "Try another name or choose a different section.",
-  "settings.search.results": "Matches in this section: {count} · Total: {total}"
+  "settings.search.results": "Matches in this section: {count} · Total: {total}",
+  "settings.search.layout": "Results for “{query}” (different keyboard layout)"
 }

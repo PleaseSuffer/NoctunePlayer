@@ -5,7 +5,7 @@ const profile=fs.mkdtempSync(path.join(output,'profile-'));app.setPath('userData
 const delay=ms=>new Promise(r=>setTimeout(r,ms));let started=false;
 setTimeout(()=>app.exit(2),60000);
 app.on('browser-window-created',(_,win)=>win.webContents.on('did-finish-load',async()=>{
- if(!win.webContents.getURL().endsWith('/renderer/index.html')||started)return;started=true;win.show();
+ if(!win.webContents.getURL().endsWith('/renderer/index.html')||started)return;started=true;win.show();win.focus();
  const run=code=>win.webContents.executeJavaScript(code).catch(e=>{console.error('CODE:',code);throw e});
  const until=async(code,label)=>{for(let i=0;i<100;i++){if(await run(code))return;await delay(50)}throw Error(label)};
  try{

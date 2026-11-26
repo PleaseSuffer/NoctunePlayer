@@ -2632,7 +2632,7 @@ body.scene-active #image-effects-settings { display: none !important; }
 #settings-search-input::-webkit-search-cancel-button { display: none; }
 #settings-search-clear { width: 28px; height: 28px; padding: 5px; flex-shrink: 0; }
 #settings-search-clear[hidden] { display: none; }
-.settings-search-status { padding: 0 0 12px; font-size: 11px; color: var(--text-muted); }
+.settings-search-status { padding: 0 0 12px; font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
 .settings-search-status:empty { display: none; }
 .settings-search-count { margin-left: auto; padding: 2px 5px; border-radius: 5px; background: var(--track-hover); font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .settings-nav-item.settings-search-dimmed { opacity: .4; }

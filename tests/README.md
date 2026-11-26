@@ -258,6 +258,17 @@ node_modules/.bin/electron tests/native-settings-search-probe.cjs --ozone-platfo
 `tests/.artifacts/settings-search/`.
 
 ```sh
+node_modules/.bin/electron tests/native-settings-search-languages-probe.cjs --ozone-platform=x11 --disable-gpu
+node_modules/.bin/electron tests/native-settings-search-languages-probe.cjs --english --ozone-platform=x11 --disable-gpu
+```
+
+Проверка русских и английских фраз использует отдельный профиль для каждого языка.
+Она проверяет поиск на обоих языках независимо от языка интерфейса, исправление
+раскладки в обе стороны и клавиши пунктуации, приоритет прямых совпадений,
+сохранение введённого текста, подсветку исправленного запроса и очистку результатов.
+Запускайте визуальные проверки по очереди, чтобы окна не забирали друг у друга фокус.
+
+```sh
 node_modules/.bin/electron tests/native-settings-search-beacons-probe.cjs --ozone-platform=x11 --disable-gpu
 ```
 
