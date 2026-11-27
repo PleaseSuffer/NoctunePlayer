@@ -4,7 +4,7 @@
   "name": "Endministrator / Fracture",
   "description": "Тёмный графит, фиолетовые разломы и память подавителя. Бас раскрывает второе состояние Эндмина.",
   "author": "Noctune Community",
-  "version": "1.10.1",
+  "version": "1.12.0",
   "width": 1920,
   "height": 1080,
   "preview": "preview",
@@ -167,6 +167,49 @@
       "label": {
         "ru": "Сканирующие импульсы",
         "en": "Scanning pulses"
+      },
+      "default": true
+    },
+    "animatedText": {
+      "type": "toggle",
+      "label": {
+        "ru": "Живая текстовая панель",
+        "en": "Live telemetry panel"
+      },
+      "default": true
+    },
+    "textFloat": {
+      "type": "slider",
+      "label": {
+        "ru": "Движение текста",
+        "en": "Text drift"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "textTransitions": {
+      "type": "toggle",
+      "label": {
+        "ru": "Анимации смены надписей",
+        "en": "Label change transitions"
+      },
+      "default": true
+    },
+    "textDecode": {
+      "type": "toggle",
+      "label": {
+        "ru": "Декодирование служебных строк",
+        "en": "Telemetry decoding"
+      },
+      "default": true
+    },
+    "textBreathing": {
+      "type": "toggle",
+      "label": {
+        "ru": "Дыхание подсветки текста",
+        "en": "Text illumination breathing"
       },
       "default": true
     }

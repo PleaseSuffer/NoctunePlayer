@@ -37,6 +37,14 @@ https://www.youtube.com/watch?v=r2uuprqCkGE (около 2:05).
 Noctune Community не обозначает проверенного официального издателя.
 Пакет и превью магазина не содержат музыку.
 
+## Обновление 1.12.0
+
+Текстовая панель получила плавный дрейф, прокрутку строк при смене состояния,
+поочерёдное декодирование подписей и дыхание подсветки. Название трека и
+исполнитель анимируются при смене; показания dB обновляются без задержки.
+Параметры animatedText, textFloat, textTransitions, textDecode и textBreathing
+позволяют настроить или отключить эффекты. При reduced motion они остановлены.
+
 ## Сборка
 
 node scripts/pack-scene-theme.cjs themes/community/endministrator-fracture themes/packages/endministrator-fracture.noctheme

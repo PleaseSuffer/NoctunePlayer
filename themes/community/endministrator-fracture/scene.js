@@ -8,6 +8,7 @@ NoctuneScene.define({
         this.fragments=[];this.fragmentSerial=0;this.nextMemory=0;
         this.textWave=null;this.textReady=0;
         this.borderBursts=[];
+        this.textRows=new Map();
         this.power=Float32Array.from({length:256},(_,b)=>b?10**((-90+b/255*80)/10):0);
         this.layers={};
         for(const name of ['calm','fracture']) {
@@ -210,7 +211,6 @@ NoctuneScene.define({
         c.restore();
         const textX=x+margin,textY=compact?panelY+28:y+h*.14;
         c.save();
-        if(compact){c.fillStyle='rgba(8,11,18,.78)';c.fillRect(textX-8,textY-24,Math.min(panelW-20,390),110);}
         const wave=this.textWave,age=wave?this.clock-wave.born:-1;
         const waveWidth=Math.max(24,w*.026);
         const waveCenter={x:panelX+panelW*.5+px,y:panelY+panelH*.52+py};
@@ -240,8 +240,36 @@ NoctuneScene.define({
             c.strokeStyle='rgba(181,76,230,.055)';c.lineWidth=waveWidth*2;trace();c.stroke();
             c.strokeStyle='rgba(219,125,255,.38)';c.lineWidth=1.4;trace();c.stroke();c.restore();
         }
+        // Float the whole instrument, not individual glyphs; geometry and text stay registered.
+        const floating=frame.motion!==false&&!frame.reducedMotion&&p.animatedText!==false;
+        const drift=floating?Math.max(0,Math.min(2,Number(p.textFloat??1))):0;
+        this.panelDrift={x:Math.sin(this.clock*.48)*2.5*drift,y:Math.sin(this.clock*.39)*1.6*drift};
+        c.translate(this.panelDrift.x,this.panelDrift.y);
+        if(compact){c.fillStyle='rgba(8,11,18,.78)';c.fillRect(textX-8,textY-24,Math.min(panelW-20,390),110);}
         const label=(value,tx,ty,size,color='#a9a5b9',weight=400)=>{
-            const original=String(value);c.save();c.font=weight+' '+size+'px '+(size<=18?'monospace':'sans-serif');
+            let original=String(value);c.save();c.font=weight+' '+size+'px '+(size<=18?'monospace':'sans-serif');
+            const rowKey=tx+':'+ty+':'+size;
+            let row=this.textRows.get(rowKey);
+            if(!row){row={value:original,previous:'',born:-100};this.textRows.set(rowKey,row);}
+            const numerical=/^[\d\s.,−—+\-]+(?:\s*dB)?$/.test(original)||size===24;
+            if(row.value!==original){row.previous=row.value;row.value=original;row.born=this.clock;}
+            if(this.textRows.size>192)this.textRows.delete(this.textRows.keys().next().value);
+            const phase=Math.min(1,Math.max(0,(this.clock-row.born)/.38));
+            if(floating&&p.textBreathing!==false)c.globalAlpha=.88+.12*Math.sin(this.clock*.9+ty*.009)**2;
+            if(floating&&p.textTransitions!==false&&!numerical&&row.previous&&phase<1){
+                const span=Math.max(c.measureText(original).width,c.measureText(row.previous).width);
+                c.beginPath();c.rect(tx-2,ty-size-4,span+4,size+9);c.clip();
+                c.save();c.globalAlpha*=1-phase;c.fillStyle='#a387bc';c.fillText(row.previous,tx,ty-phase*(size+6));c.restore();
+                c.globalAlpha*=.4+.6*phase;c.translate((1-phase)*3,(1-phase)*(size+6));
+            }
+            const seed=(Math.round(tx)*7+Math.round(ty)*13+size*11)%97;
+            const decodePhase=(this.clock+seed*.137)%8.5;
+            const metadata=original===frame.playback?.title||original===frame.playback?.artist;
+            if(floating&&p.textDecode!==false&&!numerical&&!metadata&&size<=18&&/[A-Za-z]{3}/.test(original)&&decodePhase<.42){
+                const chars=Array.from(original),settled=Math.floor(decodePhase/.42*chars.length),tick=Math.floor(this.clock*18);
+                original=chars.map((ch,i)=>i<settled||ch===' '?ch:'01/<>:#_[]'[(seed+i*3+tick)%10]).join('');
+                c.fillStyle='rgba(183,119,224,.45)';c.fillRect(tx,ty+3,Math.max(3,c.measureText(original).width*(1-decodePhase/.42)),1);
+            }
             if(!wave){c.fillStyle=color;c.fillText(original,tx,ty);c.restore();return;}
             const chars=Array.from(original),matrix=c.getTransform(),glyphs=[];
             let prefix='',affected=false;
@@ -316,8 +344,8 @@ NoctuneScene.define({
             const playing=frame.playback||{};
             label(fit(playing.title||'AWAITING TRACK DATA',meterW,18),textX,base+408,18,'#e3d6b9',500);
             if(playing.artist)label(fit(playing.artist,meterW,11),textX,base+430,11,'#93849f',400);
-            const phase=Math.floor(this.clock*.35)%3;
-            const packets=['RX / SUPPRESSOR CHANNEL ONLINE','RX / ARCHIVE CHECKSUM VALID','RX / MEMORY PARTITION LOCKED'];
+            const phase=Math.floor(this.clock*.35)%5;
+            const packets=['RX / SUPPRESSOR CHANNEL ONLINE','RX / ARCHIVE CHECKSUM VALID','RX / MEMORY PARTITION LOCKED','RX / RESONANCE FILTER ENGAGED','RX / CONTAINMENT LINK RESTORED'];
             label(fault(3)?'!  QUARANTINE / RESTORING':packets[phase],textX,base+450,12,fault(3)?'#d5a6e7':'#796c88');
             for(let i=0;i<36;i++){
                 const broken=fault(3)&&i%7<3;
@@ -381,5 +409,5 @@ NoctuneScene.define({
         if(!compact){label('ENDFIELD / RESTRICTED PERSONNEL FILE',textX,bottom+55,10,'#574b63');label('SUPPRESSOR INTERFACE',panelX+20,bottom+67,10,'#574b63');}
         c.restore();
     },
-    dispose(api) { for(const surface of Object.values(this.layers||{}))api.releaseSurface(surface);if(this.violet)api.releaseSurface(this.violet);if(this.backdrop)api.releaseSurface(this.backdrop);this.layers={};this.fragments=[];this.runners=[];this.borderBursts=[]; }
+    dispose(api) { for(const surface of Object.values(this.layers||{}))api.releaseSurface(surface);if(this.violet)api.releaseSurface(this.violet);if(this.backdrop)api.releaseSurface(this.backdrop);this.layers={};this.fragments=[];this.runners=[];this.borderBursts=[];this.textRows.clear(); }
 });
