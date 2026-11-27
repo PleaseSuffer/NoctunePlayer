@@ -40,9 +40,15 @@
         return order.map(id => automatic.get(id) || manual.get(id)).filter(Boolean);
     }
     function notify() { window.addonEvents?.emit('queue.changed'); }
+    function canRepeatSource() {
+        const service = userPlaylists.find(playlist => playlist.id === source?.playlistId)?.service;
+        // A loaded service page is not the end of its playlist. Keep continuation
+        // ahead of any repeat cycle, including while the next page is in flight.
+        return repeatMode === 2 && !service?.continuous && !service?.cursor;
+    }
     function setFuture(entries) {
         const position = source.sequence.findIndex(entry => entry.queueId === source.currentId);
-        wrapped = new Set(repeatMode === 2 ? source.sequence.slice(0, position + 1).map(entry => entry.queueId) : []);
+        wrapped = new Set(canRepeatSource() ? source.sequence.slice(0, position + 1).map(entry => entry.queueId) : []);
         automatic = new Map(entries.filter(entry => !unavailable.has(providerKey(entry))).map(entry => [entry.queueId, entry]));
         order = order.filter(id => externalAudioQueue.some(entry => entry.queueId === id));
         order.push(...automatic.keys());
@@ -53,7 +59,7 @@
         const sequence = source.sequence;
         const position = sequence.findIndex(entry => entry.queueId === source.currentId);
         const tail = sequence.slice(position + 1);
-        return wrap ? tail.concat(sequence.slice(0, position + 1)) : tail;
+        return wrap && canRepeatSource() ? tail.concat(sequence.slice(0, position + 1)) : tail;
     }
     function capture(index) {
         const entries = playlistOrder.map(descriptor);
@@ -73,7 +79,7 @@
         if (samePlaylist && sameTrack) {
             if (launching.automatic) source.currentId = launching.queueId;
             launching = null;
-            if (!automatic.size && source && repeatMode === 2 && !cleared) setFuture(sequenceFromCurrent(true));
+            if (!automatic.size && source && canRepeatSource() && !cleared) setFuture(sequenceFromCurrent(true));
             return;
         }
         if (source && wasCurrent && repeatMode === 1) return;
@@ -205,7 +211,7 @@
             else source.sequence = createShuffleOrder(source.entries.length, source.entries.findIndex(entry => entry.queueId === source.currentId)).map(index => source.entries[index]);
             cleared = false; setFuture(sequenceFromCurrent());
         } else if (event.type === 'playback.repeat') {
-            if (repeatMode === 2) {
+            if (canRepeatSource()) {
                 if (cleared) { cleared = false; setFuture(sequenceFromCurrent(true)); }
                 else for (const entry of sequenceFromCurrent(true)) {
                     if (!automatic.has(entry.queueId) && !unavailable.has(providerKey(entry))) { automatic.set(entry.queueId, entry); order.push(entry.queueId); wrapped.add(entry.queueId); }

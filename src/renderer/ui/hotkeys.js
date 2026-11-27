@@ -76,6 +76,7 @@
             mute:        () => toggleMute(),
             prevTrack:   () => playPrev(),
             nextTrack:   () => playNext(),
+            toggleQueue: () => document.getElementById('btn-queue')?.click(),
             volumeUp:    () => adjustVolume(0.05),
             volumeDown:  () => adjustVolume(-0.05),
             seekBack5:   () => seekRelative(-5),

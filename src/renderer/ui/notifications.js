@@ -56,8 +56,25 @@ const notificationCenter = (() => {
     function dismiss(id) {
         const toast = toasts.get(id);
         if (!toast) return false;
+        const bounds = toast.getBoundingClientRect();
+        const appearance = getComputedStyle(toast);
+        const opacity = appearance.opacity, transform = appearance.transform;
+        const countdown = toast.querySelector('.notification-toast-countdown');
+        if (countdown) countdown.style.transform = getComputedStyle(countdown).transform;
         clearTimeout(toast._dismissTimer);
-        toast.remove(); toasts.delete(id);
+        toast._dismissAnimation?.cancel();
+        toasts.delete(id);
+        // Retire the live identity immediately; late SDK updates cannot revive it.
+        delete toast.dataset.notificationId; delete toast.dataset.replaceKey;
+        toast.inert = true; toast.setAttribute('aria-hidden', 'true');
+        toast.classList.add('is-dismissing');
+        Object.assign(toast.style, { position: 'fixed', left: bounds.left + 'px', top: bounds.top + 'px', width: bounds.width + 'px', margin: '0', animation: 'none', zIndex: '9999999' });
+        // Outside the scrollable stack, the reverse slide is not clipped.
+        document.body.append(toast);
+        const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 250;
+        const exit = toast.animate([{ opacity, transform }, { opacity: 0, transform: 'translateX(30px)' }], { duration, easing: 'ease-in', fill: 'forwards' });
+        const cleanup = setTimeout(() => toast.remove(), duration + 50);
+        exit.finished.then(() => { clearTimeout(cleanup); toast.remove(); }, () => { clearTimeout(cleanup); toast.remove(); });
         const row = records.get(id);
         if (row) row.active = false;
         changed(); return true;
@@ -74,17 +91,24 @@ const notificationCenter = (() => {
         const node = button('', callback, 'notification-tool ' + extraClass);
         node.title = label; node.setAttribute('aria-label', label); node.append(icon(name)); return node;
     }
+    function headingText(row) {
+        const titleKey = 'ui.notifications.' + ({ error: 'error', warning: 'warning' }[row.type] || 'information');
+        return row.title || globalThis.noctuneI18n?.t(titleKey) || row.type;
+    }
+    function metadataText(row, history) {
+        const normalize = value => String(value || '').trim().toLocaleLowerCase();
+        const source = normalize(row.source) === normalize(headingText(row)) ? '' : row.source;
+        return [source, row.pinned ? text('pinned') : '', row.important ? text('important') : '', history ? new Date(row.createdAt).toLocaleString() : ''].filter(Boolean).join(' · ');
+    }
     function card(row, history = false) {
         const node = el('div', history ? 'notification-history-card' : 'notification-toast');
         node.dataset.notificationId = row.id;
         if (row.key) node.dataset.replaceKey = row.key;
         node.classList.toggle('is-important', !!row.important);
         const body = el('div', 'notification-toast-body');
-        const titleKey = 'ui.notifications.' + ({ error: 'error', warning: 'warning' }[row.type] || 'information');
         node.dataset.type = row.type;
-        const heading = el('div', 'notification-toast-title', row.title || globalThis.noctuneI18n?.t(titleKey) || row.type);
-        const meta = [row.source, row.pinned ? text('pinned') : '', row.important ? text('important') : '', history ? new Date(row.createdAt).toLocaleString() : ''].filter(Boolean).join(' · ');
-        body.append(heading, el('div', 'notification-history-meta', meta), el('div', 'notification-toast-msg', row.message));
+        const heading = el('div', 'notification-toast-title', headingText(row));
+        body.append(heading, el('div', 'notification-history-meta notification-source-meta', metadataText(row, history)), el('div', 'notification-toast-msg', row.message));
         if (row.progress !== undefined) {
             const progress = el('progress', 'notification-progress'); progress.max = 1;
             if (row.progress !== null) progress.value = row.progress;
@@ -142,15 +166,31 @@ const notificationCenter = (() => {
             dismiss(candidate);
         }
         const node = card(row);
-        if (previous) { clearTimeout(previous._dismissTimer); node.style.animation = 'none'; previous.replaceWith(node); }
+        if (previous) { clearTimeout(previous._dismissTimer); previous._dismissAnimation?.cancel(); node.style.animation = 'none'; previous.replaceWith(node); }
         else notifStack.append(node);
         toasts.set(row.id, node); row.active = true;
-        if (!row.pinned && !row.actions?.length && row.duration !== 0) {
-            const expire = () => { node._dismissTimer = setTimeout(() => dismiss(row.id), row.duration || 8000); };
-            node.addEventListener('mouseenter', () => clearTimeout(node._dismissTimer));
-            node.addEventListener('mouseleave', expire);
-            node.addEventListener('focusin', () => clearTimeout(node._dismissTimer));
-            node.addEventListener('focusout', expire); expire();
+        if (!row.pinned && row.duration !== 0) {
+            const duration = row.duration || 8000;
+            const countdown = el('span', 'notification-toast-countdown');
+            countdown.setAttribute('aria-hidden', 'true'); node.append(countdown);
+            const animation = countdown.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration, fill: 'forwards' });
+            node._dismissAnimation = animation;
+            let remaining = duration, started = null;
+            let hovered = node.matches(':hover'), focused = node.contains(document.activeElement);
+            const sync = () => {
+                if (toasts.get(row.id) !== node) return;
+                clearTimeout(node._dismissTimer);
+                if (started !== null) remaining = Math.max(0, remaining - (performance.now() - started));
+                started = null;
+                if (hovered || focused) { animation.pause(); return; }
+                started = performance.now(); animation.play();
+                node._dismissTimer = setTimeout(() => dismiss(row.id), remaining);
+            };
+            node.addEventListener('mouseenter', () => { hovered = true; sync(); });
+            node.addEventListener('mouseleave', () => { hovered = false; sync(); });
+            node.addEventListener('focusin', () => { focused = true; sync(); });
+            node.addEventListener('focusout', event => { focused = node.contains(event.relatedTarget); sync(); });
+            sync();
         }
     }
     function show(message, type, title, stack, options = {}) {

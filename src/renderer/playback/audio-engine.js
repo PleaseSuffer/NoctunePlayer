@@ -1433,6 +1433,7 @@
             mute: 'KeyM',
             prevTrack: 'shift+KeyJ',
             nextTrack: 'shift+KeyL',
+            toggleQueue: 'KeyQ',
             volumeUp: 'ArrowUp',
             volumeDown: 'ArrowDown',
             seekBack5: 'ArrowLeft',

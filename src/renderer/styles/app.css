@@ -2567,7 +2567,7 @@ body.scene-active #image-effects-settings { display: none !important; }
 
 /* Notification center */
 #notification-stack { max-height: calc(100vh - 48px); overflow-y: auto; max-width: calc(100vw - 32px); }
-.notification-toast { flex-shrink: 0; min-width: min(280px, calc(100vw - 72px)); }
+.notification-toast { flex-shrink: 0; box-sizing: border-box; width: min(360px, calc(100vw - 48px)); min-width: 0; max-width: none; overflow: hidden; }
 .notification-toast-msg { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .notification-history-card { position: relative; display: flex; gap: 12px; padding: 16px; margin: 10px 0; border: 1px solid var(--border-color); border-radius: 12px; background: var(--container-bg); }
 .notification-history-card.is-important, .notification-toast.is-important { border-left: 3px solid var(--accent-color); }
@@ -2611,6 +2611,19 @@ body.scene-active #image-effects-settings { display: none !important; }
 :is(.notification-history-card, .notification-toast) .notification-toast-title { padding-right: 82px; min-height: 26px; line-height: 20px; }
 .notification-toast-icon svg { width: 18px; height: 18px; }
 .notification-toast-actions:empty, .notification-history-meta:empty { display: none; }
+.notification-toast-countdown {
+    position: absolute;
+    left: -3px;
+    right: -3px;
+    bottom: -1px;
+    height: 3px;
+    border-radius: 0;
+    background: var(--accent-color);
+    opacity: 0.65;
+    transform-origin: left;
+    pointer-events: none;
+}
+.notification-toast.is-dismissing { pointer-events: none; }
 
 /* Settings navigation and transient search presentation. */
 .settings-nav { overflow-y: auto; overscroll-behavior: contain; }

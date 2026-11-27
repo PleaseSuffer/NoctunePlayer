@@ -36,5 +36,22 @@ const paths=c=>Array.from(c.playbackQueue.view(),e=>e.path);
  c=setup();await c.selectPlaylist('a');await c.playTrack(0);let release;c.validatedAudioPaths=()=>new Promise(r=>release=r);
  const pending=c.playQueuedAudioFile(c._loadToken);c.playbackQueue.clear();release(['b.wav']);assert.equal(await pending,false);assert.deepEqual(c.played,['a.wav'],'clearing during validation cannot start a removed track');
  c=setup();await c.selectPlaylist('a');await c.playTrack(0);c.userPlaylists[0].files.push('e.wav');c.fileEntries.push({kind:'file',path:'e.wav',name:'e.wav'});c.playlistOrder.push(4);assert.deepEqual(paths(c),['b.wav','c.wav','d.wav','e.wav'],'new provider/library pages extend the timeline');
- console.log('PASS playlist timeline: populate, edits, playback, cross-playlist continuation, browsing, autonext, shuffle, repeat, clear, validation cancellation and appended pages');
+ for(const service of [{continuous:true},{cursor:'next-page'}]) {
+  c=setup();c.userPlaylists[0].service=service;c.repeatMode=2;await c.selectPlaylist('a');await c.playTrack(0);
+  assert.deepEqual(paths(c),['b.wav','c.wav','d.wav'],'expandable services must not enqueue a wrap to the first track');
+  for(let i=0;i<3;i++)await c.playQueuedAudioFile(c._loadToken);
+  assert.deepEqual(paths(c),[],'last loaded service track waits for continuation instead of repeating');
+  c.userPlaylists[0].files.push('e.wav');c.fileEntries.push({kind:'file',path:'e.wav',name:'e.wav'});c.playlistOrder.push(4);
+  assert.deepEqual(paths(c),['e.wav'],'late continuation is the immediate next track');
+  c.addonEvents.emit('playback.repeat');assert.deepEqual(paths(c),['e.wav'],'repeat changes cannot insert old service tracks before continuation');
+  await c.playQueuedAudioFile(c._loadToken);assert.equal(c.played.at(-1),'e.wav');
+  assert.deepEqual(paths(c),[]);
+ }
+ c=setup();c.userPlaylists[0].service={continuous:true};c.repeatMode=2;c.isShuffle=true;
+ await c.selectPlaylist('a');c.shuffleList=[0,3,1,2];await c.playTrack(0);
+ assert.deepEqual(paths(c),['d.wav','b.wav','c.wav'],'shuffle on a continuous service has no wrapped tracks');
+ c.addonEvents.emit('playback.shuffle');assert.deepEqual(paths(c),['d.wav','b.wav','c.wav']);
+ c.userPlaylists[0].service={cursor:null,continuous:false};await c.playTrack(3);
+ assert(paths(c).length>0,'fully loaded finite service playlists retain playlist repeat');
+ console.log('PASS playlist timeline: populate, edits, playback, cross-playlist continuation, browsing, autonext, shuffle, repeat, clear, validation cancellation and appended service pages');
 })().catch(e=>{console.error(e);process.exitCode=1});
