@@ -24,10 +24,10 @@ NoctuneAddon.define(async api => {
         historyStatus = { formatVersion: 1, accepted: 0, failed: 0, last: null, lastPlayed: null };
         api.storage.set('history-report-status', historyStatus).catch(() => {});
     }
-    async function notice(message, key) {
-        if (key) return api.notify(short(message), { key });
+    async function notice(message, key, options = {}) {
+        if (key) return api.notifications.show(short(message), { title: 'Яндекс Музыка', key, ...options });
         if (Date.now() - lastNotice < 3100) return;
-        lastNotice = Date.now(); await api.notify(short(message));
+        lastNotice = Date.now(); await api.notifications.show(short(message), { title: 'Яндекс Музыка', ...options });
     }
     // A single lane keeps command, catalog and feedback requests inside SDK quotas.
     // Never retry writes or sleep inside a provider callback (20 second SDK deadline).
@@ -474,19 +474,38 @@ NoctuneAddon.define(async api => {
             const name=(settings.downloadName==='title'||!artist?title:artist+' — '+title)+'.mp3';
             const job=await api.downloads.start({url:source.url,filename:name,folder:'downloadFolder'});
             downloadJobs.set(key,job.id);
-            await notice('Сохраняется: '+title,'mp3-download').catch(()=>{});
+            const noticeKey='mp3-'+job.id;
+            let previousBytes=0,previousAt=Date.now();
+            await notice('Сохраняется: '+title,noticeKey,{pinned:true,progress:null,progressLabel:'Подготовка загрузки',actions:[{label:'Отменить все загрузки',command:'cancel-downloads',dismissOnClick:false}]}).catch(()=>{});
             const poll=async()=>{
                 try{
                     const current=await api.downloads.status({id:job.id});
-                    if(current.state==='running'){setTimeout(poll,750);return;}
+                    if(current.state==='running'){
+                        const now=Date.now(),bytes=Math.max(0,Number(current.bytes)||0),total=Number(current.total);
+                        const speed=Math.max(0,(bytes-previousBytes)/Math.max(1,now-previousAt)*1000);
+                        previousBytes=bytes;previousAt=now;
+                        const size=value=>(value/1048576).toFixed(1)+' МБ';
+                        const progress=total>0?Math.min(1,bytes/total):null;
+                        await api.notifications.update({key:noticeKey,progress,progressLabel:(progress===null?'':Math.floor(progress*100)+'% · ')+size(bytes)+(total>0?' / '+size(total):'')+' · '+size(speed)+'/с'}).catch(()=>{});
+                        setTimeout(poll,750);return;
+                    }
                     downloadJobs.delete(key);
+                    if(current.state==='canceled'){
+                        await api.notifications.update({key:noticeKey,message:'Сохранение отменено: '+title,pinned:false,type:'info',progress:null,progressLabel:'Отменено',actions:[]}).catch(()=>{});return;
+                    }
                     if(current.state!=='completed')throw new Error(current.error||'Не удалось сохранить MP3.');
-                    await notice('MP3 сохранён: '+current.name,'mp3-download');
-                }catch(error){downloadJobs.delete(key);lastError=short(error.message);await notice('Сохранение MP3: '+lastError,'mp3-download').catch(()=>{});}
+                    await api.notifications.update({key:noticeKey,message:short('MP3 сохранён: '+current.name),pinned:false,type:'success',progress:1,progressLabel:'Готово',actions:[{label:'Открыть папку',command:'open-download-folder'}]}).catch(()=>{});
+                }catch(error){downloadJobs.delete(key);lastError=short(error.message);await api.notifications.update({key:noticeKey,message:short('Сохранение MP3: '+lastError),pinned:false,type:'error',important:true,progress:null,progressLabel:'Ошибка',actions:[],copyText:lastError}).catch(()=>{});}
             };
             setTimeout(poll,750);
         }catch(error){downloadJobs.delete(key);lastError=short(error.message);throw error;}
     }
+    api.onCommand('cancel-downloads', async () => {
+        const jobs=[...downloadJobs.values()].filter(Boolean);
+        const results=await Promise.allSettled(jobs.map(id=>api.downloads.cancel({id})));
+        if(results.some(result=>result.status==='rejected'))throw new Error('Не все загрузки удалось отменить. Повторите команду.');
+    });
+    api.onCommand('open-download-folder', () => api.downloads.folder({setting:'downloadFolder',action:'open'}));
     async function resolve({ trackId: id, sessionId }) {
         try {
             const { uid } = await identity(), epoch = generation;
@@ -660,7 +679,7 @@ NoctuneAddon.define(async api => {
         const verification = { at: new Date().toISOString(), trackId: report.trackId, found: matches.length > 0, dates: matches.map(tab => tab.date) };
         historyStatus.verification = verification;
         await api.storage.set('history-report-status', historyStatus).catch(() => {});
-        throw new Error(summary + status);
+        await notice(summary + status,'history-status',{type:matches.length?'success':'info',copyText:summary+status});
     });
     for (const action of ['toggle-like', 'dislike']) {
         // Keep the existing dislike binding while making it a toggle.
@@ -668,10 +687,10 @@ NoctuneAddon.define(async api => {
         await api.hotkeys.register({ command: action });
     }
     // Command errors are shown inline by the existing SDK UI, even when notifications are disabled.
-    api.onCommand('last-error', () => { throw new Error(lastError ? 'Последняя ошибка Яндекс Музыки: ' + lastError : 'Ошибок воспроизведения в этом запуске пока нет.'); });
+    api.onCommand('last-error', () => notice(lastError ? 'Последняя ошибка Яндекс Музыки: ' + lastError : 'Ошибок в этом запуске пока нет.','last-error',{type:lastError?'error':'info',...(lastError?{copyText:lastError}:{})}));
     api.onCommand('check', async () => {
         const user = await identity(); await registerCatalog(user.uid);
-        await notice('Яндекс Музыка: ' + user.name + '. Авторизация подтверждена.');
+        await notice('Яндекс Музыка: ' + user.name + '. Авторизация подтверждена.','connection-status',{type:'success'});
     });
     let catalogRegistration = null;
     async function registerCatalog(uid) {

@@ -26,6 +26,14 @@
     {
       "id": "check",
       "title": "Проверить подключение"
+    },
+    {
+      "id": "cancel-downloads",
+      "title": "Отменить все скачивания MP3"
+    },
+    {
+      "id": "open-download-folder",
+      "title": "Открыть папку сохранённых MP3"
     }
   ],
   "credentials": {
@@ -55,7 +63,7 @@
   "homepage": "https://music.yandex.ru/",
   "icon": "assets/icon.png",
   "id": "yandex-music",
-  "minNoctuneVersion": "1.4.1",
+  "minNoctuneVersion": "1.5.0",
   "name": "Яндекс Музыка",
   "network": {
     "origins": [
@@ -227,7 +235,7 @@
     "clipboard.write",
     "downloads.write"
   ],
-  "revision": 22,
+  "revision": 23,
   "settings": {
     "autoWave": {
       "default": true,
@@ -323,5 +331,5 @@
       "title": "Яндекс Музыка"
     }
   },
-  "version": "0.3.14"
+  "version": "0.3.15"
 }
