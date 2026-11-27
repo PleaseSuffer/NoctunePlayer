@@ -33,5 +33,12 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../src/renderer/effec
     context.isRadioMode=true;context.radioAudioElement={currentTime:999999,duration:Infinity,paused:false,ended:false};
     assert.deepEqual(JSON.parse(JSON.stringify(tick().playback)),{position:null,duration:null,playing:true,live:true});
     context.isRadioMode=false;context.localAudioElement=null;assert.equal(tick().playback.position,null);
+    context.localAudioElement={currentTime:0,duration:240,paused:true,ended:false};
+    context.trackTitle={textContent:'First track'};context.trackArtist={textContent:'Artist'};
+    assert.equal(tick().playback.title,'First track');assert.equal(tick().playback.artist,'Artist');
+    const beforeRename=sent.length;context.trackTitle.textContent='Next track';
+    assert.equal(tick().playback.title,'Next track');assert(sent.length>beforeRename,'paused metadata changes redraw static themes');
+    context.trackTitle.textContent='x'.repeat(600);assert.equal(tick().playback.title.length,512);
+    context.localAudioElement=null;assert.equal(tick().playback.title,undefined,'empty playback has no stale title');
     console.log('PASS: scene media clock, pause/seek/track replacement, long tracks, radio and static-frame delivery.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

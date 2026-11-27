@@ -183,9 +183,12 @@
         const media = live ? (typeof radioAudioElement !== 'undefined' ? radioAudioElement : null)
             : (typeof localAudioElement !== 'undefined' ? localAudioElement : null);
         const number = value => Number.isFinite(value) && value >= 0 ? value : null;
+        const title = media && typeof trackTitle !== 'undefined' ? String(trackTitle?.textContent || '').trim().slice(0, 512) : '';
+        const artist = media && typeof trackArtist !== 'undefined' ? String(trackArtist?.textContent || '').trim().slice(0, 512) : '';
         return { position: !live && media ? number(media.currentTime) : null,
             duration: !live && media ? number(media.duration) : null,
-            playing: !!media && !media.paused && !media.ended, live };
+            playing: !!media && !media.paused && !media.ended, live,
+            ...(title ? { title, artist } : {}) };
     }
     function tick(now) {
         queued = false; if (!current && !candidate) return;

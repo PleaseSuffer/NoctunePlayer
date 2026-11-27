@@ -1,0 +1,180 @@
+{
+  "apiVersion": 2,
+  "id": "endministrator-fracture",
+  "name": "Endministrator / Fracture",
+  "description": "Тёмный графит, фиолетовые разломы и память подавителя. Бас раскрывает второе состояние Эндмина.",
+  "author": "Noctune Community",
+  "version": "1.10.1",
+  "width": 1920,
+  "height": 1080,
+  "preview": "preview",
+  "palette": {
+    "background": "#161821",
+    "accent": "#bc96ee",
+    "gradient": [
+      "#706086",
+      "#b590e5",
+      "#d9bbff"
+    ]
+  },
+  "capabilities": {
+    "visualizer": "bars",
+    "visualizers": [
+      "bars"
+    ],
+    "motion": true
+  },
+  "runtimeRequirements": {
+    "dom": false
+  },
+  "quality": "balanced",
+  "parameterSchema": {
+    "sensitivity": {
+      "type": "slider",
+      "label": {
+        "ru": "Чувствительность к басу",
+        "en": "Bass sensitivity"
+      },
+      "default": 1,
+      "min": 0.4,
+      "max": 2,
+      "step": 0.1
+    },
+    "bassFloor": {
+      "type": "slider",
+      "label": {
+        "ru": "Минимальный бас (dB)",
+        "en": "Minimum bass (dB)"
+      },
+      "default": -46,
+      "min": -60,
+      "max": -26,
+      "step": 1
+    },
+    "fracture": {
+      "type": "slider",
+      "label": {
+        "ru": "Проявление трещин",
+        "en": "Fracture intensity"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 1.5,
+      "step": 0.1
+    },
+    "recovery": {
+      "type": "slider",
+      "label": {
+        "ru": "Длительность следа",
+        "en": "Afterimage duration"
+      },
+      "default": 0.6,
+      "min": 0.15,
+      "max": 1,
+      "step": 0.05
+    },
+    "parallax": {
+      "type": "slider",
+      "label": {
+        "ru": "Глубина параллакса",
+        "en": "Parallax depth"
+      },
+      "default": 1.5,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "spectrum": {
+      "type": "toggle",
+      "label": {
+        "ru": "Спектр сигнала",
+        "en": "Signal spectrum"
+      },
+      "default": true
+    },
+    "glitch": {
+      "type": "toggle",
+      "label": {
+        "ru": "Сдвиги фрагментов маски",
+        "en": "Mask fragment offsets"
+      },
+      "default": true
+    },
+    "particles": {
+      "type": "toggle",
+      "label": {
+        "ru": "Частицы сигнала",
+        "en": "Signal particles"
+      },
+      "default": true
+    },
+    "distortion": {
+      "type": "slider",
+      "label": {
+        "ru": "Смещение заражённых фрагментов",
+        "en": "Infected fragment displacement"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 2,
+      "step": 0.1
+    },
+    "textGlitch": {
+      "type": "toggle",
+      "label": {
+        "ru": "Цветные волны заражения текста",
+        "en": "Chromatic text infection waves"
+      },
+      "default": true
+    },
+    "borderIntensity": {
+      "type": "slider",
+      "label": {
+        "ru": "Яркость эффектов вокруг портрета",
+        "en": "Portrait perimeter intensity"
+      },
+      "default": 1,
+      "min": 0,
+      "max": 1.5,
+      "step": 0.1
+    },
+    "borderEcho": {
+      "type": "toggle",
+      "label": {
+        "ru": "Импульсы вокруг рамки",
+        "en": "Frame shockwaves"
+      },
+      "default": true
+    },
+    "borderShard": {
+      "type": "toggle",
+      "label": {
+        "ru": "Осколки заражения",
+        "en": "Infection shards"
+      },
+      "default": true
+    },
+    "borderArc": {
+      "type": "toggle",
+      "label": {
+        "ru": "Разряды на направляющих",
+        "en": "Rail discharges"
+      },
+      "default": true
+    },
+    "borderScan": {
+      "type": "toggle",
+      "label": {
+        "ru": "Сканирующие импульсы",
+        "en": "Scanning pulses"
+      },
+      "default": true
+    }
+  },
+  "assets": {
+    "calm": "assets/calm.png",
+    "fracture": "assets/fracture.png",
+    "preview": "assets/preview.png"
+  },
+  "script": "scene.js"
+}
