@@ -1655,6 +1655,7 @@
   "ui.settings.openingBrowserForConfirmation": "Opening browser for confirmation…",
   "ui.settings.orbitFill": "Orbit fill",
   "ui.settings.pausePlay": "Pause / Play",
+  "ui.settings.toggleInterface": "Hide / show interface",
   "ui.settings.playbackSpeedRightClickToResetTo10": "Playback speed. Right-click to reset to 1.0×",
   "ui.settings.pressAKey": "Press a key…",
   "ui.settings.removeFromRecent": "Remove from recent",

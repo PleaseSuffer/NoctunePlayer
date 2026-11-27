@@ -8,7 +8,7 @@ const manifest = { id: 'pointer-test', palette: { background: '#000000' }, capab
 const context = {
     window: { addEventListener: (name, fn) => { events[name] = fn; }, requestEffectsFrame() {} },
     document: { addEventListener: (name, fn) => { documentEvents[name] = fn; }, getElementById: () => null,
-        createElement: () => (iframe = { style: {}, setAttribute() {}, remove() {} }), body: { prepend() {} } },
+        createElement: () => (iframe = { style: {}, setAttribute() {}, remove() {} }), body: { prepend() {}, classList: { contains: () => false } } },
     matchMedia: () => ({ matches: false }), appStorage: { getItem: () => null },
     noctune: { sceneThemes: { read: async () => ({ apiVersion: 2, manifest }) } },
     innerWidth: 1000, innerHeight: 500, devicePixelRatio: 1,

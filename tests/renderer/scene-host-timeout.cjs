@@ -3,7 +3,7 @@ const events={},sent=[];let iframe,raf,now=100,settings=false;
 const manifest={id:'watchdog-test',palette:{background:'#000'},capabilities:{motion:true,visualizer:'none'}};
 const context={window:{addEventListener:(n,f)=>events[n]=f,requestEffectsFrame:f=>raf=f,effectsPerformance:{get effectiveFps(){return settings?30:60}}},
  document:{hidden:false,addEventListener(){},dispatchEvent(){},getElementById:id=>id==='settings-overlay'?{classList:{contains:()=>settings}}:null,
- createElement:()=>iframe={style:{},setAttribute(){},remove(){},contentWindow:{postMessage:data=>sent.push(data)}},body:{prepend(){},classList:{add(){},remove(){}}}},
+ createElement:()=>iframe={style:{},setAttribute(){},remove(){},contentWindow:{postMessage:data=>sent.push(data)}},body:{prepend(){},classList:{add(){},remove(){},contains(){return false;}}}},
  matchMedia:()=>({matches:false}),appStorage:{getItem:()=>null,setItem(){},removeItem(){}},noctune:{sceneThemes:{read:async()=>({apiVersion:2,manifest})}},
  innerWidth:1000,innerHeight:600,devicePixelRatio:1,crypto:require('node:crypto').webcrypto,TextEncoder,Uint8Array,Event,performance,setTimeout:()=>0,clearTimeout(){},btoa:v=>Buffer.from(v,'binary').toString('base64')};
 vm.runInNewContext(fs.readFileSync('src/renderer/effects/scene-host.js','utf8'),context);

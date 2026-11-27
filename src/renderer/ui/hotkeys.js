@@ -62,6 +62,28 @@
             }
         }
 
+        let themeViewFocus = null;
+        window.setThemeViewOnly = hidden => {
+            const active = document.body.classList.contains('theme-view-only');
+            if (active === hidden) return;
+            if (hidden) {
+                themeViewFocus = document.activeElement;
+                themeViewFocus?.blur?.();
+            }
+            document.body.classList.toggle('theme-view-only', hidden);
+            if (!hidden) {
+                if (themeViewFocus?.isConnected) themeViewFocus.focus?.({ preventScroll: true });
+                themeViewFocus = null;
+            }
+            window.dispatchEvent(new Event('theme-view-changed'));
+        };
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && document.body.classList.contains('theme-view-only')) {
+                event.preventDefault(); event.stopImmediatePropagation();
+                window.setThemeViewOnly(false);
+            }
+        }, true);
+
         function adjustVolume(delta) {
             const current = parseFloat(volumeSlider.value) || 0;
             const next = Math.max(0, Math.min(1, Math.round((current + delta) * 100) / 100));
@@ -77,6 +99,7 @@
             prevTrack:   () => playPrev(),
             nextTrack:   () => playNext(),
             toggleQueue: () => document.getElementById('btn-queue')?.click(),
+            toggleInterface: () => window.setThemeViewOnly(!document.body.classList.contains('theme-view-only')),
             volumeUp:    () => adjustVolume(0.05),
             volumeDown:  () => adjustVolume(-0.05),
             seekBack5:   () => seekRelative(-5),
@@ -89,6 +112,7 @@
             const combo = normalizeKeyCombo(e);
             const actionId = Object.keys(window.hotkeyBindings).find(k => window.hotkeyBindings[k] === combo);
             if (!actionId) return;
+            if (actionId === 'toggleInterface' && e.repeat) { e.preventDefault(); return true; }
             const addonAction = window.addonContributions?.hotkeys().find(item => item.id === actionId);
             const handler = HOTKEY_ACTIONS[actionId] || (addonAction ? () => { const [, owner, command] = actionId.split(':'); window.addonHost.command(owner, command).catch(error => showNotification(String(error.message), 'error', (globalThis.noctuneI18n?.t("ui.hotkeys.extensionHotkey", {}) ?? "Горячая клавиша расширения"))); } : null);
             if (!handler) return;

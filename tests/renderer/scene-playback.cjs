@@ -1,9 +1,9 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const events={},sent=[];let iframe,raf;
+const events={},sent=[];let iframe,raf,themeView=false;
 const manifest={id:'clock-test',palette:{background:'#000000'},capabilities:{motion:true,visualizer:'none'}};
 const context={window:{addEventListener:(name,fn)=>events[name]=fn,requestEffectsFrame:fn=>raf=fn},
     document:{hidden:false,addEventListener(){},dispatchEvent(){},getElementById:()=>null,
-        createElement:()=>iframe={style:{},setAttribute(){},remove(){},contentWindow:{postMessage:data=>sent.push(data)}},body:{prepend(){},classList:{add(){}}}},
+        createElement:()=>iframe={style:{},setAttribute(){},remove(){},contentWindow:{postMessage:data=>sent.push(data)}},body:{prepend(){},classList:{add(){},contains(){return themeView;}}}},
     matchMedia:()=>({matches:true}),appStorage:{getItem:()=>null,setItem(){}},
     noctune:{sceneThemes:{read:async()=>({apiVersion:2,manifest})}},
     innerWidth:1000,innerHeight:500,devicePixelRatio:1,crypto:require('node:crypto').webcrypto,
@@ -40,5 +40,9 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../src/renderer/effec
     assert.equal(tick().playback.title,'Next track');assert(sent.length>beforeRename,'paused metadata changes redraw static themes');
     context.trackTitle.textContent='x'.repeat(600);assert.equal(tick().playback.title.length,512);
     context.localAudioElement=null;assert.equal(tick().playback.title,undefined,'empty playback has no stale title');
+    context.document.getElementById=id=>id==='mini-player'?{getBoundingClientRect:()=>({x:0,y:400,width:1000,height:100})}:null;
+    events['theme-view-changed']();assert.equal(tick().safeArea.height,100);
+    themeView=true;events['theme-view-changed']();assert.equal(tick().safeArea,null,'hidden UI releases the safe area even for static themes');
+    themeView=false;events['theme-view-changed']();assert.equal(tick().safeArea.height,100,'restoring UI restores its safe area');
     console.log('PASS: scene media clock, pause/seek/track replacement, long tracks, radio and static-frame delivery.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

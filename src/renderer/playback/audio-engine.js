@@ -1434,6 +1434,7 @@
             prevTrack: 'shift+KeyJ',
             nextTrack: 'shift+KeyL',
             toggleQueue: 'KeyQ',
+            toggleInterface: 'ctrl+shift+KeyH',
             volumeUp: 'ArrowUp',
             volumeDown: 'ArrowDown',
             seekBack5: 'ArrowLeft',

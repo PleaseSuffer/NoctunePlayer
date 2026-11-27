@@ -2743,6 +2743,7 @@
                 { id: 'prevTrack',  label: (globalThis.noctuneI18n?.t("miniPlayer.previousTrack", {}) ?? "Предыдущий трек") },
                 { id: 'nextTrack',  label: (globalThis.noctuneI18n?.t("miniPlayer.nextTrack", {}) ?? "Следующий трек") },
                 { id: 'toggleQueue', label: (globalThis.noctuneI18n?.t("queue.title", {}) ?? "Очередь воспроизведения") },
+                { id: 'toggleInterface', label: (globalThis.noctuneI18n?.t("ui.settings.toggleInterface", {}) ?? "Скрыть / показать интерфейс") },
                 { id: 'volumeUp',   label: (globalThis.noctuneI18n?.t("ui.settings.volumeUp5", {}) ?? "Громче на 5%") },
                 { id: 'volumeDown', label: (globalThis.noctuneI18n?.t("ui.settings.volumeDown5", {}) ?? "Тише на 5%") },
                 { id: 'seekBack5',  label: (globalThis.noctuneI18n?.t("ui.settings.seekBack5Seconds", {}) ?? "Перемотка назад на 5 сек") },

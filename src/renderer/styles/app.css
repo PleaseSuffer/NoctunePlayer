@@ -2509,6 +2509,12 @@
         #image-mask-preview { display: block; width: 100%; height: auto; max-height: 45vh; object-fit: contain; margin-bottom: 12px; border-radius: 8px; background: var(--track-hover); }
 /* Interactive scene backgrounds share the player's frame budget, but own their effects. */
 .scene-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 0; pointer-events: none; }
+/* Keep theme/background layers alive while hiding controls, overlays and future toasts. */
+body.theme-view-only > :not(.scene-frame):not(#custom-bg-layer):not(#star-canvas):not(#stars-canvas):not(#visualizer):not(#visualizer-canvas):not(#image-effects-canvas):not(script):not(style),
+body.theme-view-only > :not(.scene-frame):not(#custom-bg-layer):not(#star-canvas):not(#stars-canvas):not(#visualizer):not(#visualizer-canvas):not(#image-effects-canvas):not(script):not(style) * {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
 body.scene-active #custom-bg-layer,
 body.scene-active #star-canvas,
 body.scene-active #stars-canvas,

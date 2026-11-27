@@ -2,6 +2,9 @@
     'use strict';
     let current = null, candidate = null, dormant = null, epoch = 0, last = 0, time = 0, queued = false, wasPaused = false;
     let spectrum = new Uint8Array(0), sampleRate = 44100, playing = false;
+    window.addEventListener('theme-view-changed', () => {
+        for (const entry of [current, candidate]) if (entry) entry.dirty = true;
+    });
     // Viewport-normalized input remains usable in sandboxed iframe and Worker scenes.
     let pointer = { x: 0, y: 0, active: false };
     window.addEventListener('pointermove', event => {
@@ -175,6 +178,7 @@
     }
     function schedule() { if (!queued) { queued = true; window.requestEffectsFrame(tick); } }
     function safeArea() {
+        if (document.body.classList.contains('theme-view-only')) return null;
         const element=document.getElementById('mini-player'), rect=element?.getBoundingClientRect();
         return rect && rect.width>0 && rect.height>0 ? {x:rect.x,y:rect.y,width:rect.width,height:rect.height} : null;
     }
@@ -206,7 +210,7 @@
         if (paused) return;
         const motion = config.motion && !reducedMotion.matches;
         if (motion) time += dt;
-        const overlay = document.getElementById('lyrics-modal')?.style.display === 'flex' || document.getElementById('settings-overlay')?.classList.contains('open');
+        const overlay = !document.body.classList.contains('theme-view-only') && (document.getElementById('lyrics-modal')?.style.display === 'flex' || document.getElementById('settings-overlay')?.classList.contains('open'));
         const playback = playbackState();
         // Static scenes still receive clock/transport changes, at most once per media second.
         const playbackKey = JSON.stringify({ ...playback, position: playback.position === null ? null : Math.floor(playback.position) });

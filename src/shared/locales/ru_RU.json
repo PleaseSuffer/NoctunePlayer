@@ -1655,6 +1655,7 @@
   "ui.settings.openingBrowserForConfirmation": "Открываем браузер для подтверждения…",
   "ui.settings.orbitFill": "Заполнение орбит",
   "ui.settings.pausePlay": "Пауза / Воспроизведение",
+  "ui.settings.toggleInterface": "Скрыть / показать интерфейс",
   "ui.settings.playbackSpeedRightClickToResetTo10": "Скорость воспроизведения. ПКМ — сбросить до 1.0×",
   "ui.settings.pressAKey": "Нажмите клавишу…",
   "ui.settings.removeFromRecent": "Удалить из недавних",

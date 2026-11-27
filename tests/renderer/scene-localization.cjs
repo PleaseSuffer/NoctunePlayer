@@ -5,7 +5,7 @@ const manifest={id:'localized-test',name:'theme.name',palette:{background:'#000'
 async function check(locale,expected){
  const events={};let iframe;
  const context={window:{AddonLocalization:localization,noctuneI18n:{locale},addEventListener:(n,f)=>events[n]=f,requestEffectsFrame(){}},
-  document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null,body:{prepend(){},classList:{add(){},remove(){}}},createElement:()=>iframe={style:{},setAttribute(){},remove(){},contentWindow:{}}},
+  document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null,body:{prepend(){},classList:{add(){},remove(){},contains(){return false;}}},createElement:()=>iframe={style:{},setAttribute(){},remove(){},contentWindow:{}}},
   matchMedia:()=>({matches:false}),appStorage:{getItem:()=>null,setItem(){}},noctune:{sceneThemes:{read:async()=>({apiVersion:2,manifest})}},
   innerWidth:1000,innerHeight:600,devicePixelRatio:1,crypto:require('node:crypto').webcrypto,TextEncoder,Uint8Array,Event,setTimeout:()=>0,clearTimeout(){},btoa:s=>Buffer.from(s,'binary').toString('base64')};
  vm.runInNewContext(source,context);
