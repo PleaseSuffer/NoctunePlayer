@@ -69,8 +69,13 @@ const notificationCenter = (() => {
         toast.inert = true; toast.setAttribute('aria-hidden', 'true');
         toast.classList.add('is-dismissing');
         Object.assign(toast.style, { position: 'fixed', left: bounds.left + 'px', top: bounds.top + 'px', width: bounds.width + 'px', margin: '0', animation: 'none', zIndex: '9999999' });
-        // Outside the scrollable stack, the reverse slide is not clipped.
-        document.body.append(toast);
+        // Keep outgoing cards outside the scrolling stack, clipped only at the viewport.
+        let exitLayer = document.getElementById('notification-exit-layer');
+        if (!exitLayer) {
+            exitLayer = el('div'); exitLayer.id = 'notification-exit-layer';
+            document.body.append(exitLayer);
+        }
+        exitLayer.append(toast);
         const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 250;
         const exit = toast.animate([{ opacity, transform }, { opacity: 0, transform: 'translateX(30px)' }], { duration, easing: 'ease-in', fill: 'forwards' });
         const cleanup = setTimeout(() => toast.remove(), duration + 50);
@@ -102,6 +107,7 @@ const notificationCenter = (() => {
     }
     function card(row, history = false) {
         const node = el('div', history ? 'notification-history-card' : 'notification-toast');
+        if (!history && row.themeViewHint) node.classList.add('theme-view-hint');
         node.dataset.notificationId = row.id;
         if (row.key) node.dataset.replaceKey = row.key;
         node.classList.toggle('is-important', !!row.important);
@@ -159,8 +165,8 @@ const notificationCenter = (() => {
         const previous = toasts.get(row.id);
         if (existingOnly && !previous) return;
         const enabled = document.getElementById('setting-notifications');
-        if (enabled && !enabled.checked) return;
-        if (!previous && toasts.size >= 3) {
+        if (enabled && !enabled.checked && !row.themeViewHint) return;
+        if (!previous && toasts.size >= 3 && !row.themeViewHint) {
             const candidate = [...toasts.keys()].find(id => !records.get(id)?.pinned);
             if (!candidate) return; // All slots pinned: retain overflow in history.
             dismiss(candidate);
@@ -199,6 +205,7 @@ const notificationCenter = (() => {
         const id = previous?.id || crypto.randomUUID();
         const row = { id, key, message: String(message).slice(0, 16000), type, title: title ? String(title).slice(0, 200) : '',
             source: options.source || '', owner: options.owner || '', createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now(),
+            themeViewHint: options.themeViewHint === true && !options.owner,
             read: false, important: options.important === true, pinned: options.pinned === true,
             progress: options.progress, progressLabel: options.progressLabel, duration: options.duration,
             copyText: String(options.copyText || stack || '').slice(0, 65536), actions: options.actions || [], cornerAction: options.cornerAction || null };

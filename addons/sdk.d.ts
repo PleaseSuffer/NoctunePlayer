@@ -46,7 +46,9 @@ interface ProviderTrack extends ServiceMedia { id: string; title: string; artist
 interface StreamDescriptor { url: string; transport?: 'direct'; oauth?: string; credential?: string; headers?: Record<string, string> }
 interface ProviderFailure { error: { code: 'AUTH_REQUIRED' | 'REGION_RESTRICTED' | 'SUBSCRIPTION_REQUIRED' | 'NOT_FOUND' | 'RATE_LIMITED' | 'NETWORK' | 'UNSUPPORTED_TRANSPORT'; message: string } }
 interface SelectedFile { handle: string; name: string; size: number }
-interface DownloadJob { id:string;state:'running'|'completed'|'failed'|'canceled';name:string;bytes:number;total:number|null;error?:string }
+interface DownloadJob { id:string;state:'running'|'completed'|'failed'|'canceled';name:string;bytes:number;total:number|null;error?:string;phase?:'tagging' }
+/** Optional MP3 tags written before the completed file is published. Unspecified tags are preserved. */
+interface DownloadMetadata { title?:string; artist?:string; album?:string; albumArtist?:string; genre?:string; comment?:string; year?:number; track?:number; trackCount?:number; disc?:number; discCount?:number }
 type AppearanceMode = 'light'|'dark'|'system';
 type AppearancePalette = Partial<Record<'background'|'surface'|'text'|'muted'|'border'|'hover'|'accent'|'secondary',string>>;
 interface LocalPlaylist { id:string;name:string;type:string;revision:number;tracks:{trackId:string;title:string;entryId?:string}[] }
@@ -81,7 +83,7 @@ interface NoctuneAddonApi {
     downloads: {
         folder(args:{setting:string;action?:'status'|'choose'|'open'}):Promise<{location:'app'|'downloads'|'custom';path:string|null;canceled?:boolean}>;
         /** MP3, PNG/JPEG/WebP or UTF-8 TXT/LRC/SRT/VTT. Inline text: at most 48 KiB. */
-        start(args:{filename:string;folder:string} & ({url:string;data?:never}|{data:string;url?:never})):Promise<DownloadJob>;
+        start(args:{filename:string;folder:string;metadata?:DownloadMetadata} & ({url:string;data?:never}|{data:string;url?:never})):Promise<DownloadJob>;
         status(args:{id:string}):Promise<DownloadJob>;
         cancel(args:{id:string}):Promise<DownloadJob>;
     };

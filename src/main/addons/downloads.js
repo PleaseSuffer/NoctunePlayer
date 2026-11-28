@@ -4,6 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { Readable } = require('node:stream');
 const { fetchText } = require('./network');
+const { runTagOperation, validatePatch } = require('../tag-editor');
 
 const LIMIT = 256 * 1024 * 1024;
 const FORMATS = {
@@ -72,9 +73,9 @@ function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, 
     });
     folderTail = operation.catch(() => {}); return operation;
   }
-  const publicJob = job => ({ id: job.key, state: job.state, name: job.name, bytes: job.bytes, total: job.total, error: job.error });
-  async function run(job, options, folder) {
-    const temp = path.join(folder.path, '.noctune-' + job.key + '.part');
+  const publicJob = job => ({ id: job.key, state: job.state, name: job.name, bytes: job.bytes, total: job.total, error: job.error, ...(job.phase ? { phase: job.phase } : {}) });
+  async function run(job, options, folder, metadata) {
+    const temp = path.join(folder.path, '.noctune-' + job.key + (metadata ? '.part.mp3' : '.part'));
     let file, response;
     const timer = setTimeout(() => job.controller.abort(), 300000);
     try {
@@ -101,7 +102,18 @@ function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, 
       }
       if (decoder) { try { decoder.decode(); } catch (_) { throw new Error(globalThis.noctuneI18n?.t('downloads.errors.invalidText') ?? 'Файл должен содержать корректный текст UTF-8 без нулевых байтов'); } }
       if (!job.bytes || (job.total !== null && job.bytes !== job.total) || !decoder && !validContent(ext, prefix)) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.invalidFile") ?? "Получен неполный файл или содержимое не соответствует расширению"));
-      await file.sync(); await file.close(); file = null;
+      await file.sync();
+      const downloadedIdentity = await file.stat({ bigint: true });
+      await file.close(); file = null;
+      if (metadata && Object.keys(metadata).length) {
+        job.phase = 'tagging';
+        if (job.controller.signal.aborted) throw new Error('Сохранение отменено');
+        const before = await runTagOperation({ action: 'read', filePath: temp });
+        if (!before.ok) throw new Error('Не удалось прочитать MP3 для записи метаданных');
+        if (!before.revision.startsWith(`${downloadedIdentity.dev}:${downloadedIdentity.ino}:`)) throw new Error('Временный файл MP3 изменился');
+        const tagged = await runTagOperation({ action: 'save', filePath: temp, expectedRevision: before.revision, patch: metadata });
+        if (!tagged.ok) throw new Error('Не удалось записать метаданные MP3');
+      }
       await store.context(job.id, job.hash, 'downloads.write');
       const current = await fs.stat(folder.path);
       if (current.dev !== folder.dev || current.ino !== folder.ino || job.controller.signal.aborted) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.folderChangedOrCancelled") ?? "Папка изменилась или сохранение отменено"));
@@ -156,13 +168,19 @@ function createAddonDownloads({ store, directory, downloadsPath, dialog, shell, 
         for (const [key, job] of jobs) if (job.finished && Date.now() - job.finished > 600000) jobs.delete(key);
         if (jobs.size >= 128 || [...jobs.values()].filter(job => job.id === id && job.state === 'running').length >= 2) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.concurrency") ?? "Не более двух одновременных сохранений"));
         const name = filename(args.filename), folder = await destination(id, hash, args.folder, true);
+        let metadata;
+        if (args.metadata !== undefined) {
+          if (path.extname(name) !== '.mp3') throw new Error('Метаданные доступны только для MP3');
+          validatePatch(args.metadata);
+          metadata = { ...args.metadata };
+        }
         // Export requests are public: caller headers and credentials never reach a CDN.
         if (args.data !== undefined && (!isText(path.extname(name)) || Buffer.byteLength(args.data, 'utf8') > TEXT_LIMIT)) throw new Error(globalThis.noctuneI18n?.t('downloads.errors.inlineText') ?? 'В data разрешён текст UTF-8 до 48 КиБ для TXT/LRC/SRT/VTT');
         const options = args.data !== undefined ? { data: args.data } : await resource(id, hash, pkg, { url: args.url });
         await store.context(id, hash, 'downloads.write');
         if ([...jobs.values()].filter(job => job.id === id && job.state === 'running').length >= 2) throw new Error((globalThis.noctuneI18n?.t("downloads.errors.concurrency") ?? "Не более двух одновременных сохранений"));
         const key = crypto.randomUUID(), job = { key, id, hash, name, state: 'running', bytes: 0, total: null, controller: new AbortController() };
-        jobs.set(key, job); run(job, options, folder).catch(() => {});
+        jobs.set(key, job); run(job, options, folder, metadata).catch(() => {});
         return publicJob(job);
       }
       const job = jobs.get(args.id);

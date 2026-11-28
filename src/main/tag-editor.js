@@ -131,4 +131,4 @@ if (!isMainThread) {
     parentPort.postMessage({ ok: false, code: codes[error.code] || (['unsupported', 'invalid', 'changed', 'linked'].includes(error.code) ? error.code : 'failed') });
   });
 }
-module.exports = { runTagOperation, registerTagEditor };
+module.exports = { runTagOperation, registerTagEditor, validatePatch };

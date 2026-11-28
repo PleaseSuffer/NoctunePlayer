@@ -235,7 +235,7 @@
     "clipboard.write",
     "downloads.write"
   ],
-  "revision": 23,
+  "revision": 24,
   "settings": {
     "autoWave": {
       "default": true,
@@ -331,5 +331,5 @@
       "title": "Яндекс Музыка"
     }
   },
-  "version": "0.3.15"
+  "version": "0.3.16"
 }

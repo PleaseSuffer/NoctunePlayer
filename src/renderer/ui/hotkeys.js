@@ -63,6 +63,11 @@
         }
 
         let themeViewFocus = null;
+        const themeViewShortcut = () => {
+            const names = { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Win', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: 'Space' };
+            return String(window.hotkeyBindings.toggleInterface || '').split('+').filter(Boolean)
+                .map(part => names[part] || part.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ')).join('+');
+        };
         window.setThemeViewOnly = hidden => {
             const active = document.body.classList.contains('theme-view-only');
             if (active === hidden) return;
@@ -71,6 +76,15 @@
                 themeViewFocus?.blur?.();
             }
             document.body.classList.toggle('theme-view-only', hidden);
+            if (hidden) {
+                const shortcut = themeViewShortcut();
+                const key = shortcut ? 'ui.themeView.restoreShortcut' : 'ui.themeView.restoreEscape';
+                const message = globalThis.noctuneI18n?.t(key, { shortcut }) || (shortcut ? `Вернуть интерфейс: ${shortcut} или Esc.` : 'Вернуть интерфейс: Esc.');
+                showNotification(message, 'info', globalThis.noctuneI18n?.t('ui.themeView.hidden') || 'Интерфейс скрыт', null, { replaceKey: 'theme-view-hint', themeViewHint: true, duration: 6000 });
+            } else {
+                const hint = window.notificationCenter?.find('theme-view-hint');
+                if (hint) window.notificationCenter.dismiss(hint);
+            }
             if (!hidden) {
                 if (themeViewFocus?.isConnected) themeViewFocus.focus?.({ preventScroll: true });
                 themeViewFocus = null;

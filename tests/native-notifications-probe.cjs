@@ -8,7 +8,7 @@ let started=false;
 app.on('browser-window-created',(_,win)=>win.webContents.on('did-finish-load',async()=>{
  if(!win.webContents.getURL().endsWith('/renderer/index.html')||started)return;started=true;win.show();
  try{
- await wait(1000);const run=s=>win.webContents.executeJavaScript(s);
+ await wait(1000);win.webContents.sendInputEvent({type:'mouseMove',x:0,y:0});const run=s=>win.webContents.executeJavaScript(s);
  const result=await run(`(async()=>{
  const assert=(v,m)=>{if(!v)throw Error(m)};
  document.getElementById('setting-notifications').checked=true;
@@ -17,6 +17,7 @@ app.on('browser-window-created',(_,win)=>win.webContents.on('did-finish-load',as
  const findToast=key=>document.querySelector('#notification-stack [data-replace-key="'+key+'"]');
  showNotification('Готово','success','Яндекс Музыка',null,{replaceKey:'layout-test',source:'Яндекс Музыка',duration:0});
  let layout=findToast('layout-test');const toastWidth=layout.getBoundingClientRect().width;
+ assert(getComputedStyle(document.getElementById('notification-stack')).overflowX==='hidden','entrance cannot create a horizontal scrollbar');
  assert(!layout.querySelector('.notification-source-meta').textContent,'source matching heading is not repeated');
  center.update(center.find('layout-test'),{message:'Long file name '.repeat(25),progress:0.9,progressLabel:'90% · 10 MB/s'});
  assert(findToast('layout-test').getBoundingClientRect().width===toastWidth,'live content does not change toast width');
@@ -26,10 +27,15 @@ app.on('browser-window-created',(_,win)=>win.webContents.on('did-finish-load',as
  center.update(center.find('layout-test'),{title:'Яндекс Музыка',pinned:true,important:true});
  layout=findToast('layout-test');assert(!layout.querySelector('.notification-source-meta').textContent.includes('Яндекс Музыка'),'source deduplication preserves status metadata');
  assert(layout.querySelector('.notification-source-meta').textContent,'pin and important metadata retained');
+ await delay(350);
  center.dismiss(center.find('layout-test'));
  const exiting=document.querySelector('.notification-toast.is-dismissing');
- assert(exiting&&exiting.inert&&exiting.parentElement===document.body,'dismissal animates outside clipped stack without interactive controls');
+ assert(exiting&&exiting.inert&&exiting.parentElement.id==='notification-exit-layer','dismissal animates outside clipped stack without interactive controls');
  assert(!exiting.dataset.notificationId&&!exiting.dataset.replaceKey,'exiting toast no longer has a live notification identity');
+ if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+  await delay(100);const opacity=Number(getComputedStyle(exiting).opacity);
+  assert(exiting.isConnected&&opacity>0&&opacity<1,'outgoing toast remains visible while fading');
+ }
  await delay(350);assert(!exiting.isConnected,'exit animation removes its node');
  showNotification('Saving','info','Download',null,{replaceKey:'timer-test',pinned:true,progress:0.5,duration:400});
  assert(!findToast('timer-test').querySelector('.notification-toast-countdown'),'pinned toast has no countdown');

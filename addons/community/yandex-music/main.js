@@ -118,7 +118,15 @@ NoctuneAddon.define(async api => {
     }
     function trackView(track, uid) {
         const realId = trackId(track);
-        trackMetadata.set(realId.split(':')[0], {title:short(track.title, 'Трек ' + track.id),artist:short((track.artists || []).map(item => item.name).filter(Boolean).join(', '))});
+        const album=track.albums?.[0]||{},position=album.trackPosition||{};
+        const artists=(track.artists||[]).map(item=>short(item.name)).filter(Boolean);
+        const albumArtists=(album.artists||[]).map(item=>short(item.name)).filter(Boolean);
+        const tags={};
+        for(const [field,value]of Object.entries({title:short(track.title),artist:artists.join('; '),album:short(album.title),albumArtist:albumArtists.join('; '),genre:short(album.genre)}))if(value)tags[field]=value;
+        for(const [field,value]of Object.entries({year:album.year,track:position.index,disc:position.volume,trackCount:album.volumes?.[Number(position.volume)-1]?.length,discCount:album.volumes?.length})){
+            const number=Number(value);if(Number.isInteger(number)&&number>0&&number<=(field==='year'?9999:65535))tags[field]=number;
+        }
+        trackMetadata.set(realId.split(':')[0], {title:short(track.title, 'Трек ' + track.id),artist:short(artists.join(', ')),tags});
         while(trackMetadata.size>2000)trackMetadata.delete(trackMetadata.keys().next().value);
         return { id: uid + '/t/' + trackId(track), title: short(track.title, 'Трек ' + track.id),
             artist: short((track.artists || []).map(item => item.name).filter(Boolean).join(', ')), album: short(track.albums?.[0]?.title),
@@ -472,7 +480,7 @@ NoctuneAddon.define(async api => {
             if(epoch!==generation)throw stale();
             const title=metadata?.title||'Трек '+key,artist=metadata?.artist||'';
             const name=(settings.downloadName==='title'||!artist?title:artist+' — '+title)+'.mp3';
-            const job=await api.downloads.start({url:source.url,filename:name,folder:'downloadFolder'});
+            const job=await api.downloads.start({url:source.url,filename:name,folder:'downloadFolder',metadata:metadata?.tags||{title,...(artist?{artist}:{})}});
             downloadJobs.set(key,job.id);
             const noticeKey='mp3-'+job.id;
             let previousBytes=0,previousAt=Date.now();
@@ -486,7 +494,7 @@ NoctuneAddon.define(async api => {
                         previousBytes=bytes;previousAt=now;
                         const size=value=>(value/1048576).toFixed(1)+' МБ';
                         const progress=total>0?Math.min(1,bytes/total):null;
-                        await api.notifications.update({key:noticeKey,progress,progressLabel:(progress===null?'':Math.floor(progress*100)+'% · ')+size(bytes)+(total>0?' / '+size(total):'')+' · '+size(speed)+'/с'}).catch(()=>{});
+                        await api.notifications.update({key:noticeKey,progress,progressLabel:current.phase==='tagging'?'Запись метаданных MP3…':(progress===null?'':Math.floor(progress*100)+'% · ')+size(bytes)+(total>0?' / '+size(total):'')+' · '+size(speed)+'/с'}).catch(()=>{});
                         setTimeout(poll,750);return;
                     }
                     downloadJobs.delete(key);

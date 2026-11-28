@@ -695,7 +695,17 @@ await api.downloads.start({url: coverUrl, filename: 'Обложка.png', folder
 await api.downloads.start({data: '[00:01.00]Текст песни', filename: 'Песня.lrc', folder: 'downloadFolder'});
 ```
 
-`start` возвращает сразу `{id,state,name,bytes,total,error?}`. Передавайте ID в
+Для MP3 в `start` можно передать необязательный объект `metadata`:
+`{title, artist, album, albumArtist, genre, comment, year, track, trackCount, disc, discCount}`.
+Текстовые поля — строки до 10000 символов без NUL; несколько исполнителей
+или жанров разделяются `;`. Числа — целые 0–65535, год — 0–9999.
+Неизвестные поля и метаданные для другого формата отклоняются до скачивания.
+Неуказанные теги и аудиоданные сохраняются. Плеер записывает и проверяет теги
+временного файла до публикации; ошибка записи означает `failed`, готового
+файла не появляется. На этом этапе статус содержит `phase: 'tagging'`.
+Старые версии Noctune могут игнорировать поле `metadata`.
+
+`start` возвращает сразу `{id,state,name,bytes,total,error?,phase?}`. Передавайте ID в
 `status`, пока `state` равен `running`; конечные состояния — `completed`, `failed`,
 `canceled`. `bytes` — полученные байты, `total` — размер ответа или `null`.
 Статусы хранятся в памяти, привязаны к ID и хешу пакета; завершённые записи
